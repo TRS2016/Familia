@@ -5,6 +5,7 @@ import RequireAuth from './auth/RequireAuth'
 import RequireMember from './auth/RequireMember'
 import OnboardingPage from './pages/OnboardingPage'
 import HomePage from './pages/HomePage'
+import GroceriesPage from './features/groceries/GroceriesPage'
 
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -17,6 +18,7 @@ const router = createBrowserRouter([
         element: <RequireMember />,
         children: [
           { path: '/', element: <HomePage /> },
+          { path: '/groceries', element: <GroceriesPage /> },
         ],
       },
     ],

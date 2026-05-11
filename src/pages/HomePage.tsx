@@ -1,4 +1,5 @@
 import { useQuery } from '@tanstack/react-query'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useMember } from '../auth/useMember'
 
@@ -60,6 +61,7 @@ export default function HomePage() {
         <p>Chargement du foyer...</p>
       )}
 
+      <p><Link to="/groceries">Courses →</Link></p>
       <button onClick={handleSignOut}>Se déconnecter</button>
     </div>
   )
