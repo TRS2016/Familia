@@ -2,6 +2,8 @@ import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import LoginPage from './auth/LoginPage'
 import AuthCallback from './auth/AuthCallback'
 import RequireAuth from './auth/RequireAuth'
+import RequireMember from './auth/RequireMember'
+import OnboardingPage from './pages/OnboardingPage'
 import HomePage from './pages/HomePage'
 
 const router = createBrowserRouter([
@@ -10,7 +12,13 @@ const router = createBrowserRouter([
   {
     element: <RequireAuth />,
     children: [
-      { path: '/', element: <HomePage /> },
+      { path: '/onboarding', element: <OnboardingPage /> },
+      {
+        element: <RequireMember />,
+        children: [
+          { path: '/', element: <HomePage /> },
+        ],
+      },
     ],
   },
 ])
