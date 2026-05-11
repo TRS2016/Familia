@@ -45,8 +45,8 @@ export default function OnboardingPage() {
       return
     }
 
-    // Populate the cache immediately so RequireMember sees the member
-    // on the next render without an intermediate null → /onboarding redirect loop.
+    // Populate cache immediately — avoids a refetch and the null → /onboarding
+    // redirect loop that would occur if RequireMember saw stale data.
     queryClient.setQueryData(['member', session.user.id], data as Member)
     navigate('/', { replace: true })
   }
