@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { HOUSEHOLD_ID } from '../lib/config'
 import { useAuth } from '../auth/useAuth'
 import { useMember } from '../auth/useMember'
 import type { Member } from '../auth/useMember'
+import styles from './OnboardingPage.module.css'
 
 export default function OnboardingPage() {
   const { session } = useAuth()
@@ -16,6 +17,19 @@ export default function OnboardingPage() {
   const [displayName, setDisplayName] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+  const { data: household } = useQuery({
+    queryKey: ['household-name', HOUSEHOLD_ID],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('households')
+        .select('name')
+        .eq('id', HOUSEHOLD_ID)
+        .single()
+      if (error) throw error
+      return data as { name: string }
+    },
+  })
 
   // Skip onboarding if member already exists (e.g. direct URL visit).
   useEffect(() => {
@@ -54,25 +68,43 @@ export default function OnboardingPage() {
   if (isLoading || member) return <p>Chargement...</p>
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h1>Bienvenue !</h1>
-      <p>Comment t'appelles-tu dans la famille ?</p>
-      <div>
-        <label htmlFor="displayName">Prénom</label>
-        <input
-          id="displayName"
-          type="text"
-          value={displayName}
-          onChange={e => setDisplayName(e.target.value)}
-          placeholder="ex : Sophie"
-          required
-          disabled={submitting}
-        />
-      </div>
-      <button type="submit" disabled={submitting || !displayName.trim()}>
-        {submitting ? 'Enregistrement...' : 'Valider'}
-      </button>
-      {errorMsg && <p style={{ color: 'red' }}>{errorMsg}</p>}
-    </form>
+    <div className={styles.page}>
+      <form onSubmit={handleSubmit} className={styles.card}>
+        <div className={styles.header}>
+          <span className={styles.emoji}>🏡</span>
+          <h1 className={styles.title}>
+            Bienvenue dans {household?.name ?? '…'} !
+          </h1>
+          <p className={styles.subtitle}>Comment t'appelles-tu dans la famille ?</p>
+        </div>
+
+        <div className={styles.field}>
+          <label htmlFor="displayName" className={styles.fieldLabel}>
+            Prénom
+          </label>
+          <input
+            id="displayName"
+            type="text"
+            value={displayName}
+            onChange={e => setDisplayName(e.target.value)}
+            placeholder="Sophie, Marc, Léa..."
+            required
+            disabled={submitting}
+            className={styles.input}
+            autoFocus
+          />
+        </div>
+
+        {errorMsg && <p className={styles.error}>{errorMsg}</p>}
+
+        <button
+          type="submit"
+          disabled={submitting || !displayName.trim()}
+          className={styles.btn}
+        >
+          {submitting ? 'Enregistrement…' : 'Valider'}
+        </button>
+      </form>
+    </div>
   )
 }

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { supabase } from '../lib/supabase'
+import styles from './LoginPage.module.css'
 
 type Status = 'idle' | 'loading' | 'sent' | 'error'
 
@@ -28,27 +29,63 @@ export default function LoginPage() {
   }
 
   if (status === 'sent') {
-    return <p>✉️ Lien envoyé à {email}, vérifie ta boîte mail.</p>
+    return (
+      <div className={styles.page}>
+        <div className={styles.inner}>
+          <div className={styles.logo}>
+            <h1 className={styles.logoTitle}>Familia</h1>
+          </div>
+          <div className={styles.sentCard}>
+            <span className={styles.sentEmoji}>✉️</span>
+            <h2 className={styles.sentTitle}>Lien envoyé !</h2>
+            <p className={styles.sentBody}>
+              Vérifie ta boîte mail pour{' '}
+              <span className={styles.sentEmail}>{email}</span>
+              {' '}et clique sur le lien pour te connecter.
+            </p>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (
-    <form onSubmit={handleSubmit}>
-      <h1>Familia</h1>
-      <div>
-        <label htmlFor="email">Email</label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={e => setEmail(e.target.value)}
-          required
-          disabled={status === 'loading'}
-        />
+    <div className={styles.page}>
+      <div className={styles.inner}>
+        <div className={styles.logo}>
+          <h1 className={styles.logoTitle}>Familia</h1>
+          <p className={styles.logoSub}>Votre espace famille</p>
+        </div>
+
+        <form onSubmit={handleSubmit} className={styles.card}>
+          <div>
+            <label htmlFor="email" className={styles.fieldLabel}>
+              Adresse e-mail
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              placeholder="prenom@exemple.com"
+              required
+              disabled={status === 'loading'}
+              className={styles.input}
+              autoFocus
+            />
+          </div>
+
+          {errorMsg && <p className={styles.error}>{errorMsg}</p>}
+
+          <button type="submit" disabled={status === 'loading'} className={styles.btn}>
+            {status === 'loading' ? 'Envoi…' : 'Recevoir le lien'}
+          </button>
+
+          <p className={styles.hint}>
+            Tu recevras un lien de connexion par e-mail, sans mot de passe.
+          </p>
+        </form>
       </div>
-      <button type="submit" disabled={status === 'loading'}>
-        {status === 'loading' ? 'Envoi...' : 'Recevoir le lien'}
-      </button>
-      {errorMsg && <p style={{ color: 'red' }}>{errorMsg}</p>}
-    </form>
+    </div>
   )
 }
