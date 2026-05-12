@@ -13,6 +13,7 @@ const CalendarPage   = lazy(() => import('./features/calendar/CalendarPage'))
 const SettingsPage   = lazy(() => import('./pages/SettingsPage'))
 const KakeboPage     = lazy(() => import('./features/kakebo/KakeboPage'))
 const HabitsPage     = lazy(() => import('./features/habits/HabitsPage'))
+const MediaPage      = lazy(() => import('./features/media/MediaPage'))
 
 function Lazy({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<LoadingPage />}>{children}</Suspense>
@@ -34,6 +35,7 @@ const router = createBrowserRouter([
           { path: '/settings',  element: <Lazy><SettingsPage /></Lazy> },
           { path: '/kakebo',    element: <Lazy><KakeboPage /></Lazy> },
           { path: '/habits',    element: <Lazy><HabitsPage /></Lazy> },
+          { path: '/media',     element: <Lazy><MediaPage /></Lazy> },
         ],
       },
     ],

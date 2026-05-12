@@ -234,6 +234,51 @@ export type Database = {
         }
         Relationships: []
       }
+      media_items: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          member_id: string | null
+          status: string
+          title: string
+          type: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          member_id?: string | null
+          status?: string
+          title: string
+          type: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          member_id?: string | null
+          status?: string
+          title?: string
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_items_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_items_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kakebo_categories: {
         Row: {
           color: string | null
