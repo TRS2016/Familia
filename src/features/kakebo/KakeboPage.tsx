@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { format, addMonths, subMonths, getDaysInMonth } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Settings, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Settings, Trash2, Pencil } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -11,6 +11,7 @@ import {
   useKakeboCategories,
   useKakeboEntries,
   useAddEntry,
+  useEditEntry,
   useDeleteEntry,
 } from './useKakebo'
 import { useKakeboRealtime } from './useKakeboRealtime'
@@ -58,6 +59,7 @@ export default function KakeboPage() {
   useKakeboRealtime(year, month)
 
   const addEntry    = useAddEntry(year, month)
+  const editEntry   = useEditEntry(year, month)
   const deleteEntry = useDeleteEntry(year, month)
 
   const [view, setView]             = useState<View>('bilan')
@@ -66,6 +68,10 @@ export default function KakeboPage() {
   const [showAdd, setShowAdd]       = useState(false)
   const [showBudget, setShowBudget] = useState(false)
   const [budget, setBudgetState]    = useState(loadBudget)
+
+  // Edit entry state
+  const [editTarget, setEditTarget] = useState<KakeboEntry | null>(null)
+  const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '' })
 
   // Add form state
   const firstCatId = categories.find(c => c.type !== 'income')?.id ?? ''
@@ -133,6 +139,31 @@ export default function KakeboPage() {
   const maxDaily = Math.max(1, ...dailyTotals)
 
   // ── Handlers ──────────────────────────────────────────────────────────────
+
+  function openEdit(entry: KakeboEntry) {
+    setEditDraft({
+      category_id: entry.category_id ?? '',
+      amount: String(entry.amount),
+      description: entry.description ?? '',
+      date: entry.date,
+    })
+    setEditTarget(entry)
+  }
+
+  async function handleEditSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!editTarget) return
+    const amount = parseFloat(editDraft.amount)
+    if (!editDraft.category_id || isNaN(amount) || amount <= 0) return
+    await editEntry.mutateAsync({
+      id: editTarget.id,
+      category_id: editDraft.category_id,
+      amount,
+      date: editDraft.date,
+      description: editDraft.description,
+    })
+    setEditTarget(null)
+  }
 
   function saveBudget() {
     localStorage.setItem('familia_kakebo_budget', JSON.stringify(budgetDraft))
@@ -242,6 +273,7 @@ export default function KakeboPage() {
               cat={selectedCat}
               entries={entries.filter(e => e.category_id === selectedCatId)}
               revenus={totalRevenusMois}
+              onEdit={openEdit}
               onDelete={id => deleteEntry.mutate(id)}
             />
           )}
@@ -262,18 +294,19 @@ export default function KakeboPage() {
               dailyTotals={dailyTotals}
               maxDaily={maxDaily}
               todayDay={todayDay}
-
               entries={entries}
               onSelectCat={setSelectedCatId}
               onShowDetail={() => setView('detail')}
+              onEdit={openEdit}
             />
           )}
 
           {/* ── Détail ──────────────────────────────────────────────── */}
           {!selectedCatId && view === 'detail' && (
             <DetailView
-              categories={spendCats}
+              categories={categories}
               entries={entries}
+              onEdit={openEdit}
               onDelete={id => deleteEntry.mutate(id)}
             />
           )}
@@ -383,6 +416,80 @@ export default function KakeboPage() {
         </SlideUpModal>
       )}
 
+      {/* ── Edit entry modal ─────────────────────────────────────────── */}
+      {editTarget && (
+        <SlideUpModal title="Modifier l'opération" onClose={() => setEditTarget(null)}>
+            <form onSubmit={handleEditSubmit} className={styles.form}>
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Catégorie</label>
+                <div className={styles.catPills}>
+                  {categories.map(cat => (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      className={[
+                        styles.catPill,
+                        editDraft.category_id === cat.id ? styles.catPillActive : '',
+                      ].join(' ')}
+                      style={editDraft.category_id === cat.id
+                        ? { background: `${catColor(cat)}22`, borderColor: catColor(cat), color: catColor(cat) }
+                        : {}}
+                      onClick={() => setEditDraft(d => ({ ...d, category_id: cat.id }))}
+                    >
+                      <span className={styles.catPillGlyph}>{catGlyph(cat.type)}</span>
+                      {cat.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.fieldGroup}>
+                <label htmlFor="e-amount" className={styles.fieldLabel}>Montant (€)</label>
+                <input
+                  id="e-amount"
+                  type="number"
+                  step="0.01"
+                  min="0.01"
+                  value={editDraft.amount}
+                  onChange={e => setEditDraft(d => ({ ...d, amount: e.target.value }))}
+                  className={styles.input}
+                  placeholder="0,00"
+                  required
+                  autoFocus
+                />
+              </div>
+              <div className={styles.fieldGroup}>
+                <label htmlFor="e-desc" className={styles.fieldLabel}>Description</label>
+                <input
+                  id="e-desc"
+                  type="text"
+                  value={editDraft.description}
+                  onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))}
+                  className={styles.input}
+                  placeholder="Ex. Restaurant, Loyer, Netflix…"
+                />
+              </div>
+              <div className={styles.fieldGroup}>
+                <label htmlFor="e-date" className={styles.fieldLabel}>Date</label>
+                <input
+                  id="e-date"
+                  type="date"
+                  value={editDraft.date}
+                  onChange={e => setEditDraft(d => ({ ...d, date: e.target.value }))}
+                  className={styles.input}
+                  required
+                />
+              </div>
+              <button
+                type="submit"
+                className={styles.submitBtn}
+                disabled={editEntry.isPending || !editDraft.amount || parseFloat(editDraft.amount) <= 0}
+              >
+                {editEntry.isPending ? 'Enregistrement…' : 'Enregistrer'}
+              </button>
+            </form>
+        </SlideUpModal>
+      )}
+
       {/* ── Budget settings modal ──────────────────────────────────────── */}
       {showBudget && (
         <SlideUpModal title="Paramètres Kakebo" onClose={() => setShowBudget(false)}>
@@ -416,7 +523,7 @@ function BilanView({
   arcs, donutR, donutC, totalDepenses, revenus, objectifEpargne,
   epargneReelle, solde, moodEmoji, moodLabel,
   dailyTotals, maxDaily, todayDay,
-  entries, onSelectCat, onShowDetail,
+  entries, onSelectCat, onShowDetail, onEdit,
 }: {
   arcs: { cat: KakeboCategory; pct: number; dash: number; offset: number; value: number }[]
   donutR: number; donutC: number
@@ -427,6 +534,7 @@ function BilanView({
   entries: KakeboEntry[]
   onSelectCat: (id: string) => void
   onShowDetail: () => void
+  onEdit: (entry: KakeboEntry) => void
 }) {
   const epargnePct  = revenus > 0 ? Math.max(0, Math.min(1, epargneReelle / revenus)) : 0
   const objectifPct = revenus > 0 ? Math.max(0, Math.min(1, objectifEpargne / revenus)) : 0
@@ -562,7 +670,7 @@ function BilanView({
           </div>
           <div className={styles.entryList}>
             {recentEntries.map((e, i) => (
-              <EntryRow key={e.id} entry={e} showBorder={i < recentEntries.length - 1} />
+              <EntryRow key={e.id} entry={e} showBorder={i < recentEntries.length - 1} onEdit={() => onEdit(e)} />
             ))}
           </div>
         </>
@@ -572,10 +680,11 @@ function BilanView({
 }
 
 function DetailView({
-  categories, entries, onDelete,
+  categories, entries, onEdit, onDelete,
 }: {
   categories: KakeboCategory[]
   entries: KakeboEntry[]
+  onEdit: (entry: KakeboEntry) => void
   onDelete: (id: string) => void
 }) {
   return (
@@ -608,6 +717,7 @@ function DetailView({
                       key={e.id}
                       entry={e}
                       showBorder={i < catEntries.length - 1}
+                      onEdit={() => onEdit(e)}
                       onDelete={() => onDelete(e.id)}
                     />
                   ))}
@@ -622,11 +732,12 @@ function DetailView({
 }
 
 function CategoryDetail({
-  cat, entries, revenus, onDelete,
+  cat, entries, revenus, onEdit, onDelete,
 }: {
   cat: KakeboCategory
   entries: KakeboEntry[]
   revenus: number
+  onEdit: (entry: KakeboEntry) => void
   onDelete: (id: string) => void
 }) {
   const total    = entries.reduce((s, e) => s + Number(e.amount), 0)
@@ -675,6 +786,7 @@ function CategoryDetail({
                 key={e.id}
                 entry={e}
                 showBorder={i < sorted.length - 1}
+                onEdit={() => onEdit(e)}
                 onDelete={() => onDelete(e.id)}
               />
             ))}
@@ -746,12 +858,14 @@ function ReflexionView({
   )
 }
 
-function EntryRow({ entry, showBorder, onDelete }: {
+function EntryRow({ entry, showBorder, onEdit, onDelete }: {
   entry: KakeboEntry
   showBorder: boolean
+  onEdit?: () => void
   onDelete?: () => void
 }) {
   const cat = entry.category
+  const isIncome = cat?.type === 'income'
   return (
     <div className={[styles.entryRow, showBorder ? styles.entryRowBorder : ''].join(' ')}>
       <div className={styles.entryDateBox} style={{ background: `${catColor(cat)}1F` }}>
@@ -767,7 +881,14 @@ function EntryRow({ entry, showBorder, onDelete }: {
         <p className={styles.entryMeta}>{cat?.name}{entry.member?.display_name ? ` · ${entry.member.display_name}` : ''}</p>
       </div>
       <div className={styles.entryRight}>
-        <span className={styles.entryAmount}>−{fmtEur(Number(entry.amount))} €</span>
+        <span className={styles.entryAmount} style={isIncome ? { color: '#5B9E8F' } : undefined}>
+          {isIncome ? '+' : '−'}{fmtEur(Number(entry.amount))} €
+        </span>
+        {onEdit && (
+          <button className={styles.editBtn} onClick={onEdit} aria-label="Modifier">
+            <Pencil size={13} strokeWidth={2} />
+          </button>
+        )}
         {onDelete && (
           <button className={styles.deleteBtn} onClick={onDelete} aria-label="Supprimer">
             <Trash2 size={14} strokeWidth={2} />
