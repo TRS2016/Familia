@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ShoppingCart, Calendar } from 'lucide-react'
+import { ShoppingCart, Calendar, Settings } from 'lucide-react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
@@ -75,15 +75,20 @@ export default function HomePage() {
           <p className={styles.date}>{todayLabel}</p>
           <h1 className={styles.greeting}>Bonjour {member.display_name} 👋</h1>
         </div>
-        {householdDetails && (
-          <div className={styles.avatarStack}>
-            {householdDetails.members.slice(0, 3).map((m, i) => (
-              <div key={m.id} className={styles.avatarWrap}>
-                <Avatar name={m.display_name} index={i} size={36} />
-              </div>
-            ))}
-          </div>
-        )}
+        <div className={styles.headerRight}>
+          {householdDetails && (
+            <div className={styles.avatarStack}>
+              {householdDetails.members.slice(0, 3).map((m, i) => (
+                <div key={m.id} className={styles.avatarWrap}>
+                  <Avatar name={m.display_name} index={i} size={36} />
+                </div>
+              ))}
+            </div>
+          )}
+          <Link to="/settings" className={styles.settingsLink} aria-label="Réglages">
+            <Settings size={20} strokeWidth={2} />
+          </Link>
+        </div>
       </header>
 
       {/* Nav cards */}

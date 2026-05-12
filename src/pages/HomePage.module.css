@@ -35,6 +35,22 @@
   margin: 0;
 }
 
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.settingsLink {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  transition: color 0.15s;
+}
+
+.settingsLink:hover { color: var(--accent); }
+
 /* ── Avatar stack ────────────────────────────────────────────────────────── */
 
 .avatarStack {

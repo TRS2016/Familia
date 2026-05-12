@@ -7,6 +7,7 @@ import OnboardingPage from './pages/OnboardingPage'
 import HomePage from './pages/HomePage'
 import GroceriesPage from './features/groceries/GroceriesPage'
 import CalendarPage from './features/calendar/CalendarPage'
+import SettingsPage from './pages/SettingsPage'
 
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -21,6 +22,7 @@ const router = createBrowserRouter([
           { path: '/', element: <HomePage /> },
           { path: '/groceries', element: <GroceriesPage /> },
           { path: '/calendar', element: <CalendarPage /> },
+          { path: '/settings', element: <SettingsPage /> },
         ],
       },
     ],

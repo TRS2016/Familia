@@ -1,0 +1,239 @@
+import { useState, useEffect } from 'react'
+import type { FormEvent } from 'react'
+import { Link } from 'react-router-dom'
+import { ChevronLeft } from 'lucide-react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { supabase } from '../lib/supabase'
+import { HOUSEHOLD_ID } from '../lib/config'
+import { useAuth } from '../auth/useAuth'
+import { useMember } from '../auth/useMember'
+import type { Member } from '../auth/useMember'
+import { useToast } from '../components/Toast'
+import styles from './SettingsPage.module.css'
+
+const MEMBER_PALETTE = ['#E07B54', '#5B9E8F', '#9B7AC4', '#E8B84B']
+
+export default function SettingsPage() {
+  const { session } = useAuth()
+  const { data: member } = useMember()
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  // ── Display name ──────────────────────────────────────────────────────────
+  const [displayName, setDisplayName] = useState(member?.display_name ?? '')
+  const [nameSaving, setNameSaving] = useState(false)
+
+  useEffect(() => {
+    if (member?.display_name) setDisplayName(member.display_name)
+  }, [member?.display_name])
+
+  async function handleNameSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const trimmed = displayName.trim()
+    if (!trimmed || trimmed === member?.display_name || !member) return
+    setNameSaving(true)
+    const { error } = await supabase
+      .from('members')
+      .update({ display_name: trimmed })
+      .eq('id', member.id)
+    setNameSaving(false)
+    if (error) {
+      showToast({ type: 'error', message: 'Impossible de mettre à jour le prénom.' })
+      return
+    }
+    queryClient.setQueryData<Member>(['member', session!.user.id], old =>
+      old ? { ...old, display_name: trimmed } : old!
+    )
+    queryClient.invalidateQueries({ queryKey: ['members-list', HOUSEHOLD_ID] })
+    showToast({ type: 'success', message: 'Prénom mis à jour !' })
+  }
+
+  // ── Email ─────────────────────────────────────────────────────────────────
+  const [newEmail, setNewEmail] = useState('')
+  const [emailSending, setEmailSending] = useState(false)
+  const [emailSent, setEmailSent] = useState(false)
+
+  async function handleEmailSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    const trimmed = newEmail.trim()
+    if (!trimmed) return
+    setEmailSending(true)
+    const { error } = await supabase.auth.updateUser({ email: trimmed })
+    setEmailSending(false)
+    if (error) {
+      showToast({ type: 'error', message: 'Impossible de mettre à jour l\'e-mail.' })
+      return
+    }
+    setEmailSent(true)
+    setNewEmail('')
+  }
+
+  // ── Household members ─────────────────────────────────────────────────────
+  const { data: householdMembers = [] } = useQuery({
+    queryKey: ['members-list', HOUSEHOLD_ID],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, display_name')
+        .eq('household_id', HOUSEHOLD_ID)
+      if (error) throw error
+      return data as { id: string; display_name: string }[]
+    },
+  })
+
+  // ── Delete account ────────────────────────────────────────────────────────
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+
+  async function handleDeleteAccount() {
+    if (!member) return
+    setDeleting(true)
+    const { error } = await supabase.from('members').delete().eq('id', member.id)
+    if (error) {
+      setDeleting(false)
+      showToast({ type: 'error', message: 'Impossible de supprimer le compte.' })
+      return
+    }
+    await supabase.auth.signOut()
+  }
+
+  return (
+    <div className={styles.page}>
+
+      <header className={styles.header}>
+        <Link to="/" className={styles.backLink} aria-label="Retour">
+          <ChevronLeft size={22} strokeWidth={2.5} />
+        </Link>
+        <h1 className={styles.pageTitle}>Réglages</h1>
+        {/* spacer to keep title centered */}
+        <div style={{ width: 22 }} />
+      </header>
+
+      {/* ── Profil ───────────────────────────────────────────────────────── */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Mon profil</h2>
+        <form onSubmit={handleNameSubmit} className={styles.fieldGroup}>
+          <div className={styles.field}>
+            <label htmlFor="s-displayname" className={styles.fieldLabel}>
+              Prénom affiché
+            </label>
+            <input
+              id="s-displayname"
+              type="text"
+              value={displayName}
+              onChange={e => setDisplayName(e.target.value)}
+              className={styles.input}
+              placeholder="Sophie"
+              required
+            />
+          </div>
+          <button
+            type="submit"
+            className={styles.btn}
+            disabled={
+              nameSaving ||
+              !displayName.trim() ||
+              displayName.trim() === member?.display_name
+            }
+          >
+            {nameSaving ? 'Enregistrement…' : 'Sauvegarder'}
+          </button>
+        </form>
+      </section>
+
+      {/* ── Email ────────────────────────────────────────────────────────── */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Adresse e-mail</h2>
+        <p className={styles.currentValue}>{session?.user.email}</p>
+        {emailSent ? (
+          <p className={styles.successMsg}>
+            ✓ Lien de confirmation envoyé aux deux adresses. Clique sur le lien reçu pour valider.
+          </p>
+        ) : (
+          <form onSubmit={handleEmailSubmit} className={styles.fieldGroup}>
+            <div className={styles.field}>
+              <label htmlFor="s-email" className={styles.fieldLabel}>
+                Nouvel e-mail
+              </label>
+              <input
+                id="s-email"
+                type="email"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+                className={styles.input}
+                placeholder="nouveau@exemple.com"
+                required
+              />
+            </div>
+            <button
+              type="submit"
+              className={styles.btn}
+              disabled={emailSending || !newEmail.trim()}
+            >
+              {emailSending ? 'Envoi…' : 'Envoyer le lien de confirmation'}
+            </button>
+          </form>
+        )}
+      </section>
+
+      {/* ── Membres du foyer ─────────────────────────────────────────────── */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Membres du foyer</h2>
+        <ul className={styles.membersList}>
+          {householdMembers.map((m, i) => (
+            <li key={m.id} className={styles.memberRow}>
+              <div
+                className={styles.avatar}
+                style={{ background: MEMBER_PALETTE[i % MEMBER_PALETTE.length] }}
+              >
+                {m.display_name.trim().slice(0, 2).toUpperCase()}
+              </div>
+              <span className={styles.memberName}>
+                {m.display_name}
+                {m.id === member?.id && (
+                  <span className={styles.memberYou}> · vous</span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+
+      {/* ── Danger zone ──────────────────────────────────────────────────── */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Compte</h2>
+        {!showDeleteConfirm ? (
+          <button
+            className={styles.btnDanger}
+            onClick={() => setShowDeleteConfirm(true)}
+          >
+            Supprimer mon compte
+          </button>
+        ) : (
+          <>
+            <p className={styles.confirmText}>
+              Ton profil sera retiré du foyer. Cette action est irréversible.
+            </p>
+            <div className={styles.confirmBtns}>
+              <button
+                className={styles.btnSecondary}
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+              >
+                Annuler
+              </button>
+              <button
+                className={styles.btnDangerSolid}
+                onClick={handleDeleteAccount}
+                disabled={deleting}
+              >
+                {deleting ? 'Suppression…' : 'Confirmer la suppression'}
+              </button>
+            </div>
+          </>
+        )}
+      </section>
+
+    </div>
+  )
+}
