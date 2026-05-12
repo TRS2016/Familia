@@ -2,15 +2,9 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
 import { QK } from '../lib/query-keys'
+import type { Tables } from '../lib/database.types'
 
-export interface Member {
-  id: string
-  user_id: string
-  household_id: string
-  display_name: string
-  email: string | null
-  created_at: string
-}
+export type Member = Tables<'members'>
 
 export function useMember() {
   const { session } = useAuth()
@@ -27,7 +21,7 @@ export function useMember() {
         .limit(1)
         .maybeSingle()
       if (error) throw error
-      return data as Member | null
+      return data
     },
     enabled: !!userId,
   })

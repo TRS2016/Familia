@@ -3,6 +3,7 @@ import { format, subDays } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useToast } from '../../components/Toast'
+import type { Tables } from '../../lib/database.types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -18,13 +19,7 @@ export interface Habit {
   member: { id: string; display_name: string } | null
 }
 
-export interface HabitCompletion {
-  id: string
-  habit_id: string
-  date: string
-  completed: boolean
-  created_at: string
-}
+export type HabitCompletion = Tables<'habit_completions'>
 
 export interface NewHabitInput {
   name: string
@@ -76,7 +71,7 @@ export function useRecentCompletions(habitIds: string[]) {
         .lte('date', to)
         .eq('completed', true)
       if (error) throw error
-      return data as HabitCompletion[]
+      return data
     },
     enabled: habitIds.length > 0,
   })
@@ -95,7 +90,7 @@ export function useYearCompletions(habitId: string | null, year: number) {
         .lte('date', `${year}-12-31`)
         .eq('completed', true)
       if (error) throw error
-      return data as HabitCompletion[]
+      return data
     },
     enabled: !!habitId,
   })
