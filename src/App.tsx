@@ -8,6 +8,7 @@ import HomePage from './pages/HomePage'
 import GroceriesPage from './features/groceries/GroceriesPage'
 import CalendarPage from './features/calendar/CalendarPage'
 import SettingsPage from './pages/SettingsPage'
+import KakeboPage from './features/kakebo/KakeboPage'
 
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -23,6 +24,7 @@ const router = createBrowserRouter([
           { path: '/groceries', element: <GroceriesPage /> },
           { path: '/calendar', element: <CalendarPage /> },
           { path: '/settings', element: <SettingsPage /> },
+          { path: '/kakebo',   element: <KakeboPage /> },
         ],
       },
     ],
