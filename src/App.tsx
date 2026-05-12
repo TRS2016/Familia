@@ -6,6 +6,7 @@ import RequireMember from './auth/RequireMember'
 import OnboardingPage from './pages/OnboardingPage'
 import HomePage from './pages/HomePage'
 import GroceriesPage from './features/groceries/GroceriesPage'
+import CalendarPage from './features/calendar/CalendarPage'
 
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -19,6 +20,7 @@ const router = createBrowserRouter([
         children: [
           { path: '/', element: <HomePage /> },
           { path: '/groceries', element: <GroceriesPage /> },
+          { path: '/calendar', element: <CalendarPage /> },
         ],
       },
     ],

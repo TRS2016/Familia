@@ -62,6 +62,7 @@ export default function HomePage() {
       )}
 
       <p><Link to="/groceries">Courses →</Link></p>
+      <p><Link to="/calendar">Calendrier →</Link></p>
       <button onClick={handleSignOut}>Se déconnecter</button>
     </div>
   )
