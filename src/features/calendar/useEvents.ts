@@ -42,10 +42,10 @@ export function eventsKey(weekStart: string) {
   return [...EVENTS_KEY_PREFIX, weekStart] as const
 }
 
-export function useEvents(weekStart: string, weekEnd: string) {
+export function useEvents(rangeStart: string, rangeEnd: string) {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
-  const key = eventsKey(weekStart)
+  const key = eventsKey(rangeStart)
 
   // ── Query ────────────────────────────────────────────────────────────────
   const query = useQuery({
@@ -55,8 +55,8 @@ export function useEvents(weekStart: string, weekEnd: string) {
         .from('events')
         .select(EVENT_SELECT)
         .eq('household_id', HOUSEHOLD_ID)
-        .gte('date', weekStart)
-        .lte('date', weekEnd)
+        .gte('date', rangeStart)
+        .lte('date', rangeEnd)
         .order('date', { ascending: true })
         .order('start_time', { ascending: true, nullsFirst: true })
       if (error) throw error
