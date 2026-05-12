@@ -142,8 +142,14 @@
 }
 
 .itemOptimistic {
-  opacity: 0.45;
+  opacity: 0.6;
   pointer-events: none;
+  animation: pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 0.6; }
+  50%       { opacity: 0.35; }
 }
 
 /* ── Checkbox ────────────────────────────────────────────────────────────── */

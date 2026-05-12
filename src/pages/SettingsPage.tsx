@@ -9,9 +9,8 @@ import { useAuth } from '../auth/useAuth'
 import { useMember } from '../auth/useMember'
 import type { Member } from '../auth/useMember'
 import { useToast } from '../components/Toast'
+import { MEMBER_PALETTE } from '../lib/constants'
 import styles from './SettingsPage.module.css'
-
-const MEMBER_PALETTE = ['#E07B54', '#5B9E8F', '#9B7AC4', '#E8B84B']
 
 export default function SettingsPage() {
   const { session } = useAuth()

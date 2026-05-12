@@ -18,12 +18,12 @@ import { useMember } from '../../auth/useMember'
 import { useEvents } from './useEvents'
 import { useEventsRealtime } from './useEventsRealtime'
 import type { CalendarEvent, NewEventInput } from './useEvents'
+import { MEMBER_PALETTE } from '../../lib/constants'
 import styles from './CalendarPage.module.css'
 
 type View = 'week' | 'month'
 
 const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
-const MEMBER_PALETTE = ['#E07B54', '#5B9E8F', '#9B7AC4', '#E8B84B']
 
 export function getMemberColor(
   memberId: string | null,

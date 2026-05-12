@@ -164,14 +164,14 @@ export default function KakeboPage() {
       {/* ── Header ────────────────────────────────────────────────────── */}
       <header className={styles.header}>
         <div className={styles.headerLeft}>
-          <Link to="/" className={styles.backLink} aria-label="Retour">
-            {selectedCatId
-              ? <button className={styles.backCatBtn} onClick={() => setSelectedCatId(null)} aria-label="Retour aux catégories">
-                  <ChevronLeft size={20} strokeWidth={2.5} />
-                </button>
-              : <ChevronLeft size={22} strokeWidth={2.5} />
-            }
-          </Link>
+          {selectedCatId
+            ? <button className={styles.backCatBtn} onClick={() => setSelectedCatId(null)} aria-label="Retour au bilan">
+                <ChevronLeft size={22} strokeWidth={2.5} />
+              </button>
+            : <Link to="/" className={styles.backLink} aria-label="Retour à l'accueil">
+                <ChevronLeft size={22} strokeWidth={2.5} />
+              </Link>
+          }
           <div>
             <div className={styles.headerMeta}>
               <span className={styles.headerKanji}>家計簿</span>
@@ -258,7 +258,7 @@ export default function KakeboPage() {
               maxDaily={maxDaily}
               todayDay={todayDay}
 
-              recentEntries={[...entries].slice(0, 5)}
+              entries={entries}
               onSelectCat={setSelectedCatId}
               onShowDetail={() => setView('detail')}
             />
@@ -441,7 +441,7 @@ function BilanView({
   arcs, donutR, donutC, totalDepenses, revenus, objectifEpargne,
   epargneReelle, solde, moodEmoji, moodLabel,
   dailyTotals, maxDaily, todayDay,
-  recentEntries, onSelectCat, onShowDetail,
+  entries, onSelectCat, onShowDetail,
 }: {
   arcs: { cat: KakeboCategory; pct: number; dash: number; offset: number; value: number }[]
   donutR: number; donutC: number
@@ -449,7 +449,7 @@ function BilanView({
   epargneReelle: number; solde: number
   moodEmoji: string; moodLabel: string
   dailyTotals: number[]; maxDaily: number; todayDay: number
-  recentEntries: KakeboEntry[]
+  entries: KakeboEntry[]
   onSelectCat: (id: string) => void
   onShowDetail: () => void
 }) {
@@ -457,7 +457,8 @@ function BilanView({
   const objectifPct = revenus > 0 ? Math.max(0, Math.min(1, objectifEpargne / revenus)) : 0
   const positif = solde >= 0
 
-  if (totalDepenses === 0 && recentEntries.length === 0) return null
+  const recentEntries = entries.slice(0, 5)
+  if (totalDepenses === 0 && entries.length === 0) return null
 
   return (
     <div className={styles.scrollArea}>
@@ -569,7 +570,7 @@ function BilanView({
                 <div className={styles.catCardFill} style={{ width: `${Math.min(pct * 100, 100)}%`, background: catColor(cat) }} />
               </div>
               <div className={styles.catCardMeta}>
-                <span>{recentEntries.filter(e => e.category_id === cat.id).length} op.</span>
+                <span>{entries.filter(e => e.category_id === cat.id).length} op.</span>
                 <span style={{ color: catColor(cat) }}>{(pct * 100).toFixed(0)}%</span>
               </div>
             </button>

@@ -15,15 +15,11 @@ import {
 } from './useHabits'
 import { useHabitsRealtime } from './useHabitsRealtime'
 import type { Habit, HabitCompletion } from './useHabits'
+import { memberColor } from '../../lib/constants'
 import styles from './HabitsPage.module.css'
 
-// ── Constants ─────────────────────────────────────────────────────────────────
-
-const MEMBER_PALETTE = ['#E07B54', '#5B9E8F', '#9B7AC4', '#E8B84B']
-const WEEK_LABELS    = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
-const EMOJI_PALETTE  = ['⭐','🏃','📚','💧','🧘','🥗','😴','🎵','✍️','🌿','💊','🏋️','🎯','🚲','🧹']
-
-function memberColor(index: number) { return MEMBER_PALETTE[index % MEMBER_PALETTE.length] }
+const WEEK_LABELS   = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
+const EMOJI_PALETTE = ['⭐','🏃','📚','💧','🧘','🥗','😴','🎵','✍️','🌿','💊','🏋️','🎯','🚲','🧹']
 
 // Current week: Monday → Sunday
 function weekDates(): string[] {
@@ -348,7 +344,7 @@ function StatsModal({ habit, habits, completions, members, onSelectHabit, onClos
   onClose: () => void
 }) {
   const year = new Date().getFullYear()
-  const { data: yearCompletions = [] } = useYearCompletions(habit.id, year)
+  const { data: yearCompletions = [], isLoading: yearLoading } = useYearCompletions(habit.id, year)
 
   const memberIdx = members.findIndex(m => m.id === habit.member_id)
   const color = memberIdx >= 0 ? memberColor(memberIdx) : 'var(--accent)'
@@ -431,6 +427,9 @@ function StatsModal({ habit, habits, completions, members, onSelectHabit, onClos
             <span className={styles.sectionLabel}>Année {year}</span>
             <span className={styles.heatmapLegend}>← moins · plus →</span>
           </div>
+          {yearLoading ? (
+            <div className={styles.heatmapLoading}><Spinner size={22} /></div>
+          ) : (
           <div className={styles.heatmapWrap}>
             {/* Month axis */}
             <div className={styles.monthAxis}>
@@ -447,11 +446,13 @@ function StatsModal({ habit, habits, completions, members, onSelectHabit, onClos
                   <div key={wi} className={styles.weekCol}>
                     {week.map((cell, di) => {
                       if (cell === null) return <div key={di} className={styles.heatCell} />
+                      // Deterministic opacity from date string to avoid flicker on re-render
+                      const seed = cell.date.split('-').reduce((n, s) => n + parseInt(s), 0)
                       return (
                         <div
                           key={di}
                           className={styles.heatCell}
-                          style={cell.done ? { background: color, opacity: 0.7 + Math.random() * 0.3 } : {}}
+                          style={cell.done ? { background: color, opacity: 0.55 + (seed % 10) * 0.045 } : {}}
                           title={cell.date}
                         />
                       )
@@ -461,6 +462,7 @@ function StatsModal({ habit, habits, completions, members, onSelectHabit, onClos
               </div>
             </div>
           </div>
+          )}
         </div>
 
         {/* Weekly bars */}

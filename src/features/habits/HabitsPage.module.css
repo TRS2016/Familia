@@ -530,6 +530,13 @@
   font-weight: 600;
 }
 
+.heatmapLoading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 80px;
+}
+
 .heatmapWrap {
   background: var(--bg-input);
   border-radius: var(--radius-md);

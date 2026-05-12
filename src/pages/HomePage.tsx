@@ -5,17 +5,17 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
 import { useMember } from '../auth/useMember'
+import { useToast } from '../components/Toast'
 import LoadingPage from '../components/LoadingPage'
+import { MEMBER_PALETTE } from '../lib/constants'
 import styles from './HomePage.module.css'
-
-const MEMBER_COLORS = ['#E07B54', '#5B9E8F', '#9B7AC4', '#E8B84B']
 
 function Avatar({ name, index, size = 36 }: { name: string; index: number; size?: number }) {
   return (
     <div
       className={styles.avatar}
       style={{
-        background: MEMBER_COLORS[index % MEMBER_COLORS.length],
+        background: MEMBER_PALETTE[index % MEMBER_PALETTE.length],
         width: size,
         height: size,
         fontSize: Math.round(size * 0.36),
@@ -33,6 +33,7 @@ interface HouseholdDetails {
 
 export default function HomePage() {
   const { data: member } = useMember()
+  const { showToast } = useToast()
 
   const { data: householdDetails } = useQuery({
     queryKey: ['household-details', member?.household_id],
@@ -63,7 +64,8 @@ export default function HomePage() {
   const todayLabel = capitalize(format(new Date(), 'EEEE d MMMM', { locale: fr }))
 
   async function handleSignOut() {
-    await supabase.auth.signOut()
+    const { error } = await supabase.auth.signOut()
+    if (error) showToast({ type: 'error', message: 'Impossible de se déconnecter.' })
   }
 
   return (
