@@ -35,12 +35,13 @@ function fmtEur(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
-// Budget stored locally (no table for V1)
+// Only objectifEpargne is stored locally — revenus come from DB income entries
 function loadBudget() {
   try {
     const s = localStorage.getItem('familia_kakebo_budget')
-    return s ? JSON.parse(s) as { revenus: number; objectifEpargne: number } : { revenus: 3000, objectifEpargne: 400 }
-  } catch { return { revenus: 3000, objectifEpargne: 400 } }
+    const parsed = s ? JSON.parse(s) as { objectifEpargne?: number } : {}
+    return { objectifEpargne: parsed.objectifEpargne ?? 400 }
+  } catch { return { objectifEpargne: 400 } }
 }
 
 type View = 'bilan' | 'detail' | 'reflexion'
@@ -87,14 +88,17 @@ export default function KakeboPage() {
 
   // ── Computations ──────────────────────────────────────────────────────────
 
+  const incomeEntries  = entries.filter(e => e.category?.type === 'income')
   const expenseEntries = entries.filter(e => e.category?.type !== 'income')
+  const totalRevenusMois = incomeEntries.reduce((s, e) => s + Number(e.amount), 0)
+
   const totalByCategory: Record<string, number> = {}
   for (const cat of categories) totalByCategory[cat.id] = 0
   for (const e of expenseEntries) {
     if (e.category_id) totalByCategory[e.category_id] = (totalByCategory[e.category_id] ?? 0) + Number(e.amount)
   }
   const totalDepenses = Object.values(totalByCategory).reduce((s, v) => s + v, 0)
-  const epargneReelle = budget.revenus - totalDepenses
+  const epargneReelle = totalRevenusMois - totalDepenses
   const solde         = epargneReelle - budget.objectifEpargne
 
   const moodEmoji = solde >= 0 ? '🌱' : solde >= -50 ? '🌤' : '🌧'
@@ -237,7 +241,7 @@ export default function KakeboPage() {
             <CategoryDetail
               cat={selectedCat}
               entries={entries.filter(e => e.category_id === selectedCatId)}
-              revenus={budget.revenus}
+              revenus={totalRevenusMois}
               onDelete={id => deleteEntry.mutate(id)}
             />
           )}
@@ -249,7 +253,7 @@ export default function KakeboPage() {
               donutR={donutR}
               donutC={donutC}
               totalDepenses={totalDepenses}
-              revenus={budget.revenus}
+              revenus={totalRevenusMois}
               objectifEpargne={budget.objectifEpargne}
               epargneReelle={epargneReelle}
               solde={solde}
@@ -305,7 +309,7 @@ export default function KakeboPage() {
               <div className={styles.fieldGroup}>
                 <label className={styles.fieldLabel}>Catégorie</label>
                 <div className={styles.catPills}>
-                  {categories.filter(c => c.type !== 'income').map(cat => (
+                  {categories.map(cat => (
                     <button
                       key={cat.id}
                       type="button"
@@ -383,18 +387,6 @@ export default function KakeboPage() {
       {showBudget && (
         <SlideUpModal title="Paramètres Kakebo" onClose={() => setShowBudget(false)}>
             <div className={styles.form}>
-              <div className={styles.fieldGroup}>
-                <label htmlFor="k-revenus" className={styles.fieldLabel}>Revenus mensuels (€)</label>
-                <input
-                  id="k-revenus"
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={budgetDraft.revenus}
-                  onChange={e => setBudgetDraft(d => ({ ...d, revenus: parseFloat(e.target.value) || 0 }))}
-                  className={styles.input}
-                />
-              </div>
               <div className={styles.fieldGroup}>
                 <label htmlFor="k-objectif" className={styles.fieldLabel}>Objectif d'épargne (€)</label>
                 <input

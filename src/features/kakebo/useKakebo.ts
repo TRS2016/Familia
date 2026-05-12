@@ -46,6 +46,7 @@ export function kakeboEntriesKey(year: number, month: number) {
 // ── Default categories seeded on first load ───────────────────────────────────
 
 const DEFAULT_CATS: { name: string; type: KakeboCategory['type']; color: string }[] = [
+  { name: 'Revenus', type: 'income',   color: '#E8B84B' },
   { name: 'Survie',  type: 'fixed',    color: '#5B9E8F' },
   { name: 'Loisirs', type: 'leisure',  color: '#E07B54' },
   { name: 'Culture', type: 'variable', color: '#9B7AC4' },
