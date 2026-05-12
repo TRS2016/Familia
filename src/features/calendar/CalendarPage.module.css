@@ -1,0 +1,610 @@
+/* ── Animations ──────────────────────────────────────────────────────────── */
+
+@keyframes slideUp {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes overlayIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes eventIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Page shell ──────────────────────────────────────────────────────────── */
+
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+  font-family: var(--font-family);
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  margin: 0 auto;
+  padding-bottom: 88px; /* room for FAB */
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: 20px 16px 10px;
+  gap: 8px;
+}
+
+.backLink {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.backLink:hover { opacity: 0.7; }
+
+.pageTitle {
+  flex: 1;
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: -0.2px;
+  margin: 0;
+  text-align: center;
+}
+
+/* View toggle pills */
+.viewToggle {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.viewBtn {
+  padding: 5px 11px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.viewBtnActive {
+  border-color: var(--accent);
+  background: rgba(224, 123, 84, 0.12);
+  color: var(--accent);
+}
+
+/* ── Navigation row ──────────────────────────────────────────────────────── */
+
+.nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 2px 16px 14px;
+}
+
+.navArrow {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.15s, transform 0.1s;
+  flex-shrink: 0;
+}
+
+.navArrow:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: scale(1.05);
+}
+
+.navLabel {
+  flex: 1;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: background 0.15s;
+}
+
+.navLabel:hover {
+  background: var(--border-subtle);
+}
+
+.loading {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 24px 16px;
+  margin: 0;
+}
+
+/* ── Week view ───────────────────────────────────────────────────────────── */
+
+.weekList {
+  padding: 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.dayCard {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 14px 14px 10px;
+  box-shadow: var(--shadow-card);
+  animation: eventIn 0.18s ease;
+}
+
+.dayHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.dayBadge {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 32px;
+}
+
+.dayLetter {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  line-height: 1;
+  margin-bottom: 2px;
+}
+
+.dayNumber {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text);
+  line-height: 1;
+}
+
+.dayBadgeToday .dayLetter {
+  color: var(--accent);
+}
+
+.dayNumberToday {
+  color: var(--accent);
+}
+
+.todayBadge {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(224, 123, 84, 0.12);
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  letter-spacing: 0.3px;
+}
+
+.dayEmpty {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin: 0;
+  padding: 2px 0 4px;
+}
+
+/* ── Event items ─────────────────────────────────────────────────────────── */
+
+.eventList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.eventItem {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
+  transition: background 0.1s;
+  border-radius: 4px;
+  margin: 0 -4px;
+  padding-left: 4px;
+  padding-right: 4px;
+}
+
+.eventItem:last-child {
+  border-bottom: none;
+}
+
+.eventItem:hover {
+  background: var(--border-subtle);
+}
+
+.eventOptimistic {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.eventBar {
+  width: 3px;
+  min-height: 36px;
+  border-radius: 2px;
+  flex-shrink: 0;
+  margin-top: 2px;
+  align-self: stretch;
+}
+
+.eventContent {
+  flex: 1;
+  min-width: 0;
+}
+
+.eventTitle {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eventMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 3px;
+}
+
+.eventMetaItem {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.eventDeleteBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.eventItem:hover .eventDeleteBtn {
+  opacity: 1;
+}
+
+.eventDeleteBtn:hover {
+  color: #c0392b;
+}
+
+/* ── Month view ──────────────────────────────────────────────────────────── */
+
+.monthWrapper {
+  padding: 0 16px;
+  overflow-x: auto;
+}
+
+.monthTable {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+}
+
+.monthTh {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  padding: 0 0 8px;
+}
+
+.monthTd {
+  vertical-align: top;
+  padding: 6px 4px;
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+  min-width: 44px;
+  transition: background 0.1s;
+}
+
+.monthTd:hover {
+  background: var(--border-subtle);
+}
+
+.monthTdOff {
+  opacity: 0.3;
+}
+
+.monthTdToday {
+  background: rgba(224, 123, 84, 0.06);
+}
+
+.monthDayNum {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text);
+  margin-bottom: 3px;
+  text-align: center;
+}
+
+.monthDayNumToday {
+  color: var(--accent);
+  font-weight: 900;
+}
+
+.monthEventPill {
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 3px;
+  padding: 1px 4px;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.monthMore {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 600;
+  padding: 0 2px;
+}
+
+/* ── FAB ─────────────────────────────────────────────────────────────────── */
+
+.fab {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  box-shadow: var(--shadow-btn), 0 8px 24px rgba(224, 123, 84, 0.35);
+  z-index: 20;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.fab:hover {
+  transform: scale(1.08);
+  box-shadow: var(--shadow-btn), 0 12px 32px rgba(224, 123, 84, 0.45);
+}
+
+.fabHidden {
+  display: none;
+}
+
+/* ── Modal ───────────────────────────────────────────────────────────────── */
+
+.overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 100;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  animation: overlayIn 0.2s ease;
+}
+
+.sheet {
+  background: var(--bg-card);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  width: 100%;
+  max-width: 480px;
+  max-height: 92vh;
+  overflow-y: auto;
+  padding-bottom: 40px;
+  animation: slideUp 0.28s ease;
+}
+
+.sheetHandle {
+  width: 36px;
+  height: 4px;
+  background: var(--border);
+  border-radius: 2px;
+  margin: 12px auto 0;
+}
+
+.sheetHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 20px 8px;
+}
+
+.sheetTitle {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--text);
+  margin: 0;
+}
+
+.sheetClose {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: var(--radius-xs);
+  transition: color 0.15s;
+}
+
+.sheetClose:hover {
+  color: var(--text);
+}
+
+/* ── Form inside modal ───────────────────────────────────────────────────── */
+
+.sheetBody {
+  padding: 8px 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.formLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.formInput {
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  font-family: var(--font-family);
+  font-size: 14px;
+  background: var(--bg-input);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.formInput:focus {
+  border-color: var(--accent);
+}
+
+.formRow {
+  display: flex;
+  gap: 10px;
+}
+
+.formCheckRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.formCheckbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.formCheckLabel {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+}
+
+/* Member picker */
+.memberRow {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.memberBtn {
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+/* Submit */
+.submitBtn {
+  width: 100%;
+  padding: 14px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: var(--shadow-btn);
+  transition: opacity 0.15s;
+  margin-top: 4px;
+}
+
+.submitBtn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.deleteEventBtn {
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  color: #c0392b;
+  border: 1.5px solid rgba(192, 57, 43, 0.3);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.deleteEventBtn:hover {
+  background: rgba(192, 57, 43, 0.06);
+}

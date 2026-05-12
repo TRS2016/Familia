@@ -9,16 +9,28 @@ import {
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
+import { ChevronLeft, ChevronRight, Plus, X, Clock, MapPin } from 'lucide-react'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useEvents } from './useEvents'
 import { useEventsRealtime } from './useEventsRealtime'
 import type { CalendarEvent, NewEventInput } from './useEvents'
+import styles from './CalendarPage.module.css'
 
 type View = 'week' | 'month'
 
 const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const MEMBER_PALETTE = ['#E07B54', '#5B9E8F', '#9B7AC4', '#E8B84B']
+
+export function getMemberColor(
+  memberId: string | null,
+  allMembers: { id: string }[],
+): string {
+  if (!memberId || allMembers.length === 0) return '#A89F97'
+  const index = allMembers.findIndex(m => m.id === memberId)
+  return MEMBER_PALETTE[index >= 0 ? index % MEMBER_PALETTE.length : 0]
+}
 
 function capitalize(s: string) {
   return s.charAt(0).toUpperCase() + s.slice(1)
@@ -52,7 +64,6 @@ export default function CalendarPage() {
     ? format(weekEnd, 'yyyy-MM-dd')
     : format(monthLast, 'yyyy-MM-dd')
 
-  // Week: 7 days; Month: full grid padded to Mon–Sun boundaries
   const weekDays = view === 'week'
     ? Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
     : []
@@ -81,7 +92,6 @@ export default function CalendarPage() {
     setMonthCursor(startOfMonth(new Date()))
   }
 
-  // Click a day in month view → switch to week view centred on that day
   function handleDayClick(day: Date) {
     setWeekStart(startOfWeek(day, { weekStartsOn: 1 }))
     setView('week')
@@ -95,7 +105,7 @@ export default function CalendarPage() {
   const { query, addEvent, updateEvent, deleteEvent } = useEvents(rangeStart, rangeEnd)
   const allEvents = query.data ?? []
 
-  const { data: householdMembers } = useQuery({
+  const { data: householdMembers = [] } = useQuery({
     queryKey: ['members-list', HOUSEHOLD_ID],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -171,205 +181,356 @@ export default function CalendarPage() {
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div>
-      <p><Link to="/">← Accueil</Link></p>
-      <h1>Calendrier</h1>
+    <div className={styles.page}>
 
-      {/* View toggle + navigation */}
-      <div>
-        <button
-          onClick={() => setView('week')}
-          style={{ fontWeight: view === 'week' ? 'bold' : 'normal' }}
-        >
-          Semaine
-        </button>
-        {' '}
-        <button
-          onClick={() => setView('month')}
-          style={{ fontWeight: view === 'month' ? 'bold' : 'normal' }}
-        >
-          Mois
-        </button>
-        {'  '}
-        <button onClick={goBack}>{'<'}</button>
-        {' '}
-        <strong>{navLabel}</strong>
-        {' '}
-        <button onClick={goForward}>{'>'}</button>
-        {' '}
-        <button onClick={goToday}>Aujourd'hui</button>
-      </div>
+      {/* Header */}
+      <header className={styles.header}>
+        <Link to="/" className={styles.backLink} aria-label="Retour">
+          <ChevronLeft size={22} strokeWidth={2.5} />
+        </Link>
+        <h1 className={styles.pageTitle}>Calendrier</h1>
+        <div className={styles.viewToggle}>
+          <button
+            className={[styles.viewBtn, view === 'week' ? styles.viewBtnActive : ''].join(' ')}
+            onClick={() => setView('week')}
+          >
+            Sem.
+          </button>
+          <button
+            className={[styles.viewBtn, view === 'month' ? styles.viewBtnActive : ''].join(' ')}
+            onClick={() => setView('month')}
+          >
+            Mois
+          </button>
+        </div>
+      </header>
 
-      {/* Add / Edit form */}
-      {showForm && (
-        <form onSubmit={handleSubmit} style={{ border: '1px solid #ccc', padding: 12, margin: '12px 0' }}>
-          <h3>{editingId ? 'Modifier l\'événement' : 'Nouvel événement'}</h3>
-          <div>
-            <label htmlFor="ev-title">Titre *</label>{' '}
-            <input id="ev-title" type="text" value={formTitle}
-              onChange={e => setFormTitle(e.target.value)} required autoFocus />
-          </div>
-          <div>
-            <label htmlFor="ev-date">Date *</label>{' '}
-            <input id="ev-date" type="date" value={formDate}
-              onChange={e => setFormDate(e.target.value)} required />
-          </div>
-          <div>
-            <label>
-              <input type="checkbox" checked={formAllDay}
-                onChange={e => setFormAllDay(e.target.checked)} />
-              {' '}Toute la journée
-            </label>
-          </div>
-          {!formAllDay && (
-            <div>
-              <label htmlFor="ev-start">Heure début</label>{' '}
-              <input id="ev-start" type="time" value={formStartTime}
-                onChange={e => setFormStartTime(e.target.value)} />
-              {' '}
-              <label htmlFor="ev-end">fin</label>{' '}
-              <input id="ev-end" type="time" value={formEndTime}
-                onChange={e => setFormEndTime(e.target.value)} />
-            </div>
-          )}
-          <div>
-            <label htmlFor="ev-member">Pour</label>{' '}
-            <select id="ev-member" value={formMemberId ?? ''}
-              onChange={e => setFormMemberId(e.target.value || null)}>
-              <option value="">—</option>
-              {householdMembers?.map(m => (
-                <option key={m.id} value={m.id}>{m.display_name}</option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="ev-location">Lieu</label>{' '}
-            <input id="ev-location" type="text" value={formLocation}
-              onChange={e => setFormLocation(e.target.value)} placeholder="optionnel" />
-          </div>
-          <div style={{ marginTop: 8 }}>
-            <button type="submit" disabled={isPending}>
-              {isPending ? 'Enregistrement...' : 'Enregistrer'}
-            </button>
-            {' '}
-            <button type="button" onClick={closeForm}>Annuler</button>
-          </div>
-        </form>
+      {/* Navigation */}
+      <nav className={styles.nav}>
+        <button className={styles.navArrow} onClick={goBack} aria-label="Précédent">
+          <ChevronLeft size={18} strokeWidth={2.5} />
+        </button>
+        <button className={styles.navLabel} onClick={goToday}>{navLabel}</button>
+        <button className={styles.navArrow} onClick={goForward} aria-label="Suivant">
+          <ChevronRight size={18} strokeWidth={2.5} />
+        </button>
+      </nav>
+
+      {query.isLoading && <p className={styles.loading}>Chargement…</p>}
+
+      {/* ── Week view ────────────────────────────────────────────────────── */}
+      {view === 'week' && (
+        <div className={styles.weekList}>
+          {weekDays.map(day => {
+            const dayStr = format(day, 'yyyy-MM-dd')
+            const isToday = dayStr === todayStr
+            const dayEvents = allEvents
+              .filter(e => e.date === dayStr)
+              .sort((a, b) => {
+                if (a.all_day && !b.all_day) return -1
+                if (!a.all_day && b.all_day) return 1
+                return (a.start_time ?? '').localeCompare(b.start_time ?? '')
+              })
+            return (
+              <div key={dayStr} className={styles.dayCard}>
+                <div className={styles.dayHeader}>
+                  <div className={[styles.dayBadge, isToday ? styles.dayBadgeToday : ''].join(' ')}>
+                    <span className={styles.dayLetter}>
+                      {capitalize(format(day, 'EEE', { locale: fr })).slice(0, 3)}
+                    </span>
+                    <span className={[styles.dayNumber, isToday ? styles.dayNumberToday : ''].join(' ')}>
+                      {format(day, 'd')}
+                    </span>
+                  </div>
+                  {isToday && <span className={styles.todayBadge}>Aujourd'hui</span>}
+                  <button
+                    className={styles.eventDeleteBtn}
+                    style={{ opacity: 1, marginLeft: 'auto' }}
+                    onClick={() => openAddForm(dayStr)}
+                    aria-label={`Ajouter un événement le ${dayStr}`}
+                  >
+                    <Plus size={15} strokeWidth={2.5} color="var(--accent)" />
+                  </button>
+                </div>
+
+                {dayEvents.length === 0 ? (
+                  <p className={styles.dayEmpty}>Aucun événement</p>
+                ) : (
+                  <ul className={styles.eventList}>
+                    {dayEvents.map(event => {
+                      const isOptimistic = event.id.startsWith('optimistic-')
+                      const color = getMemberColor(event.member_id, householdMembers)
+                      return (
+                        <li
+                          key={event.id}
+                          className={[
+                            styles.eventItem,
+                            isOptimistic ? styles.eventOptimistic : '',
+                          ].join(' ')}
+                          onClick={() => !isOptimistic && openEditForm(event)}
+                        >
+                          <span className={styles.eventBar} style={{ background: color }} />
+                          <div className={styles.eventContent}>
+                            <div className={styles.eventTitle}>{event.title}</div>
+                            <div className={styles.eventMeta}>
+                              {event.all_day ? (
+                                <span className={styles.eventMetaItem}>Toute la journée</span>
+                              ) : event.start_time ? (
+                                <span className={styles.eventMetaItem}>
+                                  <Clock size={10} />
+                                  {pgTimeToInput(event.start_time)}
+                                  {event.end_time && ` – ${pgTimeToInput(event.end_time)}`}
+                                </span>
+                              ) : null}
+                              {event.location && (
+                                <span className={styles.eventMetaItem}>
+                                  <MapPin size={10} />
+                                  {event.location}
+                                </span>
+                              )}
+                              {event.member && (
+                                <span className={styles.eventMetaItem} style={{ color }}>
+                                  {event.member.display_name}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <button
+                            className={styles.eventDeleteBtn}
+                            onClick={e => { e.stopPropagation(); deleteEvent.mutate(event.id) }}
+                            disabled={isOptimistic}
+                            aria-label={`Supprimer ${event.title}`}
+                          >
+                            <X size={14} strokeWidth={2.5} />
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )}
+              </div>
+            )
+          })}
+        </div>
       )}
 
-      {query.isLoading && <p>Chargement...</p>}
-
-      {/* ── Week view ─────────────────────────────────────────────────────── */}
-      {view === 'week' && weekDays.map(day => {
-        const dayStr = format(day, 'yyyy-MM-dd')
-        const dayEvents = allEvents
-          .filter(e => e.date === dayStr)
-          .sort((a, b) => {
-            if (a.all_day && !b.all_day) return -1
-            if (!a.all_day && b.all_day) return 1
-            return (a.start_time ?? '').localeCompare(b.start_time ?? '')
-          })
-        return (
-          <div key={dayStr} style={{ marginTop: 16 }}>
-            <h3 style={{ marginBottom: 4 }}>
-              {capitalize(format(day, 'EEEE d MMMM', { locale: fr }))}
-            </h3>
-            {dayEvents.length === 0
-              ? <p style={{ color: '#aaa', margin: 0 }}>—</p>
-              : (
-                <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                  {dayEvents.map(event => {
-                    const isOptimistic = event.id.startsWith('optimistic-')
+      {/* ── Month view ───────────────────────────────────────────────────── */}
+      {view === 'month' && (
+        <div className={styles.monthWrapper}>
+          <table className={styles.monthTable}>
+            <thead>
+              <tr>
+                {WEEK_DAYS_SHORT.map(d => (
+                  <th key={d} className={styles.monthTh}>{d}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {monthWeeks.map((week, wi) => (
+                <tr key={wi}>
+                  {week.map(day => {
+                    const dayStr = format(day, 'yyyy-MM-dd')
+                    const dayEvents = allEvents.filter(e => e.date === dayStr)
+                    const inMonth = isSameMonth(day, monthCursor)
+                    const isToday = dayStr === todayStr
                     return (
-                      <li key={event.id}
-                        style={{ opacity: isOptimistic ? 0.5 : 1, marginBottom: 4, cursor: 'pointer' }}
-                        onClick={() => !isOptimistic && openEditForm(event)}
+                      <td
+                        key={dayStr}
+                        className={[
+                          styles.monthTd,
+                          !inMonth ? styles.monthTdOff : '',
+                          isToday ? styles.monthTdToday : '',
+                        ].join(' ')}
+                        onClick={() => handleDayClick(day)}
                       >
-                        {event.all_day ? '● ' : (event.start_time ? `${pgTimeToInput(event.start_time)} ` : '')}
-                        <strong>{event.title}</strong>
-                        {event.member && ` · ${event.member.display_name}`}
-                        {event.location && ` · 📍${event.location}`}
-                        {' '}
-                        <button
-                          onClick={e => { e.stopPropagation(); deleteEvent.mutate(event.id) }}
-                          disabled={isOptimistic}
-                          aria-label={`Supprimer ${event.title}`}
-                        >×</button>
-                      </li>
+                        <div className={[
+                          styles.monthDayNum,
+                          isToday ? styles.monthDayNumToday : '',
+                        ].join(' ')}>
+                          {format(day, 'd')}
+                        </div>
+                        {dayEvents.slice(0, 2).map(e => {
+                          const color = getMemberColor(e.member_id, householdMembers)
+                          return (
+                            <div
+                              key={e.id}
+                              className={styles.monthEventPill}
+                              style={{ background: color + '28', color }}
+                            >
+                              {e.title}
+                            </div>
+                          )
+                        })}
+                        {dayEvents.length > 2 && (
+                          <div className={styles.monthMore}>+{dayEvents.length - 2}</div>
+                        )}
+                      </td>
                     )
                   })}
-                </ul>
-              )}
-          </div>
-        )
-      })}
-
-      {/* ── Month view ────────────────────────────────────────────────────── */}
-      {view === 'month' && (
-        <table style={{ width: '100%', borderCollapse: 'collapse', marginTop: 16 }}>
-          <thead>
-            <tr>
-              {WEEK_DAYS_SHORT.map(d => (
-                <th key={d} style={{ textAlign: 'center', padding: 4, borderBottom: '1px solid #ccc' }}>
-                  {d}
-                </th>
+                </tr>
               ))}
-            </tr>
-          </thead>
-          <tbody>
-            {monthWeeks.map((week, wi) => (
-              <tr key={wi}>
-                {week.map(day => {
-                  const dayStr = format(day, 'yyyy-MM-dd')
-                  const dayEvents = allEvents.filter(e => e.date === dayStr)
-                  const inMonth = isSameMonth(day, monthCursor)
-                  const isToday = dayStr === todayStr
-                  return (
-                    <td key={dayStr}
-                      onClick={() => handleDayClick(day)}
-                      style={{
-                        verticalAlign: 'top',
-                        padding: 4,
-                        border: '1px solid #eee',
-                        cursor: 'pointer',
-                        opacity: inMonth ? 1 : 0.35,
-                        minWidth: 60,
-                        background: isToday ? '#fff8f0' : 'transparent',
-                      }}
-                    >
-                      <div style={{ fontWeight: isToday ? 'bold' : 'normal', marginBottom: 2 }}>
-                        {format(day, 'd')}
-                      </div>
-                      {dayEvents.slice(0, 2).map(e => (
-                        <div key={e.id} style={{
-                          fontSize: '0.75rem',
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}>
-                          {e.all_day ? '●' : (e.start_time ? pgTimeToInput(e.start_time) : '·')}{' '}{e.title}
-                        </div>
-                      ))}
-                      {dayEvents.length > 2 && (
-                        <div style={{ fontSize: '0.75rem', color: '#888' }}>
-                          +{dayEvents.length - 2}
-                        </div>
-                      )}
-                    </td>
-                  )
-                })}
-              </tr>
-            ))}
-          </tbody>
-        </table>
+            </tbody>
+          </table>
+        </div>
       )}
 
       {/* FAB */}
-      {!showForm && (
-        <div style={{ marginTop: 24 }}>
-          <button onClick={() => openAddForm()}>+ Nouvel événement</button>
+      <button
+        className={[styles.fab, showForm ? styles.fabHidden : ''].join(' ')}
+        onClick={() => openAddForm()}
+        aria-label="Nouvel événement"
+      >
+        <Plus size={24} strokeWidth={2.5} />
+      </button>
+
+      {/* Modal slide-up */}
+      {showForm && (
+        <div className={styles.overlay} onClick={closeForm}>
+          <div className={styles.sheet} onClick={e => e.stopPropagation()}>
+            <div className={styles.sheetHandle} />
+            <div className={styles.sheetHeader}>
+              <h2 className={styles.sheetTitle}>
+                {editingId ? 'Modifier l\'événement' : 'Nouvel événement'}
+              </h2>
+              <button className={styles.sheetClose} onClick={closeForm} aria-label="Fermer">
+                <X size={20} strokeWidth={2} />
+              </button>
+            </div>
+
+            <form onSubmit={handleSubmit} className={styles.sheetBody}>
+
+              <div className={styles.formField}>
+                <label htmlFor="ev-title" className={styles.formLabel}>Titre *</label>
+                <input
+                  id="ev-title"
+                  type="text"
+                  value={formTitle}
+                  onChange={e => setFormTitle(e.target.value)}
+                  className={styles.formInput}
+                  placeholder="Ex : Dentiste"
+                  required
+                  autoFocus
+                />
+              </div>
+
+              <div className={styles.formField}>
+                <label htmlFor="ev-date" className={styles.formLabel}>Date *</label>
+                <input
+                  id="ev-date"
+                  type="date"
+                  value={formDate}
+                  onChange={e => setFormDate(e.target.value)}
+                  className={styles.formInput}
+                  required
+                />
+              </div>
+
+              <div className={styles.formCheckRow}>
+                <input
+                  id="ev-allday"
+                  type="checkbox"
+                  checked={formAllDay}
+                  onChange={e => setFormAllDay(e.target.checked)}
+                  className={styles.formCheckbox}
+                />
+                <label htmlFor="ev-allday" className={styles.formCheckLabel}>
+                  Toute la journée
+                </label>
+              </div>
+
+              {!formAllDay && (
+                <div className={styles.formRow}>
+                  <div className={styles.formField} style={{ flex: 1 }}>
+                    <label htmlFor="ev-start" className={styles.formLabel}>Début</label>
+                    <input
+                      id="ev-start"
+                      type="time"
+                      value={formStartTime}
+                      onChange={e => setFormStartTime(e.target.value)}
+                      className={styles.formInput}
+                    />
+                  </div>
+                  <div className={styles.formField} style={{ flex: 1 }}>
+                    <label htmlFor="ev-end" className={styles.formLabel}>Fin</label>
+                    <input
+                      id="ev-end"
+                      type="time"
+                      value={formEndTime}
+                      onChange={e => setFormEndTime(e.target.value)}
+                      className={styles.formInput}
+                    />
+                  </div>
+                </div>
+              )}
+
+              <div className={styles.formField}>
+                <span className={styles.formLabel}>Pour</span>
+                <div className={styles.memberRow}>
+                  <button
+                    type="button"
+                    className={styles.memberBtn}
+                    style={!formMemberId ? {
+                      borderColor: '#A89F97',
+                      background: 'rgba(168,159,151,0.12)',
+                      color: '#A89F97',
+                    } : {}}
+                    onClick={() => setFormMemberId(null)}
+                  >
+                    Tous
+                  </button>
+                  {householdMembers.map((m, i) => {
+                    const color = MEMBER_PALETTE[i % MEMBER_PALETTE.length]
+                    const active = formMemberId === m.id
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        className={styles.memberBtn}
+                        style={active ? {
+                          borderColor: color,
+                          background: color + '22',
+                          color,
+                        } : {}}
+                        onClick={() => setFormMemberId(m.id)}
+                      >
+                        {m.display_name}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+
+              <div className={styles.formField}>
+                <label htmlFor="ev-location" className={styles.formLabel}>Lieu</label>
+                <input
+                  id="ev-location"
+                  type="text"
+                  value={formLocation}
+                  onChange={e => setFormLocation(e.target.value)}
+                  className={styles.formInput}
+                  placeholder="Adresse ou lieu (optionnel)"
+                />
+              </div>
+
+              <button type="submit" disabled={isPending} className={styles.submitBtn}>
+                {isPending ? 'Enregistrement…' : editingId ? 'Enregistrer' : 'Ajouter'}
+              </button>
+
+              {editingId && (
+                <button
+                  type="button"
+                  className={styles.deleteEventBtn}
+                  onClick={() => { deleteEvent.mutate(editingId); closeForm() }}
+                >
+                  Supprimer l'événement
+                </button>
+              )}
+
+            </form>
+          </div>
         </div>
       )}
+
     </div>
   )
 }
