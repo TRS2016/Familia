@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
+import { useToast } from '../../components/Toast'
 
 export interface CalendarEvent {
   id: string
@@ -45,6 +46,7 @@ export function eventsKey(weekStart: string) {
 export function useEvents(rangeStart: string, rangeEnd: string) {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
+  const { showToast } = useToast()
   const key = eventsKey(rangeStart)
 
   // ── Query ────────────────────────────────────────────────────────────────
@@ -111,7 +113,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
     },
     onError: (_err, _input, context) => {
       queryClient.setQueryData(key, context?.previous ?? [])
-      alert('Erreur lors de la création de l\'événement.')
+      showToast({ type: 'error', message: 'Impossible de créer l\'événement.' })
     },
     onSuccess: (newEvent, _input, context) => {
       if (!context) return
@@ -164,7 +166,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
     },
     onError: (_err, _vars, context) => {
       queryClient.setQueryData(key, context?.previous ?? [])
-      alert('Erreur lors de la mise à jour.')
+      showToast({ type: 'error', message: 'Impossible de mettre à jour l\'événement.' })
     },
     onSuccess: (updated) => {
       queryClient.setQueryData<CalendarEvent[]>(key, (old = []) =>
@@ -187,7 +189,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
     },
     onError: (_err, _id, context) => {
       queryClient.setQueryData(key, context?.previous ?? [])
-      alert('Erreur lors de la suppression.')
+      showToast({ type: 'error', message: 'Impossible de supprimer l\'événement.' })
     },
   })
 

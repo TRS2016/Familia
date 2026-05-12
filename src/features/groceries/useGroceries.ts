@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
+import { useToast } from '../../components/Toast'
 
 export const GROCERIES_KEY = ['groceries', HOUSEHOLD_ID] as const
 
@@ -29,6 +30,7 @@ const GROCERY_SELECT = `
 export function useGroceries() {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
+  const { showToast } = useToast()
 
   // ── Query ────────────────────────────────────────────────────────────────
   const query = useQuery({
@@ -86,7 +88,7 @@ export function useGroceries() {
     },
     onError: (_err, _name, context) => {
       queryClient.setQueryData(GROCERIES_KEY, context?.previous ?? [])
-      alert('Erreur lors de l\'ajout. Réessaie.')
+      showToast({ type: 'error', message: 'Impossible d\'ajouter l\'article. Réessaie.' })
     },
     onSuccess: (newItem, _name, context) => {
       if (!context) return
@@ -131,7 +133,7 @@ export function useGroceries() {
     },
     onError: (_err, _vars, context) => {
       queryClient.setQueryData(GROCERIES_KEY, context?.previous ?? [])
-      alert('Erreur lors de la mise à jour.')
+      showToast({ type: 'error', message: 'Impossible de mettre à jour l\'article.' })
     },
   })
 
@@ -149,7 +151,7 @@ export function useGroceries() {
     },
     onError: (_err, _id, context) => {
       queryClient.setQueryData(GROCERIES_KEY, context?.previous ?? [])
-      alert('Erreur lors de la suppression.')
+      showToast({ type: 'error', message: 'Impossible de supprimer l\'article.' })
     },
   })
 
