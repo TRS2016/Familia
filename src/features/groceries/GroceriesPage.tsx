@@ -1,9 +1,11 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { ChevronLeft, Plus, Check, Trash2 } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
 import type { Grocery } from './useGroceries'
+import styles from './GroceriesPage.module.css'
 
 function sortGroceries(items: Grocery[]): Grocery[] {
   const unchecked = items
@@ -24,6 +26,8 @@ export default function GroceriesPage() {
   const [newName, setNewName] = useState('')
 
   const sorted = sortGroceries(query.data ?? [])
+  const unchecked = sorted.filter(g => !g.checked)
+  const checked = sorted.filter(g => g.checked)
 
   function handleAdd(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -34,68 +38,142 @@ export default function GroceriesPage() {
   }
 
   return (
-    <div>
-      <p><Link to="/">← Accueil</Link></p>
-      <h1>Courses</h1>
+    <div className={styles.page}>
 
-      <form onSubmit={handleAdd}>
-        <input
-          type="text"
-          value={newName}
-          onChange={e => setNewName(e.target.value)}
-          placeholder="Ajouter un article..."
-          disabled={addGrocery.isPending}
-        />
-        {' '}
-        <button type="submit" disabled={addGrocery.isPending || !newName.trim()}>
-          +
-        </button>
+      {/* Header */}
+      <header className={styles.header}>
+        <Link to="/" className={styles.backLink} aria-label="Retour à l'accueil">
+          <ChevronLeft size={22} strokeWidth={2.5} />
+        </Link>
+        <h1 className={styles.pageTitle}>Courses</h1>
+      </header>
+
+      {/* Add form — sticky */}
+      <form onSubmit={handleAdd} className={styles.addForm}>
+        <div className={styles.addRow}>
+          <input
+            type="text"
+            value={newName}
+            onChange={e => setNewName(e.target.value)}
+            placeholder="Ajouter un article..."
+            disabled={addGrocery.isPending}
+            className={styles.addInput}
+            autoComplete="off"
+          />
+          <button
+            type="submit"
+            disabled={addGrocery.isPending || !newName.trim()}
+            className={styles.addBtn}
+            aria-label="Ajouter"
+          >
+            <Plus size={18} strokeWidth={2.5} />
+          </button>
+        </div>
       </form>
 
-      {query.isLoading && <p>Chargement...</p>}
-
-      {!query.isLoading && sorted.length === 0 && (
-        <p>La liste est vide. Ajoute un premier article !</p>
+      {query.isLoading && (
+        <p className={styles.emptyText} style={{ padding: '24px 16px' }}>Chargement…</p>
       )}
 
-      <ul style={{ listStyle: 'none', padding: 0 }}>
-        {sorted.map(item => {
-          const isOptimistic = item.id.startsWith('optimistic-')
-          return (
-            <li key={item.id} style={{ opacity: isOptimistic ? 0.5 : 1, marginBottom: 8 }}>
-              <input
-                type="checkbox"
-                checked={item.checked}
-                onChange={() =>
-                  toggleGrocery.mutate({ id: item.id, checked: !item.checked })
-                }
-                disabled={isOptimistic}
+      {/* Empty state */}
+      {!query.isLoading && sorted.length === 0 && (
+        <div className={styles.empty}>
+          <span className={styles.emptyEmoji}>🛒</span>
+          <p className={styles.emptyText}>La liste est vide.<br />Ajoute un premier article !</p>
+        </div>
+      )}
+
+      {/* Unchecked items */}
+      {unchecked.length > 0 && (
+        <ul className={styles.list}>
+          {unchecked.map(item => (
+            <GroceryItem
+              key={item.id}
+              item={item}
+              onToggle={() => toggleGrocery.mutate({ id: item.id, checked: true })}
+              onDelete={() => deleteGrocery.mutate(item.id)}
+            />
+          ))}
+        </ul>
+      )}
+
+      {/* Checked items */}
+      {checked.length > 0 && (
+        <>
+          <div className={styles.separator}>
+            <span className={styles.separatorLine} />
+            <span className={styles.separatorLabel}>Déjà pris</span>
+            <span className={styles.separatorLine} />
+          </div>
+          <ul className={styles.list}>
+            {checked.map(item => (
+              <GroceryItem
+                key={item.id}
+                item={item}
+                onToggle={() => toggleGrocery.mutate({ id: item.id, checked: false })}
+                onDelete={() => deleteGrocery.mutate(item.id)}
               />
-              {' '}
-              <span style={{ textDecoration: item.checked ? 'line-through' : 'none' }}>
-                {item.name}
-              </span>
-              {' '}
-              <small style={{ color: '#888' }}>
-                {item.created_by_member
-                  ? `ajouté par ${item.created_by_member.display_name}`
-                  : ''}
-                {item.checked && item.checked_by_member
-                  ? ` · coché par ${item.checked_by_member.display_name}`
-                  : ''}
-              </small>
-              {' '}
-              <button
-                onClick={() => deleteGrocery.mutate(item.id)}
-                disabled={isOptimistic}
-                aria-label={`Supprimer ${item.name}`}
-              >
-                ×
-              </button>
-            </li>
-          )
-        })}
-      </ul>
+            ))}
+          </ul>
+        </>
+      )}
+
     </div>
+  )
+}
+
+function GroceryItem({
+  item,
+  onToggle,
+  onDelete,
+}: {
+  item: Grocery
+  onToggle: () => void
+  onDelete: () => void
+}) {
+  const isOptimistic = item.id.startsWith('optimistic-')
+
+  const metaParts: string[] = []
+  if (item.created_by_member) metaParts.push(`Ajouté par ${item.created_by_member.display_name}`)
+  if (item.checked && item.checked_by_member) metaParts.push(`coché par ${item.checked_by_member.display_name}`)
+
+  return (
+    <li className={[
+      styles.item,
+      item.checked ? styles.itemChecked : '',
+      isOptimistic ? styles.itemOptimistic : '',
+    ].join(' ')}>
+
+      {/* Checkbox */}
+      <button
+        className={[styles.checkbox, item.checked ? styles.checkboxChecked : ''].join(' ')}
+        onClick={onToggle}
+        disabled={isOptimistic}
+        aria-label={item.checked ? `Décocher ${item.name}` : `Cocher ${item.name}`}
+      >
+        {item.checked && <Check size={13} strokeWidth={3} color="#fff" />}
+      </button>
+
+      {/* Name + meta */}
+      <div className={styles.itemBody}>
+        <div className={[styles.itemName, item.checked ? styles.itemNameChecked : ''].join(' ')}>
+          {item.name}
+        </div>
+        {metaParts.length > 0 && (
+          <div className={styles.itemMeta}>{metaParts.join(' · ')}</div>
+        )}
+      </div>
+
+      {/* Delete */}
+      <button
+        className={styles.deleteBtn}
+        onClick={onDelete}
+        disabled={isOptimistic}
+        aria-label={`Supprimer ${item.name}`}
+      >
+        <Trash2 size={15} strokeWidth={2} />
+      </button>
+
+    </li>
   )
 }
