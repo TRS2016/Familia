@@ -47,7 +47,7 @@
 }
 
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not([data-theme="light"]) {
     --bg: #1A1510;
     --bg-card: #2A2218;
     --bg-input: #1A1510;
@@ -61,4 +61,19 @@
 
     --scrollbar-thumb: #3D3028;
   }
+}
+
+:root[data-theme="dark"] {
+  --bg: #1A1510;
+  --bg-card: #2A2218;
+  --bg-input: #1A1510;
+
+  --text: #F5EEE6;
+  --text-sub: #8A7A6F;
+  --text-muted: #6B6057;
+
+  --border: rgba(255, 255, 255, 0.07);
+  --border-subtle: rgba(255, 255, 255, 0.05);
+
+  --scrollbar-thumb: #3D3028;
 }

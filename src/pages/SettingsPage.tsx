@@ -11,6 +11,8 @@ import { useMember } from '../auth/useMember'
 import type { Member } from '../auth/useMember'
 import { useToast } from '../components/Toast'
 import { MEMBER_PALETTE } from '../lib/constants'
+import { useTheme } from '../lib/useTheme'
+import type { Theme } from '../lib/useTheme'
 import styles from './SettingsPage.module.css'
 
 export default function SettingsPage() {
@@ -18,6 +20,7 @@ export default function SettingsPage() {
   const { data: member } = useMember()
   const queryClient = useQueryClient()
   const { showToast } = useToast()
+  const { theme, setTheme } = useTheme()
 
   // ── Display name ──────────────────────────────────────────────────────────
   const [displayName, setDisplayName] = useState(member?.display_name ?? '')
@@ -197,6 +200,22 @@ export default function SettingsPage() {
             </li>
           ))}
         </ul>
+      </section>
+
+      {/* ── Apparence ────────────────────────────────────────────────────── */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Apparence</h2>
+        <div className={styles.themePills}>
+          {(['system', 'light', 'dark'] as Theme[]).map(t => (
+            <button
+              key={t}
+              className={[styles.themePill, theme === t ? styles.themePillActive : ''].join(' ')}
+              onClick={() => setTheme(t)}
+            >
+              {{ system: '⚙ Système', light: '☀ Clair', dark: '🌙 Sombre' }[t]}
+            </button>
+          ))}
+        </div>
       </section>
 
       {/* ── Danger zone ──────────────────────────────────────────────────── */}
