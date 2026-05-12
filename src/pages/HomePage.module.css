@@ -1,0 +1,186 @@
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+  font-family: var(--font-family);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding: 28px 20px 36px;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+}
+
+.date {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0 0 4px;
+}
+
+.greeting {
+  font-size: 26px;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: -0.3px;
+  margin: 0;
+}
+
+/* ── Avatar stack ────────────────────────────────────────────────────────── */
+
+.avatarStack {
+  display: flex;
+  align-items: center;
+}
+
+.avatarWrap {
+  border: 2px solid var(--bg);
+  border-radius: 50%;
+  margin-left: -8px;
+}
+
+.avatarWrap:first-child {
+  margin-left: 0;
+}
+
+.avatar {
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-weight: 800;
+  font-family: var(--font-family);
+  flex-shrink: 0;
+}
+
+/* ── Section label ───────────────────────────────────────────────────────── */
+
+.sectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin: 0 0 -8px;
+}
+
+/* ── Nav cards ───────────────────────────────────────────────────────────── */
+
+.navGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.navCard {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: var(--shadow-card);
+  text-decoration: none;
+  color: var(--text);
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.navCard:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.navIconWrap {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.navLabel {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+  margin-bottom: 2px;
+}
+
+.navSub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* ── Members card ────────────────────────────────────────────────────────── */
+
+.card {
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.membersList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.memberRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.memberName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.memberYou {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-left: 4px;
+}
+
+/* ── Footer / sign-out ───────────────────────────────────────────────────── */
+
+.footer {
+  margin-top: auto;
+  padding-top: 8px;
+  text-align: center;
+}
+
+.signOutBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 8px 18px;
+  border-radius: var(--radius-pill);
+  transition: color 0.15s, background 0.15s;
+}
+
+.signOutBtn:hover {
+  color: var(--text-sub);
+  background: var(--border-subtle);
+}
