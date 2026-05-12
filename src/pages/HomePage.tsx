@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ShoppingCart, Calendar, Settings, BookOpen } from 'lucide-react'
+import { ShoppingCart, Calendar, Settings, BookOpen, Flame } from 'lucide-react'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
@@ -119,6 +119,15 @@ export default function HomePage() {
           <div>
             <div className={styles.navLabel}>Budget</div>
             <div className={styles.navSub}>Kakebo familial</div>
+          </div>
+        </Link>
+        <Link to="/habits" className={styles.navCard}>
+          <div className={styles.navIconWrap} style={{ background: 'rgba(232,184,75,0.15)' }}>
+            <Flame size={22} color="#E8B84B" strokeWidth={2} />
+          </div>
+          <div>
+            <div className={styles.navLabel}>Habitudes</div>
+            <div className={styles.navSub}>Suivi quotidien</div>
           </div>
         </Link>
       </div>
