@@ -1,0 +1,64 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
+
+:root {
+  /* Accent */
+  --accent: #E07B54;
+  --accent-shadow: rgba(224, 123, 84, 0.27); /* used for primary button glow */
+
+  /* Backgrounds */
+  --bg: #F7F2EA;
+  --bg-card: #FFFAF5;
+  --bg-input: #FAF5EF;
+
+  /* Text */
+  --text: #3D2B1F;
+  --text-sub: #7A6A60;
+  --text-muted: #A89F97;
+
+  /* Borders */
+  --border: #EDE5DC;
+  --border-subtle: #F0EBE3;
+
+  /* Member palette */
+  --member-1: #E07B54;
+  --member-2: #5B9E8F;
+  --member-3: #9B7AC4;
+  --member-4: #E8B84B;
+
+  /* Border radius */
+  --radius-xs: 4px;    /* scrollbar, indicator bars */
+  --radius-sm: 10px;   /* inputs */
+  --radius-md: 14px;   /* buttons, notifications */
+  --radius-lg: 16px;   /* cards */
+  --radius-xl: 24px;   /* modal bottom sheets */
+  --radius-pill: 9999px; /* badge chips */
+
+  /* Shadows */
+  --shadow-card: 0 2px 12px rgba(0, 0, 0, 0.07);
+  --shadow-card-hover: 0 6px 20px rgba(0, 0, 0, 0.12);
+  --shadow-btn: 0 4px 16px var(--accent-shadow);
+  --shadow-notif: 0 4px 20px rgba(0, 0, 0, 0.15);
+
+  /* Typography */
+  --font-family: 'Nunito', system-ui, sans-serif;
+
+  /* Scrollbar */
+  --scrollbar-thumb: #D0C8BF;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1A1510;
+    --bg-card: #2A2218;
+    --bg-input: #1A1510;
+
+    --text: #F5EEE6;
+    --text-sub: #8A7A6F;
+    --text-muted: #6B6057;
+
+    --border: rgba(255, 255, 255, 0.07);
+    --border-subtle: rgba(255, 255, 255, 0.05);
+
+    --scrollbar-thumb: #3D3028;
+  }
+}
