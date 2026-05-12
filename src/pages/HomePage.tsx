@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
 import { useMember } from '../auth/useMember'
+import LoadingPage from '../components/LoadingPage'
 import styles from './HomePage.module.css'
 
 const MEMBER_COLORS = ['#E07B54', '#5B9E8F', '#9B7AC4', '#E8B84B']
@@ -57,7 +58,7 @@ export default function HomePage() {
     enabled: !!member,
   })
 
-  if (!member) return <p>Chargement...</p>
+  if (!member) return <LoadingPage />
 
   const todayLabel = capitalize(format(new Date(), 'EEEE d MMMM', { locale: fr }))
 

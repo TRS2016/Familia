@@ -7,6 +7,7 @@ import { HOUSEHOLD_ID } from '../lib/config'
 import { useAuth } from '../auth/useAuth'
 import { useMember } from '../auth/useMember'
 import type { Member } from '../auth/useMember'
+import LoadingPage from '../components/LoadingPage'
 import styles from './OnboardingPage.module.css'
 
 export default function OnboardingPage() {
@@ -65,7 +66,7 @@ export default function OnboardingPage() {
     navigate('/', { replace: true })
   }
 
-  if (isLoading || member) return <p>Chargement...</p>
+  if (isLoading || member) return <LoadingPage />
 
   return (
     <div className={styles.page}>

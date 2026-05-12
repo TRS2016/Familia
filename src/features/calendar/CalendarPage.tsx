@@ -10,6 +10,8 @@ import {
 import { fr } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
 import { ChevronLeft, ChevronRight, Plus, X, Clock, MapPin } from 'lucide-react'
+import Spinner from '../../components/Spinner'
+import EmptyState from '../../components/EmptyState'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
@@ -216,9 +218,22 @@ export default function CalendarPage() {
         </button>
       </nav>
 
-      {query.isLoading && <p className={styles.loading}>Chargement…</p>}
+      {query.isLoading && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+          <Spinner size={32} />
+        </div>
+      )}
 
       {/* ── Week view ────────────────────────────────────────────────────── */}
+      {view === 'week' && !query.isLoading && allEvents.length === 0 && (
+        <EmptyState
+          emoji="📅"
+          title="Semaine libre !"
+          description="Aucun événement cette semaine."
+          action={{ label: '+ Ajouter un événement', onClick: () => openAddForm() }}
+        />
+      )}
+
       {view === 'week' && (
         <div className={styles.weekList}>
           {weekDays.map(day => {

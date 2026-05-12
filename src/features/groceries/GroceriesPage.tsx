@@ -5,6 +5,8 @@ import { ChevronLeft, Plus, Check, Trash2 } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
 import type { Grocery } from './useGroceries'
+import Spinner from '../../components/Spinner'
+import EmptyState from '../../components/EmptyState'
 import styles from './GroceriesPage.module.css'
 
 function sortGroceries(items: Grocery[]): Grocery[] {
@@ -72,15 +74,17 @@ export default function GroceriesPage() {
       </form>
 
       {query.isLoading && (
-        <p className={styles.emptyText} style={{ padding: '24px 16px' }}>Chargement…</p>
+        <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
+          <Spinner size={32} />
+        </div>
       )}
 
-      {/* Empty state */}
       {!query.isLoading && sorted.length === 0 && (
-        <div className={styles.empty}>
-          <span className={styles.emptyEmoji}>🛒</span>
-          <p className={styles.emptyText}>La liste est vide.<br />Ajoute un premier article !</p>
-        </div>
+        <EmptyState
+          emoji="🛒"
+          title="La liste est vide"
+          description="Ajoute le premier article avec le champ ci-dessus."
+        />
       )}
 
       {/* Unchecked items */}
