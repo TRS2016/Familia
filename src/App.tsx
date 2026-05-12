@@ -1,15 +1,22 @@
+import { lazy, Suspense } from 'react'
 import { createBrowserRouter, RouterProvider } from 'react-router-dom'
 import LoginPage from './auth/LoginPage'
 import AuthCallback from './auth/AuthCallback'
 import RequireAuth from './auth/RequireAuth'
 import RequireMember from './auth/RequireMember'
-import OnboardingPage from './pages/OnboardingPage'
-import HomePage from './pages/HomePage'
-import GroceriesPage from './features/groceries/GroceriesPage'
-import CalendarPage from './features/calendar/CalendarPage'
-import SettingsPage from './pages/SettingsPage'
-import KakeboPage from './features/kakebo/KakeboPage'
-import HabitsPage from './features/habits/HabitsPage'
+import LoadingPage from './components/LoadingPage'
+
+const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
+const HomePage       = lazy(() => import('./pages/HomePage'))
+const GroceriesPage  = lazy(() => import('./features/groceries/GroceriesPage'))
+const CalendarPage   = lazy(() => import('./features/calendar/CalendarPage'))
+const SettingsPage   = lazy(() => import('./pages/SettingsPage'))
+const KakeboPage     = lazy(() => import('./features/kakebo/KakeboPage'))
+const HabitsPage     = lazy(() => import('./features/habits/HabitsPage'))
+
+function Lazy({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<LoadingPage />}>{children}</Suspense>
+}
 
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
@@ -17,16 +24,16 @@ const router = createBrowserRouter([
   {
     element: <RequireAuth />,
     children: [
-      { path: '/onboarding', element: <OnboardingPage /> },
+      { path: '/onboarding', element: <Lazy><OnboardingPage /></Lazy> },
       {
         element: <RequireMember />,
         children: [
-          { path: '/', element: <HomePage /> },
-          { path: '/groceries', element: <GroceriesPage /> },
-          { path: '/calendar', element: <CalendarPage /> },
-          { path: '/settings', element: <SettingsPage /> },
-          { path: '/kakebo',   element: <KakeboPage /> },
-          { path: '/habits',   element: <HabitsPage /> },
+          { path: '/',          element: <Lazy><HomePage /></Lazy> },
+          { path: '/groceries', element: <Lazy><GroceriesPage /></Lazy> },
+          { path: '/calendar',  element: <Lazy><CalendarPage /></Lazy> },
+          { path: '/settings',  element: <Lazy><SettingsPage /></Lazy> },
+          { path: '/kakebo',    element: <Lazy><KakeboPage /></Lazy> },
+          { path: '/habits',    element: <Lazy><HabitsPage /></Lazy> },
         ],
       },
     ],

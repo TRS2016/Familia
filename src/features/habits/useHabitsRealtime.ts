@@ -14,6 +14,7 @@ export function useHabitsRealtime() {
       })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'habit_completions' }, () => {
         queryClient.invalidateQueries({ queryKey: completionsKey('recent') })
+        queryClient.invalidateQueries({ queryKey: ['habit-completions'] })
       })
       .subscribe()
 
