@@ -2,11 +2,13 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { format, startOfWeek, addDays } from 'date-fns'
-import { ChevronLeft, Plus, X, Trash2, BarChart2, Flame } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, BarChart2, Flame } from 'lucide-react'
+import SlideUpModal from '../../components/SlideUpModal'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
+import { QK } from '../../lib/query-keys'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import {
@@ -43,7 +45,7 @@ export default function HabitsPage() {
 
   // Member list for filter + add modal
   const { data: members = [] } = useQuery({
-    queryKey: ['members-list', HOUSEHOLD_ID],
+    queryKey: QK.membersList,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('members').select('id, display_name').eq('household_id', HOUSEHOLD_ID)
@@ -195,13 +197,7 @@ export default function HabitsPage() {
 
       {/* ── Add habit modal ───────────────────────────────────────────── */}
       {showAdd && (
-        <div className={styles.overlay} onClick={() => setShowAdd(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <div className={styles.dragHandle} />
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>Nouvelle habitude</h2>
-              <button className={styles.closeBtn} onClick={() => setShowAdd(false)}><X size={18} strokeWidth={2.5} /></button>
-            </div>
+        <SlideUpModal title="Nouvelle habitude" onClose={() => setShowAdd(false)}>
             <form onSubmit={handleAddSubmit} className={styles.form}>
               <div className={styles.fieldGroup}>
                 <label htmlFor="h-name" className={styles.fieldLabel}>Nom</label>
@@ -259,8 +255,7 @@ export default function HabitsPage() {
                 {addHabit.isPending ? 'Création…' : 'Créer'}
               </button>
             </form>
-          </div>
-        </div>
+        </SlideUpModal>
       )}
 
       {/* ── Stats modal ───────────────────────────────────────────────── */}
@@ -378,13 +373,7 @@ function StatsModal({ habit, habits, completions, members, onSelectHabit, onClos
   const MONTH_LABELS = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc']
 
   return (
-    <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.modal} onClick={e => e.stopPropagation()}>
-        <div className={styles.dragHandle} />
-        <div className={styles.modalHeader}>
-          <h2 className={styles.modalTitle}>Statistiques</h2>
-          <button className={styles.closeBtn} onClick={onClose}><X size={18} strokeWidth={2.5} /></button>
-        </div>
+    <SlideUpModal title="Statistiques" onClose={onClose}>
 
         {/* Habit selector */}
         <div className={styles.habitSelector}>
@@ -484,7 +473,6 @@ function StatsModal({ habit, habits, completions, members, onSelectHabit, onClos
           </div>
         </div>
 
-      </div>
-    </div>
+    </SlideUpModal>
   )
 }

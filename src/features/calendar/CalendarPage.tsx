@@ -19,6 +19,7 @@ import { useEvents } from './useEvents'
 import { useEventsRealtime } from './useEventsRealtime'
 import type { CalendarEvent, NewEventInput } from './useEvents'
 import { MEMBER_PALETTE } from '../../lib/constants'
+import { QK } from '../../lib/query-keys'
 import styles from './CalendarPage.module.css'
 
 type View = 'week' | 'month'
@@ -108,7 +109,7 @@ export default function CalendarPage() {
   const allEvents = query.data ?? []
 
   const { data: householdMembers = [] } = useQuery({
-    queryKey: ['members-list', HOUSEHOLD_ID],
+    queryKey: QK.membersList,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('members')

@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { useAuth } from './useAuth'
+import { QK } from '../lib/query-keys'
 
 export interface Member {
   id: string
@@ -16,7 +17,7 @@ export function useMember() {
   const userId = session?.user.id
 
   return useQuery({
-    queryKey: ['member', userId],
+    queryKey: QK.member(userId!),
     queryFn: async (): Promise<Member | null> => {
       if (!userId) return null
       const { data, error } = await supabase

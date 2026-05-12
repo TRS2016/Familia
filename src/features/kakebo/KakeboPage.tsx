@@ -3,9 +3,10 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { format, addMonths, subMonths, getDaysInMonth } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Settings, X, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Settings, Trash2 } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
+import SlideUpModal from '../../components/SlideUpModal'
 import {
   useKakeboCategories,
   useKakeboEntries,
@@ -298,15 +299,7 @@ export default function KakeboPage() {
 
       {/* ── Add entry modal ───────────────────────────────────────────── */}
       {showAdd && (
-        <div className={styles.overlay} onClick={() => setShowAdd(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <div className={styles.dragHandle} />
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>Nouvelle opération</h2>
-              <button className={styles.closeBtn} onClick={() => setShowAdd(false)} aria-label="Fermer">
-                <X size={18} strokeWidth={2.5} />
-              </button>
-            </div>
+        <SlideUpModal title="Nouvelle opération" onClose={() => setShowAdd(false)}>
             <form onSubmit={handleAddSubmit} className={styles.form}>
               {/* Category picker */}
               <div className={styles.fieldGroup}>
@@ -383,21 +376,12 @@ export default function KakeboPage() {
                 {addEntry.isPending ? 'Enregistrement…' : 'Enregistrer'}
               </button>
             </form>
-          </div>
-        </div>
+        </SlideUpModal>
       )}
 
       {/* ── Budget settings modal ──────────────────────────────────────── */}
       {showBudget && (
-        <div className={styles.overlay} onClick={() => setShowBudget(false)}>
-          <div className={styles.modal} onClick={e => e.stopPropagation()}>
-            <div className={styles.dragHandle} />
-            <div className={styles.modalHeader}>
-              <h2 className={styles.modalTitle}>Paramètres Kakebo</h2>
-              <button className={styles.closeBtn} onClick={() => setShowBudget(false)} aria-label="Fermer">
-                <X size={18} strokeWidth={2.5} />
-              </button>
-            </div>
+        <SlideUpModal title="Paramètres Kakebo" onClose={() => setShowBudget(false)}>
             <div className={styles.form}>
               <div className={styles.fieldGroup}>
                 <label htmlFor="k-revenus" className={styles.fieldLabel}>Revenus mensuels (€)</label>
@@ -427,8 +411,7 @@ export default function KakeboPage() {
                 Enregistrer
               </button>
             </div>
-          </div>
-        </div>
+        </SlideUpModal>
       )}
 
     </div>

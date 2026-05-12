@@ -5,6 +5,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
 import { useMember } from '../auth/useMember'
+import { QK } from '../lib/query-keys'
 import { useToast } from '../components/Toast'
 import LoadingPage from '../components/LoadingPage'
 import { MEMBER_PALETTE } from '../lib/constants'
@@ -36,7 +37,7 @@ export default function HomePage() {
   const { showToast } = useToast()
 
   const { data: householdDetails } = useQuery({
-    queryKey: ['household-details', member?.household_id],
+    queryKey: QK.householdDetails(member?.household_id ?? ''),
     queryFn: async (): Promise<HouseholdDetails> => {
       const [householdRes, membersRes] = await Promise.all([
         supabase

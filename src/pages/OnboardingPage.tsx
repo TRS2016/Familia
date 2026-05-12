@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { HOUSEHOLD_ID } from '../lib/config'
 import { useAuth } from '../auth/useAuth'
+import { QK } from '../lib/query-keys'
 import { useMember } from '../auth/useMember'
 import type { Member } from '../auth/useMember'
 import LoadingPage from '../components/LoadingPage'
@@ -20,7 +21,7 @@ export default function OnboardingPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
 
   const { data: household } = useQuery({
-    queryKey: ['household-name', HOUSEHOLD_ID],
+    queryKey: QK.householdName,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('households')
@@ -62,7 +63,7 @@ export default function OnboardingPage() {
 
     // Populate cache immediately — avoids a refetch and the null → /onboarding
     // redirect loop that would occur if RequireMember saw stale data.
-    queryClient.setQueryData(['member', session.user.id], data as Member)
+    queryClient.setQueryData(QK.member(session.user.id), data as Member)
     navigate('/', { replace: true })
   }
 

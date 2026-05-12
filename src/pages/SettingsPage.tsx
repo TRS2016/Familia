@@ -6,6 +6,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { HOUSEHOLD_ID } from '../lib/config'
 import { useAuth } from '../auth/useAuth'
+import { QK } from '../lib/query-keys'
 import { useMember } from '../auth/useMember'
 import type { Member } from '../auth/useMember'
 import { useToast } from '../components/Toast'
@@ -40,10 +41,10 @@ export default function SettingsPage() {
       showToast({ type: 'error', message: 'Impossible de mettre à jour le prénom.' })
       return
     }
-    queryClient.setQueryData<Member>(['member', session!.user.id], old =>
+    queryClient.setQueryData<Member>(QK.member(session!.user.id), old =>
       old ? { ...old, display_name: trimmed } : old!
     )
-    queryClient.invalidateQueries({ queryKey: ['members-list', HOUSEHOLD_ID] })
+    queryClient.invalidateQueries({ queryKey: QK.membersList })
     showToast({ type: 'success', message: 'Prénom mis à jour !' })
   }
 
@@ -69,7 +70,7 @@ export default function SettingsPage() {
 
   // ── Household members ─────────────────────────────────────────────────────
   const { data: householdMembers = [] } = useQuery({
-    queryKey: ['members-list', HOUSEHOLD_ID],
+    queryKey: QK.membersList,
     queryFn: async () => {
       const { data, error } = await supabase
         .from('members')
