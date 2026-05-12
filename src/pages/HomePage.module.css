@@ -175,6 +175,34 @@
   margin-left: 4px;
 }
 
+/* ── Skeleton ────────────────────────────────────────────────────────────── */
+
+@keyframes shimmer {
+  0%   { background-position: -400px 0; }
+  100% { background-position:  400px 0; }
+}
+
+.skeleton {
+  border-radius: 8px;
+  background: linear-gradient(90deg, var(--border-subtle) 25%, var(--border) 50%, var(--border-subtle) 75%);
+  background-size: 800px 100%;
+  animation: shimmer 1.4s ease-in-out infinite;
+}
+
+.skeletonAvatar {
+  composes: skeleton;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeletonText {
+  composes: skeleton;
+  height: 13px;
+  border-radius: 6px;
+}
+
 /* ── Footer / sign-out ───────────────────────────────────────────────────── */
 
 .footer {

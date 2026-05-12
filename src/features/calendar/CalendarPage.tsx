@@ -20,6 +20,7 @@ import { useEventsRealtime } from './useEventsRealtime'
 import type { CalendarEvent, NewEventInput } from './useEvents'
 import { MEMBER_PALETTE } from '../../lib/constants'
 import { QK } from '../../lib/query-keys'
+import { capitalize } from '../../lib/utils'
 import styles from './CalendarPage.module.css'
 
 type View = 'week' | 'month'
@@ -35,9 +36,7 @@ export function getMemberColor(
   return MEMBER_PALETTE[index >= 0 ? index % MEMBER_PALETTE.length : 0]
 }
 
-function capitalize(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
+
 
 function pgTimeToInput(t: string | null): string {
   return t ? t.slice(0, 5) : ''

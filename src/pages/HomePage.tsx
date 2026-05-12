@@ -9,6 +9,7 @@ import { QK } from '../lib/query-keys'
 import { useToast } from '../components/Toast'
 import LoadingPage from '../components/LoadingPage'
 import { MEMBER_PALETTE } from '../lib/constants'
+import { capitalize } from '../lib/utils'
 import styles from './HomePage.module.css'
 
 function Avatar({ name, index, size = 36 }: { name: string; index: number; size?: number }) {
@@ -36,7 +37,7 @@ export default function HomePage() {
   const { data: member } = useMember()
   const { showToast } = useToast()
 
-  const { data: householdDetails } = useQuery({
+  const { data: householdDetails, isLoading: householdLoading } = useQuery({
     queryKey: QK.householdDetails(member?.household_id ?? ''),
     queryFn: async (): Promise<HouseholdDetails> => {
       const [householdRes, membersRes] = await Promise.all([
@@ -79,15 +80,20 @@ export default function HomePage() {
           <h1 className={styles.greeting}>Bonjour {member.display_name} 👋</h1>
         </div>
         <div className={styles.headerRight}>
-          {householdDetails && (
-            <div className={styles.avatarStack}>
-              {householdDetails.members.slice(0, 3).map((m, i) => (
-                <div key={m.id} className={styles.avatarWrap}>
-                  <Avatar name={m.display_name} index={i} size={36} />
-                </div>
-              ))}
-            </div>
-          )}
+          <div className={styles.avatarStack}>
+            {householdLoading || !householdDetails
+              ? [0, 1].map(i => (
+                  <div key={i} className={styles.avatarWrap}>
+                    <div className={styles.skeletonAvatar} />
+                  </div>
+                ))
+              : householdDetails.members.slice(0, 3).map((m, i) => (
+                  <div key={m.id} className={styles.avatarWrap}>
+                    <Avatar name={m.display_name} index={i} size={36} />
+                  </div>
+                ))
+            }
+          </div>
           <Link to="/settings" className={styles.settingsLink} aria-label="Réglages">
             <Settings size={20} strokeWidth={2} />
           </Link>
@@ -145,12 +151,19 @@ export default function HomePage() {
       </div>
 
       {/* Members */}
-      {householdDetails && (
-        <>
-          <p className={styles.sectionLabel}>Foyer · {householdDetails.name}</p>
-          <div className={styles.card}>
-            <ul className={styles.membersList}>
-              {householdDetails.members.map((m, i) => (
+      <p className={styles.sectionLabel}>
+        Foyer{householdDetails ? ` · ${householdDetails.name}` : ''}
+      </p>
+      <div className={styles.card}>
+        <ul className={styles.membersList}>
+          {householdLoading || !householdDetails
+            ? [0, 1].map(i => (
+                <li key={i} className={styles.memberRow}>
+                  <div className={styles.skeletonAvatar} />
+                  <div className={styles.skeletonText} style={{ width: 80 + i * 24 }} />
+                </li>
+              ))
+            : householdDetails.members.map((m, i) => (
                 <li key={m.id} className={styles.memberRow}>
                   <Avatar name={m.display_name} index={i} size={36} />
                   <span className={styles.memberName}>
@@ -160,11 +173,10 @@ export default function HomePage() {
                     )}
                   </span>
                 </li>
-              ))}
-            </ul>
-          </div>
-        </>
-      )}
+              ))
+          }
+        </ul>
+      </div>
 
       {/* Sign out */}
       <div className={styles.footer}>
@@ -177,6 +189,3 @@ export default function HomePage() {
   )
 }
 
-function capitalize(s: string) {
-  return s.charAt(0).toUpperCase() + s.slice(1)
-}
