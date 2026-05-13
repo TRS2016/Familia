@@ -51,20 +51,21 @@ export function useGroceries() {
 
   // ── Add ──────────────────────────────────────────────────────────────────
   const addGrocery = useMutation({
-    mutationFn: async (name: string): Promise<Grocery> => {
+    mutationFn: async ({ name, quantity }: { name: string; quantity?: string }): Promise<Grocery> => {
       const { data, error } = await supabase
         .from('groceries')
         .insert({
           household_id: HOUSEHOLD_ID,
           created_by: member?.id ?? null,
           name: name.trim(),
+          quantity: quantity?.trim() || null,
         })
         .select(GROCERY_SELECT)
         .single()
       if (error) throw error
       return data as unknown as Grocery
     },
-    onMutate: async (name: string) => {
+    onMutate: async ({ name, quantity }) => {
       await queryClient.cancelQueries({ queryKey: GROCERIES_KEY })
       const previous = queryClient.getQueryData<Grocery[]>(GROCERIES_KEY) ?? []
       const optimisticId = `optimistic-${Date.now()}`
@@ -74,7 +75,7 @@ export function useGroceries() {
         household_id: HOUSEHOLD_ID,
         created_by: member?.id ?? null,
         name: name.trim(),
-        quantity: null,
+        quantity: quantity?.trim() || null,
         checked: false,
         checked_by: null,
         checked_at: null,
@@ -86,13 +87,12 @@ export function useGroceries() {
       queryClient.setQueryData<Grocery[]>(GROCERIES_KEY, [optimistic, ...previous])
       return { previous, optimisticId }
     },
-    onError: (_err, _name, context) => {
+    onError: (_err, _vars, context) => {
       queryClient.setQueryData(GROCERIES_KEY, context?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible d\'ajouter l\'article. Réessaie.' })
     },
-    onSuccess: (newItem, _name, context) => {
+    onSuccess: (newItem, _vars, context) => {
       if (!context) return
-      // Swap the optimistic placeholder for the real server row.
       queryClient.setQueryData<Grocery[]>(GROCERIES_KEY, (old = []) =>
         old.map(g => g.id === context.optimisticId ? newItem : g)
       )
@@ -155,5 +155,27 @@ export function useGroceries() {
     },
   })
 
-  return { query, addGrocery, toggleGrocery, deleteGrocery }
+  // ── Clear checked ─────────────────────────────────────────────────────────
+  const clearChecked = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('groceries')
+        .delete()
+        .eq('household_id', HOUSEHOLD_ID)
+        .eq('checked', true)
+      if (error) throw error
+    },
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: GROCERIES_KEY })
+      const previous = queryClient.getQueryData<Grocery[]>(GROCERIES_KEY) ?? []
+      queryClient.setQueryData<Grocery[]>(GROCERIES_KEY, previous.filter(g => !g.checked))
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      queryClient.setQueryData(GROCERIES_KEY, context?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de vider les articles cochés.' })
+    },
+  })
+
+  return { query, addGrocery, toggleGrocery, deleteGrocery, clearChecked }
 }

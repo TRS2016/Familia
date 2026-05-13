@@ -81,6 +81,32 @@
   box-shadow: var(--shadow-card);
 }
 
+.qtyInput {
+  width: 44px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  outline: none;
+  padding: 9px 0;
+  text-align: center;
+}
+
+.qtyInput::placeholder {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.addDivider {
+  width: 1px;
+  height: 18px;
+  background: var(--border-subtle);
+  flex-shrink: 0;
+}
+
 .addInput {
   flex: 1;
   border: none;
@@ -186,6 +212,29 @@
   min-width: 0;
 }
 
+.itemNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.qtyBadge {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--accent);
+  background: rgba(224, 123, 84, 0.12);
+  border-radius: 4px;
+  padding: 1px 5px;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.qtyBadgeChecked {
+  color: var(--text-muted);
+  background: var(--border-subtle);
+}
+
 .itemName {
   font-size: 14px;
   font-weight: 700;
@@ -260,6 +309,32 @@
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.6px;
+  white-space: nowrap;
+}
+
+.clearBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 2px 6px;
+  border-radius: var(--radius-xs);
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+  flex-shrink: 0;
+}
+
+.clearBtn:hover {
+  color: #c0392b;
+  background: rgba(192, 57, 43, 0.08);
+}
+
+.clearBtn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
 }
 
 /* ── Empty state ─────────────────────────────────────────────────────────── */

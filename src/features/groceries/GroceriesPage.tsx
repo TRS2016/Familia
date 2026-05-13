@@ -23,9 +23,10 @@ function sortGroceries(items: Grocery[]): Grocery[] {
 }
 
 export default function GroceriesPage() {
-  const { query, addGrocery, toggleGrocery, deleteGrocery } = useGroceries()
+  const { query, addGrocery, toggleGrocery, deleteGrocery, clearChecked } = useGroceries()
   useGroceriesRealtime()
   const [newName, setNewName] = useState('')
+  const [newQty, setNewQty]   = useState('')
 
   const sorted = sortGroceries(query.data ?? [])
   const unchecked = sorted.filter(g => !g.checked)
@@ -35,8 +36,9 @@ export default function GroceriesPage() {
     e.preventDefault()
     const name = newName.trim()
     if (!name) return
-    addGrocery.mutate(name)
+    addGrocery.mutate({ name, quantity: newQty.trim() || undefined })
     setNewName('')
+    setNewQty('')
   }
 
   return (
@@ -53,6 +55,16 @@ export default function GroceriesPage() {
       {/* Add form — sticky */}
       <form onSubmit={handleAdd} className={styles.addForm}>
         <div className={styles.addRow}>
+          <input
+            type="text"
+            value={newQty}
+            onChange={e => setNewQty(e.target.value)}
+            placeholder="qté"
+            disabled={addGrocery.isPending}
+            className={styles.qtyInput}
+            autoComplete="off"
+          />
+          <span className={styles.addDivider} />
           <input
             type="text"
             value={newName}
@@ -108,6 +120,13 @@ export default function GroceriesPage() {
             <span className={styles.separatorLine} />
             <span className={styles.separatorLabel}>Déjà pris</span>
             <span className={styles.separatorLine} />
+            <button
+              className={styles.clearBtn}
+              onClick={() => clearChecked.mutate()}
+              disabled={clearChecked.isPending}
+            >
+              Tout effacer
+            </button>
           </div>
           <ul className={styles.list}>
             {checked.map(item => (
@@ -160,8 +179,15 @@ function GroceryItem({
 
       {/* Name + meta */}
       <div className={styles.itemBody}>
-        <div className={[styles.itemName, item.checked ? styles.itemNameChecked : ''].join(' ')}>
-          {item.name}
+        <div className={styles.itemNameRow}>
+          {item.quantity && (
+            <span className={[styles.qtyBadge, item.checked ? styles.qtyBadgeChecked : ''].join(' ')}>
+              {item.quantity}
+            </span>
+          )}
+          <span className={[styles.itemName, item.checked ? styles.itemNameChecked : ''].join(' ')}>
+            {item.name}
+          </span>
         </div>
         {metaParts.length > 0 && (
           <div className={styles.itemMeta}>{metaParts.join(' · ')}</div>
