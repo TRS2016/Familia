@@ -25,3 +25,9 @@ dist-ssr
 
 # Claude Code local settings
 .claude/settings.local.json
+
+# Prototype original (référence locale uniquement)
+Familia v6.html
+
+# Supabase temp files
+supabase/.temp/
