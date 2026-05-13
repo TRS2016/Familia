@@ -28,6 +28,3 @@ dist-ssr
 
 # Prototype original (référence locale uniquement)
 Familia v6.html
-
-# Supabase temp files
-supabase/.temp/
