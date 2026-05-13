@@ -56,7 +56,7 @@ export default function KakeboPage() {
 
   const { data: categories = [], isLoading: catsLoading } = useKakeboCategories()
   const { data: entries = [], isLoading: entriesLoading } = useKakeboEntries(year, month)
-  useKakeboRealtime(year, month)
+  useKakeboRealtime()
 
   const addEntry    = useAddEntry(year, month)
   const editEntry   = useEditEntry(year, month)

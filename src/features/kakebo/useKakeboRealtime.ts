@@ -1,9 +1,10 @@
 import { useEffect } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
-import { KAKEBO_CATS_KEY, kakeboEntriesKey } from './useKakebo'
+import { HOUSEHOLD_ID } from '../../lib/config'
+import { KAKEBO_CATS_KEY } from './useKakebo'
 
-export function useKakeboRealtime(year: number, month: number) {
+export function useKakeboRealtime() {
   const queryClient = useQueryClient()
 
   useEffect(() => {
@@ -13,7 +14,7 @@ export function useKakeboRealtime(year: number, month: number) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'kakebo_entries' },
         () => {
-          queryClient.invalidateQueries({ queryKey: kakeboEntriesKey(year, month) })
+          queryClient.invalidateQueries({ queryKey: ['kakebo-entries', HOUSEHOLD_ID] })
         }
       )
       .on(
@@ -28,5 +29,5 @@ export function useKakeboRealtime(year: number, month: number) {
     return () => {
       supabase.removeChannel(channel)
     }
-  }, [queryClient, year, month])
+  }, [queryClient])
 }
