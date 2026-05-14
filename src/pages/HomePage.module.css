@@ -138,6 +138,113 @@
   font-weight: 600;
 }
 
+/* ── Widgets ─────────────────────────────────────────────────────────────── */
+
+.widget {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.widgetHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.widgetLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.widgetLink {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+  transition: opacity 0.15s;
+}
+
+.widgetLink:hover { opacity: 0.7; }
+
+/* Events widget */
+
+.eventsList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.eventRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.eventRowFirst {
+  padding-top: 0;
+}
+
+.eventRow:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.eventDate {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  min-width: 34px;
+  flex-shrink: 0;
+}
+
+.eventTitle {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.eventDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* Grocery widget */
+
+.groceryRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.groceryCount {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.groceryNames {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 /* ── Members card ────────────────────────────────────────────────────────── */
 
 .card {

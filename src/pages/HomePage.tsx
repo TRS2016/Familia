@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ShoppingCart, Calendar, Settings, BookOpen, Flame, Tv } from 'lucide-react'
-import { format } from 'date-fns'
+import { format, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
+import { HOUSEHOLD_ID } from '../lib/config'
 import { useMember } from '../auth/useMember'
 import { QK } from '../lib/query-keys'
 import { useToast } from '../components/Toast'
@@ -33,9 +34,64 @@ interface HouseholdDetails {
   members: { id: string; display_name: string }[]
 }
 
+interface UpcomingEvent {
+  id: string
+  title: string
+  date: string
+  member_id: string | null
+}
+
+interface GroceryPreview {
+  id: string
+  name: string
+}
+
+function eventDateLabel(dateStr: string): string {
+  const today    = format(new Date(), 'yyyy-MM-dd')
+  const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd')
+  if (dateStr === today)    return 'Auj.'
+  if (dateStr === tomorrow) return 'Dem.'
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return capitalize(format(new Date(y, m - 1, d), 'EEE d MMM', { locale: fr }))
+}
+
 export default function HomePage() {
   const { data: member } = useMember()
   const { showToast } = useToast()
+
+  const { data: upcomingEvents } = useQuery({
+    queryKey: ['home-events-upcoming', HOUSEHOLD_ID],
+    queryFn: async (): Promise<UpcomingEvent[]> => {
+      const today = format(new Date(), 'yyyy-MM-dd')
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, title, date, member_id')
+        .eq('household_id', HOUSEHOLD_ID)
+        .gte('date', today)
+        .order('date', { ascending: true })
+        .order('start_time', { ascending: true, nullsFirst: true })
+        .limit(4)
+      if (error) throw error
+      return data as UpcomingEvent[]
+    },
+    enabled: !!member,
+  })
+
+  const { data: groceryPreview } = useQuery({
+    queryKey: ['home-groceries', HOUSEHOLD_ID],
+    queryFn: async (): Promise<GroceryPreview[]> => {
+      const { data, error } = await supabase
+        .from('groceries')
+        .select('id, name')
+        .eq('household_id', HOUSEHOLD_ID)
+        .eq('checked', false)
+        .order('created_at', { ascending: false })
+        .limit(10)
+      if (error) throw error
+      return data as GroceryPreview[]
+    },
+    enabled: !!member,
+  })
 
   const { data: householdDetails, isLoading: householdLoading } = useQuery({
     queryKey: QK.householdDetails(member?.household_id ?? ''),
@@ -149,6 +205,54 @@ export default function HomePage() {
           </div>
         </Link>
       </div>
+
+      {/* Widget — Événements à venir */}
+      {upcomingEvents && upcomingEvents.length > 0 && (
+        <div className={styles.widget}>
+          <div className={styles.widgetHead}>
+            <span className={styles.widgetLabel}>À venir</span>
+            <Link to="/calendar" className={styles.widgetLink}>Voir tout</Link>
+          </div>
+          <div className={styles.card}>
+            <ul className={styles.eventsList}>
+              {upcomingEvents.map((event, i) => {
+                const members = householdDetails?.members ?? []
+                const idx = members.findIndex(m => m.id === event.member_id)
+                const color = idx >= 0 ? MEMBER_PALETTE[idx % MEMBER_PALETTE.length] : undefined
+                return (
+                  <li key={event.id} className={[styles.eventRow, i === 0 ? styles.eventRowFirst : ''].join(' ')}>
+                    <span className={styles.eventDate}>{eventDateLabel(event.date)}</span>
+                    <span className={styles.eventTitle}>{event.title}</span>
+                    {color && <span className={styles.eventDot} style={{ background: color }} />}
+                  </li>
+                )
+              })}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Widget — Courses */}
+      {groceryPreview && groceryPreview.length > 0 && (
+        <div className={styles.widget}>
+          <div className={styles.widgetHead}>
+            <span className={styles.widgetLabel}>Courses</span>
+            <Link to="/groceries" className={styles.widgetLink}>Voir tout</Link>
+          </div>
+          <div className={styles.card}>
+            <div className={styles.groceryRow}>
+              <ShoppingCart size={15} color="#5B9E8F" strokeWidth={2.5} />
+              <span className={styles.groceryCount}>
+                {groceryPreview.length} article{groceryPreview.length > 1 ? 's' : ''}
+              </span>
+            </div>
+            <p className={styles.groceryNames}>
+              {groceryPreview.slice(0, 5).map(g => g.name).join(' · ')}
+              {groceryPreview.length > 5 ? ' · …' : ''}
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Members */}
       <p className={styles.sectionLabel}>
