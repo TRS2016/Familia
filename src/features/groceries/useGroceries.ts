@@ -12,6 +12,7 @@ export interface Grocery {
   created_by: string | null
   name: string
   quantity: string | null
+  category: string | null
   checked: boolean
   checked_by: string | null
   checked_at: string | null
@@ -51,7 +52,7 @@ export function useGroceries() {
 
   // ── Add ──────────────────────────────────────────────────────────────────
   const addGrocery = useMutation({
-    mutationFn: async ({ name, quantity }: { name: string; quantity?: string }): Promise<Grocery> => {
+    mutationFn: async ({ name, quantity, category }: { name: string; quantity?: string; category?: string }): Promise<Grocery> => {
       const { data, error } = await supabase
         .from('groceries')
         .insert({
@@ -59,13 +60,14 @@ export function useGroceries() {
           created_by: member?.id ?? null,
           name: name.trim(),
           quantity: quantity?.trim() || null,
+          category: category || null,
         })
         .select(GROCERY_SELECT)
         .single()
       if (error) throw error
       return data as unknown as Grocery
     },
-    onMutate: async ({ name, quantity }) => {
+    onMutate: async ({ name, quantity, category }) => {
       await queryClient.cancelQueries({ queryKey: GROCERIES_KEY })
       const previous = queryClient.getQueryData<Grocery[]>(GROCERIES_KEY) ?? []
       const optimisticId = `optimistic-${Date.now()}`
@@ -76,6 +78,7 @@ export function useGroceries() {
         created_by: member?.id ?? null,
         name: name.trim(),
         quantity: quantity?.trim() || null,
+        category: category || null,
         checked: false,
         checked_by: null,
         checked_at: null,

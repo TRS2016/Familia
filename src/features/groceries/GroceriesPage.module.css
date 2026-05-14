@@ -146,6 +146,53 @@
   cursor: not-allowed;
 }
 
+/* ── Category chips ──────────────────────────────────────────────────────── */
+
+.categoryChips {
+  display: flex;
+  gap: 6px;
+  padding: 8px 0 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.categoryChips::-webkit-scrollbar {
+  display: none;
+}
+
+.categoryChip {
+  flex-shrink: 0;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.categoryChipActive {
+  border-color: var(--accent);
+  background: rgba(224, 123, 84, 0.1);
+  color: var(--accent);
+}
+
+/* ── Category header ─────────────────────────────────────────────────────── */
+
+.categoryHeader {
+  padding: 14px 16px 4px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
 /* ── Item list ───────────────────────────────────────────────────────────── */
 
 .list {

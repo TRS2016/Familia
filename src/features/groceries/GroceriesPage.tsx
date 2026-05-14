@@ -9,34 +9,80 @@ import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import styles from './GroceriesPage.module.css'
 
-function sortGroceries(items: Grocery[]): Grocery[] {
-  const unchecked = items
+const CATEGORIES = [
+  { key: 'Fruits & légumes', emoji: '🥦' },
+  { key: 'Frais',            emoji: '🧊' },
+  { key: 'Épicerie',         emoji: '🥫' },
+  { key: 'Boissons',         emoji: '🥤' },
+  { key: 'Hygiène',          emoji: '🧴' },
+  { key: 'Autre',            emoji: '📦' },
+] as const
+
+type CategoryKey = typeof CATEGORIES[number]['key']
+
+const CATEGORY_ORDER = CATEGORIES.map(c => c.key)
+
+function getCategoryEmoji(key: string): string {
+  return CATEGORIES.find(c => c.key === key)?.emoji ?? '📦'
+}
+
+function sortUnchecked(items: Grocery[]): Grocery[] {
+  return items
     .filter(g => !g.checked)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-  const checked = items
+}
+
+function sortChecked(items: Grocery[]): Grocery[] {
+  return items
     .filter(g => g.checked)
     .sort((a, b) =>
       new Date(b.checked_at ?? b.created_at).getTime() -
       new Date(a.checked_at ?? a.created_at).getTime()
     )
-  return [...unchecked, ...checked]
+}
+
+type CategoryGroup = { category: string | null; items: Grocery[] }
+
+function groupUnchecked(items: Grocery[]): CategoryGroup[] {
+  const hasAny = items.some(g => g.category)
+  if (!hasAny) return [{ category: null, items }]
+
+  const map = new Map<string | null, Grocery[]>([[null, []]])
+  for (const key of CATEGORY_ORDER) map.set(key, [])
+
+  for (const item of items) {
+    const k = item.category && CATEGORY_ORDER.includes(item.category as CategoryKey)
+      ? item.category
+      : null
+    map.get(k)!.push(item)
+  }
+
+  const groups: CategoryGroup[] = []
+  const nullItems = map.get(null)!
+  if (nullItems.length) groups.push({ category: null, items: nullItems })
+  for (const key of CATEGORY_ORDER) {
+    const g = map.get(key)!
+    if (g.length) groups.push({ category: key, items: g })
+  }
+  return groups
 }
 
 export default function GroceriesPage() {
   const { query, addGrocery, toggleGrocery, deleteGrocery, clearChecked } = useGroceries()
   useGroceriesRealtime()
-  const [newName, setNewName] = useState('')
-  const [newQty, setNewQty]   = useState('')
+  const [newName, setNewName]           = useState('')
+  const [newQty, setNewQty]             = useState('')
+  const [formCategory, setFormCategory] = useState<string | null>(null)
 
-  const sorted = sortGroceries(query.data ?? [])
-  const unchecked = sorted.filter(g => !g.checked)
-  const checked = sorted.filter(g => g.checked)
+  const allItems  = query.data ?? []
+  const unchecked = groupUnchecked(sortUnchecked(allItems))
+  const checked   = sortChecked(allItems)
 
   function handleAdd(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const name = newName.trim()
     if (!name) return
-    addGrocery.mutate({ name, quantity: newQty.trim() || undefined })
+    addGrocery.mutate({ name, quantity: newQty.trim() || undefined, category: formCategory || undefined })
     setNewName('')
     setNewQty('')
   }
@@ -83,6 +129,18 @@ export default function GroceriesPage() {
             <Plus size={18} strokeWidth={2.5} />
           </button>
         </div>
+        <div className={styles.categoryChips}>
+          {CATEGORIES.map(c => (
+            <button
+              key={c.key}
+              type="button"
+              className={[styles.categoryChip, formCategory === c.key ? styles.categoryChipActive : ''].join(' ')}
+              onClick={() => setFormCategory(f => f === c.key ? null : c.key)}
+            >
+              {c.emoji} {c.key}
+            </button>
+          ))}
+        </div>
       </form>
 
       {query.isLoading && (
@@ -91,7 +149,7 @@ export default function GroceriesPage() {
         </div>
       )}
 
-      {!query.isLoading && sorted.length === 0 && (
+      {!query.isLoading && allItems.length === 0 && (
         <EmptyState
           emoji="🛒"
           title="La liste est vide"
@@ -99,19 +157,26 @@ export default function GroceriesPage() {
         />
       )}
 
-      {/* Unchecked items */}
-      {unchecked.length > 0 && (
-        <ul className={styles.list}>
-          {unchecked.map(item => (
-            <GroceryItem
-              key={item.id}
-              item={item}
-              onToggle={() => toggleGrocery.mutate({ id: item.id, checked: true })}
-              onDelete={() => deleteGrocery.mutate(item.id)}
-            />
-          ))}
-        </ul>
-      )}
+      {/* Unchecked items — grouped by category */}
+      {unchecked.map(group => (
+        <div key={group.category ?? '__none'}>
+          {group.category && (
+            <div className={styles.categoryHeader}>
+              {getCategoryEmoji(group.category)} {group.category}
+            </div>
+          )}
+          <ul className={styles.list}>
+            {group.items.map(item => (
+              <GroceryItem
+                key={item.id}
+                item={item}
+                onToggle={() => toggleGrocery.mutate({ id: item.id, checked: true })}
+                onDelete={() => deleteGrocery.mutate(item.id)}
+              />
+            ))}
+          </ul>
+        </div>
+      ))}
 
       {/* Checked items */}
       {checked.length > 0 && (

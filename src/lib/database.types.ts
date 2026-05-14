@@ -80,6 +80,7 @@ export type Database = {
       }
       groceries: {
         Row: {
+          category: string | null
           checked: boolean
           checked_at: string | null
           checked_by: string | null
@@ -91,6 +92,7 @@ export type Database = {
           quantity: string | null
         }
         Insert: {
+          category?: string | null
           checked?: boolean
           checked_at?: string | null
           checked_by?: string | null
@@ -102,6 +104,7 @@ export type Database = {
           quantity?: string | null
         }
         Update: {
+          category?: string | null
           checked?: boolean
           checked_at?: string | null
           checked_by?: string | null
