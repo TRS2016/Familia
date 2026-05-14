@@ -25,6 +25,7 @@ export type Database = {
           id: string
           location: string | null
           member_id: string | null
+          recurrence_group_id: string | null
           start_time: string | null
           title: string
         }
@@ -38,6 +39,7 @@ export type Database = {
           id?: string
           location?: string | null
           member_id?: string | null
+          recurrence_group_id?: string | null
           start_time?: string | null
           title: string
         }
@@ -51,6 +53,7 @@ export type Database = {
           id?: string
           location?: string | null
           member_id?: string | null
+          recurrence_group_id?: string | null
           start_time?: string | null
           title?: string
         }

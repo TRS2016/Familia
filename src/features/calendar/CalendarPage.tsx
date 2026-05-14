@@ -9,7 +9,7 @@ import {
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus, X, Clock, MapPin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, Clock, MapPin, RotateCw } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import { supabase } from '../../lib/supabase'
@@ -17,7 +17,7 @@ import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useEvents } from './useEvents'
 import { useEventsRealtime } from './useEventsRealtime'
-import type { CalendarEvent, NewEventInput } from './useEvents'
+import type { CalendarEvent, NewEventInput, RecurrenceType } from './useEvents'
 import { MEMBER_PALETTE } from '../../lib/constants'
 import { QK } from '../../lib/query-keys'
 import { capitalize } from '../../lib/utils'
@@ -26,6 +26,13 @@ import styles from './CalendarPage.module.css'
 type View = 'week' | 'month'
 
 const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+
+const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
+  { key: 'none',    label: 'Jamais'  },
+  { key: 'weekly',  label: 'Hebdo'   },
+  { key: 'monthly', label: 'Mensuel' },
+  { key: 'yearly',  label: 'Annuel'  },
+]
 
 export function getMemberColor(
   memberId: string | null,
@@ -122,6 +129,8 @@ export default function CalendarPage() {
   // ── Form state ───────────────────────────────────────────────────────────
   const [showForm, setShowForm] = useState(false)
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [editingRecurrenceGroupId, setEditingRecurrenceGroupId] = useState<string | null>(null)
+  const [editScope, setEditScope] = useState<'one' | 'series'>('one')
   const [formTitle, setFormTitle] = useState('')
   const [formDate, setFormDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [formStartTime, setFormStartTime] = useState('')
@@ -129,9 +138,12 @@ export default function CalendarPage() {
   const [formAllDay, setFormAllDay] = useState(false)
   const [formMemberId, setFormMemberId] = useState<string | null>(null)
   const [formLocation, setFormLocation] = useState('')
+  const [formRecurrence, setFormRecurrence] = useState<RecurrenceType>('none')
 
   function openAddForm(defaultDate?: string) {
     setEditingId(null)
+    setEditingRecurrenceGroupId(null)
+    setEditScope('one')
     setFormTitle('')
     setFormDate(defaultDate ?? format(new Date(), 'yyyy-MM-dd'))
     setFormStartTime('')
@@ -139,11 +151,14 @@ export default function CalendarPage() {
     setFormAllDay(false)
     setFormMemberId(member?.id ?? null)
     setFormLocation('')
+    setFormRecurrence('none')
     setShowForm(true)
   }
 
   function openEditForm(event: CalendarEvent) {
     setEditingId(event.id)
+    setEditingRecurrenceGroupId(event.recurrence_group_id)
+    setEditScope('one')
     setFormTitle(event.title)
     setFormDate(event.date)
     setFormStartTime(pgTimeToInput(event.start_time))
@@ -151,6 +166,7 @@ export default function CalendarPage() {
     setFormAllDay(event.all_day)
     setFormMemberId(event.member_id)
     setFormLocation(event.location ?? '')
+    setFormRecurrence('none')
     setShowForm(true)
   }
 
@@ -169,9 +185,10 @@ export default function CalendarPage() {
       all_day: formAllDay,
       member_id: formMemberId,
       location: formLocation || null,
+      recurrence: formRecurrence,
     }
     if (editingId) {
-      updateEvent.mutate({ id: editingId, ...input })
+      updateEvent.mutate({ id: editingId, ...input, scope: editScope, recurrenceGroupId: editingRecurrenceGroupId })
     } else {
       addEvent.mutate(input)
     }
@@ -308,11 +325,16 @@ export default function CalendarPage() {
                                   {event.member.display_name}
                                 </span>
                               )}
+                              {event.recurrence_group_id && (
+                                <span className={styles.eventMetaItem}>
+                                  <RotateCw size={10} />
+                                </span>
+                              )}
                             </div>
                           </div>
                           <button
                             className={styles.eventDeleteBtn}
-                            onClick={e => { e.stopPropagation(); deleteEvent.mutate(event.id) }}
+                            onClick={e => { e.stopPropagation(); deleteEvent.mutate({ id: event.id }) }}
                             disabled={isOptimistic}
                             aria-label={`Supprimer ${event.title}`}
                           >
@@ -527,17 +549,63 @@ export default function CalendarPage() {
                 />
               </div>
 
+              {!editingId && (
+                <div className={styles.formField}>
+                  <span className={styles.formLabel}>Répétition</span>
+                  <div className={styles.recurrenceRow}>
+                    {RECURRENCE_OPTIONS.map(opt => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        className={[styles.recurrenceBtn, formRecurrence === opt.key ? styles.recurrenceBtnActive : ''].join(' ')}
+                        onClick={() => setFormRecurrence(opt.key)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {editingId && editingRecurrenceGroupId && (
+                <div className={styles.formField}>
+                  <span className={styles.formLabel}>Modifier</span>
+                  <div className={styles.recurrenceRow}>
+                    <button type="button"
+                      className={[styles.recurrenceBtn, editScope === 'one' ? styles.recurrenceBtnActive : ''].join(' ')}
+                      onClick={() => setEditScope('one')}>
+                      Cet événement
+                    </button>
+                    <button type="button"
+                      className={[styles.recurrenceBtn, editScope === 'series' ? styles.recurrenceBtnActive : ''].join(' ')}
+                      onClick={() => setEditScope('series')}>
+                      Toute la série
+                    </button>
+                  </div>
+                </div>
+              )}
+
               <button type="submit" disabled={isPending} className={styles.submitBtn}>
                 {isPending ? 'Enregistrement…' : editingId ? 'Enregistrer' : 'Ajouter'}
               </button>
+
+              {editingId && editingRecurrenceGroupId && (
+                <button
+                  type="button"
+                  className={styles.deleteEventBtn}
+                  onClick={() => { deleteEvent.mutate({ id: editingId, groupId: editingRecurrenceGroupId }); closeForm() }}
+                >
+                  Supprimer toute la série
+                </button>
+              )}
 
               {editingId && (
                 <button
                   type="button"
                   className={styles.deleteEventBtn}
-                  onClick={() => { deleteEvent.mutate(editingId); closeForm() }}
+                  onClick={() => { deleteEvent.mutate({ id: editingId }); closeForm() }}
                 >
-                  Supprimer l'événement
+                  {editingRecurrenceGroupId ? 'Supprimer cet événement' : 'Supprimer l\'événement'}
                 </button>
               )}
 

@@ -1,8 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { addWeeks, addMonths, addYears, format } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useToast } from '../../components/Toast'
+
+export type RecurrenceType = 'none' | 'weekly' | 'monthly' | 'yearly'
 
 export interface CalendarEvent {
   id: string
@@ -10,11 +13,12 @@ export interface CalendarEvent {
   created_by: string | null
   member_id: string | null
   title: string
-  date: string         // YYYY-MM-DD
-  start_time: string | null  // HH:MM:SS from Postgres
+  date: string
+  start_time: string | null
   end_time: string | null
   all_day: boolean
   location: string | null
+  recurrence_group_id: string | null
   created_at: string
   member: { display_name: string } | null
   created_by_member: { display_name: string } | null
@@ -28,6 +32,7 @@ export interface NewEventInput {
   all_day: boolean
   member_id: string | null
   location: string | null
+  recurrence?: RecurrenceType
 }
 
 const EVENT_SELECT = `
@@ -36,11 +41,40 @@ const EVENT_SELECT = `
   created_by_member:members!events_created_by_fkey(display_name)
 `.trim()
 
-// Exported so useEventsRealtime can invalidate any week for this household.
 export const EVENTS_KEY_PREFIX = ['events', HOUSEHOLD_ID] as const
 
-export function eventsKey(weekStart: string) {
-  return [...EVENTS_KEY_PREFIX, weekStart] as const
+export function eventsKey(rangeStart: string) {
+  return [...EVENTS_KEY_PREFIX, rangeStart] as const
+}
+
+function buildOccurrences(
+  input: NewEventInput,
+  groupId: string,
+  createdBy: string | null,
+) {
+  const recurrence = input.recurrence!
+  const count = recurrence === 'weekly' ? 52 : recurrence === 'monthly' ? 12 : 3
+  const advance =
+    recurrence === 'weekly'  ? (d: Date, n: number) => addWeeks(d, n)  :
+    recurrence === 'monthly' ? (d: Date, n: number) => addMonths(d, n) :
+                               (d: Date, n: number) => addYears(d, n)
+
+  // Parse as local date to avoid timezone shifts
+  const [y, m, d] = input.date.split('-').map(Number)
+  const base = new Date(y, m - 1, d)
+
+  return Array.from({ length: count }, (_, i) => ({
+    household_id: HOUSEHOLD_ID,
+    created_by: createdBy,
+    recurrence_group_id: groupId,
+    title: input.title.trim(),
+    date: format(advance(base, i), 'yyyy-MM-dd'),
+    start_time: input.start_time || null,
+    end_time: input.end_time || null,
+    all_day: input.all_day,
+    member_id: input.member_id,
+    location: input.location?.trim() || null,
+  }))
 }
 
 export function useEvents(rangeStart: string, rangeEnd: string) {
@@ -68,26 +102,36 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
 
   // ── Add ──────────────────────────────────────────────────────────────────
   const addEvent = useMutation({
-    mutationFn: async (input: NewEventInput): Promise<CalendarEvent> => {
-      const { data, error } = await supabase
-        .from('events')
-        .insert({
-          household_id: HOUSEHOLD_ID,
-          created_by: member?.id ?? null,
-          member_id: input.member_id,
-          title: input.title.trim(),
-          date: input.date,
-          start_time: input.start_time || null,
-          end_time: input.end_time || null,
-          all_day: input.all_day,
-          location: input.location?.trim() || null,
-        })
-        .select(EVENT_SELECT)
-        .single()
+    mutationFn: async (input: NewEventInput): Promise<CalendarEvent | null> => {
+      if (!input.recurrence || input.recurrence === 'none') {
+        const { data, error } = await supabase
+          .from('events')
+          .insert({
+            household_id: HOUSEHOLD_ID,
+            created_by: member?.id ?? null,
+            member_id: input.member_id,
+            title: input.title.trim(),
+            date: input.date,
+            start_time: input.start_time || null,
+            end_time: input.end_time || null,
+            all_day: input.all_day,
+            location: input.location?.trim() || null,
+          })
+          .select(EVENT_SELECT)
+          .single()
+        if (error) throw error
+        return data as unknown as CalendarEvent
+      }
+
+      const groupId = crypto.randomUUID()
+      const occurrences = buildOccurrences(input, groupId, member?.id ?? null)
+      const { error } = await supabase.from('events').insert(occurrences)
       if (error) throw error
-      return data as unknown as CalendarEvent
+      return null
     },
     onMutate: async (input) => {
+      if (input.recurrence && input.recurrence !== 'none') return
+
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<CalendarEvent[]>(key) ?? []
       const optimisticId = `optimistic-${Date.now()}`
@@ -103,6 +147,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
         end_time: input.end_time || null,
         all_day: input.all_day,
         location: input.location?.trim() || null,
+        recurrence_group_id: null,
         created_at: new Date().toISOString(),
         member: null,
         created_by_member: member ? { display_name: member.display_name } : null,
@@ -111,22 +156,49 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
       queryClient.setQueryData<CalendarEvent[]>(key, [...previous, optimistic])
       return { previous, optimisticId }
     },
-    onError: (_err, _input, context) => {
-      queryClient.setQueryData(key, context?.previous ?? [])
+    onError: (_err, input, context) => {
+      if (!input.recurrence || input.recurrence === 'none') {
+        queryClient.setQueryData(key, context?.previous ?? [])
+      }
       showToast({ type: 'error', message: 'Impossible de créer l\'événement.' })
     },
-    onSuccess: (newEvent, _input, context) => {
-      if (!context) return
-      queryClient.setQueryData<CalendarEvent[]>(key, (old = []) =>
-        old.map(e => e.id === context.optimisticId ? newEvent : e)
-      )
+    onSuccess: (newEvent, input, context) => {
+      if (!input.recurrence || input.recurrence === 'none') {
+        if (!context || !newEvent) return
+        queryClient.setQueryData<CalendarEvent[]>(key, (old = []) =>
+          old.map(e => e.id === context.optimisticId ? newEvent : e)
+        )
+      } else {
+        queryClient.invalidateQueries({ queryKey: EVENTS_KEY_PREFIX })
+      }
     },
   })
 
   // ── Update ───────────────────────────────────────────────────────────────
   const updateEvent = useMutation({
-    mutationFn: async (vars: NewEventInput & { id: string }): Promise<CalendarEvent> => {
-      const { id, ...input } = vars
+    mutationFn: async (vars: NewEventInput & {
+      id: string
+      scope: 'one' | 'series'
+      recurrenceGroupId: string | null
+    }): Promise<CalendarEvent | null> => {
+      const { id, scope, recurrenceGroupId, ...input } = vars
+
+      if (scope === 'series' && recurrenceGroupId) {
+        const { error } = await supabase
+          .from('events')
+          .update({
+            title: input.title.trim(),
+            start_time: input.start_time || null,
+            end_time: input.end_time || null,
+            all_day: input.all_day,
+            member_id: input.member_id,
+            location: input.location?.trim() || null,
+          })
+          .eq('recurrence_group_id', recurrenceGroupId)
+        if (error) throw error
+        return null
+      }
+
       const { data, error } = await supabase
         .from('events')
         .update({
@@ -144,7 +216,9 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
       if (error) throw error
       return data as unknown as CalendarEvent
     },
-    onMutate: async ({ id, ...input }) => {
+    onMutate: async ({ id, scope, ...input }) => {
+      if (scope === 'series') return
+
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<CalendarEvent[]>(key) ?? []
 
@@ -164,32 +238,50 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
       ))
       return { previous }
     },
-    onError: (_err, _vars, context) => {
-      queryClient.setQueryData(key, context?.previous ?? [])
+    onError: (_err, vars, context) => {
+      if (vars.scope !== 'series') {
+        queryClient.setQueryData(key, context?.previous ?? [])
+      }
       showToast({ type: 'error', message: 'Impossible de mettre à jour l\'événement.' })
     },
-    onSuccess: (updated) => {
-      queryClient.setQueryData<CalendarEvent[]>(key, (old = []) =>
-        old.map(e => e.id === updated.id ? updated : e)
-      )
+    onSuccess: (updated, vars) => {
+      if (vars.scope === 'series') {
+        queryClient.invalidateQueries({ queryKey: EVENTS_KEY_PREFIX })
+      } else if (updated) {
+        queryClient.setQueryData<CalendarEvent[]>(key, (old = []) =>
+          old.map(e => e.id === updated.id ? updated : e)
+        )
+      }
     },
   })
 
   // ── Delete ───────────────────────────────────────────────────────────────
   const deleteEvent = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('events').delete().eq('id', id)
-      if (error) throw error
+    mutationFn: async ({ id, groupId }: { id: string; groupId?: string | null }) => {
+      if (groupId) {
+        const { error } = await supabase
+          .from('events')
+          .delete()
+          .eq('recurrence_group_id', groupId)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('events').delete().eq('id', id)
+        if (error) throw error
+      }
     },
-    onMutate: async (id) => {
+    onMutate: async ({ id, groupId }) => {
+      if (groupId) return
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<CalendarEvent[]>(key) ?? []
       queryClient.setQueryData<CalendarEvent[]>(key, previous.filter(e => e.id !== id))
       return { previous }
     },
-    onError: (_err, _id, context) => {
-      queryClient.setQueryData(key, context?.previous ?? [])
+    onError: (_err, vars, context) => {
+      if (!vars.groupId) queryClient.setQueryData(key, context?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de supprimer l\'événement.' })
+    },
+    onSuccess: (_data, vars) => {
+      if (vars.groupId) queryClient.invalidateQueries({ queryKey: EVENTS_KEY_PREFIX })
     },
   })
 
