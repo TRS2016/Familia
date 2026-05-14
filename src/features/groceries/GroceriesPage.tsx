@@ -7,6 +7,7 @@ import { useGroceriesRealtime } from './useGroceriesRealtime'
 import type { Grocery } from './useGroceries'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
+import SlideUpModal from '../../components/SlideUpModal'
 import styles from './GroceriesPage.module.css'
 
 const CATEGORIES = [
@@ -68,11 +69,16 @@ function groupUnchecked(items: Grocery[]): CategoryGroup[] {
 }
 
 export default function GroceriesPage() {
-  const { query, addGrocery, toggleGrocery, deleteGrocery, clearChecked } = useGroceries()
+  const { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked } = useGroceries()
   useGroceriesRealtime()
   const [newName, setNewName]           = useState('')
   const [newQty, setNewQty]             = useState('')
   const [formCategory, setFormCategory] = useState<string | null>(null)
+
+  const [editingItem, setEditingItem]       = useState<Grocery | null>(null)
+  const [editName, setEditName]             = useState('')
+  const [editQty, setEditQty]               = useState('')
+  const [editCategory, setEditCategory]     = useState<string | null>(null)
 
   const allItems  = query.data ?? []
   const unchecked = groupUnchecked(sortUnchecked(allItems))
@@ -85,6 +91,25 @@ export default function GroceriesPage() {
     addGrocery.mutate({ name, quantity: newQty.trim() || undefined, category: formCategory || undefined })
     setNewName('')
     setNewQty('')
+  }
+
+  function openEdit(item: Grocery) {
+    setEditingItem(item)
+    setEditName(item.name)
+    setEditQty(item.quantity ?? '')
+    setEditCategory(item.category)
+  }
+
+  function handleSaveEdit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!editingItem || !editName.trim()) return
+    updateGrocery.mutate({
+      id: editingItem.id,
+      name: editName,
+      quantity: editQty || undefined,
+      category: editCategory,
+    })
+    setEditingItem(null)
   }
 
   return (
@@ -172,6 +197,7 @@ export default function GroceriesPage() {
                 item={item}
                 onToggle={() => toggleGrocery.mutate({ id: item.id, checked: true })}
                 onDelete={() => deleteGrocery.mutate(item.id)}
+                onEdit={() => openEdit(item)}
               />
             ))}
           </ul>
@@ -200,10 +226,59 @@ export default function GroceriesPage() {
                 item={item}
                 onToggle={() => toggleGrocery.mutate({ id: item.id, checked: false })}
                 onDelete={() => deleteGrocery.mutate(item.id)}
+                onEdit={() => openEdit(item)}
               />
             ))}
           </ul>
         </>
+      )}
+
+      {/* Edit modal */}
+      {editingItem && (
+        <SlideUpModal title="Modifier l'article" onClose={() => setEditingItem(null)}>
+          <form onSubmit={handleSaveEdit} className={styles.editForm}>
+            <div className={styles.editRow}>
+              <input
+                type="text"
+                value={editQty}
+                onChange={e => setEditQty(e.target.value)}
+                placeholder="qté"
+                className={styles.qtyInput}
+                autoComplete="off"
+              />
+              <span className={styles.addDivider} />
+              <input
+                type="text"
+                value={editName}
+                onChange={e => setEditName(e.target.value)}
+                placeholder="Nom de l'article"
+                className={styles.addInput}
+                autoFocus
+                autoComplete="off"
+                required
+              />
+            </div>
+            <div className={styles.categoryChips}>
+              {CATEGORIES.map(c => (
+                <button
+                  key={c.key}
+                  type="button"
+                  className={[styles.categoryChip, editCategory === c.key ? styles.categoryChipActive : ''].join(' ')}
+                  onClick={() => setEditCategory(f => f === c.key ? null : c.key)}
+                >
+                  {c.emoji} {c.key}
+                </button>
+              ))}
+            </div>
+            <button
+              type="submit"
+              disabled={!editName.trim() || updateGrocery.isPending}
+              className={styles.saveBtn}
+            >
+              Enregistrer
+            </button>
+          </form>
+        </SlideUpModal>
       )}
 
     </div>
@@ -214,10 +289,12 @@ function GroceryItem({
   item,
   onToggle,
   onDelete,
+  onEdit,
 }: {
   item: Grocery
   onToggle: () => void
   onDelete: () => void
+  onEdit: () => void
 }) {
   const isOptimistic = item.id.startsWith('optimistic-')
 
@@ -243,7 +320,7 @@ function GroceryItem({
       </button>
 
       {/* Name + meta */}
-      <div className={styles.itemBody}>
+      <div className={styles.itemBody} onClick={onEdit} style={{ cursor: 'pointer' }}>
         <div className={styles.itemNameRow}>
           {item.quantity && (
             <span className={[styles.qtyBadge, item.checked ? styles.qtyBadgeChecked : ''].join(' ')}>

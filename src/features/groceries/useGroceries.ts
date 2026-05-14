@@ -180,5 +180,32 @@ export function useGroceries() {
     },
   })
 
-  return { query, addGrocery, toggleGrocery, deleteGrocery, clearChecked }
+  // ── Update ───────────────────────────────────────────────────────────────
+  const updateGrocery = useMutation({
+    mutationFn: async ({ id, name, quantity, category }: {
+      id: string; name: string; quantity?: string; category?: string | null
+    }) => {
+      const { error } = await supabase
+        .from('groceries')
+        .update({ name: name.trim(), quantity: quantity?.trim() || null, category: category || null })
+        .eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, name, quantity, category }) => {
+      await queryClient.cancelQueries({ queryKey: GROCERIES_KEY })
+      const previous = queryClient.getQueryData<Grocery[]>(GROCERIES_KEY) ?? []
+      queryClient.setQueryData<Grocery[]>(GROCERIES_KEY, previous.map(g =>
+        g.id === id
+          ? { ...g, name: name.trim(), quantity: quantity?.trim() || null, category: category || null }
+          : g
+      ))
+      return { previous }
+    },
+    onError: (_err, _vars, context) => {
+      queryClient.setQueryData(GROCERIES_KEY, context?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de modifier l\'article.' })
+    },
+  })
+
+  return { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked }
 }

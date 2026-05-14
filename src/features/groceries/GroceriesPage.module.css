@@ -384,6 +384,46 @@
   cursor: not-allowed;
 }
 
+/* ── Edit modal form ─────────────────────────────────────────────────────── */
+
+.editForm {
+  padding: 12px 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.editRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+  padding: 4px 4px 4px 14px;
+  border: 1.5px solid var(--border);
+}
+
+.saveBtn {
+  width: 100%;
+  padding: 13px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: var(--shadow-btn);
+  transition: opacity 0.15s;
+  margin-bottom: 8px;
+}
+
+.saveBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 /* ── Empty state ─────────────────────────────────────────────────────────── */
 
 .empty {
