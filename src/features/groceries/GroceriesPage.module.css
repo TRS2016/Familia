@@ -387,20 +387,44 @@
 /* ── Edit modal form ─────────────────────────────────────────────────────── */
 
 .editForm {
-  padding: 12px 20px 0;
+  padding: 0 20px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
+  padding-bottom: 8px;
 }
 
-.editRow {
+.editField {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  background: var(--bg-input);
-  border-radius: var(--radius-md);
-  padding: 4px 4px 4px 14px;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.editLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.editInput {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
   border: 1.5px solid var(--border);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--bg-input);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.editInput:focus {
+  border-color: var(--accent);
 }
 
 .saveBtn {

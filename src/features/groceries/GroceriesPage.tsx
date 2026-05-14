@@ -237,46 +237,57 @@ export default function GroceriesPage() {
       {editingItem && (
         <SlideUpModal title="Modifier l'article" onClose={() => setEditingItem(null)}>
           <form onSubmit={handleSaveEdit} className={styles.editForm}>
-            <div className={styles.editRow}>
-              <input
-                type="text"
-                value={editQty}
-                onChange={e => setEditQty(e.target.value)}
-                placeholder="qté"
-                className={styles.qtyInput}
-                autoComplete="off"
-              />
-              <span className={styles.addDivider} />
+
+            <div className={styles.editField}>
+              <label className={styles.editLabel}>Nom</label>
               <input
                 type="text"
                 value={editName}
                 onChange={e => setEditName(e.target.value)}
-                placeholder="Nom de l'article"
-                className={styles.addInput}
+                className={styles.editInput}
+                placeholder="Ex : Pommes"
                 autoFocus
                 autoComplete="off"
                 required
               />
             </div>
-            <div className={styles.categoryChips}>
-              {CATEGORIES.map(c => (
-                <button
-                  key={c.key}
-                  type="button"
-                  className={[styles.categoryChip, editCategory === c.key ? styles.categoryChipActive : ''].join(' ')}
-                  onClick={() => setEditCategory(f => f === c.key ? null : c.key)}
-                >
-                  {c.emoji} {c.key}
-                </button>
-              ))}
+
+            <div className={styles.editField}>
+              <label className={styles.editLabel}>Quantité</label>
+              <input
+                type="text"
+                value={editQty}
+                onChange={e => setEditQty(e.target.value)}
+                className={styles.editInput}
+                placeholder="Ex : 1 kg, 3 pcs…"
+                autoComplete="off"
+              />
             </div>
+
+            <div className={styles.editField}>
+              <span className={styles.editLabel}>Rayon</span>
+              <div className={styles.categoryChips} style={{ padding: 0 }}>
+                {CATEGORIES.map(c => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    className={[styles.categoryChip, editCategory === c.key ? styles.categoryChipActive : ''].join(' ')}
+                    onClick={() => setEditCategory(f => f === c.key ? null : c.key)}
+                  >
+                    {c.emoji} {c.key}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
               type="submit"
               disabled={!editName.trim() || updateGrocery.isPending}
               className={styles.saveBtn}
             >
-              Enregistrer
+              {updateGrocery.isPending ? 'Enregistrement…' : 'Enregistrer'}
             </button>
+
           </form>
         </SlideUpModal>
       )}
