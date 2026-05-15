@@ -394,8 +394,9 @@
 
 .fab {
   position: fixed;
-  bottom: 24px;
-  right: 24px;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  /* Stay within the centered 480px column on large screens */
+  right: max(24px, calc((100vw - 480px) / 2 + 16px));
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -440,7 +441,7 @@
   max-width: 480px;
   max-height: 92vh;
   overflow-y: auto;
-  padding-bottom: 40px;
+  padding-bottom: max(40px, env(safe-area-inset-bottom));
   animation: slideUp 0.28s ease;
 }
 
