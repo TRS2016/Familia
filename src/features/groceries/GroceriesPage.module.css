@@ -90,16 +90,20 @@
 .savedListsLink {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
+  gap: 5px;
+  border: 1.5px solid var(--border);
+  background: transparent;
   color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 800;
+  padding: 5px 10px;
+  border-radius: var(--radius-pill);
   text-decoration: none;
-  border-radius: var(--radius-sm);
-  transition: color 0.15s;
+  transition: border-color 0.2s, color 0.2s;
 }
 
-.savedListsLink:hover { color: var(--accent); }
+.savedListsLink:hover { border-color: var(--accent); color: var(--accent); }
 
 .loadListBtn {
   display: flex;

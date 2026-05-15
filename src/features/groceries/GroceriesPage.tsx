@@ -300,7 +300,8 @@ export default function GroceriesPage() {
             </button>
           ) : (
             <Link to="/groceries/saved" className={styles.savedListsLink} aria-label="Mes listes">
-              <Bookmark size={16} strokeWidth={2.5} />
+              <Bookmark size={14} strokeWidth={2.5} />
+              <span>Listes</span>
             </Link>
           )}
           <button
