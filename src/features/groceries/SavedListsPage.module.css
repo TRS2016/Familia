@@ -1,0 +1,476 @@
+/* ── Page ────────────────────────────────────────────────────────────────── */
+
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+  font-family: var(--font-family);
+  display: flex;
+  flex-direction: column;
+  max-width: 480px;
+  margin: 0 auto;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 16px 14px;
+  background: var(--bg);
+}
+
+.backLink {
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+  text-decoration: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.backLink:hover { opacity: 0.75; }
+
+.pageTitle {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: -0.2px;
+  margin: 0;
+}
+
+.titleBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  flex: 1;
+  justify-content: center;
+}
+
+.renameForm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  justify-content: center;
+}
+
+.renameInput {
+  border: none;
+  border-bottom: 2px solid var(--accent);
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--text);
+  outline: none;
+  padding: 2px 4px;
+  text-align: center;
+  width: 180px;
+}
+
+.renameOk {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+}
+
+.createBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.createBtn:hover { opacity: 0.85; }
+
+/* ── Index des listes ────────────────────────────────────────────────────── */
+
+.listIndex {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px;
+}
+
+.listRow {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.listRow:last-child { border-bottom: none; }
+
+.listRowMain {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 8px 16px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  gap: 8px;
+}
+
+.listRowInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.listName {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.listMeta {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.listDeleteBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-xs);
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
+.listDeleteBtn:hover { color: #c0392b; }
+
+/* ── Formulaire de création ──────────────────────────────────────────────── */
+
+.createForm {
+  padding: 4px 20px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.nameInput {
+  padding: 13px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: 600;
+  background: var(--bg-input);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.nameInput:focus { border-color: var(--accent); }
+
+.submitBtn {
+  width: 100%;
+  padding: 13px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  margin-bottom: 8px;
+}
+
+.submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Add form (vue détail) ───────────────────────────────────────────────── */
+
+.addForm {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  background: var(--bg);
+  padding: 4px 16px 14px;
+}
+
+.addRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 4px 4px 4px 14px;
+  box-shadow: var(--shadow-card);
+}
+
+.addInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 14px;
+  color: var(--text);
+  outline: none;
+  padding: 9px 0;
+}
+
+.addInput::placeholder { color: var(--text-muted); }
+
+.addBtn {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.addBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Liste d'articles (vue détail) ──────────────────────────────────────── */
+
+.itemList {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px;
+  flex: 1;
+}
+
+.itemRow {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.itemRow:last-child { border-bottom: none; }
+
+.itemMain {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 8px 13px 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  gap: 8px;
+}
+
+.itemInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.itemName {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.itemMeta {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.itemDeleteBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-xs);
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
+.itemDeleteBtn:hover { color: #c0392b; }
+
+/* ── Actions (vue détail) ────────────────────────────────────────────────── */
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px 16px 32px;
+  margin-top: auto;
+}
+
+.actionLoad {
+  width: 100%;
+  padding: 14px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: var(--shadow-btn);
+  transition: opacity 0.15s;
+}
+
+.actionLoad:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.actionDuplicate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 100%;
+  padding: 12px;
+  background: transparent;
+  color: var(--text-muted);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.actionDuplicate:hover { border-color: var(--accent); color: var(--accent); }
+.actionDuplicate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Edit modal ──────────────────────────────────────────────────────────── */
+
+.editForm {
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-bottom: 8px;
+}
+
+.editRow {
+  display: flex;
+  gap: 12px;
+}
+
+.editField {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.editLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.editInput {
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--bg-input);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.editInput:focus { border-color: var(--accent); }
+
+.saveBtn {
+  width: 100%;
+  padding: 13px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  box-shadow: var(--shadow-btn);
+  transition: opacity 0.15s;
+}
+
+.saveBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.deleteItemBtn {
+  width: 100%;
+  padding: 11px;
+  background: transparent;
+  color: #c0392b;
+  border: 1.5px solid rgba(192, 57, 43, 0.3);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 13px;
+  cursor: pointer;
+  margin-bottom: 8px;
+  transition: background 0.15s;
+}
+
+.deleteItemBtn:hover { background: rgba(192, 57, 43, 0.06); }
+
+/* ── Toast feedback ──────────────────────────────────────────────────────── */
+
+.loadToast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: #2d2d2d;
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
+  white-space: nowrap;
+  z-index: 999;
+}

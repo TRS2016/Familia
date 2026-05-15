@@ -8,7 +8,8 @@ import LoadingPage from './components/LoadingPage'
 
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
 const HomePage       = lazy(() => import('./pages/HomePage'))
-const GroceriesPage  = lazy(() => import('./features/groceries/GroceriesPage'))
+const GroceriesPage     = lazy(() => import('./features/groceries/GroceriesPage'))
+const SavedListsPage    = lazy(() => import('./features/groceries/SavedListsPage'))
 const CalendarPage   = lazy(() => import('./features/calendar/CalendarPage'))
 const SettingsPage   = lazy(() => import('./pages/SettingsPage'))
 const KakeboPage     = lazy(() => import('./features/kakebo/KakeboPage'))
@@ -31,6 +32,7 @@ const router = createBrowserRouter([
         children: [
           { path: '/',          element: <Lazy><HomePage /></Lazy> },
           { path: '/groceries', element: <Lazy><GroceriesPage /></Lazy> },
+          { path: '/groceries/saved', element: <Lazy><SavedListsPage /></Lazy> },
           { path: '/calendar',  element: <Lazy><CalendarPage /></Lazy> },
           { path: '/settings',  element: <Lazy><SettingsPage /></Lazy> },
           { path: '/kakebo',    element: <Lazy><KakeboPage /></Lazy> },

@@ -81,6 +81,76 @@ export type Database = {
           },
         ]
       }
+      grocery_saved_items: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          list_id: string
+          name: string
+          price: number | null
+          quantity: string | null
+          store: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          list_id: string
+          name: string
+          price?: number | null
+          quantity?: string | null
+          store?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          list_id?: string
+          name?: string
+          price?: number | null
+          quantity?: string | null
+          store?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grocery_saved_items_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "grocery_saved_lists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      grocery_saved_lists: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          name: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          name: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grocery_saved_lists_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       groceries: {
         Row: {
           category: string | null

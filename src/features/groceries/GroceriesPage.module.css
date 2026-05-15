@@ -78,6 +78,43 @@
   padding: 2px 8px;
 }
 
+/* ── Header actions (droite) ─────────────────────────────────────────────── */
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.savedListsLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  color: var(--text-muted);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+}
+
+.savedListsLink:hover { color: var(--accent); }
+
+.loadListBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1.5px solid #5B9E8F;
+  background: rgba(91, 158, 143, 0.1);
+  color: #5B9E8F;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
 /* ── Shopping mode toggle ────────────────────────────────────────────────── */
 
 .shoppingToggle {
@@ -815,6 +852,182 @@
   cursor: pointer;
   padding: 0;
 }
+
+/* ── Sauvegarder liste ───────────────────────────────────────────────────── */
+
+.saveListRow {
+  display: flex;
+  justify-content: center;
+  padding: 8px 16px 16px;
+}
+
+.saveListBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.saveListBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Modal sauvegarder ───────────────────────────────────────────────────── */
+
+.saveModalForm {
+  padding: 0 20px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.saveModalHint {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin: 0;
+}
+
+.saveModalInput {
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 600;
+  background: var(--bg-input);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.saveModalInput:focus { border-color: var(--accent); }
+
+.saveModalBtn {
+  width: 100%;
+  padding: 13px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+  margin-bottom: 8px;
+}
+
+.saveModalBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Modal charger une liste ─────────────────────────────────────────────── */
+
+.loadModal {
+  padding: 4px 0 8px;
+}
+
+.loadModalEmpty {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: center;
+  padding: 24px 20px;
+  margin: 0;
+}
+
+.loadModalLink {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.loadModalList {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px;
+}
+
+.loadModalItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  cursor: pointer;
+  text-align: left;
+  gap: 12px;
+  transition: background 0.1s;
+}
+
+.loadModalItem:last-child { border-bottom: none; }
+
+.loadModalName {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.loadModalCount {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.loadModalItemActive .loadModalName { color: #5B9E8F; }
+
+.loadModalCheck {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.loadModalCheckActive {
+  background: #5B9E8F;
+  border-color: #5B9E8F;
+}
+
+.loadModalAction {
+  padding: 12px 16px 4px;
+}
+
+.loadModalBtn {
+  width: 100%;
+  padding: 13px;
+  background: #5B9E8F;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.loadModalBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ── Edit modal form ─────────────────────────────────────────────────────── */
 

@@ -1,10 +1,11 @@
 import { useState, useMemo } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Plus, Check, Trash2, SlidersHorizontal, ShoppingCart, MapPin } from 'lucide-react'
+import { ChevronLeft, Plus, Check, Trash2, SlidersHorizontal, ShoppingCart, MapPin, Bookmark, FolderOpen } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
 import type { Grocery } from './useGroceries'
+import { useSavedLists, useSavedListDetail } from './useSavedLists'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -152,9 +153,18 @@ export default function GroceriesPage() {
   const [shoppingMode, setShoppingMode]   = useState(false)
   const [budget, setBudget]               = useState(() => localStorage.getItem('familia-grocery-budget') ?? '')
   const [editingBudget, setEditingBudget] = useState(false)
+  const [showLoadModal, setShowLoadModal] = useState(false)
+  const [loadingListId, setLoadingListId] = useState<string | null>(null)
+
+  // ── Sauvegarder liste actuelle ───────────────────────────────────────────────
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [saveListName, setSaveListName]   = useState('')
 
   // ── Groupage ────────────────────────────────────────────────────────────────
   const [groupMode, setGroupMode] = useState<GroupMode>('category')
+
+  // ── Listes sauvegardées (pour modal chargement) ──────────────────────────────
+  const { query: savedListsQuery } = useSavedLists()
 
   // ── Données dérivées ────────────────────────────────────────────────────────
   const allItems     = query.data ?? []
@@ -229,6 +239,24 @@ export default function GroceriesPage() {
     setEditingItem(null)
   }
 
+  function handleSaveCurrentList(e: FormEvent) {
+    e.preventDefault()
+    const name = saveListName.trim()
+    if (!name) return
+    saveCurrentList.mutate({
+      name,
+      items: uncheckedItems.map(g => ({
+        name: g.name,
+        quantity: g.quantity,
+        price: g.price,
+        category: g.category,
+        store: g.store,
+      })),
+    }, {
+      onSuccess: () => { setShowSaveModal(false); setSaveListName('') },
+    })
+  }
+
   function saveBudget() {
     const trimmed = budget.trim()
     if (trimmed) localStorage.setItem('familia-grocery-budget', trimmed)
@@ -261,14 +289,29 @@ export default function GroceriesPage() {
           )}
         </div>
 
-        <button
-          className={[styles.shoppingToggle, shoppingMode ? styles.shoppingToggleActive : ''].join(' ')}
-          onClick={() => { setShoppingMode(m => !m); setEditingBudget(false) }}
-          aria-label={shoppingMode ? 'Retour à la liste' : 'Mode shopping'}
-        >
-          <ShoppingCart size={14} strokeWidth={2.5} />
-          <span>{shoppingMode ? 'Liste' : 'Shop'}</span>
-        </button>
+        <div className={styles.headerActions}>
+          {shoppingMode ? (
+            <button
+              className={styles.loadListBtn}
+              onClick={() => setShowLoadModal(true)}
+              aria-label="Charger une liste"
+            >
+              <FolderOpen size={14} strokeWidth={2.5} />
+            </button>
+          ) : (
+            <Link to="/groceries/saved" className={styles.savedListsLink} aria-label="Mes listes">
+              <Bookmark size={16} strokeWidth={2.5} />
+            </Link>
+          )}
+          <button
+            className={[styles.shoppingToggle, shoppingMode ? styles.shoppingToggleActive : ''].join(' ')}
+            onClick={() => { setShoppingMode(m => !m); setEditingBudget(false) }}
+            aria-label={shoppingMode ? 'Retour à la liste' : 'Mode shopping'}
+          >
+            <ShoppingCart size={14} strokeWidth={2.5} />
+            <span>{shoppingMode ? 'Liste' : 'Shop'}</span>
+          </button>
+        </div>
       </header>
 
       {/* Barre de progression shopping */}
@@ -482,6 +525,16 @@ export default function GroceriesPage() {
         </>
       )}
 
+      {/* Bouton sauvegarder liste — visible en mode liste quand il y a des articles */}
+      {!shoppingMode && uncheckedItems.length > 0 && (
+        <div className={styles.saveListRow}>
+          <button className={styles.saveListBtn} onClick={() => setShowSaveModal(true)}>
+            <Bookmark size={13} strokeWidth={2.5} />
+            Sauvegarder comme modèle
+          </button>
+        </div>
+      )}
+
       {hasAnyPrice && <div style={{ height: shoppingMode ? 112 : 64 }} />}
 
       {/* Barre total sticky */}
@@ -538,6 +591,45 @@ export default function GroceriesPage() {
             </>
           )}
         </div>
+      )}
+
+      {/* Modal — Sauvegarder la liste actuelle */}
+      {showSaveModal && (
+        <SlideUpModal title="Sauvegarder comme modèle" onClose={() => { setShowSaveModal(false); setSaveListName('') }}>
+          <form onSubmit={handleSaveCurrentList} className={styles.saveModalForm}>
+            <p className={styles.saveModalHint}>
+              {uncheckedItems.length} article{uncheckedItems.length > 1 ? 's' : ''} non coché{uncheckedItems.length > 1 ? 's' : ''} seront sauvegardés.
+            </p>
+            <input
+              type="text"
+              value={saveListName}
+              onChange={e => setSaveListName(e.target.value)}
+              placeholder="Nom de la liste (ex : Courses hebdo)"
+              className={styles.saveModalInput}
+              autoFocus
+              autoComplete="off"
+            />
+            <button
+              type="submit"
+              disabled={!saveListName.trim() || saveCurrentList.isPending}
+              className={styles.saveModalBtn}
+            >
+              {saveCurrentList.isPending ? 'Sauvegarde…' : 'Sauvegarder'}
+            </button>
+          </form>
+        </SlideUpModal>
+      )}
+
+      {/* Modal — Charger une liste (mode shopping) */}
+      {showLoadModal && (
+        <SlideUpModal title="Charger une liste" onClose={() => { setShowLoadModal(false); setLoadingListId(null) }}>
+          <LoadListModal
+            onClose={() => { setShowLoadModal(false); setLoadingListId(null) }}
+            loadSavedList={loadSavedList}
+            loadingListId={loadingListId}
+            setLoadingListId={setLoadingListId}
+          />
+        </SlideUpModal>
       )}
 
       {/* Modal d'édition */}
@@ -618,6 +710,75 @@ export default function GroceriesPage() {
         </SlideUpModal>
       )}
 
+    </div>
+  )
+}
+
+// ── LoadListModal ─────────────────────────────────────────────────────────────
+
+function LoadListModal({
+  onClose, loadSavedList, loadingListId, setLoadingListId,
+}: {
+  onClose: () => void
+  loadSavedList: ReturnType<typeof useGroceries>['loadSavedList']
+  loadingListId: string | null
+  setLoadingListId: (id: string | null) => void
+}) {
+  const { query: listsQuery } = useSavedLists()
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const { query: itemsQuery } = useSavedListDetail(selectedId ?? '')
+  const lists = listsQuery.data ?? []
+
+  function handleLoad() {
+    if (!selectedId || !itemsQuery.data) return
+    setLoadingListId(selectedId)
+    loadSavedList.mutate(itemsQuery.data, { onSuccess: onClose })
+  }
+
+  return (
+    <div className={styles.loadModal}>
+      {listsQuery.isLoading && (
+        <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
+          <Spinner size={28} />
+        </div>
+      )}
+      {!listsQuery.isLoading && lists.length === 0 && (
+        <p className={styles.loadModalEmpty}>
+          Aucune liste sauvegardée.{' '}
+          <Link to="/groceries/saved" onClick={onClose} className={styles.loadModalLink}>
+            Créer une liste →
+          </Link>
+        </p>
+      )}
+      <ul className={styles.loadModalList}>
+        {lists.map(list => (
+          <li key={list.id}>
+            <button
+              className={[styles.loadModalItem, selectedId === list.id ? styles.loadModalItemActive : ''].join(' ')}
+              onClick={() => setSelectedId(id => id === list.id ? null : list.id)}
+            >
+              <div>
+                <span className={styles.loadModalName}>{list.name}</span>
+                <span className={styles.loadModalCount}>{list.item_count} article{list.item_count !== 1 ? 's' : ''}</span>
+              </div>
+              <div className={[styles.loadModalCheck, selectedId === list.id ? styles.loadModalCheckActive : ''].join(' ')}>
+                {selectedId === list.id && <Check size={12} strokeWidth={3} color="#fff" />}
+              </div>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {selectedId && (
+        <div className={styles.loadModalAction}>
+          <button
+            className={styles.loadModalBtn}
+            onClick={handleLoad}
+            disabled={loadSavedList.isPending || itemsQuery.isLoading}
+          >
+            {loadSavedList.isPending ? 'Ajout en cours…' : 'Ajouter à la liste active'}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

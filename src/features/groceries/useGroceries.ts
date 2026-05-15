@@ -213,5 +213,55 @@ export function useGroceries() {
     },
   })
 
-  return { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked }
+  // ── Load saved list (batch insert) ───────────────────────────────────────
+  const loadSavedList = useMutation({
+    mutationFn: async (items: Array<{
+      name: string
+      quantity?: string | null
+      price?: number | null
+      category?: string | null
+      store?: string | null
+    }>) => {
+      const { error } = await supabase
+        .from('groceries')
+        .insert(items.map(item => ({
+          household_id: HOUSEHOLD_ID,
+          created_by: member?.id ?? null,
+          name: item.name,
+          quantity: item.quantity || null,
+          price: item.price ?? null,
+          category: item.category || null,
+          store: item.store || null,
+        })))
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: GROCERIES_KEY }),
+    onError: () => showToast({ type: 'error', message: 'Impossible de charger la liste.' }),
+  })
+
+  // ── Save current list as template ────────────────────────────────────────
+  const saveCurrentList = useMutation({
+    mutationFn: async ({ name, items }: {
+      name: string
+      items: Array<{ name: string; quantity: string | null; price: number | null; category: string | null; store: string | null }>
+    }) => {
+      const { data: list, error: listErr } = await supabase
+        .from('grocery_saved_lists')
+        .insert({ household_id: HOUSEHOLD_ID, name })
+        .select()
+        .single()
+      if (listErr) throw listErr
+
+      if (items.length > 0) {
+        const { error: itemsErr } = await supabase
+          .from('grocery_saved_items')
+          .insert(items.map(item => ({ ...item, list_id: (list as any).id })))
+        if (itemsErr) throw itemsErr
+      }
+      return list
+    },
+    onError: () => showToast({ type: 'error', message: 'Impossible de sauvegarder la liste.' }),
+  })
+
+  return { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked, loadSavedList, saveCurrentList }
 }
