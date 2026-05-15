@@ -12,6 +12,7 @@ export interface Grocery {
   created_by: string | null
   name: string
   quantity: string | null
+  price: number | null
   category: string | null
   checked: boolean
   checked_by: string | null
@@ -52,7 +53,7 @@ export function useGroceries() {
 
   // ── Add ──────────────────────────────────────────────────────────────────
   const addGrocery = useMutation({
-    mutationFn: async ({ name, quantity, category }: { name: string; quantity?: string; category?: string }): Promise<Grocery> => {
+    mutationFn: async ({ name, quantity, price, category }: { name: string; quantity?: string; price?: number; category?: string }): Promise<Grocery> => {
       const { data, error } = await supabase
         .from('groceries')
         .insert({
@@ -60,6 +61,7 @@ export function useGroceries() {
           created_by: member?.id ?? null,
           name: name.trim(),
           quantity: quantity?.trim() || null,
+          price: price ?? null,
           category: category || null,
         })
         .select(GROCERY_SELECT)
@@ -67,7 +69,7 @@ export function useGroceries() {
       if (error) throw error
       return data as unknown as Grocery
     },
-    onMutate: async ({ name, quantity, category }) => {
+    onMutate: async ({ name, quantity, price, category }) => {
       await queryClient.cancelQueries({ queryKey: GROCERIES_KEY })
       const previous = queryClient.getQueryData<Grocery[]>(GROCERIES_KEY) ?? []
       const optimisticId = `optimistic-${Date.now()}`
@@ -78,6 +80,7 @@ export function useGroceries() {
         created_by: member?.id ?? null,
         name: name.trim(),
         quantity: quantity?.trim() || null,
+        price: price ?? null,
         category: category || null,
         checked: false,
         checked_by: null,
@@ -182,21 +185,21 @@ export function useGroceries() {
 
   // ── Update ───────────────────────────────────────────────────────────────
   const updateGrocery = useMutation({
-    mutationFn: async ({ id, name, quantity, category }: {
-      id: string; name: string; quantity?: string; category?: string | null
+    mutationFn: async ({ id, name, quantity, price, category }: {
+      id: string; name: string; quantity?: string; price?: number | null; category?: string | null
     }) => {
       const { error } = await supabase
         .from('groceries')
-        .update({ name: name.trim(), quantity: quantity?.trim() || null, category: category || null })
+        .update({ name: name.trim(), quantity: quantity?.trim() || null, price: price ?? null, category: category || null })
         .eq('id', id)
       if (error) throw error
     },
-    onMutate: async ({ id, name, quantity, category }) => {
+    onMutate: async ({ id, name, quantity, price, category }) => {
       await queryClient.cancelQueries({ queryKey: GROCERIES_KEY })
       const previous = queryClient.getQueryData<Grocery[]>(GROCERIES_KEY) ?? []
       queryClient.setQueryData<Grocery[]>(GROCERIES_KEY, previous.map(g =>
         g.id === id
-          ? { ...g, name: name.trim(), quantity: quantity?.trim() || null, category: category || null }
+          ? { ...g, name: name.trim(), quantity: quantity?.trim() || null, price: price ?? null, category: category || null }
           : g
       ))
       return { previous }

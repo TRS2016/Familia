@@ -92,6 +92,7 @@ export type Database = {
           household_id: string
           id: string
           name: string
+          price: number | null
           quantity: string | null
         }
         Insert: {
@@ -104,6 +105,7 @@ export type Database = {
           household_id: string
           id?: string
           name: string
+          price?: number | null
           quantity?: string | null
         }
         Update: {
@@ -116,6 +118,7 @@ export type Database = {
           household_id?: string
           id?: string
           name?: string
+          price?: number | null
           quantity?: string | null
         }
         Relationships: [

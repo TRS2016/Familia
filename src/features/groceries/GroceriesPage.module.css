@@ -126,6 +126,33 @@
   opacity: 0.5;
 }
 
+.priceInput {
+  width: 48px;
+  flex-shrink: 0;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  outline: none;
+  padding: 9px 0;
+  text-align: right;
+}
+
+.priceInput::placeholder {
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.priceUnit {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  padding-right: 4px;
+}
+
 .addBtn {
   width: 36px;
   height: 36px;
@@ -384,7 +411,59 @@
   cursor: not-allowed;
 }
 
+/* ── Prix badge (sur l'article) ──────────────────────────────────────────── */
+
+.priceBadge {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text);
+  background: var(--bg-card);
+  border: 1px solid var(--border-subtle);
+  border-radius: 6px;
+  padding: 2px 7px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  transition: color 0.15s, background 0.15s;
+}
+
+.priceBadgeChecked {
+  color: var(--text-muted);
+}
+
+/* ── Total bar (sticky bas) ──────────────────────────────────────────────── */
+
+.totalBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-subtle);
+  padding: 14px 20px;
+  box-shadow: 0 -4px 16px rgba(0, 0, 0, 0.06);
+}
+
+.totalLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.totalAmount {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--accent);
+  letter-spacing: -0.3px;
+}
+
 /* ── Edit modal form ─────────────────────────────────────────────────────── */
+
+.editRow {
+  display: flex;
+  gap: 12px;
+}
 
 .editForm {
   padding: 0 20px;

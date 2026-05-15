@@ -68,45 +68,72 @@ function groupUnchecked(items: Grocery[]): CategoryGroup[] {
   return groups
 }
 
+function parseQtyMultiplier(qty: string | null): number {
+  if (!qty) return 1
+  const n = Number(qty.trim())
+  return Number.isFinite(n) && n > 0 ? n : 1
+}
+
+function formatPrice(price: number): string {
+  return price.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+}
+
 export default function GroceriesPage() {
   const { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked } = useGroceries()
   useGroceriesRealtime()
   const [newName, setNewName]           = useState('')
   const [newQty, setNewQty]             = useState('')
+  const [newPrice, setNewPrice]         = useState('')
   const [formCategory, setFormCategory] = useState<string | null>(null)
 
   const [editingItem, setEditingItem]       = useState<Grocery | null>(null)
   const [editName, setEditName]             = useState('')
   const [editQty, setEditQty]               = useState('')
+  const [editPrice, setEditPrice]           = useState('')
   const [editCategory, setEditCategory]     = useState<string | null>(null)
 
   const allItems  = query.data ?? []
   const unchecked = groupUnchecked(sortUnchecked(allItems))
   const checked   = sortChecked(allItems)
 
+  const estimatedTotal = allItems
+    .filter(g => !g.checked && g.price !== null)
+    .reduce((sum, g) => sum + (g.price! * parseQtyMultiplier(g.quantity)), 0)
+  const hasTotal = allItems.some(g => !g.checked && g.price !== null)
+
   function handleAdd(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const name = newName.trim()
     if (!name) return
-    addGrocery.mutate({ name, quantity: newQty.trim() || undefined, category: formCategory || undefined })
+    const parsedPrice = newPrice.trim() ? parseFloat(newPrice.replace(',', '.')) : undefined
+    addGrocery.mutate({
+      name,
+      quantity: newQty.trim() || undefined,
+      price: parsedPrice && parsedPrice > 0 ? parsedPrice : undefined,
+      category: formCategory || undefined,
+    })
     setNewName('')
     setNewQty('')
+    setNewPrice('')
   }
 
   function openEdit(item: Grocery) {
     setEditingItem(item)
     setEditName(item.name)
     setEditQty(item.quantity ?? '')
+    setEditPrice(item.price !== null ? String(item.price).replace('.', ',') : '')
     setEditCategory(item.category)
   }
 
   function handleSaveEdit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!editingItem || !editName.trim()) return
+    const parsedPrice = editPrice.trim() ? parseFloat(editPrice.replace(',', '.')) : null
     updateGrocery.mutate({
       id: editingItem.id,
       name: editName,
       quantity: editQty || undefined,
+      price: parsedPrice && parsedPrice > 0 ? parsedPrice : null,
       category: editCategory,
     })
     setEditingItem(null)
@@ -145,6 +172,18 @@ export default function GroceriesPage() {
             className={styles.addInput}
             autoComplete="off"
           />
+          <span className={styles.addDivider} />
+          <input
+            type="text"
+            inputMode="decimal"
+            value={newPrice}
+            onChange={e => setNewPrice(e.target.value)}
+            placeholder="prix"
+            disabled={addGrocery.isPending}
+            className={styles.priceInput}
+            autoComplete="off"
+          />
+          <span className={styles.priceUnit}>€</span>
           <button
             type="submit"
             disabled={addGrocery.isPending || !newName.trim()}
@@ -252,16 +291,30 @@ export default function GroceriesPage() {
               />
             </div>
 
-            <div className={styles.editField}>
-              <label className={styles.editLabel}>Quantité</label>
-              <input
-                type="text"
-                value={editQty}
-                onChange={e => setEditQty(e.target.value)}
-                className={styles.editInput}
-                placeholder="Ex : 1 kg, 3 pcs…"
-                autoComplete="off"
-              />
+            <div className={styles.editRow}>
+              <div className={styles.editField} style={{ flex: 1 }}>
+                <label className={styles.editLabel}>Quantité</label>
+                <input
+                  type="text"
+                  value={editQty}
+                  onChange={e => setEditQty(e.target.value)}
+                  className={styles.editInput}
+                  placeholder="Ex : 1 kg, 3…"
+                  autoComplete="off"
+                />
+              </div>
+              <div className={styles.editField} style={{ flex: 1 }}>
+                <label className={styles.editLabel}>Prix unitaire (€)</label>
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={editPrice}
+                  onChange={e => setEditPrice(e.target.value)}
+                  className={styles.editInput}
+                  placeholder="Ex : 1,99"
+                  autoComplete="off"
+                />
+              </div>
             </div>
 
             <div className={styles.editField}>
@@ -290,6 +343,14 @@ export default function GroceriesPage() {
 
           </form>
         </SlideUpModal>
+      )}
+
+      {/* Total estimé — barre sticky en bas */}
+      {hasTotal && (
+        <div className={styles.totalBar}>
+          <span className={styles.totalLabel}>Total estimé</span>
+          <span className={styles.totalAmount}>{formatPrice(estimatedTotal)}</span>
+        </div>
       )}
 
     </div>
@@ -346,6 +407,13 @@ function GroceryItem({
           <div className={styles.itemMeta}>{metaParts.join(' · ')}</div>
         )}
       </div>
+
+      {/* Prix */}
+      {item.price !== null && (
+        <span className={[styles.priceBadge, item.checked ? styles.priceBadgeChecked : ''].join(' ')}>
+          {formatPrice(item.price)}
+        </span>
+      )}
 
       {/* Delete */}
       <button
