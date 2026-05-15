@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import {
   addDays, addWeeks, addMonths,
   format, startOfWeek, endOfWeek,
-  startOfMonth, endOfMonth,
+  startOfMonth, endOfMonth, startOfDay,
   eachDayOfInterval, isSameMonth,
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -23,7 +23,7 @@ import { QK } from '../../lib/query-keys'
 import { capitalize } from '../../lib/utils'
 import styles from './CalendarPage.module.css'
 
-type View = 'week' | 'month'
+type View = 'week' | 'month' | 'agenda'
 
 const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 
@@ -54,24 +54,30 @@ export default function CalendarPage() {
   useEventsRealtime()
 
   // ── View & navigation ────────────────────────────────────────────────────
-  const [view, setView] = useState<View>('week')
+  const [view, setView] = useState<View>('agenda')
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
   )
   const [monthCursor, setMonthCursor] = useState(() =>
     startOfMonth(new Date())
   )
+  const [agendaStart, setAgendaStart] = useState(() => startOfDay(new Date()))
 
   const weekEnd = addDays(weekStart, 6)
   const monthFirst = startOfMonth(monthCursor)
   const monthLast = endOfMonth(monthCursor)
+  const agendaEnd = addDays(agendaStart, 59)
 
   const rangeStart = view === 'week'
     ? format(weekStart, 'yyyy-MM-dd')
-    : format(monthFirst, 'yyyy-MM-dd')
+    : view === 'month'
+    ? format(monthFirst, 'yyyy-MM-dd')
+    : format(agendaStart, 'yyyy-MM-dd')
   const rangeEnd = view === 'week'
     ? format(weekEnd, 'yyyy-MM-dd')
-    : format(monthLast, 'yyyy-MM-dd')
+    : view === 'month'
+    ? format(monthLast, 'yyyy-MM-dd')
+    : format(agendaEnd, 'yyyy-MM-dd')
 
   const weekDays = view === 'week'
     ? Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
@@ -90,15 +96,18 @@ export default function CalendarPage() {
 
   function goBack() {
     if (view === 'week') setWeekStart(w => addWeeks(w, -1))
-    else setMonthCursor(m => addMonths(m, -1))
+    else if (view === 'month') setMonthCursor(m => addMonths(m, -1))
+    else setAgendaStart(d => addDays(d, -30))
   }
   function goForward() {
     if (view === 'week') setWeekStart(w => addWeeks(w, 1))
-    else setMonthCursor(m => addMonths(m, 1))
+    else if (view === 'month') setMonthCursor(m => addMonths(m, 1))
+    else setAgendaStart(d => addDays(d, 30))
   }
   function goToday() {
     setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))
     setMonthCursor(startOfMonth(new Date()))
+    setAgendaStart(startOfDay(new Date()))
   }
 
   function handleDayClick(day: Date) {
@@ -108,7 +117,9 @@ export default function CalendarPage() {
 
   const navLabel = view === 'week'
     ? `${capitalize(format(weekStart, 'd MMM', { locale: fr }))} – ${capitalize(format(weekEnd, 'd MMM yyyy', { locale: fr }))}`
-    : capitalize(format(monthCursor, 'MMMM yyyy', { locale: fr }))
+    : view === 'month'
+    ? capitalize(format(monthCursor, 'MMMM yyyy', { locale: fr }))
+    : `${capitalize(format(agendaStart, 'd MMM', { locale: fr }))} – ${capitalize(format(agendaEnd, 'd MMM yyyy', { locale: fr }))}`
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const { query, addEvent, updateEvent, deleteEvent } = useEvents(rangeStart, rangeEnd)
@@ -138,6 +149,7 @@ export default function CalendarPage() {
   const [formAllDay, setFormAllDay] = useState(false)
   const [formMemberId, setFormMemberId] = useState<string | null>(null)
   const [formLocation, setFormLocation] = useState('')
+  const [formDescription, setFormDescription] = useState('')
   const [formRecurrence, setFormRecurrence] = useState<RecurrenceType>('none')
 
   function openAddForm(defaultDate?: string) {
@@ -151,6 +163,7 @@ export default function CalendarPage() {
     setFormAllDay(false)
     setFormMemberId(member?.id ?? null)
     setFormLocation('')
+    setFormDescription('')
     setFormRecurrence('none')
     setShowForm(true)
   }
@@ -166,7 +179,8 @@ export default function CalendarPage() {
     setFormAllDay(event.all_day)
     setFormMemberId(event.member_id)
     setFormLocation(event.location ?? '')
-    setFormRecurrence('none')
+    setFormDescription(event.description ?? '')
+    setFormRecurrence((event.recurrence_type as RecurrenceType | null) ?? 'none')
     setShowForm(true)
   }
 
@@ -185,6 +199,7 @@ export default function CalendarPage() {
       all_day: formAllDay,
       member_id: formMemberId,
       location: formLocation || null,
+      description: formDescription || null,
       recurrence: formRecurrence,
     }
     if (editingId) {
@@ -209,6 +224,12 @@ export default function CalendarPage() {
         </Link>
         <h1 className={styles.pageTitle}>Calendrier</h1>
         <div className={styles.viewToggle}>
+          <button
+            className={[styles.viewBtn, view === 'agenda' ? styles.viewBtnActive : ''].join(' ')}
+            onClick={() => setView('agenda')}
+          >
+            Agenda
+          </button>
           <button
             className={[styles.viewBtn, view === 'week' ? styles.viewBtnActive : ''].join(' ')}
             onClick={() => setView('week')}
@@ -239,6 +260,95 @@ export default function CalendarPage() {
         <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
           <Spinner size={32} />
         </div>
+      )}
+
+      {/* ── Agenda view ──────────────────────────────────────────────────── */}
+      {view === 'agenda' && !query.isLoading && (
+        allEvents.length === 0 ? (
+          <EmptyState
+            emoji="📅"
+            title="Rien de prévu"
+            description="Aucun événement sur cette période."
+            action={{ label: '+ Ajouter un événement', onClick: () => openAddForm() }}
+          />
+        ) : (
+          <div className={styles.agendaList}>
+            {(() => {
+              const byDate = new Map<string, CalendarEvent[]>()
+              for (const e of allEvents) {
+                if (!byDate.has(e.date)) byDate.set(e.date, [])
+                byDate.get(e.date)!.push(e)
+              }
+              return [...byDate.entries()].map(([dateStr, events]) => {
+                const isToday = dateStr === todayStr
+                const [y, mo, d] = dateStr.split('-').map(Number)
+                const date = new Date(y, mo - 1, d)
+                return (
+                  <div key={dateStr} className={styles.agendaGroup}>
+                    <div className={[styles.agendaDateCol, isToday ? styles.agendaDateToday : ''].join(' ')}>
+                      <span className={styles.agendaDayName}>
+                        {capitalize(format(date, 'EEE', { locale: fr }))}
+                      </span>
+                      <span className={styles.agendaDayNum}>{format(date, 'd')}</span>
+                      <span className={styles.agendaMonthName}>
+                        {capitalize(format(date, 'MMM', { locale: fr }))}
+                      </span>
+                    </div>
+                    <ul className={styles.agendaEvents}>
+                      {events.map(event => {
+                        const color = getMemberColor(event.member_id, householdMembers)
+                        const isOptimistic = event.id.startsWith('optimistic-')
+                        return (
+                          <li
+                            key={event.id}
+                            className={[styles.agendaItem, isOptimistic ? styles.eventOptimistic : ''].join(' ')}
+                            onClick={() => !isOptimistic && openEditForm(event)}
+                          >
+                            <span className={styles.agendaBar} style={{ background: color }} />
+                            <div className={styles.agendaContent}>
+                              <span className={styles.agendaTitle}>{event.title}</span>
+                              <div className={styles.agendaMeta}>
+                                {event.all_day ? (
+                                  <span>Toute la journée</span>
+                                ) : event.start_time ? (
+                                  <span>
+                                    <Clock size={10} />
+                                    {pgTimeToInput(event.start_time)}
+                                    {event.end_time && ` – ${pgTimeToInput(event.end_time)}`}
+                                  </span>
+                                ) : null}
+                                {event.location && (
+                                  <span><MapPin size={10} /> {event.location}</span>
+                                )}
+                                {event.member && (
+                                  <span style={{ color }}>{event.member.display_name}</span>
+                                )}
+                                {event.recurrence_group_id && (
+                                  <span><RotateCw size={10} /></span>
+                                )}
+                              </div>
+                              {event.description && (
+                                <p className={styles.agendaDesc}>{event.description}</p>
+                              )}
+                            </div>
+                            <button
+                              className={styles.eventDeleteBtn}
+                              onClick={ev => { ev.stopPropagation(); deleteEvent.mutate({ id: event.id }) }}
+                              disabled={isOptimistic}
+                              aria-label={`Supprimer ${event.title}`}
+                            >
+                              <X size={14} strokeWidth={2.5} />
+                            </button>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                  </div>
+                )
+              })
+            })()}
+          </div>
+        )
       )}
 
       {/* ── Week view ────────────────────────────────────────────────────── */}
@@ -549,11 +659,41 @@ export default function CalendarPage() {
                 />
               </div>
 
+              <div className={styles.formField}>
+                <label htmlFor="ev-desc" className={styles.formLabel}>Notes</label>
+                <textarea
+                  id="ev-desc"
+                  value={formDescription}
+                  onChange={e => setFormDescription(e.target.value)}
+                  className={styles.formTextarea}
+                  placeholder="Infos pratiques, numéro, lien…"
+                  rows={2}
+                />
+              </div>
+
               {!editingId && (
                 <div className={styles.formField}>
                   <span className={styles.formLabel}>Répétition</span>
                   <div className={styles.recurrenceRow}>
                     {RECURRENCE_OPTIONS.map(opt => (
+                      <button
+                        key={opt.key}
+                        type="button"
+                        className={[styles.recurrenceBtn, formRecurrence === opt.key ? styles.recurrenceBtnActive : ''].join(' ')}
+                        onClick={() => setFormRecurrence(opt.key)}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {editingId && editingRecurrenceGroupId && editScope === 'series' && (
+                <div className={styles.formField}>
+                  <span className={styles.formLabel}>Répétition</span>
+                  <div className={styles.recurrenceRow}>
+                    {RECURRENCE_OPTIONS.filter(o => o.key !== 'none').map(opt => (
                       <button
                         key={opt.key}
                         type="button"

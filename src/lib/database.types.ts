@@ -20,12 +20,14 @@ export type Database = {
           created_at: string
           created_by: string | null
           date: string
+          description: string | null
           end_time: string | null
           household_id: string
           id: string
           location: string | null
           member_id: string | null
           recurrence_group_id: string | null
+          recurrence_type: string | null
           start_time: string | null
           title: string
         }
@@ -34,12 +36,14 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date: string
+          description?: string | null
           end_time?: string | null
           household_id: string
           id?: string
           location?: string | null
           member_id?: string | null
           recurrence_group_id?: string | null
+          recurrence_type?: string | null
           start_time?: string | null
           title: string
         }
@@ -48,12 +52,14 @@ export type Database = {
           created_at?: string
           created_by?: string | null
           date?: string
+          description?: string | null
           end_time?: string | null
           household_id?: string
           id?: string
           location?: string | null
           member_id?: string | null
           recurrence_group_id?: string | null
+          recurrence_type?: string | null
           start_time?: string | null
           title?: string
         }

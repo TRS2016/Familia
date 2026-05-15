@@ -18,7 +18,9 @@ export interface CalendarEvent {
   end_time: string | null
   all_day: boolean
   location: string | null
+  description: string | null
   recurrence_group_id: string | null
+  recurrence_type: string | null
   created_at: string
   member: { display_name: string } | null
   created_by_member: { display_name: string } | null
@@ -32,6 +34,7 @@ export interface NewEventInput {
   all_day: boolean
   member_id: string | null
   location: string | null
+  description?: string | null
   recurrence?: RecurrenceType
 }
 
@@ -67,6 +70,7 @@ function buildOccurrences(
     household_id: HOUSEHOLD_ID,
     created_by: createdBy,
     recurrence_group_id: groupId,
+    recurrence_type: recurrence,
     title: input.title.trim(),
     date: format(advance(base, i), 'yyyy-MM-dd'),
     start_time: input.start_time || null,
@@ -74,6 +78,7 @@ function buildOccurrences(
     all_day: input.all_day,
     member_id: input.member_id,
     location: input.location?.trim() || null,
+    description: input.description?.trim() || null,
   }))
 }
 
@@ -116,6 +121,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
             end_time: input.end_time || null,
             all_day: input.all_day,
             location: input.location?.trim() || null,
+            description: input.description?.trim() || null,
           })
           .select(EVENT_SELECT)
           .single()
@@ -147,7 +153,9 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
         end_time: input.end_time || null,
         all_day: input.all_day,
         location: input.location?.trim() || null,
+        description: input.description?.trim() || null,
         recurrence_group_id: null,
+        recurrence_type: null,
         created_at: new Date().toISOString(),
         member: null,
         created_by_member: member ? { display_name: member.display_name } : null,
@@ -193,6 +201,8 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
             all_day: input.all_day,
             member_id: input.member_id,
             location: input.location?.trim() || null,
+            description: input.description?.trim() || null,
+            ...(input.recurrence ? { recurrence_type: input.recurrence } : {}),
           })
           .eq('recurrence_group_id', recurrenceGroupId)
         if (error) throw error
@@ -209,6 +219,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
           end_time: input.end_time || null,
           all_day: input.all_day,
           location: input.location?.trim() || null,
+          description: input.description?.trim() || null,
         })
         .eq('id', id)
         .select(EVENT_SELECT)
@@ -232,6 +243,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
               end_time: input.end_time || null,
               all_day: input.all_day,
               location: input.location?.trim() || null,
+              description: input.description?.trim() || null,
               member_id: input.member_id,
             }
           : e

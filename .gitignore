@@ -28,3 +28,5 @@ dist-ssr
 
 # Prototype original (référence locale uniquement)
 Familia v6.html
+
+.vercel
