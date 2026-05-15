@@ -324,14 +324,10 @@
 
 .storeChips {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 6px 0 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
 }
-
-.storeChips::-webkit-scrollbar { display: none; }
 
 .storeChip {
   flex-shrink: 0;
@@ -389,14 +385,10 @@
 
 .categoryChips {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
   padding: 8px 0 0;
-  overflow-x: auto;
-  scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
 }
-
-.categoryChips::-webkit-scrollbar { display: none; }
 
 .categoryChip {
   flex-shrink: 0;
