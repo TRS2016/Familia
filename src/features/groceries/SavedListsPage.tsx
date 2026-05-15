@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ChevronLeft, Plus, Trash2, Check, Copy, ChevronRight, Pencil, X } from 'lucide-react'
 import { useSavedLists, useSavedListDetail } from './useSavedLists'
-import type { SavedList, SavedItem } from './useSavedLists'
+import type { SavedItem } from './useSavedLists'
 import { useGroceries } from './useGroceries'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
@@ -152,8 +152,6 @@ function ListDetailView({
   const [editPrice, setEditPrice] = useState('')
   const [editCategory, setEditCategory] = useState('')
   const [editStore, setEditStore] = useState('')
-
-  const [loadConfirmed, setLoadConfirmed] = useState(false)
 
   const items = query.data ?? []
 
@@ -387,11 +385,6 @@ function ListDetailView({
         </SlideUpModal>
       )}
 
-      {loadConfirmed && (
-        <div className={styles.loadToast}>
-          Liste chargée dans la liste active ✓
-        </div>
-      )}
 
     </div>
   )

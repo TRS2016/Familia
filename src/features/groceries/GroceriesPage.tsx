@@ -130,7 +130,7 @@ function groupByStore(items: Grocery[]): Group[] {
 type GroupMode = 'category' | 'store'
 
 export default function GroceriesPage() {
-  const { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked } = useGroceries()
+  const { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked, saveCurrentList, loadSavedList } = useGroceries()
   useGroceriesRealtime()
 
   // ── Add form ────────────────────────────────────────────────────────────────
@@ -154,7 +154,6 @@ export default function GroceriesPage() {
   const [budget, setBudget]               = useState(() => localStorage.getItem('familia-grocery-budget') ?? '')
   const [editingBudget, setEditingBudget] = useState(false)
   const [showLoadModal, setShowLoadModal] = useState(false)
-  const [loadingListId, setLoadingListId] = useState<string | null>(null)
 
   // ── Sauvegarder liste actuelle ───────────────────────────────────────────────
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -162,9 +161,6 @@ export default function GroceriesPage() {
 
   // ── Groupage ────────────────────────────────────────────────────────────────
   const [groupMode, setGroupMode] = useState<GroupMode>('category')
-
-  // ── Listes sauvegardées (pour modal chargement) ──────────────────────────────
-  const { query: savedListsQuery } = useSavedLists()
 
   // ── Données dérivées ────────────────────────────────────────────────────────
   const allItems     = query.data ?? []
@@ -623,12 +619,10 @@ export default function GroceriesPage() {
 
       {/* Modal — Charger une liste (mode shopping) */}
       {showLoadModal && (
-        <SlideUpModal title="Charger une liste" onClose={() => { setShowLoadModal(false); setLoadingListId(null) }}>
+        <SlideUpModal title="Charger une liste" onClose={() => setShowLoadModal(false)}>
           <LoadListModal
-            onClose={() => { setShowLoadModal(false); setLoadingListId(null) }}
+            onClose={() => setShowLoadModal(false)}
             loadSavedList={loadSavedList}
-            loadingListId={loadingListId}
-            setLoadingListId={setLoadingListId}
           />
         </SlideUpModal>
       )}
@@ -718,12 +712,10 @@ export default function GroceriesPage() {
 // ── LoadListModal ─────────────────────────────────────────────────────────────
 
 function LoadListModal({
-  onClose, loadSavedList, loadingListId, setLoadingListId,
+  onClose, loadSavedList,
 }: {
   onClose: () => void
   loadSavedList: ReturnType<typeof useGroceries>['loadSavedList']
-  loadingListId: string | null
-  setLoadingListId: (id: string | null) => void
 }) {
   const { query: listsQuery } = useSavedLists()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -732,7 +724,6 @@ function LoadListModal({
 
   function handleLoad() {
     if (!selectedId || !itemsQuery.data) return
-    setLoadingListId(selectedId)
     loadSavedList.mutate(itemsQuery.data, { onSuccess: onClose })
   }
 
