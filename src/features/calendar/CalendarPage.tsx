@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -26,6 +26,7 @@ import styles from './CalendarPage.module.css'
 type View = 'week' | 'month' | 'agenda'
 
 const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+const HOUR_HEIGHT = 64 // px per hour in the week grid
 
 const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
   { key: 'none',    label: 'Jamais'  },
@@ -43,10 +44,49 @@ export function getMemberColor(
   return MEMBER_PALETTE[index >= 0 ? index % MEMBER_PALETTE.length : 0]
 }
 
-
-
 function pgTimeToInput(t: string | null): string {
   return t ? t.slice(0, 5) : ''
+}
+
+function timeToMinutes(t: string): number {
+  const [h, m] = t.split(':').map(Number)
+  return h * 60 + m
+}
+
+type EventLayout = { col: number; totalCols: number }
+
+function layoutDayEvents(events: CalendarEvent[]): Map<string, EventLayout> {
+  const timed = events.filter(e => !e.all_day && e.start_time)
+  if (timed.length === 0) return new Map()
+
+  const sorted = [...timed].sort((a, b) => (a.start_time ?? '').localeCompare(b.start_time ?? ''))
+  const colAssignment = new Map<string, number>()
+  const colEndMin: number[] = []
+
+  for (const ev of sorted) {
+    const s = timeToMinutes(ev.start_time!)
+    const e = ev.end_time ? timeToMinutes(ev.end_time) : s + 60
+    let col = colEndMin.findIndex(end => end <= s)
+    if (col === -1) { col = colEndMin.length; colEndMin.push(e) }
+    else colEndMin[col] = e
+    colAssignment.set(ev.id, col)
+  }
+
+  const result = new Map<string, EventLayout>()
+  for (const ev of sorted) {
+    const s = timeToMinutes(ev.start_time!)
+    const e = ev.end_time ? timeToMinutes(ev.end_time) : s + 60
+    const myCol = colAssignment.get(ev.id)!
+    const overlapping = sorted.filter(o => {
+      if (o.id === ev.id) return false
+      const os = timeToMinutes(o.start_time!)
+      const oe = o.end_time ? timeToMinutes(o.end_time) : os + 60
+      return os < e && oe > s
+    })
+    const totalCols = Math.max(myCol + 1, ...overlapping.map(o => (colAssignment.get(o.id) ?? 0) + 1))
+    result.set(ev.id, { col: myCol, totalCols })
+  }
+  return result
 }
 
 export default function CalendarPage() {
@@ -62,11 +102,48 @@ export default function CalendarPage() {
     startOfMonth(new Date())
   )
   const [agendaStart, setAgendaStart] = useState(() => startOfDay(new Date()))
+  const [agendaDaysCount, setAgendaDaysCount] = useState(60)
+
+  // ── Filters ──────────────────────────────────────────────────────────────
+  const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
+
+  // ── Refs ─────────────────────────────────────────────────────────────────
+  const weekGridScrollRef = useRef<HTMLDivElement>(null)
+  const sentinelRef = useRef<HTMLDivElement>(null)
+
+  // ── Current time ─────────────────────────────────────────────────────────
+  const [currentTime, setCurrentTime] = useState(new Date())
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60_000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // ── Auto-scroll week grid to current time ────────────────────────────────
+  useEffect(() => {
+    if (view !== 'week') return
+    const el = weekGridScrollRef.current
+    if (!el) return
+    const now = new Date()
+    const scrollY = (now.getHours() * 60 + now.getMinutes()) / 60 * HOUR_HEIGHT - 120
+    el.scrollTop = Math.max(0, scrollY)
+  }, [view])
+
+  // ── Agenda infinite scroll ───────────────────────────────────────────────
+  useEffect(() => {
+    if (view !== 'agenda') return
+    const observer = new IntersectionObserver(
+      ([entry]) => { if (entry.isIntersecting) setAgendaDaysCount(n => n + 30) },
+      { rootMargin: '200px' }
+    )
+    const el = sentinelRef.current
+    if (el) observer.observe(el)
+    return () => observer.disconnect()
+  }, [view, agendaDaysCount])
 
   const weekEnd = addDays(weekStart, 6)
   const monthFirst = startOfMonth(monthCursor)
   const monthLast = endOfMonth(monthCursor)
-  const agendaEnd = addDays(agendaStart, 59)
+  const agendaEnd = addDays(agendaStart, agendaDaysCount - 1)
 
   const rangeStart = view === 'week'
     ? format(weekStart, 'yyyy-MM-dd')
@@ -97,17 +174,18 @@ export default function CalendarPage() {
   function goBack() {
     if (view === 'week') setWeekStart(w => addWeeks(w, -1))
     else if (view === 'month') setMonthCursor(m => addMonths(m, -1))
-    else setAgendaStart(d => addDays(d, -30))
+    else { setAgendaDaysCount(60); setAgendaStart(d => addDays(d, -30)) }
   }
   function goForward() {
     if (view === 'week') setWeekStart(w => addWeeks(w, 1))
     else if (view === 'month') setMonthCursor(m => addMonths(m, 1))
-    else setAgendaStart(d => addDays(d, 30))
+    else { setAgendaDaysCount(60); setAgendaStart(d => addDays(d, 30)) }
   }
   function goToday() {
     setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))
     setMonthCursor(startOfMonth(new Date()))
     setAgendaStart(startOfDay(new Date()))
+    setAgendaDaysCount(60)
   }
 
   function handleDayClick(day: Date) {
@@ -124,6 +202,10 @@ export default function CalendarPage() {
   // ── Data ─────────────────────────────────────────────────────────────────
   const { query, addEvent, updateEvent, deleteEvent } = useEvents(rangeStart, rangeEnd)
   const allEvents = query.data ?? []
+
+  const filteredEvents = filterMemberId
+    ? allEvents.filter(e => e.member_id === filterMemberId)
+    : allEvents
 
   const { data: householdMembers = [] } = useQuery({
     queryKey: QK.membersList,
@@ -256,6 +338,32 @@ export default function CalendarPage() {
         </button>
       </nav>
 
+      {/* Member filter */}
+      {householdMembers.length > 1 && (
+        <div className={styles.memberFilter}>
+          <button
+            className={[styles.filterChip, !filterMemberId ? styles.filterChipActive : ''].join(' ')}
+            onClick={() => setFilterMemberId(null)}
+          >
+            Tous
+          </button>
+          {householdMembers.map((m, i) => {
+            const color = MEMBER_PALETTE[i % MEMBER_PALETTE.length]
+            const active = filterMemberId === m.id
+            return (
+              <button
+                key={m.id}
+                className={[styles.filterChip, active ? styles.filterChipActive : ''].join(' ')}
+                style={active ? { borderColor: color, background: color + '22', color } : {}}
+                onClick={() => setFilterMemberId(id => id === m.id ? null : m.id)}
+              >
+                {m.display_name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {query.isLoading && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
           <Spinner size={32} />
@@ -264,7 +372,7 @@ export default function CalendarPage() {
 
       {/* ── Agenda view ──────────────────────────────────────────────────── */}
       {view === 'agenda' && !query.isLoading && (
-        allEvents.length === 0 ? (
+        filteredEvents.length === 0 ? (
           <EmptyState
             emoji="📅"
             title="Rien de prévu"
@@ -275,7 +383,7 @@ export default function CalendarPage() {
           <div className={styles.agendaList}>
             {(() => {
               const byDate = new Map<string, CalendarEvent[]>()
-              for (const e of allEvents) {
+              for (const e of filteredEvents) {
                 if (!byDate.has(e.date)) byDate.set(e.date, [])
                 byDate.get(e.date)!.push(e)
               }
@@ -347,117 +455,193 @@ export default function CalendarPage() {
                 )
               })
             })()}
+            {/* Infinite scroll sentinel */}
+            <div ref={sentinelRef} className={styles.agendaSentinel}>
+              {query.isFetching && <Spinner size={20} />}
+            </div>
           </div>
         )
       )}
 
-      {/* ── Week view ────────────────────────────────────────────────────── */}
-      {view === 'week' && !query.isLoading && allEvents.length === 0 && (
-        <EmptyState
-          emoji="📅"
-          title="Semaine libre !"
-          description="Aucun événement cette semaine."
-          action={{ label: '+ Ajouter un événement', onClick: () => openAddForm() }}
-        />
-      )}
+      {/* ── Week view (time grid) ─────────────────────────────────────────── */}
+      {view === 'week' && !query.isLoading && (
+        <div className={styles.weekGrid}>
 
-      {view === 'week' && (
-        <div className={styles.weekList}>
-          {weekDays.map(day => {
-            const dayStr = format(day, 'yyyy-MM-dd')
-            const isToday = dayStr === todayStr
-            const dayEvents = allEvents
-              .filter(e => e.date === dayStr)
-              .sort((a, b) => {
-                if (a.all_day && !b.all_day) return -1
-                if (!a.all_day && b.all_day) return 1
-                return (a.start_time ?? '').localeCompare(b.start_time ?? '')
-              })
-            return (
-              <div key={dayStr} className={styles.dayCard}>
-                <div className={styles.dayHeader}>
-                  <div className={[styles.dayBadge, isToday ? styles.dayBadgeToday : ''].join(' ')}>
-                    <span className={styles.dayLetter}>
-                      {capitalize(format(day, 'EEE', { locale: fr })).slice(0, 3)}
-                    </span>
-                    <span className={[styles.dayNumber, isToday ? styles.dayNumberToday : ''].join(' ')}>
-                      {format(day, 'd')}
-                    </span>
+          {/* Day headers (sticky) */}
+          <div className={styles.weekGridHeader}>
+            <div className={styles.weekGridGutter} />
+            {weekDays.map(day => {
+              const dayStr = format(day, 'yyyy-MM-dd')
+              const isToday = dayStr === todayStr
+              return (
+                <div
+                  key={dayStr}
+                  className={[styles.weekGridDayHead, isToday ? styles.weekGridDayHeadToday : ''].join(' ')}
+                >
+                  <span className={styles.weekGridDayName}>
+                    {capitalize(format(day, 'EEE', { locale: fr })).slice(0, 3)}
+                  </span>
+                  <div className={[styles.weekGridDayNum, isToday ? styles.weekGridDayNumToday : ''].join(' ')}>
+                    {format(day, 'd')}
+                    <button
+                      className={styles.weekGridAddBtn}
+                      onClick={e => { e.stopPropagation(); openAddForm(dayStr) }}
+                      aria-label={`Ajouter le ${dayStr}`}
+                    >
+                      <Plus size={10} strokeWidth={3} />
+                    </button>
                   </div>
-                  {isToday && <span className={styles.todayBadge}>Aujourd'hui</span>}
-                  <button
-                    className={styles.eventDeleteBtn}
-                    style={{ opacity: 1, marginLeft: 'auto' }}
-                    onClick={() => openAddForm(dayStr)}
-                    aria-label={`Ajouter un événement le ${dayStr}`}
-                  >
-                    <Plus size={15} strokeWidth={2.5} color="var(--accent)" />
-                  </button>
                 </div>
+              )
+            })}
+          </div>
 
-                {dayEvents.length === 0 ? (
-                  <p className={styles.dayEmpty}>Aucun événement</p>
-                ) : (
-                  <ul className={styles.eventList}>
-                    {dayEvents.map(event => {
-                      const isOptimistic = event.id.startsWith('optimistic-')
-                      const color = getMemberColor(event.member_id, householdMembers)
+          {/* All-day strip */}
+          {weekDays.some(day => filteredEvents.some(e => e.date === format(day, 'yyyy-MM-dd') && e.all_day)) && (
+            <div className={styles.weekGridAllDayRow}>
+              <div className={styles.weekGridGutter}>
+                <span className={styles.weekGridAllDayLabel}>jour</span>
+              </div>
+              {weekDays.map(day => {
+                const dayStr = format(day, 'yyyy-MM-dd')
+                const allDayEvts = filteredEvents.filter(e => e.date === dayStr && e.all_day)
+                return (
+                  <div key={dayStr} className={styles.weekGridAllDayCol}>
+                    {allDayEvts.map(ev => {
+                      const color = getMemberColor(ev.member_id, householdMembers)
+                      const isOptimistic = ev.id.startsWith('optimistic-')
                       return (
-                        <li
-                          key={event.id}
-                          className={[
-                            styles.eventItem,
-                            isOptimistic ? styles.eventOptimistic : '',
-                          ].join(' ')}
-                          onClick={() => !isOptimistic && openEditForm(event)}
+                        <div
+                          key={ev.id}
+                          className={[styles.weekGridAllDayEvent, isOptimistic ? styles.eventOptimistic : ''].join(' ')}
+                          style={{ background: color + '28', color, borderLeft: `3px solid ${color}` }}
+                          onClick={() => !isOptimistic && openEditForm(ev)}
                         >
-                          <span className={styles.eventBar} style={{ background: color }} />
-                          <div className={styles.eventContent}>
-                            <div className={styles.eventTitle}>{event.title}</div>
-                            <div className={styles.eventMeta}>
-                              {event.all_day ? (
-                                <span className={styles.eventMetaItem}>Toute la journée</span>
-                              ) : event.start_time ? (
-                                <span className={styles.eventMetaItem}>
-                                  <Clock size={10} />
-                                  {pgTimeToInput(event.start_time)}
-                                  {event.end_time && ` – ${pgTimeToInput(event.end_time)}`}
-                                </span>
-                              ) : null}
-                              {event.location && (
-                                <span className={styles.eventMetaItem}>
-                                  <MapPin size={10} />
-                                  {event.location}
-                                </span>
-                              )}
-                              {event.member && (
-                                <span className={styles.eventMetaItem} style={{ color }}>
-                                  {event.member.display_name}
-                                </span>
-                              )}
-                              {event.recurrence_group_id && (
-                                <span className={styles.eventMetaItem}>
-                                  <RotateCw size={10} />
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <button
-                            className={styles.eventDeleteBtn}
-                            onClick={e => { e.stopPropagation(); deleteEvent.mutate({ id: event.id }) }}
-                            disabled={isOptimistic}
-                            aria-label={`Supprimer ${event.title}`}
-                          >
-                            <X size={14} strokeWidth={2.5} />
-                          </button>
-                        </li>
+                          {ev.title}
+                        </div>
                       )
                     })}
-                  </ul>
-                )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Scrollable time body */}
+          <div className={styles.weekGridScrollArea} ref={weekGridScrollRef}>
+            <div className={styles.weekGridTimeBody}>
+
+              {/* Hour labels (left gutter) */}
+              <div className={styles.weekGridGutter}>
+                {Array.from({ length: 24 }, (_, h) => (
+                  <div key={h} className={styles.weekGridHourSlot}>
+                    {h > 0 && (
+                      <span className={styles.weekGridHourLabel}>
+                        {String(h).padStart(2, '0')}h
+                      </span>
+                    )}
+                  </div>
+                ))}
               </div>
-            )
-          })}
+
+              {/* Day columns */}
+              <div className={styles.weekGridDayCols}>
+                {weekDays.map(day => {
+                  const dayStr = format(day, 'yyyy-MM-dd')
+                  const isToday = dayStr === todayStr
+                  const timedEvts = filteredEvents.filter(e => e.date === dayStr && !e.all_day && e.start_time)
+                  const untimedEvts = filteredEvents.filter(e => e.date === dayStr && !e.all_day && !e.start_time)
+                  const evLayout = layoutDayEvents(timedEvts)
+
+                  return (
+                    <div
+                      key={dayStr}
+                      className={[styles.weekGridDayCol, isToday ? styles.weekGridDayColToday : ''].join(' ')}
+                    >
+                      {/* Hour lines (background) */}
+                      {Array.from({ length: 24 }, (_, h) => (
+                        <div
+                          key={h}
+                          className={styles.weekGridHourLine}
+                          style={{ top: h * HOUR_HEIGHT }}
+                        />
+                      ))}
+
+                      {/* Current time indicator */}
+                      {isToday && (
+                        <div
+                          className={styles.weekGridNowLine}
+                          style={{
+                            top: (currentTime.getHours() * 60 + currentTime.getMinutes()) / 60 * HOUR_HEIGHT,
+                          }}
+                        />
+                      )}
+
+                      {/* Events without time */}
+                      {untimedEvts.length > 0 && (
+                        <div className={styles.weekGridUntimed}>
+                          {untimedEvts.map(ev => {
+                            const color = getMemberColor(ev.member_id, householdMembers)
+                            return (
+                              <div
+                                key={ev.id}
+                                className={styles.weekGridUntimeEvent}
+                                style={{ background: color + '28', color, borderLeft: `3px solid ${color}` }}
+                                onClick={e => { e.stopPropagation(); openEditForm(ev) }}
+                              >
+                                {ev.title}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+
+                      {/* Timed events */}
+                      {timedEvts.map(ev => {
+                        const l = evLayout.get(ev.id) ?? { col: 0, totalCols: 1 }
+                        const color = getMemberColor(ev.member_id, householdMembers)
+                        const startMin = timeToMinutes(ev.start_time!)
+                        const endMin = ev.end_time ? timeToMinutes(ev.end_time) : startMin + 60
+                        const duration = Math.max(endMin - startMin, 30)
+                        const isOptimistic = ev.id.startsWith('optimistic-')
+                        const isShort = duration <= 30
+
+                        return (
+                          <div
+                            key={ev.id}
+                            className={[
+                              styles.weekGridEvent,
+                              isOptimistic ? styles.eventOptimistic : '',
+                              isShort ? styles.weekGridEventShort : '',
+                            ].join(' ')}
+                            style={{
+                              top: startMin / 60 * HOUR_HEIGHT,
+                              height: duration / 60 * HOUR_HEIGHT - 2,
+                              left: `${(l.col / l.totalCols) * 100}%`,
+                              width: `calc(${(1 / l.totalCols) * 100}% - 4px)`,
+                              background: color + '22',
+                              borderLeft: `3px solid ${color}`,
+                              color,
+                            }}
+                            onClick={e => { e.stopPropagation(); !isOptimistic && openEditForm(ev) }}
+                          >
+                            <span className={styles.weekGridEventTitle}>{ev.title}</span>
+                            {!isShort && (
+                              <span className={styles.weekGridEventTime}>
+                                {pgTimeToInput(ev.start_time)}
+                                {ev.end_time && ` – ${pgTimeToInput(ev.end_time)}`}
+                              </span>
+                            )}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )
+                })}
+              </div>
+
+            </div>
+          </div>
         </div>
       )}
 
@@ -477,7 +661,7 @@ export default function CalendarPage() {
                 <tr key={wi}>
                   {week.map(day => {
                     const dayStr = format(day, 'yyyy-MM-dd')
-                    const dayEvents = allEvents.filter(e => e.date === dayStr)
+                    const dayEvents = filteredEvents.filter(e => e.date === dayStr)
                     const inMonth = isSameMonth(day, monthCursor)
                     const isToday = dayStr === todayStr
                     return (
