@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Plus, Check, Trash2 } from 'lucide-react'
+import { ChevronLeft, Plus, Check, Trash2, SlidersHorizontal, ShoppingCart } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
 import type { Grocery } from './useGroceries'
@@ -75,32 +75,54 @@ function parseQtyMultiplier(qty: string | null): number {
 }
 
 function formatPrice(price: number): string {
-  return price.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+  return price.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
+}
+
+function computeTotal(items: Grocery[]): number {
+  return items
+    .filter(g => g.price !== null)
+    .reduce((sum, g) => sum + (g.price! * parseQtyMultiplier(g.quantity)), 0)
 }
 
 export default function GroceriesPage() {
   const { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked } = useGroceries()
   useGroceriesRealtime()
+
+  // ── Add form ──────────────────────────────────────────────────────────────
   const [newName, setNewName]           = useState('')
   const [newQty, setNewQty]             = useState('')
   const [newPrice, setNewPrice]         = useState('')
   const [formCategory, setFormCategory] = useState<string | null>(null)
+  const [formExpanded, setFormExpanded] = useState(false)
 
-  const [editingItem, setEditingItem]       = useState<Grocery | null>(null)
-  const [editName, setEditName]             = useState('')
-  const [editQty, setEditQty]               = useState('')
-  const [editPrice, setEditPrice]           = useState('')
-  const [editCategory, setEditCategory]     = useState<string | null>(null)
+  // ── Edit modal ────────────────────────────────────────────────────────────
+  const [editingItem, setEditingItem]   = useState<Grocery | null>(null)
+  const [editName, setEditName]         = useState('')
+  const [editQty, setEditQty]           = useState('')
+  const [editPrice, setEditPrice]       = useState('')
+  const [editCategory, setEditCategory] = useState<string | null>(null)
 
-  const allItems  = query.data ?? []
-  const unchecked = groupUnchecked(sortUnchecked(allItems))
-  const checked   = sortChecked(allItems)
+  // ── Shopping mode ─────────────────────────────────────────────────────────
+  const [shoppingMode, setShoppingMode]   = useState(false)
+  const [budget, setBudget]               = useState(() => localStorage.getItem('familia-grocery-budget') ?? '')
+  const [editingBudget, setEditingBudget] = useState(false)
 
-  const estimatedTotal = allItems
-    .filter(g => !g.checked && g.price !== null)
-    .reduce((sum, g) => sum + (g.price! * parseQtyMultiplier(g.quantity)), 0)
-  const hasTotal = allItems.some(g => !g.checked && g.price !== null)
+  // ── Derived ───────────────────────────────────────────────────────────────
+  const allItems     = query.data ?? []
+  const unchecked    = groupUnchecked(sortUnchecked(allItems))
+  const checked      = sortChecked(allItems)
+  const checkedItems = allItems.filter(g => g.checked)
+  const uncheckedItems = allItems.filter(g => !g.checked)
 
+  const totalInCart  = computeTotal(checkedItems)
+  const totalLeft    = computeTotal(uncheckedItems)
+  const hasAnyPrice  = allItems.some(g => g.price !== null)
+
+  const budgetNum      = budget.trim() ? parseFloat(budget.replace(',', '.')) : null
+  const budgetProgress = budgetNum && budgetNum > 0 ? Math.min(1, totalInCart / budgetNum) : null
+  const overBudget     = budgetNum !== null && totalInCart > budgetNum
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
   function handleAdd(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const name = newName.trim()
@@ -139,6 +161,23 @@ export default function GroceriesPage() {
     setEditingItem(null)
   }
 
+  function saveBudget() {
+    const trimmed = budget.trim()
+    if (trimmed) {
+      localStorage.setItem('familia-grocery-budget', trimmed)
+    } else {
+      localStorage.removeItem('familia-grocery-budget')
+    }
+    setEditingBudget(false)
+  }
+
+  function clearBudget() {
+    setBudget('')
+    localStorage.removeItem('familia-grocery-budget')
+    setEditingBudget(false)
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <div className={styles.page}>
 
@@ -147,65 +186,109 @@ export default function GroceriesPage() {
         <Link to="/" className={styles.backLink} aria-label="Retour à l'accueil">
           <ChevronLeft size={22} strokeWidth={2.5} />
         </Link>
-        <h1 className={styles.pageTitle}>Courses</h1>
+
+        <div className={styles.headerCenter}>
+          <h1 className={styles.pageTitle}>Courses</h1>
+          {shoppingMode && allItems.length > 0 && (
+            <span className={styles.progressChip}>
+              {checkedItems.length}/{allItems.length}
+            </span>
+          )}
+        </div>
+
+        <button
+          className={[styles.shoppingToggle, shoppingMode ? styles.shoppingToggleActive : ''].join(' ')}
+          onClick={() => { setShoppingMode(m => !m); setEditingBudget(false) }}
+          aria-label={shoppingMode ? 'Retour à la liste' : 'Mode shopping'}
+        >
+          <ShoppingCart size={14} strokeWidth={2.5} />
+          <span>{shoppingMode ? 'Liste' : 'Shop'}</span>
+        </button>
       </header>
 
-      {/* Add form — sticky */}
-      <form onSubmit={handleAdd} className={styles.addForm}>
-        <div className={styles.addRow}>
-          <input
-            type="text"
-            value={newQty}
-            onChange={e => setNewQty(e.target.value)}
-            placeholder="qté"
-            disabled={addGrocery.isPending}
-            className={styles.qtyInput}
-            autoComplete="off"
+      {/* Shopping progress bar */}
+      {shoppingMode && allItems.length > 0 && (
+        <div className={styles.shoppingProgressTrack}>
+          <div
+            className={styles.shoppingProgressFill}
+            style={{ width: `${(checkedItems.length / allItems.length) * 100}%` }}
           />
-          <span className={styles.addDivider} />
-          <input
-            type="text"
-            value={newName}
-            onChange={e => setNewName(e.target.value)}
-            placeholder="Ajouter un article..."
-            disabled={addGrocery.isPending}
-            className={styles.addInput}
-            autoComplete="off"
-          />
-          <span className={styles.addDivider} />
-          <input
-            type="text"
-            inputMode="decimal"
-            value={newPrice}
-            onChange={e => setNewPrice(e.target.value)}
-            placeholder="prix"
-            disabled={addGrocery.isPending}
-            className={styles.priceInput}
-            autoComplete="off"
-          />
-          <span className={styles.priceUnit}>€</span>
-          <button
-            type="submit"
-            disabled={addGrocery.isPending || !newName.trim()}
-            className={styles.addBtn}
-            aria-label="Ajouter"
-          >
-            <Plus size={18} strokeWidth={2.5} />
-          </button>
         </div>
-        <div className={styles.categoryChips}>
-          {CATEGORIES.map(c => (
+      )}
+
+      {/* Add form — masqué en mode shopping */}
+      {!shoppingMode && (
+        <form onSubmit={handleAdd} className={styles.addForm}>
+          <div className={styles.addRow}>
+            <input
+              type="text"
+              value={newName}
+              onChange={e => setNewName(e.target.value)}
+              placeholder="Ajouter un article..."
+              disabled={addGrocery.isPending}
+              className={styles.addInput}
+              autoComplete="off"
+            />
             <button
-              key={c.key}
               type="button"
-              className={[styles.categoryChip, formCategory === c.key ? styles.categoryChipActive : ''].join(' ')}
-              onClick={() => setFormCategory(f => f === c.key ? null : c.key)}
+              className={[styles.expandBtn, formExpanded ? styles.expandBtnActive : ''].join(' ')}
+              onClick={() => setFormExpanded(x => !x)}
+              aria-label="Détails"
+              tabIndex={-1}
             >
-              {c.emoji} {c.key}
+              <SlidersHorizontal size={15} strokeWidth={2.5} />
             </button>
-          ))}
-        </div>
-      </form>
+            <button
+              type="submit"
+              disabled={addGrocery.isPending || !newName.trim()}
+              className={styles.addBtn}
+              aria-label="Ajouter"
+            >
+              <Plus size={18} strokeWidth={2.5} />
+            </button>
+          </div>
+
+          {formExpanded && (
+            <>
+              <div className={styles.detailsRow}>
+                <input
+                  type="text"
+                  value={newQty}
+                  onChange={e => setNewQty(e.target.value)}
+                  placeholder="Quantité (ex : 3, 1 kg)"
+                  disabled={addGrocery.isPending}
+                  className={styles.detailInput}
+                  autoComplete="off"
+                />
+                <span className={styles.detailSep} />
+                <input
+                  type="text"
+                  inputMode="decimal"
+                  value={newPrice}
+                  onChange={e => setNewPrice(e.target.value)}
+                  placeholder="Prix unitaire"
+                  disabled={addGrocery.isPending}
+                  className={styles.detailInput}
+                  autoComplete="off"
+                />
+                <span className={styles.priceUnit}>€</span>
+              </div>
+              <div className={styles.categoryChips}>
+                {CATEGORIES.map(c => (
+                  <button
+                    key={c.key}
+                    type="button"
+                    className={[styles.categoryChip, formCategory === c.key ? styles.categoryChipActive : ''].join(' ')}
+                    onClick={() => setFormCategory(f => f === c.key ? null : c.key)}
+                  >
+                    {c.emoji} {c.key}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </form>
+      )}
 
       {query.isLoading && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
@@ -221,7 +304,7 @@ export default function GroceriesPage() {
         />
       )}
 
-      {/* Unchecked items — grouped by category */}
+      {/* Articles non cochés — groupés par catégorie */}
       {unchecked.map(group => (
         <div key={group.category ?? '__none'}>
           {group.category && (
@@ -234,6 +317,7 @@ export default function GroceriesPage() {
               <GroceryItem
                 key={item.id}
                 item={item}
+                shoppingMode={shoppingMode}
                 onToggle={() => toggleGrocery.mutate({ id: item.id, checked: true })}
                 onDelete={() => deleteGrocery.mutate(item.id)}
                 onEdit={() => openEdit(item)}
@@ -243,26 +327,29 @@ export default function GroceriesPage() {
         </div>
       ))}
 
-      {/* Checked items */}
+      {/* Articles cochés */}
       {checked.length > 0 && (
         <>
           <div className={styles.separator}>
             <span className={styles.separatorLine} />
             <span className={styles.separatorLabel}>Déjà pris</span>
             <span className={styles.separatorLine} />
-            <button
-              className={styles.clearBtn}
-              onClick={() => clearChecked.mutate()}
-              disabled={clearChecked.isPending}
-            >
-              Tout effacer
-            </button>
+            {!shoppingMode && (
+              <button
+                className={styles.clearBtn}
+                onClick={() => clearChecked.mutate()}
+                disabled={clearChecked.isPending}
+              >
+                Tout effacer
+              </button>
+            )}
           </div>
           <ul className={styles.list}>
             {checked.map(item => (
               <GroceryItem
                 key={item.id}
                 item={item}
+                shoppingMode={shoppingMode}
                 onToggle={() => toggleGrocery.mutate({ id: item.id, checked: false })}
                 onDelete={() => deleteGrocery.mutate(item.id)}
                 onEdit={() => openEdit(item)}
@@ -272,7 +359,91 @@ export default function GroceriesPage() {
         </>
       )}
 
-      {/* Edit modal */}
+      {/* Espace sous la barre sticky */}
+      {hasAnyPrice && <div style={{ height: shoppingMode ? 112 : 64 }} />}
+
+      {/* Barre total / shopping — sticky bas */}
+      {hasAnyPrice && (
+        <div className={[styles.totalBar, shoppingMode ? styles.totalBarShopping : ''].join(' ')}>
+
+          {shoppingMode ? (
+            <div className={styles.shoppingBarInner}>
+
+              <div className={styles.shoppingBarTop}>
+                {/* Panier (articles cochés) */}
+                <div className={styles.shoppingCartBlock}>
+                  <span className={styles.shoppingCartLabel}>Panier</span>
+                  <span className={styles.shoppingCartAmount}>{formatPrice(totalInCart)}</span>
+                </div>
+
+                {/* Budget ou total restant */}
+                {budgetNum ? (
+                  <div className={[styles.shoppingBudgetBlock, overBudget ? styles.overBudget : ''].join(' ')}>
+                    <span className={styles.shoppingBudgetLabel}>Budget</span>
+                    <span className={styles.shoppingBudgetAmount}>{formatPrice(budgetNum)}</span>
+                  </div>
+                ) : totalLeft > 0 ? (
+                  <span className={styles.shoppingRemainder}>≈ {formatPrice(totalLeft)} restant</span>
+                ) : null}
+              </div>
+
+              {/* Barre de progression budget */}
+              {budgetProgress !== null && (
+                <div className={styles.budgetTrack}>
+                  <div
+                    className={styles.budgetFill}
+                    style={{
+                      width: `${budgetProgress * 100}%`,
+                      background: overBudget ? '#c0392b' : '#5B9E8F',
+                    }}
+                  />
+                </div>
+              )}
+
+              {/* Ligne budget */}
+              <div className={styles.budgetEditRow}>
+                {editingBudget ? (
+                  <form
+                    onSubmit={e => { e.preventDefault(); saveBudget() }}
+                    className={styles.budgetForm}
+                  >
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      value={budget}
+                      onChange={e => setBudget(e.target.value)}
+                      placeholder="Budget en €"
+                      className={styles.budgetInput}
+                      autoFocus
+                    />
+                    <button type="submit" className={styles.budgetSaveBtn}>OK</button>
+                    {budget && (
+                      <button type="button" className={styles.budgetClearBtn} onClick={clearBudget}>
+                        Supprimer
+                      </button>
+                    )}
+                  </form>
+                ) : (
+                  <button className={styles.budgetEditBtn} onClick={() => setEditingBudget(true)}>
+                    {budget
+                      ? `Budget : ${formatPrice(parseFloat(budget.replace(',', '.')))}  ✎`
+                      : '+ Définir un budget'}
+                  </button>
+                )}
+              </div>
+
+            </div>
+          ) : (
+            <>
+              <span className={styles.totalLabel}>Total estimé</span>
+              <span className={styles.totalAmount}>{formatPrice(totalLeft)}</span>
+            </>
+          )}
+
+        </div>
+      )}
+
+      {/* Modal d'édition */}
       {editingItem && (
         <SlideUpModal title="Modifier l'article" onClose={() => setEditingItem(null)}>
           <form onSubmit={handleSaveEdit} className={styles.editForm}>
@@ -345,25 +516,19 @@ export default function GroceriesPage() {
         </SlideUpModal>
       )}
 
-      {/* Total estimé — barre sticky en bas */}
-      {hasTotal && (
-        <div className={styles.totalBar}>
-          <span className={styles.totalLabel}>Total estimé</span>
-          <span className={styles.totalAmount}>{formatPrice(estimatedTotal)}</span>
-        </div>
-      )}
-
     </div>
   )
 }
 
 function GroceryItem({
   item,
+  shoppingMode,
   onToggle,
   onDelete,
   onEdit,
 }: {
   item: Grocery
+  shoppingMode: boolean
   onToggle: () => void
   onDelete: () => void
   onEdit: () => void
@@ -377,53 +542,68 @@ function GroceryItem({
   return (
     <li className={[
       styles.item,
+      shoppingMode ? styles.itemShopping : '',
       item.checked ? styles.itemChecked : '',
       isOptimistic ? styles.itemOptimistic : '',
     ].join(' ')}>
 
-      {/* Checkbox */}
       <button
-        className={[styles.checkbox, item.checked ? styles.checkboxChecked : ''].join(' ')}
+        className={[
+          styles.checkbox,
+          shoppingMode ? styles.checkboxShopping : '',
+          item.checked ? styles.checkboxChecked : '',
+        ].join(' ')}
         onClick={onToggle}
         disabled={isOptimistic}
         aria-label={item.checked ? `Décocher ${item.name}` : `Cocher ${item.name}`}
       >
-        {item.checked && <Check size={13} strokeWidth={3} color="#fff" />}
+        {item.checked && <Check size={shoppingMode ? 16 : 13} strokeWidth={3} color="#fff" />}
       </button>
 
-      {/* Name + meta */}
-      <div className={styles.itemBody} onClick={onEdit} style={{ cursor: 'pointer' }}>
+      <div
+        className={styles.itemBody}
+        onClick={shoppingMode ? undefined : onEdit}
+        style={shoppingMode ? undefined : { cursor: 'pointer' }}
+      >
         <div className={styles.itemNameRow}>
           {item.quantity && (
             <span className={[styles.qtyBadge, item.checked ? styles.qtyBadgeChecked : ''].join(' ')}>
               {item.quantity}
             </span>
           )}
-          <span className={[styles.itemName, item.checked ? styles.itemNameChecked : ''].join(' ')}>
+          <span className={[
+            styles.itemName,
+            shoppingMode ? styles.itemNameShopping : '',
+            item.checked ? styles.itemNameChecked : '',
+          ].join(' ')}>
             {item.name}
           </span>
         </div>
-        {metaParts.length > 0 && (
+        {!shoppingMode && metaParts.length > 0 && (
           <div className={styles.itemMeta}>{metaParts.join(' · ')}</div>
         )}
       </div>
 
-      {/* Prix */}
       {item.price !== null && (
-        <span className={[styles.priceBadge, item.checked ? styles.priceBadgeChecked : ''].join(' ')}>
+        <span className={[
+          styles.priceBadge,
+          shoppingMode ? styles.priceBadgeShopping : '',
+          item.checked ? styles.priceBadgeChecked : '',
+        ].join(' ')}>
           {formatPrice(item.price)}
         </span>
       )}
 
-      {/* Delete */}
-      <button
-        className={styles.deleteBtn}
-        onClick={onDelete}
-        disabled={isOptimistic}
-        aria-label={`Supprimer ${item.name}`}
-      >
-        <Trash2 size={15} strokeWidth={2} />
-      </button>
+      {!shoppingMode && (
+        <button
+          className={styles.deleteBtn}
+          onClick={onDelete}
+          disabled={isOptimistic}
+          aria-label={`Supprimer ${item.name}`}
+        >
+          <Trash2 size={15} strokeWidth={2} />
+        </button>
+      )}
 
     </li>
   )
