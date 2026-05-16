@@ -1090,8 +1090,9 @@
 }
 
 .weekGridAllDayEvent {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
+  color: var(--text);
   border-radius: 3px;
   padding: 1px 4px;
   white-space: nowrap;
@@ -1193,8 +1194,9 @@
 }
 
 .weekGridUntimeEvent {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
+  color: var(--text);
   border-radius: 3px;
   padding: 2px 4px;
   white-space: nowrap;
@@ -1216,6 +1218,7 @@
   z-index: 1;
   transition: filter 0.1s;
   box-sizing: border-box;
+  color: var(--text);
 }
 
 .weekGridEvent:hover {
@@ -1224,7 +1227,7 @@
 }
 
 .weekGridEventTitle {
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 700;
   line-height: 1.2;
   overflow: hidden;
@@ -1234,9 +1237,9 @@
 }
 
 .weekGridEventTime {
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
-  opacity: 0.8;
+  opacity: 0.7;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -1244,5 +1247,5 @@
 
 .weekGridEventShort .weekGridEventTitle {
   -webkit-line-clamp: 1;
-  font-size: 10px;
+  font-size: 11px;
 }

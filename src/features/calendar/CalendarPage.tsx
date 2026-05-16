@@ -568,7 +568,7 @@ export default function CalendarPage() {
                         <div
                           key={ev.id}
                           className={[styles.weekGridAllDayEvent, isOptimistic ? styles.eventOptimistic : ''].join(' ')}
-                          style={{ background: color + '28', color, borderLeft: `3px solid ${color}` }}
+                          style={{ background: color + '33', borderLeft: `3px solid ${color}` }}
                           onClick={() => !isOptimistic && openEditForm(ev)}
                         >
                           {ev.title}
@@ -653,7 +653,7 @@ export default function CalendarPage() {
                               <div
                                 key={ev.id}
                                 className={styles.weekGridUntimeEvent}
-                                style={{ background: color + '28', color, borderLeft: `3px solid ${color}` }}
+                                style={{ background: color + '33', borderLeft: `3px solid ${color}` }}
                                 onClick={e => { e.stopPropagation(); openEditForm(ev) }}
                               >
                                 {ev.title}
@@ -686,9 +686,8 @@ export default function CalendarPage() {
                               height: duration / 60 * HOUR_HEIGHT - 2,
                               left: `${(l.col / l.totalCols) * 100}%`,
                               width: `calc(${(1 / l.totalCols) * 100}% - 4px)`,
-                              background: color + '22',
+                              background: color + '33',
                               borderLeft: `3px solid ${color}`,
-                              color,
                             }}
                             onClick={e => { e.stopPropagation(); !isOptimistic && openEditForm(ev) }}
                           >
