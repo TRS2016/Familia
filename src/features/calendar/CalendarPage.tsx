@@ -103,9 +103,16 @@ export default function CalendarPage() {
   )
   const [agendaStart, setAgendaStart] = useState(() => startOfDay(new Date()))
   const [agendaDaysCount, setAgendaDaysCount] = useState(60)
+  const [selectedMonthDay, setSelectedMonthDay] = useState<string | null>(null)
 
   // ── Filters ──────────────────────────────────────────────────────────────
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
+
+  function switchView(newView: View) {
+    if (newView === 'agenda') setAgendaDaysCount(60)
+    if (newView !== 'month') setSelectedMonthDay(null)
+    setView(newView)
+  }
 
   // ── Refs ─────────────────────────────────────────────────────────────────
   const weekGridScrollRef = useRef<HTMLDivElement>(null)
@@ -189,8 +196,9 @@ export default function CalendarPage() {
   }
 
   function handleDayClick(day: Date) {
+    const dayStr = format(day, 'yyyy-MM-dd')
     setWeekStart(startOfWeek(day, { weekStartsOn: 1 }))
-    setView('week')
+    setSelectedMonthDay(prev => prev === dayStr ? null : dayStr)
   }
 
   const navLabel = view === 'week'
@@ -308,19 +316,19 @@ export default function CalendarPage() {
         <div className={styles.viewToggle}>
           <button
             className={[styles.viewBtn, view === 'agenda' ? styles.viewBtnActive : ''].join(' ')}
-            onClick={() => setView('agenda')}
+            onClick={() => switchView('agenda')}
           >
             Agenda
           </button>
           <button
             className={[styles.viewBtn, view === 'week' ? styles.viewBtnActive : ''].join(' ')}
-            onClick={() => setView('week')}
+            onClick={() => switchView('week')}
           >
             Sem.
           </button>
           <button
             className={[styles.viewBtn, view === 'month' ? styles.viewBtnActive : ''].join(' ')}
-            onClick={() => setView('month')}
+            onClick={() => switchView('month')}
           >
             Mois
           </button>
@@ -671,6 +679,7 @@ export default function CalendarPage() {
                           styles.monthTd,
                           !inMonth ? styles.monthTdOff : '',
                           isToday ? styles.monthTdToday : '',
+                          dayStr === selectedMonthDay ? styles.monthTdSelected : '',
                         ].join(' ')}
                         onClick={() => handleDayClick(day)}
                       >
@@ -704,6 +713,65 @@ export default function CalendarPage() {
           </table>
         </div>
       )}
+
+      {/* ── Month day detail panel ───────────────────────────────────────────── */}
+      {view === 'month' && selectedMonthDay && (() => {
+        const [y, mo, d] = selectedMonthDay.split('-').map(Number)
+        const dayDate = new Date(y, mo - 1, d)
+        const dayEvents = filteredEvents.filter(e => e.date === selectedMonthDay)
+        return (
+          <div className={styles.monthDayPanel}>
+            <div className={styles.monthDayPanelHeader}>
+              <span className={styles.monthDayPanelTitle}>
+                {capitalize(format(dayDate, 'EEEE d MMMM', { locale: fr }))}
+              </span>
+              <button
+                className={styles.monthDayPanelAdd}
+                onClick={() => openAddForm(selectedMonthDay)}
+                aria-label="Ajouter un événement"
+              >
+                <Plus size={16} strokeWidth={2.5} />
+              </button>
+            </div>
+            {dayEvents.length === 0 ? (
+              <p className={styles.monthDayPanelEmpty}>Rien ce jour-là</p>
+            ) : (
+              <ul className={styles.monthDayPanelList}>
+                {dayEvents.map(ev => {
+                  const color = getMemberColor(ev.member_id, householdMembers)
+                  const isOptimistic = ev.id.startsWith('optimistic-')
+                  return (
+                    <li
+                      key={ev.id}
+                      className={[styles.monthDayPanelItem, isOptimistic ? styles.eventOptimistic : ''].join(' ')}
+                      onClick={() => !isOptimistic && openEditForm(ev)}
+                    >
+                      <span className={styles.monthDayPanelBar} style={{ background: color }} />
+                      <div className={styles.agendaContent}>
+                        <span className={styles.agendaTitle}>{ev.title}</span>
+                        <div className={styles.agendaMeta}>
+                          {ev.all_day ? (
+                            <span>Toute la journée</span>
+                          ) : ev.start_time ? (
+                            <span>
+                              <Clock size={10} />
+                              {pgTimeToInput(ev.start_time)}
+                              {ev.end_time && ` – ${pgTimeToInput(ev.end_time)}`}
+                            </span>
+                          ) : null}
+                          {ev.location && <span><MapPin size={10} /> {ev.location}</span>}
+                          {ev.member && <span style={{ color }}>{ev.member.display_name}</span>}
+                          {ev.recurrence_group_id && <span><RotateCw size={10} /></span>}
+                        </div>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </div>
+        )
+      })()}
 
       {/* FAB */}
       <button
