@@ -215,6 +215,8 @@ export default function CalendarPage() {
     setSelectedMonthDay(prev => prev === dayStr ? null : dayStr)
   }
 
+  const todayStr = format(new Date(), 'yyyy-MM-dd')
+
   const navLabel = view === 'week'
     ? `${capitalize(format(weekStart, 'd MMM', { locale: fr }))} – ${capitalize(format(weekEnd, 'd MMM yyyy', { locale: fr }))}`
     : view === '3day'
@@ -228,8 +230,6 @@ export default function CalendarPage() {
     (view === '3day' && format(weekStart, 'yyyy-MM-dd') <= todayStr && todayStr <= format(threeDayEnd, 'yyyy-MM-dd')) ||
     (view === 'month' && format(monthCursor, 'yyyy-MM') === format(new Date(), 'yyyy-MM')) ||
     (view === 'agenda' && format(agendaStart, 'yyyy-MM-dd') <= todayStr && todayStr <= format(agendaEnd, 'yyyy-MM-dd'))
-
-  const todayStr = format(new Date(), 'yyyy-MM-dd')
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const { query, addEvent, updateEvent, deleteEvent } = useEvents(rangeStart, rangeEnd)
