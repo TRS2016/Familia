@@ -23,7 +23,7 @@ import { QK } from '../../lib/query-keys'
 import { capitalize } from '../../lib/utils'
 import styles from './CalendarPage.module.css'
 
-type View = 'week' | 'month' | 'agenda'
+type View = 'week' | '3day' | 'month' | 'agenda'
 
 const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const HOUR_HEIGHT = 64 // px per hour in the week grid
@@ -113,6 +113,9 @@ export default function CalendarPage() {
       setAgendaStart(startOfDay(new Date()))
       setAgendaDaysCount(60)
     }
+    if (newView === '3day') {
+      setWeekStart(startOfDay(new Date()))
+    }
     if (newView !== 'month') setSelectedMonthDay(null)
     setView(newView)
   }
@@ -120,6 +123,7 @@ export default function CalendarPage() {
   // ── Refs ─────────────────────────────────────────────────────────────────
   const weekGridScrollRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
 
   // ── Current time ─────────────────────────────────────────────────────────
   const [currentTime, setCurrentTime] = useState(new Date())
@@ -130,7 +134,7 @@ export default function CalendarPage() {
 
   // ── Auto-scroll week grid to current time ────────────────────────────────
   useEffect(() => {
-    if (view !== 'week') return
+    if (view !== 'week' && view !== '3day') return
     const el = weekGridScrollRef.current
     if (!el) return
     const now = new Date()
@@ -155,19 +159,23 @@ export default function CalendarPage() {
   const monthLast = endOfMonth(monthCursor)
   const agendaEnd = addDays(agendaStart, agendaDaysCount - 1)
 
-  const rangeStart = view === 'week'
+  const threeDayEnd = addDays(weekStart, 2)
+
+  const rangeStart = (view === 'week' || view === '3day')
     ? format(weekStart, 'yyyy-MM-dd')
     : view === 'month'
     ? format(monthFirst, 'yyyy-MM-dd')
     : format(agendaStart, 'yyyy-MM-dd')
   const rangeEnd = view === 'week'
     ? format(weekEnd, 'yyyy-MM-dd')
+    : view === '3day'
+    ? format(threeDayEnd, 'yyyy-MM-dd')
     : view === 'month'
     ? format(monthLast, 'yyyy-MM-dd')
     : format(agendaEnd, 'yyyy-MM-dd')
 
-  const weekDays = view === 'week'
-    ? Array.from({ length: 7 }, (_, i) => addDays(weekStart, i))
+  const viewDays = (view === 'week' || view === '3day')
+    ? Array.from({ length: view === 'week' ? 7 : 3 }, (_, i) => addDays(weekStart, i))
     : []
 
   const gridDays = view === 'month'
@@ -183,16 +191,19 @@ export default function CalendarPage() {
 
   function goBack() {
     if (view === 'week') setWeekStart(w => addWeeks(w, -1))
+    else if (view === '3day') setWeekStart(w => addDays(w, -3))
     else if (view === 'month') setMonthCursor(m => addMonths(m, -1))
     else { setAgendaDaysCount(60); setAgendaStart(d => addDays(d, -30)) }
   }
   function goForward() {
     if (view === 'week') setWeekStart(w => addWeeks(w, 1))
+    else if (view === '3day') setWeekStart(w => addDays(w, 3))
     else if (view === 'month') setMonthCursor(m => addMonths(m, 1))
     else { setAgendaDaysCount(60); setAgendaStart(d => addDays(d, 30)) }
   }
   function goToday() {
-    setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))
+    if (view === '3day') setWeekStart(startOfDay(new Date()))
+    else setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))
     setMonthCursor(startOfMonth(new Date()))
     setAgendaStart(startOfDay(new Date()))
     setAgendaDaysCount(60)
@@ -206,9 +217,19 @@ export default function CalendarPage() {
 
   const navLabel = view === 'week'
     ? `${capitalize(format(weekStart, 'd MMM', { locale: fr }))} – ${capitalize(format(weekEnd, 'd MMM yyyy', { locale: fr }))}`
+    : view === '3day'
+    ? `${capitalize(format(weekStart, 'd MMM', { locale: fr }))} – ${capitalize(format(threeDayEnd, 'd MMM yyyy', { locale: fr }))}`
     : view === 'month'
     ? capitalize(format(monthCursor, 'MMMM yyyy', { locale: fr }))
     : `${capitalize(format(agendaStart, 'd MMM', { locale: fr }))} – ${capitalize(format(agendaEnd, 'd MMM yyyy', { locale: fr }))}`
+
+  const showsTodayIndicator =
+    (view === 'week' && format(weekStart, 'yyyy-MM-dd') <= todayStr && todayStr <= format(weekEnd, 'yyyy-MM-dd')) ||
+    (view === '3day' && format(weekStart, 'yyyy-MM-dd') <= todayStr && todayStr <= format(threeDayEnd, 'yyyy-MM-dd')) ||
+    (view === 'month' && format(monthCursor, 'yyyy-MM') === format(new Date(), 'yyyy-MM')) ||
+    (view === 'agenda' && format(agendaStart, 'yyyy-MM-dd') <= todayStr && todayStr <= format(agendaEnd, 'yyyy-MM-dd'))
+
+  const todayStr = format(new Date(), 'yyyy-MM-dd')
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const { query, addEvent, updateEvent, deleteEvent } = useEvents(rangeStart, rangeEnd)
@@ -245,14 +266,14 @@ export default function CalendarPage() {
   const [formDescription, setFormDescription] = useState('')
   const [formRecurrence, setFormRecurrence] = useState<RecurrenceType>('none')
 
-  function openAddForm(defaultDate?: string) {
+  function openAddForm(defaultDate?: string, defaultStartTime?: string, defaultEndTime?: string) {
     setEditingId(null)
     setEditingRecurrenceGroupId(null)
     setEditScope('one')
     setFormTitle('')
     setFormDate(defaultDate ?? format(new Date(), 'yyyy-MM-dd'))
-    setFormStartTime('')
-    setFormEndTime('')
+    setFormStartTime(defaultStartTime ?? '')
+    setFormEndTime(defaultEndTime ?? '')
     setFormAllDay(false)
     setFormMemberId(member?.id ?? null)
     setFormLocation('')
@@ -304,11 +325,24 @@ export default function CalendarPage() {
   }
 
   const isPending = addEvent.isPending || updateEvent.isPending
-  const todayStr = format(new Date(), 'yyyy-MM-dd')
+
+  // ── Swipe navigation ────────────────────────────────────────────────────
+  function handleTouchStart(e: React.TouchEvent) {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (!touchStartRef.current) return
+    const dx = touchStartRef.current.x - e.changedTouches[0].clientX
+    const dy = touchStartRef.current.y - e.changedTouches[0].clientY
+    touchStartRef.current = null
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.5) return
+    if (dx > 0) goForward()
+    else goBack()
+  }
 
   // ── Render ───────────────────────────────────────────────────────────────
   return (
-    <div className={styles.page}>
+    <div className={styles.page} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
 
       {/* Header */}
       <header className={styles.header}>
@@ -322,6 +356,12 @@ export default function CalendarPage() {
             onClick={() => switchView('agenda')}
           >
             Agenda
+          </button>
+          <button
+            className={[styles.viewBtn, view === '3day' ? styles.viewBtnActive : ''].join(' ')}
+            onClick={() => switchView('3day')}
+          >
+            3j
           </button>
           <button
             className={[styles.viewBtn, view === 'week' ? styles.viewBtnActive : ''].join(' ')}
@@ -343,7 +383,10 @@ export default function CalendarPage() {
         <button className={styles.navArrow} onClick={goBack} aria-label="Précédent">
           <ChevronLeft size={18} strokeWidth={2.5} />
         </button>
-        <button className={styles.navLabel} onClick={goToday}>{navLabel}</button>
+        <button className={styles.navLabel} onClick={goToday}>
+          {navLabel}
+          {showsTodayIndicator && <span className={styles.navTodayDot} />}
+        </button>
         <button className={styles.navArrow} onClick={goForward} aria-label="Suivant">
           <ChevronRight size={18} strokeWidth={2.5} />
         </button>
@@ -474,14 +517,14 @@ export default function CalendarPage() {
         )
       )}
 
-      {/* ── Week view (time grid) ─────────────────────────────────────────── */}
-      {view === 'week' && !query.isLoading && (
+      {/* ── Week / 3-day view (time grid) ───────────────────────────────────── */}
+      {(view === 'week' || view === '3day') && !query.isLoading && (
         <div className={styles.weekGrid}>
 
           {/* Day headers (sticky) */}
           <div className={styles.weekGridHeader}>
             <div className={styles.weekGridGutter} />
-            {weekDays.map(day => {
+            {viewDays.map(day => {
               const dayStr = format(day, 'yyyy-MM-dd')
               const isToday = dayStr === todayStr
               return (
@@ -508,12 +551,12 @@ export default function CalendarPage() {
           </div>
 
           {/* All-day strip */}
-          {weekDays.some(day => filteredEvents.some(e => e.date === format(day, 'yyyy-MM-dd') && e.all_day)) && (
+          {viewDays.some(day => filteredEvents.some(e => e.date === format(day, 'yyyy-MM-dd') && e.all_day)) && (
             <div className={styles.weekGridAllDayRow}>
               <div className={styles.weekGridGutter}>
                 <span className={styles.weekGridAllDayLabel}>jour</span>
               </div>
-              {weekDays.map(day => {
+              {viewDays.map(day => {
                 const dayStr = format(day, 'yyyy-MM-dd')
                 const allDayEvts = filteredEvents.filter(e => e.date === dayStr && e.all_day)
                 return (
@@ -556,8 +599,11 @@ export default function CalendarPage() {
               </div>
 
               {/* Day columns */}
-              <div className={styles.weekGridDayCols}>
-                {weekDays.map(day => {
+              <div
+                className={styles.weekGridDayCols}
+                style={view === '3day' ? { gridTemplateColumns: 'repeat(3, 1fr)' } : undefined}
+              >
+                {viewDays.map(day => {
                   const dayStr = format(day, 'yyyy-MM-dd')
                   const isToday = dayStr === todayStr
                   const timedEvts = filteredEvents.filter(e => e.date === dayStr && !e.all_day && e.start_time)
@@ -568,6 +614,16 @@ export default function CalendarPage() {
                     <div
                       key={dayStr}
                       className={[styles.weekGridDayCol, isToday ? styles.weekGridDayColToday : ''].join(' ')}
+                      onClick={e => {
+                        const rect = e.currentTarget.getBoundingClientRect()
+                        const rawMins = ((e.clientY - rect.top) / HOUR_HEIGHT) * 60
+                        const rounded = Math.round(rawMins / 30) * 30
+                        const h = Math.min(Math.floor(rounded / 60), 23)
+                        const m = rounded % 60
+                        const st = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+                        const et = `${String(Math.min(h + 1, 23)).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+                        openAddForm(dayStr, st, et)
+                      }}
                     >
                       {/* Hour lines (background) */}
                       {Array.from({ length: 24 }, (_, h) => (
@@ -728,13 +784,22 @@ export default function CalendarPage() {
               <span className={styles.monthDayPanelTitle}>
                 {capitalize(format(dayDate, 'EEEE d MMMM', { locale: fr }))}
               </span>
-              <button
-                className={styles.monthDayPanelAdd}
-                onClick={() => openAddForm(selectedMonthDay)}
-                aria-label="Ajouter un événement"
-              >
-                <Plus size={16} strokeWidth={2.5} />
-              </button>
+              <div className={styles.monthDayPanelActions}>
+                <button
+                  className={styles.monthDayPanelWeekLink}
+                  onClick={() => switchView('week')}
+                  title="Voir la semaine"
+                >
+                  Sem. →
+                </button>
+                <button
+                  className={styles.monthDayPanelAdd}
+                  onClick={() => openAddForm(selectedMonthDay)}
+                  aria-label="Ajouter un événement"
+                >
+                  <Plus size={16} strokeWidth={2.5} />
+                </button>
+              </div>
             </div>
             {dayEvents.length === 0 ? (
               <p className={styles.monthDayPanelEmpty}>Rien ce jour-là</p>
@@ -767,6 +832,14 @@ export default function CalendarPage() {
                           {ev.recurrence_group_id && <span><RotateCw size={10} /></span>}
                         </div>
                       </div>
+                      <button
+                        className={styles.monthDayPanelDelete}
+                        onClick={e => { e.stopPropagation(); deleteEvent.mutate({ id: ev.id }) }}
+                        disabled={isOptimistic}
+                        aria-label={`Supprimer ${ev.title}`}
+                      >
+                        <X size={14} strokeWidth={2.5} />
+                      </button>
                     </li>
                   )
                 })}
@@ -779,7 +852,7 @@ export default function CalendarPage() {
       {/* FAB */}
       <button
         className={[styles.fab, showForm ? styles.fabHidden : ''].join(' ')}
-        onClick={() => openAddForm()}
+        onClick={() => openAddForm(view === 'month' && selectedMonthDay ? selectedMonthDay : undefined)}
         aria-label="Nouvel événement"
       >
         <Plus size={24} strokeWidth={2.5} />

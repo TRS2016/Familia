@@ -134,6 +134,17 @@
   background: var(--border-subtle);
 }
 
+.navTodayDot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  margin-left: 6px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
 .loading {
   text-align: center;
   color: var(--text-muted);
@@ -543,6 +554,33 @@
   justify-content: space-between;
   padding: 11px 14px 10px;
   border-bottom: 1px solid var(--border-subtle);
+  gap: 8px;
+}
+
+.monthDayPanelActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.monthDayPanelWeekLink {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+}
+
+.monthDayPanelWeekLink:hover {
+  border-color: var(--accent);
+  color: var(--accent);
 }
 
 .monthDayPanelTitle {
@@ -609,6 +647,28 @@
   border-radius: 2px;
   flex-shrink: 0;
   align-self: stretch;
+}
+
+.monthDayPanelDelete {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-xs);
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+}
+
+.monthDayPanelItem:hover .monthDayPanelDelete {
+  opacity: 1;
+}
+
+.monthDayPanelDelete:hover {
+  color: #c0392b;
 }
 
 /* ── FAB ─────────────────────────────────────────────────────────────────── */
