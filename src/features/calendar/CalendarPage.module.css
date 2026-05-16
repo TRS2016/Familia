@@ -1111,12 +1111,12 @@
 .weekGridTimeBody {
   display: flex;
   position: relative;
-  height: calc(24 * 64px); /* 1536px */
+  height: calc(24 * 48px); /* 1152px */
 }
 
 /* Hour slots in the gutter */
 .weekGridHourSlot {
-  height: 64px;
+  height: 48px;
   position: relative;
   display: flex;
   align-items: flex-start;

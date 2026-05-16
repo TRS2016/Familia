@@ -26,7 +26,7 @@ import styles from './CalendarPage.module.css'
 type View = 'week' | '3day' | 'month' | 'agenda'
 
 const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
-const HOUR_HEIGHT = 64 // px per hour in the week grid
+const HOUR_HEIGHT = 48 // px per hour in the week grid
 
 const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
   { key: 'none',    label: 'Jamais'  },
