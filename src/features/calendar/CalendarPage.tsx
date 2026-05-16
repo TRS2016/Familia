@@ -109,7 +109,10 @@ export default function CalendarPage() {
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
 
   function switchView(newView: View) {
-    if (newView === 'agenda') setAgendaDaysCount(60)
+    if (newView === 'agenda') {
+      setAgendaStart(startOfDay(new Date()))
+      setAgendaDaysCount(60)
+    }
     if (newView !== 'month') setSelectedMonthDay(null)
     setView(newView)
   }
@@ -145,7 +148,7 @@ export default function CalendarPage() {
     const el = sentinelRef.current
     if (el) observer.observe(el)
     return () => observer.disconnect()
-  }, [view, agendaDaysCount])
+  }, [view])
 
   const weekEnd = addDays(weekStart, 6)
   const monthFirst = startOfMonth(monthCursor)
