@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, Copy, Check } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../lib/supabase'
 import { HOUSEHOLD_ID } from '../lib/config'
@@ -83,6 +83,21 @@ export default function SettingsPage() {
       return data as { id: string; display_name: string }[]
     },
   })
+
+  // ── iCal subscription ────────────────────────────────────────────────────
+  const calSecret = import.meta.env.VITE_CAL_SECRET as string | undefined
+  const icalUrl = calSecret
+    ? `${window.location.origin}/api/ical?token=${calSecret}`
+    : null
+  const [copied, setCopied] = useState(false)
+
+  function handleCopyUrl() {
+    if (!icalUrl) return
+    navigator.clipboard.writeText(icalUrl).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    })
+  }
 
   // ── Delete account ────────────────────────────────────────────────────────
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -216,6 +231,32 @@ export default function SettingsPage() {
             </button>
           ))}
         </div>
+      </section>
+
+      {/* ── Abonnement calendrier ────────────────────────────────────────── */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Abonnement calendrier</h2>
+        {icalUrl ? (
+          <>
+            <p className={styles.helpText}>
+              Abonne Google Calendar, Apple Calendar ou Outlook à ce calendrier pour voir les événements familiaux dans ton app habituelle.
+            </p>
+            <div className={styles.icalBox}>
+              <span className={styles.icalUrl}>{icalUrl}</span>
+              <button className={styles.btnCopy} onClick={handleCopyUrl} aria-label="Copier l'URL">
+                {copied ? <Check size={15} strokeWidth={2.5} /> : <Copy size={15} strokeWidth={2.5} />}
+                {copied ? 'Copié !' : 'Copier'}
+              </button>
+            </div>
+            <p className={styles.helpText}>
+              Dans Google Calendar : + → "À partir d'une URL" → coller l'URL.
+            </p>
+          </>
+        ) : (
+          <p className={styles.helpText}>
+            Ajoute <code>VITE_CAL_SECRET</code> et <code>SUPABASE_SERVICE_ROLE_KEY</code> dans les variables d'environnement Vercel pour activer cette fonctionnalité.
+          </p>
+        )}
       </section>
 
       {/* ── Danger zone ──────────────────────────────────────────────────── */}
