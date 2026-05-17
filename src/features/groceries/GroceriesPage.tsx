@@ -9,6 +9,8 @@ import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
 import type { Grocery } from './useGroceries'
 import { useSavedLists, useSavedListDetail } from './useSavedLists'
+import { useCatalog } from './useCatalog'
+import type { CatalogItem } from './useCatalog'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -150,10 +152,12 @@ type GroupMode = 'category' | 'store'
 export default function GroceriesPage() {
   const {
     query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery,
-    clearChecked, saveCurrentList, replaceWithList,
+    clearChecked, saveCurrentList, loadSavedList, replaceWithList,
   } = useGroceries()
   useGroceriesRealtime()
   const { showToast } = useToast()
+
+  const [showCatalogPicker, setShowCatalogPicker] = useState(false)
 
   // ── Add form ────────────────────────────────────────────────────────────────
   const [newName, setNewName]           = useState('')
@@ -526,6 +530,15 @@ export default function GroceriesPage() {
         </form>
       )}
 
+      {/* Lien catalogue — mode édition */}
+      {!shoppingMode && (
+        <div className={styles.catalogLink}>
+          <button className={styles.catalogLinkBtn} onClick={() => setShowCatalogPicker(true)}>
+            📋 Depuis le catalogue
+          </button>
+        </div>
+      )}
+
       {/* Filtre par membre — mode édition, seulement si plusieurs membres ont contribué */}
       {!shoppingMode && memberOptions.length > 1 && (
         <div className={styles.memberFilter}>
@@ -720,6 +733,16 @@ export default function GroceriesPage() {
         </div>
       )}
 
+      {/* Modal — Catalogue (picker) */}
+      {showCatalogPicker && (
+        <SlideUpModal title="Depuis le catalogue" onClose={() => setShowCatalogPicker(false)}>
+          <CatalogPickerModal
+            onClose={() => setShowCatalogPicker(false)}
+            loadSavedList={loadSavedList}
+          />
+        </SlideUpModal>
+      )}
+
       {/* Modal — Sauvegarder la liste actuelle */}
       {showSaveModal && (
         <SlideUpModal title="Sauvegarder comme modèle" onClose={() => { setShowSaveModal(false); setSaveListName('') }}>
@@ -836,6 +859,156 @@ export default function GroceriesPage() {
         </SlideUpModal>
       )}
 
+    </div>
+  )
+}
+
+// ── CatalogPickerModal ────────────────────────────────────────────────────────
+
+const CATALOG_CATEGORIES = [
+  { key: 'Fruits & légumes', emoji: '🥦' },
+  { key: 'Frais',            emoji: '🧊' },
+  { key: 'Épicerie',         emoji: '🥫' },
+  { key: 'Boissons',         emoji: '🥤' },
+  { key: 'Hygiène',          emoji: '🧴' },
+  { key: 'Autre',            emoji: '📦' },
+] as const
+const CATALOG_CATEGORY_ORDER = CATALOG_CATEGORIES.map(c => c.key)
+
+function groupCatalogByCategory(items: CatalogItem[]) {
+  const hasAny = items.some(i => i.category)
+  if (!hasAny) return [{ label: null as string | null, emoji: '', items }]
+
+  const map = new Map<string | null, CatalogItem[]>([[null, []]])
+  for (const key of CATALOG_CATEGORY_ORDER) map.set(key, [])
+  for (const item of items) {
+    const k = item.category && CATALOG_CATEGORY_ORDER.includes(item.category as any) ? item.category : null
+    map.get(k)!.push(item)
+  }
+  const groups: { label: string | null; emoji: string; items: CatalogItem[] }[] = []
+  const nullItems = map.get(null)!
+  if (nullItems.length) groups.push({ label: null, emoji: '', items: nullItems })
+  for (const cat of CATALOG_CATEGORIES) {
+    const g = map.get(cat.key)!
+    if (g.length) groups.push({ label: cat.key, emoji: cat.emoji, items: g })
+  }
+  return groups
+}
+
+function CatalogPickerModal({
+  onClose,
+  loadSavedList,
+}: {
+  onClose: () => void
+  loadSavedList: ReturnType<typeof useGroceries>['loadSavedList']
+}) {
+  const { query } = useCatalog()
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+
+  const items  = query.data ?? []
+  const groups = groupCatalogByCategory(items)
+
+  function toggle(id: string) {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  function handleAdd() {
+    const toAdd = items.filter(i => selected.has(i.id))
+    loadSavedList.mutate(toAdd, { onSuccess: onClose })
+  }
+
+  if (query.isLoading) {
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', padding: 40 }}>
+        <Spinner size={28} />
+      </div>
+    )
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className={styles.catalogPickerEmpty}>
+        <p>Catalogue vide.</p>
+        <Link to="/groceries/catalog" onClick={onClose} className={styles.catalogPickerLink}>
+          Gérer le catalogue →
+        </Link>
+      </div>
+    )
+  }
+
+  return (
+    <div className={styles.catalogPicker}>
+      <div className={styles.catalogPickerHeader}>
+        <span className={styles.catalogPickerHint}>
+          {selected.size > 0
+            ? `${selected.size} article${selected.size > 1 ? 's' : ''} sélectionné${selected.size > 1 ? 's' : ''}`
+            : 'Sélectionne les articles à ajouter'}
+        </span>
+        <Link to="/groceries/catalog" onClick={onClose} className={styles.catalogManageLink}>
+          Gérer
+        </Link>
+      </div>
+
+      {groups.map(group => (
+        <div key={group.label ?? '__none'}>
+          {group.label && (
+            <div className={styles.catalogPickerCategoryHeader}>
+              {group.emoji} {group.label}
+            </div>
+          )}
+          <ul className={styles.catalogPickerList}>
+            {group.items.map(item => {
+              const isSelected = selected.has(item.id)
+              return (
+                <li key={item.id}>
+                  <button
+                    className={[styles.catalogPickerItem, isSelected ? styles.catalogPickerItemSelected : ''].join(' ')}
+                    onClick={() => toggle(item.id)}
+                  >
+                    <div className={[styles.catalogPickerCheck, isSelected ? styles.catalogPickerCheckActive : ''].join(' ')}>
+                      {isSelected && <Check size={12} strokeWidth={3} color="#fff" />}
+                    </div>
+                    <div className={styles.catalogPickerInfo}>
+                      <span className={styles.catalogPickerName}>{item.name}</span>
+                      {(item.quantity || item.store) && (
+                        <span className={styles.catalogPickerMeta}>
+                          {item.quantity && `${item.quantity}`}
+                          {item.quantity && item.store && ' · '}
+                          {item.store}
+                        </span>
+                      )}
+                    </div>
+                    {item.price !== null && (
+                      <span className={styles.catalogPickerPrice}>
+                        {item.price.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €
+                      </span>
+                    )}
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
+        </div>
+      ))}
+
+      {selected.size > 0 && (
+        <div className={styles.catalogPickerAction}>
+          <button
+            className={styles.catalogPickerBtn}
+            onClick={handleAdd}
+            disabled={loadSavedList.isPending}
+          >
+            {loadSavedList.isPending
+              ? 'Ajout…'
+              : `Ajouter ${selected.size} article${selected.size > 1 ? 's' : ''} à la liste`}
+          </button>
+        </div>
+      )}
     </div>
   )
 }

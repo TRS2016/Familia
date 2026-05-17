@@ -52,13 +52,25 @@ export default function SavedListsPage() {
           <ChevronLeft size={22} strokeWidth={2.5} />
         </Link>
         <h1 className={styles.pageTitle}>Mes listes</h1>
-        <button
-          className={styles.createBtn}
-          onClick={() => setCreating(true)}
-          aria-label="Nouvelle liste"
-        >
-          <Plus size={20} strokeWidth={2.5} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <Link
+            to="/groceries/catalog"
+            style={{
+              fontSize: 12, fontWeight: 800, color: 'var(--text-muted)',
+              border: '1.5px solid var(--border)', borderRadius: 'var(--radius-pill)',
+              padding: '4px 10px', textDecoration: 'none', whiteSpace: 'nowrap',
+            }}
+          >
+            📋 Catalogue
+          </Link>
+          <button
+            className={styles.createBtn}
+            onClick={() => setCreating(true)}
+            aria-label="Nouvelle liste"
+          >
+            <Plus size={20} strokeWidth={2.5} />
+          </button>
+        </div>
       </header>
 
       {query.isLoading && (

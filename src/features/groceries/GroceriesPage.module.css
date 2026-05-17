@@ -1225,3 +1225,176 @@
   padding: 0 16px 6px;
   margin: 0;
 }
+
+/* ── Lien catalogue (sous le formulaire d'ajout) ─────────────────────────── */
+
+.catalogLink {
+  display: flex;
+  justify-content: flex-start;
+  padding: 0 16px 10px;
+}
+
+.catalogLinkBtn {
+  background: none;
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.catalogLinkBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Catalog picker modal ────────────────────────────────────────────────── */
+
+.catalogPicker {
+  padding-bottom: 8px;
+}
+
+.catalogPickerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px 10px;
+}
+
+.catalogPickerHint {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.catalogManageLink {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.catalogPickerCategoryHeader {
+  padding: 10px 16px 4px;
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+.catalogPickerList {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px;
+}
+
+.catalogPickerItem {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 11px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.1s;
+}
+
+.catalogPickerItem:last-child { border-bottom: none; }
+
+.catalogPickerItemSelected .catalogPickerName { color: #5B9E8F; }
+
+.catalogPickerCheck {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.catalogPickerCheckActive {
+  background: #5B9E8F;
+  border-color: #5B9E8F;
+}
+
+.catalogPickerInfo {
+  flex: 1;
+  min-width: 0;
+}
+
+.catalogPickerName {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  transition: color 0.15s;
+}
+
+.catalogPickerMeta {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 1px;
+}
+
+.catalogPickerPrice {
+  font-size: 13px;
+  font-weight: 800;
+  color: #5B9E8F;
+  background: rgba(91, 158, 143, 0.1);
+  border: 1px solid rgba(91, 158, 143, 0.25);
+  border-radius: 6px;
+  padding: 2px 8px;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.catalogPickerAction {
+  padding: 12px 16px 4px;
+}
+
+.catalogPickerBtn {
+  width: 100%;
+  padding: 13px;
+  background: #5B9E8F;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.catalogPickerBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.catalogPickerEmpty {
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.catalogPickerEmpty p {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.catalogPickerLink {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: none;
+}
