@@ -1,7 +1,10 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Plus, Check, Trash2, SlidersHorizontal, ShoppingCart, MapPin, Bookmark, FolderOpen } from 'lucide-react'
+import {
+  ChevronLeft, Plus, Check, Trash2, SlidersHorizontal, ShoppingCart,
+  MapPin, Bookmark, FolderOpen, Share2, AlignJustify, LayoutList,
+} from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
 import type { Grocery } from './useGroceries'
@@ -9,6 +12,7 @@ import { useSavedLists, useSavedListDetail } from './useSavedLists'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
+import { useToast } from '../../components/Toast'
 import styles from './GroceriesPage.module.css'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -26,11 +30,13 @@ type CategoryKey = typeof CATEGORIES[number]['key']
 const CATEGORY_ORDER = CATEGORIES.map(c => c.key)
 
 const STORES_STORAGE_KEY = 'familia-grocery-stores'
+const NAMES_STORAGE_KEY  = 'familia-grocery-names'
 
 // ── Utilitaires ───────────────────────────────────────────────────────────────
 
-function getCategoryEmoji(key: string): string {
-  return CATEGORIES.find(c => c.key === key)?.emoji ?? '📦'
+function getCategoryEmoji(key: string | null): string {
+  if (!key) return ''
+  return CATEGORIES.find(c => c.key === key)?.emoji ?? ''
 }
 
 function parseQtyMultiplier(qty: string | null): number {
@@ -61,10 +67,22 @@ function persistStore(name: string) {
   }
 }
 
+function getStoredNames(): string[] {
+  try { return JSON.parse(localStorage.getItem(NAMES_STORAGE_KEY) ?? '[]') }
+  catch { return [] }
+}
+
+function persistName(name: string) {
+  const existing = getStoredNames()
+  const updated = [name, ...existing.filter(n => n !== name)].slice(0, 50)
+  localStorage.setItem(NAMES_STORAGE_KEY, JSON.stringify(updated))
+}
+
 // ── Tri ───────────────────────────────────────────────────────────────────────
 
-function sortUnchecked(items: Grocery[]): Grocery[] {
-  return items
+function sortUnchecked(items: Grocery[], filterMemberId: string | null = null): Grocery[] {
+  const src = filterMemberId ? items.filter(g => g.created_by === filterMemberId) : items
+  return src
     .filter(g => !g.checked)
     .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 }
@@ -130,8 +148,12 @@ function groupByStore(items: Grocery[]): Group[] {
 type GroupMode = 'category' | 'store'
 
 export default function GroceriesPage() {
-  const { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked, saveCurrentList, loadSavedList } = useGroceries()
+  const {
+    query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery,
+    clearChecked, saveCurrentList, replaceWithList,
+  } = useGroceries()
   useGroceriesRealtime()
+  const { showToast } = useToast()
 
   // ── Add form ────────────────────────────────────────────────────────────────
   const [newName, setNewName]           = useState('')
@@ -159,31 +181,50 @@ export default function GroceriesPage() {
   const [showSaveModal, setShowSaveModal] = useState(false)
   const [saveListName, setSaveListName]   = useState('')
 
-  // ── Groupage ────────────────────────────────────────────────────────────────
-  const [groupMode, setGroupMode] = useState<GroupMode>('category')
+  // ── Affichage ────────────────────────────────────────────────────────────────
+  const [groupMode, setGroupMode]           = useState<GroupMode>('category')
+  const [compactMode, setCompactMode]       = useState(false)
+  const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
 
   // ── Données dérivées ────────────────────────────────────────────────────────
-  const allItems     = query.data ?? []
-  const checked      = sortChecked(allItems)
-  const checkedItems = allItems.filter(g => g.checked)
+  const allItems       = query.data ?? []
+  const checked        = sortChecked(allItems)
+  const checkedItems   = allItems.filter(g => g.checked)
   const uncheckedItems = allItems.filter(g => !g.checked)
 
-  const uncheckedGroups = groupMode === 'category'
-    ? groupByCategory(sortUnchecked(allItems))
-    : groupByStore(sortUnchecked(allItems))
+  // En mode shopping : tri auto par enseigne + filtre membre désactivé
+  const effectiveGroupMode: GroupMode = shoppingMode ? 'store' : groupMode
+  const uncheckedFiltered = sortUnchecked(allItems, shoppingMode ? null : filterMemberId)
+  const uncheckedGroups = effectiveGroupMode === 'category'
+    ? groupByCategory(uncheckedFiltered)
+    : groupByStore(uncheckedFiltered)
 
-  const hasAnyStore = allItems.some(g => g.store)
-  const hasAnyPrice = allItems.some(g => g.price !== null)
+  const hasAnyStore    = allItems.some(g => g.store)
+  const hasAnyPrice    = allItems.some(g => g.price !== null)
 
-  const totalInCart = computeTotal(checkedItems)
-  const totalLeft   = computeTotal(uncheckedItems)
-  const budgetNum   = budget.trim() ? parseFloat(budget.replace(',', '.')) : null
+  const totalInCart    = computeTotal(checkedItems)
+  const totalLeft      = computeTotal(uncheckedItems)
+  const budgetNum      = budget.trim() ? parseFloat(budget.replace(',', '.')) : null
   const budgetProgress = budgetNum && budgetNum > 0 ? Math.min(1, totalInCart / budgetNum) : null
-  const overBudget  = budgetNum !== null && totalInCart > budgetNum
+  const overBudget     = budgetNum !== null && totalInCart > budgetNum
 
-  // Suggestions d'enseignes : union des valeurs courantes + localStorage
+  // Options membres dérivées des articles existants (pas de requête supplémentaire)
+  const memberOptions = useMemo(() => {
+    const map = new Map<string, string>()
+    for (const g of allItems) {
+      if (g.created_by && g.created_by_member) {
+        map.set(g.created_by, g.created_by_member.display_name)
+      }
+    }
+    return [...map.entries()].map(([id, name]) => ({ id, name }))
+  }, [allItems])
+
+  // Suggestions noms depuis localStorage
+  const nameOptions = useMemo(() => getStoredNames(), [])
+
+  // Suggestions enseignes : articles courants + localStorage
   const storeOptions = useMemo(() => {
-    const fromQuery = allItems.map(g => g.store).filter((s): s is string => !!s)
+    const fromQuery   = allItems.map(g => g.store).filter((s): s is string => !!s)
     const fromStorage = getStoredStores()
     return [...new Set([...fromQuery, ...fromStorage])].sort()
   }, [allItems])
@@ -202,11 +243,12 @@ export default function GroceriesPage() {
       category: formCategory || undefined,
       store: storeName || undefined,
     })
+    persistName(name)
     if (storeName) persistStore(storeName)
     setNewName('')
     setNewQty('')
     setNewPrice('')
-    // Garde store + catégorie pour ajouts en série dans le même magasin
+    // Garde store + catégorie pour ajouts en série dans le même rayon/magasin
   }
 
   function openEdit(item: Grocery) {
@@ -266,6 +308,33 @@ export default function GroceriesPage() {
     setEditingBudget(false)
   }
 
+  function handleShoppingToggle() {
+    if (!shoppingMode) {
+      setShoppingMode(true)
+      setShowLoadModal(true)
+      setEditingBudget(false)
+    } else {
+      setShoppingMode(false)
+    }
+  }
+
+  function handleShare() {
+    const lines = uncheckedItems.map(g => {
+      let line = `• ${g.name}`
+      if (g.quantity) line += ` ×${g.quantity}`
+      if (g.store) line += ` (${g.store})`
+      return line
+    })
+    const text = `Liste de courses :\n${lines.join('\n')}`
+    if (navigator.share) {
+      navigator.share({ text }).catch(() => {/* annulé par l'utilisateur */})
+    } else {
+      navigator.clipboard.writeText(text).then(() => {
+        showToast({ type: 'success', message: 'Liste copiée !' })
+      })
+    }
+  }
+
   // ── Rendu ────────────────────────────────────────────────────────────────────
   return (
     <div className={styles.page}>
@@ -286,27 +355,49 @@ export default function GroceriesPage() {
         </div>
 
         <div className={styles.headerActions}>
-          {shoppingMode ? (
+          {!shoppingMode && (
+            <>
+              {uncheckedItems.length > 0 && (
+                <button
+                  className={styles.headerIconBtn}
+                  onClick={handleShare}
+                  aria-label="Partager la liste"
+                >
+                  <Share2 size={15} strokeWidth={2.5} />
+                </button>
+              )}
+              <button
+                className={[styles.headerIconBtn, compactMode ? styles.headerIconBtnActive : ''].join(' ')}
+                onClick={() => setCompactMode(m => !m)}
+                aria-label={compactMode ? 'Vue normale' : 'Vue compacte'}
+              >
+                {compactMode
+                  ? <LayoutList size={15} strokeWidth={2.5} />
+                  : <AlignJustify size={15} strokeWidth={2.5} />
+                }
+              </button>
+              <Link to="/groceries/saved" className={styles.savedListsLink} aria-label="Mes listes">
+                <Bookmark size={14} strokeWidth={2.5} />
+                <span>Listes</span>
+              </Link>
+            </>
+          )}
+          {shoppingMode && (
             <button
               className={styles.loadListBtn}
               onClick={() => setShowLoadModal(true)}
-              aria-label="Charger une liste"
+              aria-label="Changer de liste"
             >
               <FolderOpen size={14} strokeWidth={2.5} />
             </button>
-          ) : (
-            <Link to="/groceries/saved" className={styles.savedListsLink} aria-label="Mes listes">
-              <Bookmark size={14} strokeWidth={2.5} />
-              <span>Listes</span>
-            </Link>
           )}
           <button
             className={[styles.shoppingToggle, shoppingMode ? styles.shoppingToggleActive : ''].join(' ')}
-            onClick={() => { setShoppingMode(m => !m); setEditingBudget(false) }}
-            aria-label={shoppingMode ? 'Retour à la liste' : 'Mode shopping'}
+            onClick={handleShoppingToggle}
+            aria-label={shoppingMode ? 'Mode édition' : 'Mode shopping'}
           >
             <ShoppingCart size={14} strokeWidth={2.5} />
-            <span>{shoppingMode ? 'Liste' : 'Shop'}</span>
+            <span>{shoppingMode ? 'Éditer' : 'Shop'}</span>
           </button>
         </div>
       </header>
@@ -321,11 +412,12 @@ export default function GroceriesPage() {
         </div>
       )}
 
-      {/* Formulaire d'ajout — masqué en mode shopping */}
+      {/* Formulaire d'ajout — mode édition uniquement */}
       {!shoppingMode && (
         <form onSubmit={handleAdd} className={styles.addForm}>
           <div className={styles.addRow}>
             <input
+              list="grocery-names-list"
               type="text"
               value={newName}
               onChange={e => setNewName(e.target.value)}
@@ -334,6 +426,9 @@ export default function GroceriesPage() {
               className={styles.addInput}
               autoComplete="off"
             />
+            <datalist id="grocery-names-list">
+              {nameOptions.map(n => <option key={n} value={n} />)}
+            </datalist>
             <button
               type="button"
               className={[styles.expandBtn, formExpanded ? styles.expandBtnActive : ''].join(' ')}
@@ -431,7 +526,28 @@ export default function GroceriesPage() {
         </form>
       )}
 
-      {/* Toggle Rayon / Enseigne — affiché dès qu'il y a au moins une enseigne */}
+      {/* Filtre par membre — mode édition, seulement si plusieurs membres ont contribué */}
+      {!shoppingMode && memberOptions.length > 1 && (
+        <div className={styles.memberFilter}>
+          <button
+            className={[styles.memberFilterChip, filterMemberId === null ? styles.memberFilterChipActive : ''].join(' ')}
+            onClick={() => setFilterMemberId(null)}
+          >
+            Tous
+          </button>
+          {memberOptions.map(m => (
+            <button
+              key={m.id}
+              className={[styles.memberFilterChip, filterMemberId === m.id ? styles.memberFilterChipActive : ''].join(' ')}
+              onClick={() => setFilterMemberId(id => id === m.id ? null : m.id)}
+            >
+              {m.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Toggle Rayon / Enseigne — mode édition, seulement si des enseignes existent */}
       {hasAnyStore && !shoppingMode && (
         <div className={styles.groupToggle}>
           <button
@@ -457,19 +573,31 @@ export default function GroceriesPage() {
       )}
 
       {!query.isLoading && allItems.length === 0 && (
-        <EmptyState
-          emoji="🛒"
-          title="La liste est vide"
-          description="Ajoute le premier article avec le champ ci-dessus."
-        />
+        <>
+          <EmptyState
+            emoji="🛒"
+            title={shoppingMode ? 'Aucune liste chargée' : 'La liste est vide'}
+            description={shoppingMode
+              ? 'Charge une liste pour commencer les courses.'
+              : 'Ajoute le premier article avec le champ ci-dessus.'}
+          />
+          {shoppingMode && (
+            <div style={{ display: 'flex', justifyContent: 'center', padding: '0 16px 24px' }}>
+              <button className={styles.loadListBtnLarge} onClick={() => setShowLoadModal(true)}>
+                <FolderOpen size={15} strokeWidth={2.5} />
+                Choisir une liste
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Articles non cochés */}
       {uncheckedGroups.map(group => (
         <div key={group.label ?? '__none'}>
           {group.label && (
-            <div className={[styles.categoryHeader, groupMode === 'store' ? styles.storeHeader : ''].join(' ')}>
-              {groupMode === 'store'
+            <div className={[styles.categoryHeader, effectiveGroupMode === 'store' ? styles.storeHeader : ''].join(' ')}>
+              {effectiveGroupMode === 'store'
                 ? <><MapPin size={11} strokeWidth={2.5} style={{ display: 'inline', verticalAlign: 'middle', marginRight: 5 }} />{group.label}</>
                 : <>{getCategoryEmoji(group.label)} {group.label}</>
               }
@@ -481,6 +609,7 @@ export default function GroceriesPage() {
                 key={item.id}
                 item={item}
                 shoppingMode={shoppingMode}
+                compact={compactMode}
                 onToggle={() => toggleGrocery.mutate({ id: item.id, checked: true })}
                 onDelete={() => deleteGrocery.mutate(item.id)}
                 onEdit={() => openEdit(item)}
@@ -513,6 +642,7 @@ export default function GroceriesPage() {
                 key={item.id}
                 item={item}
                 shoppingMode={shoppingMode}
+                compact={compactMode}
                 onToggle={() => toggleGrocery.mutate({ id: item.id, checked: false })}
                 onDelete={() => deleteGrocery.mutate(item.id)}
                 onEdit={() => openEdit(item)}
@@ -522,7 +652,7 @@ export default function GroceriesPage() {
         </>
       )}
 
-      {/* Bouton sauvegarder liste — visible en mode liste quand il y a des articles */}
+      {/* Bouton sauvegarder liste — mode édition */}
       {!shoppingMode && uncheckedItems.length > 0 && (
         <div className={styles.saveListRow}>
           <button className={styles.saveListBtn} onClick={() => setShowSaveModal(true)}>
@@ -617,12 +747,13 @@ export default function GroceriesPage() {
         </SlideUpModal>
       )}
 
-      {/* Modal — Charger une liste (mode shopping) */}
+      {/* Modal — Choisir une liste (shopping) */}
       {showLoadModal && (
-        <SlideUpModal title="Charger une liste" onClose={() => setShowLoadModal(false)}>
+        <SlideUpModal title="Choisir une liste" onClose={() => setShowLoadModal(false)}>
           <LoadListModal
+            currentItemCount={uncheckedItems.length}
             onClose={() => setShowLoadModal(false)}
-            loadSavedList={loadSavedList}
+            replaceWithList={replaceWithList}
           />
         </SlideUpModal>
       )}
@@ -712,10 +843,13 @@ export default function GroceriesPage() {
 // ── LoadListModal ─────────────────────────────────────────────────────────────
 
 function LoadListModal({
-  onClose, loadSavedList,
+  currentItemCount,
+  onClose,
+  replaceWithList,
 }: {
+  currentItemCount: number
   onClose: () => void
-  loadSavedList: ReturnType<typeof useGroceries>['loadSavedList']
+  replaceWithList: ReturnType<typeof useGroceries>['replaceWithList']
 }) {
   const { query: listsQuery } = useSavedLists()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -724,11 +858,24 @@ function LoadListModal({
 
   function handleLoad() {
     if (!selectedId || !itemsQuery.data) return
-    loadSavedList.mutate(itemsQuery.data, { onSuccess: onClose })
+    replaceWithList.mutate(itemsQuery.data, { onSuccess: onClose })
   }
 
   return (
     <div className={styles.loadModal}>
+      {/* Option : continuer avec la liste déjà en cours */}
+      {currentItemCount > 0 && (
+        <button className={styles.loadModalCurrentList} onClick={onClose}>
+          <div>
+            <span className={styles.loadModalCurrentTitle}>Continuer avec la liste actuelle</span>
+            <span className={styles.loadModalCurrentCount}>
+              {currentItemCount} article{currentItemCount > 1 ? 's' : ''} déjà dans la liste
+            </span>
+          </div>
+          <Check size={16} strokeWidth={2.5} color="var(--accent)" />
+        </button>
+      )}
+
       {listsQuery.isLoading && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: 24 }}>
           <Spinner size={28} />
@@ -740,6 +887,11 @@ function LoadListModal({
           <Link to="/groceries/saved" onClick={onClose} className={styles.loadModalLink}>
             Créer une liste →
           </Link>
+        </p>
+      )}
+      {lists.length > 0 && (
+        <p className={styles.loadModalSubtitle}>
+          Ou démarrer avec une liste sauvegardée — remplace la liste actuelle :
         </p>
       )}
       <ul className={styles.loadModalList}>
@@ -765,9 +917,9 @@ function LoadListModal({
           <button
             className={styles.loadModalBtn}
             onClick={handleLoad}
-            disabled={loadSavedList.isPending || itemsQuery.isLoading}
+            disabled={replaceWithList.isPending || itemsQuery.isLoading}
           >
-            {loadSavedList.isPending ? 'Ajout en cours…' : 'Ajouter à la liste active'}
+            {replaceWithList.isPending ? 'Chargement…' : 'Démarrer avec cette liste'}
           </button>
         </div>
       )}
@@ -778,15 +930,37 @@ function LoadListModal({
 // ── GroceryItem ───────────────────────────────────────────────────────────────
 
 function GroceryItem({
-  item, shoppingMode, onToggle, onDelete, onEdit,
+  item, shoppingMode, compact, onToggle, onDelete, onEdit,
 }: {
   item: Grocery
   shoppingMode: boolean
+  compact: boolean
   onToggle: () => void
   onDelete: () => void
   onEdit: () => void
 }) {
   const isOptimistic = item.id.startsWith('optimistic-')
+
+  // Swipe vers la droite pour cocher (mode shopping uniquement)
+  const touchStartRef = useRef<{ x: number; y: number } | null>(null)
+
+  function handleTouchStart(e: React.TouchEvent) {
+    if (!shoppingMode || item.checked) return
+    const t = e.touches[0]
+    touchStartRef.current = { x: t.clientX, y: t.clientY }
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (!shoppingMode || !touchStartRef.current) return
+    const t = e.changedTouches[0]
+    const dx = t.clientX - touchStartRef.current.x
+    const dy = t.clientY - touchStartRef.current.y
+    touchStartRef.current = null
+    if (dx > 60 && dx > Math.abs(dy) * 1.5) {
+      navigator.vibrate?.(50)
+      onToggle()
+    }
+  }
 
   const metaParts: string[] = []
   if (!shoppingMode && item.created_by_member)
@@ -794,13 +968,20 @@ function GroceryItem({
   if (item.checked && item.checked_by_member)
     metaParts.push(`coché par ${item.checked_by_member.display_name}`)
 
+  const categoryEmoji = getCategoryEmoji(item.category)
+
   return (
-    <li className={[
-      styles.item,
-      shoppingMode ? styles.itemShopping : '',
-      item.checked ? styles.itemChecked : '',
-      isOptimistic ? styles.itemOptimistic : '',
-    ].join(' ')}>
+    <li
+      className={[
+        styles.item,
+        shoppingMode ? styles.itemShopping : '',
+        compact ? styles.itemCompact : '',
+        item.checked ? styles.itemChecked : '',
+        isOptimistic ? styles.itemOptimistic : '',
+      ].join(' ')}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
 
       <button
         className={[
@@ -808,7 +989,10 @@ function GroceryItem({
           shoppingMode ? styles.checkboxShopping : '',
           item.checked ? styles.checkboxChecked : '',
         ].join(' ')}
-        onClick={onToggle}
+        onClick={() => {
+          if (!item.checked) navigator.vibrate?.(50)
+          onToggle()
+        }}
         disabled={isOptimistic}
         aria-label={item.checked ? `Décocher ${item.name}` : `Cocher ${item.name}`}
       >
@@ -826,6 +1010,9 @@ function GroceryItem({
               {item.quantity}
             </span>
           )}
+          {categoryEmoji && (
+            <span className={styles.categoryEmoji} aria-hidden="true">{categoryEmoji}</span>
+          )}
           <span className={[
             styles.itemName,
             shoppingMode ? styles.itemNameShopping : '',
@@ -835,8 +1022,8 @@ function GroceryItem({
           </span>
         </div>
 
-        {/* Enseigne + meta */}
-        {(item.store || metaParts.length > 0) && (
+        {/* Méta — masquée en mode compact */}
+        {!compact && (item.store || metaParts.length > 0) && (
           <div className={styles.itemMeta}>
             {item.store && (
               <span className={[styles.storeMeta, item.checked ? styles.storeMetaChecked : ''].join(' ')}>

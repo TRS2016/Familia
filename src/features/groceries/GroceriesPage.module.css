@@ -1091,3 +1091,137 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ── Header icon buttons ─────────────────────────────────────────────────── */
+
+.headerIconBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+
+.headerIconBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.headerIconBtnActive {
+  border-color: var(--accent);
+  background: rgba(224, 123, 84, 0.08);
+  color: var(--accent);
+}
+
+/* ── Filtre par membre ───────────────────────────────────────────────────── */
+
+.memberFilter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 0 16px 10px;
+}
+
+.memberFilterChip {
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 12px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+  white-space: nowrap;
+}
+
+.memberFilterChipActive {
+  border-color: #5B9E8F;
+  background: rgba(91, 158, 143, 0.1);
+  color: #5B9E8F;
+}
+
+/* ── Mode compact ────────────────────────────────────────────────────────── */
+
+.itemCompact {
+  padding: 7px 0;
+}
+
+/* ── Emoji rayon sur article ─────────────────────────────────────────────── */
+
+.categoryEmoji {
+  font-size: 13px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+
+/* ── Bouton "charger une liste" (état vide en shopping) ─────────────────── */
+
+.loadListBtnLarge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: #5B9E8F;
+  color: #fff;
+  border: none;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 800;
+  padding: 11px 20px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.loadListBtnLarge:hover { opacity: 0.85; }
+
+/* ── Modal : option liste actuelle ───────────────────────────────────────── */
+
+.loadModalCurrentList {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 16px;
+  background: rgba(224, 123, 84, 0.06);
+  border: 1.5px solid rgba(224, 123, 84, 0.2);
+  border-radius: var(--radius-md);
+  margin: 4px 16px 12px;
+  width: calc(100% - 32px);
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+}
+
+.loadModalCurrentList:hover { background: rgba(224, 123, 84, 0.1); }
+
+.loadModalCurrentTitle {
+  display: block;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.loadModalCurrentCount {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.loadModalSubtitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0 16px 6px;
+  margin: 0;
+}

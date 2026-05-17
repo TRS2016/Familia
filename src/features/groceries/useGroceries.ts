@@ -239,6 +239,39 @@ export function useGroceries() {
     onError: () => showToast({ type: 'error', message: 'Impossible de charger la liste.' }),
   })
 
+  // ── Replace with saved list (clear all + insert) ──────────────────────────
+  const replaceWithList = useMutation({
+    mutationFn: async (items: Array<{
+      name: string
+      quantity?: string | null
+      price?: number | null
+      category?: string | null
+      store?: string | null
+    }>) => {
+      const { error: deleteErr } = await supabase
+        .from('groceries')
+        .delete()
+        .eq('household_id', HOUSEHOLD_ID)
+      if (deleteErr) throw deleteErr
+      if (items.length > 0) {
+        const { error: insertErr } = await supabase
+          .from('groceries')
+          .insert(items.map(item => ({
+            household_id: HOUSEHOLD_ID,
+            created_by: member?.id ?? null,
+            name: item.name,
+            quantity: item.quantity || null,
+            price: item.price ?? null,
+            category: item.category || null,
+            store: item.store || null,
+          })))
+        if (insertErr) throw insertErr
+      }
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: GROCERIES_KEY }),
+    onError: () => showToast({ type: 'error', message: 'Impossible de charger la liste.' }),
+  })
+
   // ── Save current list as template ────────────────────────────────────────
   const saveCurrentList = useMutation({
     mutationFn: async ({ name, items }: {
@@ -263,5 +296,5 @@ export function useGroceries() {
     onError: () => showToast({ type: 'error', message: 'Impossible de sauvegarder la liste.' }),
   })
 
-  return { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked, loadSavedList, saveCurrentList }
+  return { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked, loadSavedList, replaceWithList, saveCurrentList }
 }
