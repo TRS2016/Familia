@@ -201,6 +201,70 @@ export function useEditEntry(year: number, month: number) {
   })
 }
 
+// ── Objectif d'épargne partagé (stocké dans households) ──────────────────────
+
+export const KAKEBO_OBJECTIF_KEY = ['kakebo-objectif', HOUSEHOLD_ID] as const
+
+export function useKakeboObjectif() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  const query = useQuery({
+    queryKey: KAKEBO_OBJECTIF_KEY,
+    queryFn: async (): Promise<number> => {
+      const { data, error } = await supabase
+        .from('households')
+        .select('kakebo_objectif_epargne')
+        .eq('id', HOUSEHOLD_ID)
+        .single()
+      if (error) throw error
+      return data.kakebo_objectif_epargne ?? 400
+    },
+  })
+
+  const update = useMutation({
+    mutationFn: async (objectif: number) => {
+      const { error } = await supabase
+        .from('households')
+        .update({ kakebo_objectif_epargne: objectif })
+        .eq('id', HOUSEHOLD_ID)
+      if (error) throw error
+    },
+    onSuccess: (_, objectif) => {
+      queryClient.setQueryData(KAKEBO_OBJECTIF_KEY, objectif)
+    },
+    onError: () => showToast({ type: 'error', message: 'Impossible de sauvegarder l\'objectif.' }),
+  })
+
+  return { objectif: query.data ?? 400, isLoading: query.isLoading, update }
+}
+
+// ── Tendance : entrées sur les N derniers mois ────────────────────────────────
+
+export function useKakeboTrend(monthsBack = 6) {
+  const now = new Date()
+  const fromDate = new Date(now.getFullYear(), now.getMonth() - monthsBack + 1, 1)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const from = `${fromDate.getFullYear()}-${pad(fromDate.getMonth() + 1)}-01`
+  const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const to = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(lastDay)}`
+
+  return useQuery({
+    queryKey: ['kakebo-trend', HOUSEHOLD_ID, monthsBack],
+    queryFn: async (): Promise<KakeboEntry[]> => {
+      const { data, error } = await supabase
+        .from('kakebo_entries')
+        .select('*, category:kakebo_categories(*)')
+        .eq('household_id', HOUSEHOLD_ID)
+        .gte('date', from)
+        .lte('date', to)
+        .order('date', { ascending: true })
+      if (error) throw error
+      return data as unknown as KakeboEntry[]
+    },
+  })
+}
+
 export function useDeleteEntry(year: number, month: number) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()

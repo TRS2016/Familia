@@ -2,7 +2,8 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { format, startOfWeek, addDays } from 'date-fns'
-import { ChevronLeft, Plus, Trash2, BarChart2, Flame } from 'lucide-react'
+import { fr } from 'date-fns/locale'
+import { ChevronLeft, ChevronRight, Plus, Trash2, BarChart2, Flame, Pencil } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -13,21 +14,15 @@ import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import {
   useHabits, useRecentCompletions, useYearCompletions,
-  useAddHabit, useDeleteHabit, useToggleCompletion, calcStreak,
+  useAddHabit, useDeleteHabit, useEditHabit, useToggleCompletion, calcStreak,
 } from './useHabits'
-import { useHabitsRealtime } from './useHabitsRealtime'
 import type { Habit, HabitCompletion } from './useHabits'
+import { useHabitsRealtime } from './useHabitsRealtime'
 import { memberColor } from '../../lib/constants'
 import styles from './HabitsPage.module.css'
 
 const WEEK_LABELS   = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 const EMOJI_PALETTE = ['⭐','🏃','📚','💧','🧘','🥗','😴','🎵','✍️','🌿','💊','🏋️','🎯','🚲','🧹']
-
-// Current week: Monday → Sunday
-function weekDates(): string[] {
-  const mon = startOfWeek(new Date(), { weekStartsOn: 1 })
-  return Array.from({ length: 7 }, (_, i) => format(addDays(mon, i), 'yyyy-MM-dd'))
-}
 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
@@ -41,6 +36,7 @@ export default function HabitsPage() {
 
   const addHabit    = useAddHabit()
   const deleteHabit = useDeleteHabit()
+  const editHabit   = useEditHabit()
   const toggle      = useToggleCompletion()
 
   // Member list for filter + add modal
@@ -54,10 +50,19 @@ export default function HabitsPage() {
     },
   })
 
+  const [weekCursor, setWeekCursor] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
+  const [editTarget, setEditTarget] = useState<Habit | null>(null)
+  const [editDraft,  setEditDraft]  = useState({ name: '', emoji: '⭐', member_id: null as string | null })
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
   const [showAdd,   setShowAdd]   = useState(false)
   const [showStats, setShowStats] = useState(false)
   const [statsHabitId, setStatsHabitId] = useState<string | null>(null)
+
+  const today          = format(new Date(), 'yyyy-MM-dd')
+  const currentWeekStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const isCurrentWeek  = format(weekCursor, 'yyyy-MM-dd') === currentWeekStr
+  const MIN_WEEK_STR   = format(startOfWeek(new Date(Date.now() - 56 * 24 * 60 * 60 * 1000), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const weekNavLabel   = `${format(weekCursor, 'd MMM', { locale: fr })} – ${format(addDays(weekCursor, 6), 'd MMM', { locale: fr })}`
 
   // Add form
   const [draft, setDraft] = useState({
@@ -70,12 +75,25 @@ export default function HabitsPage() {
     ? habits.filter(h => h.member_id === filterMemberId)
     : habits
 
-  const dates = weekDates()
+  const dates = Array.from({ length: 7 }, (_, i) => format(addDays(weekCursor, i), 'yyyy-MM-dd'))
   const doneSet = new Set(completions.map(c => `${c.habit_id}::${c.date}`))
   function isDone(habitId: string, date: string) { return doneSet.has(`${habitId}::${date}`) }
 
   function handleToggle(habitId: string, date: string) {
+    if (date > today) return
     toggle.mutate({ habitId, date, done: !isDone(habitId, date) })
+  }
+
+  function openEdit(habit: Habit) {
+    setEditDraft({ name: habit.name, emoji: habit.emoji, member_id: habit.member_id })
+    setEditTarget(habit)
+  }
+
+  async function handleEditSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!editTarget || !editDraft.name.trim()) return
+    await editHabit.mutateAsync({ id: editTarget.id, ...editDraft })
+    setEditTarget(null)
   }
 
   async function handleAddSubmit(e: FormEvent) {
@@ -123,7 +141,7 @@ export default function HabitsPage() {
         </div>
       </header>
 
-      {/* ── Member filter ────────────────────────────────────────────── */}
+      {/* ── Member filter + week navigation ─────────────────────────── */}
       <div className={styles.filterRow}>
         <button
           className={[styles.filterPill, !filterMemberId ? styles.filterPillActive : ''].join(' ')}
@@ -142,6 +160,32 @@ export default function HabitsPage() {
             >{m.display_name}</button>
           )
         })}
+      </div>
+
+      {/* ── Week navigation ──────────────────────────────────────────── */}
+      <div className={styles.weekNav}>
+        <button
+          className={styles.weekNavBtn}
+          onClick={() => setWeekCursor(w => addDays(w, -7))}
+          disabled={format(weekCursor, 'yyyy-MM-dd') <= MIN_WEEK_STR}
+          aria-label="Semaine précédente"
+        >
+          <ChevronLeft size={14} strokeWidth={2.5} />
+        </button>
+        <button
+          className={[styles.weekNavLabel, isCurrentWeek ? styles.weekNavLabelCurrent : ''].join(' ')}
+          onClick={() => setWeekCursor(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+        >
+          {isCurrentWeek ? 'Cette semaine' : weekNavLabel}
+        </button>
+        <button
+          className={styles.weekNavBtn}
+          onClick={() => setWeekCursor(w => addDays(w, 7))}
+          disabled={isCurrentWeek}
+          aria-label="Semaine suivante"
+        >
+          <ChevronRight size={14} strokeWidth={2.5} />
+        </button>
       </div>
 
       {/* ── Loading ──────────────────────────────────────────────────── */}
@@ -185,9 +229,11 @@ export default function HabitsPage() {
                 color={color}
                 streak={streak}
                 dates={dates}
+                today={today}
                 isDone={date => isDone(habit.id, date)}
                 onToggle={date => handleToggle(habit.id, date)}
                 onDelete={() => deleteHabit.mutate(habit.id)}
+                onEdit={() => openEdit(habit)}
                 onStats={() => { setStatsHabitId(habit.id); setShowStats(true) }}
               />
             )
@@ -258,6 +304,65 @@ export default function HabitsPage() {
         </SlideUpModal>
       )}
 
+      {/* ── Edit habit modal ──────────────────────────────────────────── */}
+      {editTarget && (
+        <SlideUpModal title="Modifier l'habitude" onClose={() => setEditTarget(null)}>
+          <form onSubmit={handleEditSubmit} className={styles.form}>
+            <div className={styles.fieldGroup}>
+              <label htmlFor="eh-name" className={styles.fieldLabel}>Nom</label>
+              <input
+                id="eh-name"
+                type="text"
+                value={editDraft.name}
+                onChange={e => setEditDraft(d => ({ ...d, name: e.target.value }))}
+                className={styles.input}
+                required
+                autoFocus
+              />
+            </div>
+            <div className={styles.fieldGroup}>
+              <label className={styles.fieldLabel}>Emoji</label>
+              <div className={styles.emojiGrid}>
+                {EMOJI_PALETTE.map(e => (
+                  <button
+                    key={e}
+                    type="button"
+                    className={[styles.emojiBtn, editDraft.emoji === e ? styles.emojiBtnActive : ''].join(' ')}
+                    style={editDraft.emoji === e ? { borderColor: 'var(--accent)', background: 'rgba(224,123,84,0.12)' } : {}}
+                    onClick={() => setEditDraft(d => ({ ...d, emoji: e }))}
+                  >{e}</button>
+                ))}
+              </div>
+            </div>
+            <div className={styles.fieldGroup}>
+              <label className={styles.fieldLabel}>Membre</label>
+              <div className={styles.memberPills}>
+                {members.map((m, i) => {
+                  const active = editDraft.member_id === m.id
+                  const color  = memberColor(i)
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className={[styles.memberPill, active ? styles.memberPillActive : ''].join(' ')}
+                      style={active ? { borderColor: color, background: `${color}1A`, color } : {}}
+                      onClick={() => setEditDraft(d => ({ ...d, member_id: m.id }))}
+                    >{m.display_name}</button>
+                  )
+                })}
+              </div>
+            </div>
+            <button
+              type="submit"
+              className={styles.submitBtn}
+              disabled={editHabit.isPending || !editDraft.name.trim()}
+            >
+              {editHabit.isPending ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+          </form>
+        </SlideUpModal>
+      )}
+
       {/* ── Stats modal ───────────────────────────────────────────────── */}
       {showStats && statsHabit && (
         <StatsModal
@@ -276,14 +381,16 @@ export default function HabitsPage() {
 
 // ── Habit row ─────────────────────────────────────────────────────────────────
 
-function HabitRow({ habit, color, streak, dates, isDone, onToggle, onDelete, onStats }: {
+function HabitRow({ habit, color, streak, dates, today, isDone, onToggle, onDelete, onEdit, onStats }: {
   habit: Habit
   color: string
   streak: number
   dates: string[]
+  today: string
   isDone: (date: string) => boolean
   onToggle: (date: string) => void
   onDelete: () => void
+  onEdit: () => void
   onStats: () => void
 }) {
   return (
@@ -300,14 +407,16 @@ function HabitRow({ habit, color, streak, dates, isDone, onToggle, onDelete, onS
         </div>
         <div className={styles.rowActions}>
           <button className={styles.rowActionBtn} onClick={onStats} aria-label="Stats"><BarChart2 size={12} strokeWidth={2} /></button>
+          <button className={styles.rowActionBtn} onClick={onEdit} aria-label="Modifier"><Pencil size={12} strokeWidth={2} /></button>
           <button className={styles.rowActionBtn} onClick={onDelete} aria-label="Supprimer"><Trash2 size={12} strokeWidth={2} /></button>
         </div>
       </div>
 
       {/* Day checkboxes */}
       {dates.map(date => {
-        const done    = isDone(date)
-        const isToday = date === format(new Date(), 'yyyy-MM-dd')
+        const done     = isDone(date)
+        const isToday  = date === today
+        const isFuture = date > today
         return (
           <button
             key={date}
@@ -315,9 +424,11 @@ function HabitRow({ habit, color, streak, dates, isDone, onToggle, onDelete, onS
               styles.dayCell,
               done ? styles.dayCellDone : '',
               isToday ? styles.dayCellToday : '',
+              isFuture ? styles.dayCellFuture : '',
             ].join(' ')}
             style={done ? { background: color } : isToday ? { borderColor: color } : {}}
-            onClick={() => onToggle(date)}
+            onClick={() => !isFuture && onToggle(date)}
+            disabled={isFuture}
             aria-label={`${done ? 'Décocher' : 'Cocher'} ${date}`}
           >
             {done && <span className={styles.checkMark}>✓</span>}

@@ -637,3 +637,57 @@
   font-weight: 700;
   color: var(--text-muted);
 }
+
+/* ── Week navigation ─────────────────────────────────────────────────────── */
+
+.weekNav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 16px 12px;
+}
+
+.weekNavBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-input);
+  cursor: pointer;
+  color: var(--text);
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.weekNavBtn:hover:not(:disabled) { background: var(--border); }
+.weekNavBtn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.weekNavLabel {
+  flex: 1;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+  padding: 0;
+}
+
+.weekNavLabelCurrent {
+  cursor: default;
+  color: var(--accent);
+}
+
+/* ── Future day cell ─────────────────────────────────────────────────────── */
+
+.dayCellFuture {
+  opacity: 0.2;
+  cursor: not-allowed;
+  pointer-events: none;
+}

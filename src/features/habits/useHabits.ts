@@ -168,6 +168,37 @@ export function useDeleteHabit() {
   })
 }
 
+export interface EditHabitInput {
+  id: string
+  name: string
+  emoji: string
+  member_id: string | null
+}
+
+export function useEditHabit() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async (input: EditHabitInput): Promise<Habit> => {
+      const { data, error } = await supabase
+        .from('habits')
+        .update({ name: input.name.trim(), emoji: input.emoji, member_id: input.member_id })
+        .eq('id', input.id)
+        .select('*, member:members(id, display_name)')
+        .single()
+      if (error) throw error
+      return data as unknown as Habit
+    },
+    onSuccess: updated => {
+      queryClient.setQueryData<Habit[]>(HABITS_KEY, old =>
+        (old ?? []).map(h => h.id === updated.id ? updated : h)
+      )
+    },
+    onError: () => showToast({ type: 'error', message: 'Impossible de modifier l\'habitude.' }),
+  })
+}
+
 export function useToggleCompletion() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()

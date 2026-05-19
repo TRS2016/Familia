@@ -308,16 +308,19 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          kakebo_objectif_epargne: number | null
           name: string
         }
         Insert: {
           created_at?: string
           id?: string
+          kakebo_objectif_epargne?: number | null
           name: string
         }
         Update: {
           created_at?: string
           id?: string
+          kakebo_objectif_epargne?: number | null
           name?: string
         }
         Relationships: []

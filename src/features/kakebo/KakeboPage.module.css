@@ -1114,3 +1114,115 @@
   opacity: 0.5;
   cursor: not-allowed;
 }
+
+/* ── Tendance view ───────────────────────────────────────────────────────── */
+
+.trendCard {
+  margin: 0 16px 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+}
+
+.trendTitle {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 16px;
+}
+
+.trendBars {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 130px;
+}
+
+.trendBarGroup {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  justify-content: flex-end;
+}
+
+.trendBarStack {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.trendBarRev {
+  width: 100%;
+  background: #5B9E8F;
+  border-radius: 3px 3px 0 0;
+  opacity: 0.5;
+  min-height: 2px;
+}
+
+.trendBarDep {
+  width: 100%;
+  background: #C8B89A;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: height 0.4s ease;
+}
+
+.trendBarDepCurrent {
+  background: var(--accent);
+}
+
+.trendMonthLabel {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+.trendAmountLabel {
+  font-size: 8.5px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.trendLegend {
+  display: flex;
+  gap: 16px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.trendLegendItem {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.trendDotDep {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: var(--accent);
+  display: inline-block;
+}
+
+.trendDotRev {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: #5B9E8F;
+  opacity: 0.6;
+  display: inline-block;
+}

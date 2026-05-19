@@ -10,6 +10,8 @@ import SlideUpModal from '../../components/SlideUpModal'
 import {
   useKakeboCategories,
   useKakeboEntries,
+  useKakeboObjectif,
+  useKakeboTrend,
   useAddEntry,
   useEditEntry,
   useDeleteEntry,
@@ -36,16 +38,10 @@ function fmtEur(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })
 }
 
-// Only objectifEpargne is stored locally — revenus come from DB income entries
-function loadBudget() {
-  try {
-    const s = localStorage.getItem('familia_kakebo_budget')
-    const parsed = s ? JSON.parse(s) as { objectifEpargne?: number } : {}
-    return { objectifEpargne: parsed.objectifEpargne ?? 400 }
-  } catch { return { objectifEpargne: 400 } }
-}
 
-type View = 'bilan' | 'detail' | 'reflexion'
+type View = 'bilan' | 'detail' | 'reflexion' | 'tendance'
+
+const MONTH_LABELS_FR = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc']
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -56,6 +52,8 @@ export default function KakeboPage() {
 
   const { data: categories = [], isLoading: catsLoading } = useKakeboCategories()
   const { data: entries = [], isLoading: entriesLoading } = useKakeboEntries(year, month)
+  const { objectif, update: updateObjectif } = useKakeboObjectif()
+  const { data: trendEntries = [], isLoading: trendLoading } = useKakeboTrend(6)
   useKakeboRealtime()
 
   const addEntry    = useAddEntry(year, month)
@@ -67,7 +65,7 @@ export default function KakeboPage() {
 
   const [showAdd, setShowAdd]       = useState(false)
   const [showBudget, setShowBudget] = useState(false)
-  const [budget, setBudgetState]    = useState(loadBudget)
+  const [budgetDraft, setBudgetDraft] = useState(400)
 
   // Edit entry state
   const [editTarget, setEditTarget] = useState<KakeboEntry | null>(null)
@@ -89,9 +87,6 @@ export default function KakeboPage() {
     }
   }, [categories, firstCatId, draft.category_id])
 
-  // Budget modal state
-  const [budgetDraft, setBudgetDraft] = useState(budget)
-
   // ── Computations ──────────────────────────────────────────────────────────
 
   const incomeEntries  = entries.filter(e => e.category?.type === 'income')
@@ -105,7 +100,7 @@ export default function KakeboPage() {
   }
   const totalDepenses = Object.values(totalByCategory).reduce((s, v) => s + v, 0)
   const epargneReelle = totalRevenusMois - totalDepenses
-  const solde         = epargneReelle - budget.objectifEpargne
+  const solde         = epargneReelle - objectif
 
   const moodEmoji = solde >= 0 ? '🌱' : solde >= -50 ? '🌤' : '🌧'
   const moodLabel = solde >= 0 ? 'Mois équilibré' : solde >= -50 ? 'Légèrement au-dessus' : 'Au-delà de l\'objectif'
@@ -165,10 +160,14 @@ export default function KakeboPage() {
     setEditTarget(null)
   }
 
-  function saveBudget() {
-    localStorage.setItem('familia_kakebo_budget', JSON.stringify(budgetDraft))
-    setBudgetState(budgetDraft)
+  async function saveBudget() {
+    await updateObjectif.mutateAsync(budgetDraft)
     setShowBudget(false)
+  }
+
+  function openBudgetModal() {
+    setBudgetDraft(objectif)
+    setShowBudget(true)
   }
 
   async function handleAddSubmit(e: FormEvent) {
@@ -219,7 +218,7 @@ export default function KakeboPage() {
           </div>
         </div>
         <div className={styles.headerActions}>
-          <button className={styles.iconBtn} onClick={() => setShowBudget(true)} aria-label="Paramètres">
+          <button className={styles.iconBtn} onClick={openBudgetModal} aria-label="Paramètres">
             <Settings size={15} strokeWidth={2} />
           </button>
           <button className={styles.fabSmall} onClick={() => setShowAdd(true)} aria-label="Ajouter">
@@ -246,13 +245,13 @@ export default function KakeboPage() {
       {/* ── View tabs (hidden when drilling into a category) ──────────── */}
       {!selectedCatId && (
         <div className={styles.viewPills}>
-          {(['bilan', 'detail', 'reflexion'] as View[]).map(v => (
+          {(['bilan', 'detail', 'reflexion', 'tendance'] as View[]).map(v => (
             <button
               key={v}
               className={[styles.pill, view === v ? styles.pillActive : ''].join(' ')}
               onClick={() => setView(v)}
             >
-              {v === 'bilan' ? 'Bilan' : v === 'detail' ? 'Détail' : 'Réflexion'}
+              {v === 'bilan' ? 'Bilan' : v === 'detail' ? 'Détail' : v === 'reflexion' ? 'Réflexion' : 'Tendance'}
             </button>
           ))}
         </div>
@@ -286,7 +285,7 @@ export default function KakeboPage() {
               donutC={donutC}
               totalDepenses={totalDepenses}
               revenus={totalRevenusMois}
-              objectifEpargne={budget.objectifEpargne}
+              objectifEpargne={objectif}
               epargneReelle={epargneReelle}
               solde={solde}
               moodEmoji={moodEmoji}
@@ -315,11 +314,16 @@ export default function KakeboPage() {
           {!selectedCatId && view === 'reflexion' && (
             <ReflexionView
               epargneReelle={epargneReelle}
-              objectifEpargne={budget.objectifEpargne}
+              objectifEpargne={objectif}
               solde={solde}
               categories={spendCats}
               totalByCategory={totalByCategory}
             />
+          )}
+
+          {/* ── Tendance ────────────────────────────────────────────── */}
+          {!selectedCatId && view === 'tendance' && (
+            <TrendView entries={trendEntries} isLoading={trendLoading} />
           )}
 
           {/* Empty state only for bilan with no entries */}
@@ -501,13 +505,13 @@ export default function KakeboPage() {
                   type="number"
                   min="0"
                   step="1"
-                  value={budgetDraft.objectifEpargne}
-                  onChange={e => setBudgetDraft(d => ({ ...d, objectifEpargne: parseFloat(e.target.value) || 0 }))}
+                  value={budgetDraft}
+                  onChange={e => setBudgetDraft(parseFloat(e.target.value) || 0)}
                   className={styles.input}
                 />
               </div>
-              <button className={styles.submitBtn} onClick={saveBudget}>
-                Enregistrer
+              <button className={styles.submitBtn} onClick={saveBudget} disabled={updateObjectif.isPending}>
+                {updateObjectif.isPending ? 'Enregistrement…' : 'Enregistrer'}
               </button>
             </div>
         </SlideUpModal>
@@ -873,7 +877,7 @@ function EntryRow({ entry, showBorder, onEdit, onDelete }: {
           {entry.date.slice(8)}
         </span>
         <span className={styles.entryMon} style={{ color: catColor(cat) }}>
-          {['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc'][parseInt(entry.date.slice(5, 7)) - 1]}
+          {MONTH_LABELS_FR[parseInt(entry.date.slice(5, 7)) - 1]}
         </span>
       </div>
       <div className={styles.entryBody}>
@@ -894,6 +898,70 @@ function EntryRow({ entry, showBorder, onEdit, onDelete }: {
             <Trash2 size={14} strokeWidth={2} />
           </button>
         )}
+      </div>
+    </div>
+  )
+}
+
+// ── TrendView ─────────────────────────────────────────────────────────────────
+
+function TrendView({ entries, isLoading }: { entries: KakeboEntry[]; isLoading: boolean }) {
+  if (isLoading) {
+    return <div className={styles.spinnerWrap}><Spinner size={32} /></div>
+  }
+
+  const now = new Date()
+  const months = Array.from({ length: 6 }, (_, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - 5 + i, 1)
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return {
+      prefix: `${d.getFullYear()}-${pad(d.getMonth() + 1)}`,
+      label: MONTH_LABELS_FR[d.getMonth()],
+      isCurrent: i === 5,
+    }
+  })
+
+  const byMonth = months.map(m => {
+    const mes = entries.filter(e => e.date.startsWith(m.prefix))
+    const depenses = mes.filter(e => e.category?.type !== 'income').reduce((s, e) => s + Number(e.amount), 0)
+    const revenus  = mes.filter(e => e.category?.type === 'income').reduce((s, e) => s + Number(e.amount), 0)
+    return { ...m, depenses, revenus }
+  })
+
+  const maxVal = Math.max(1, ...byMonth.flatMap(m => [m.depenses, m.revenus]))
+  const BAR_H  = 100
+
+  return (
+    <div className={styles.scrollArea}>
+      <div className={styles.trendCard}>
+        <p className={styles.trendTitle}>Dépenses sur 6 mois</p>
+        <div className={styles.trendBars}>
+          {byMonth.map(m => {
+            const depH = Math.max(2, (m.depenses / maxVal) * BAR_H)
+            const revH = m.revenus > 0 ? Math.max(2, (m.revenus / maxVal) * BAR_H) : 0
+            return (
+              <div key={m.prefix} className={styles.trendBarGroup}>
+                <div className={styles.trendBarStack}>
+                  {revH > 0 && <div className={styles.trendBarRev} style={{ height: revH }} />}
+                  <div
+                    className={[styles.trendBarDep, m.isCurrent ? styles.trendBarDepCurrent : ''].join(' ')}
+                    style={{ height: depH }}
+                  />
+                </div>
+                <span className={styles.trendMonthLabel}>{m.label}</span>
+                {m.depenses > 0 && <span className={styles.trendAmountLabel}>{fmtEur(m.depenses)}</span>}
+              </div>
+            )
+          })}
+        </div>
+        <div className={styles.trendLegend}>
+          <span className={styles.trendLegendItem}>
+            <span className={styles.trendDotDep} /> Dépenses
+          </span>
+          <span className={styles.trendLegendItem}>
+            <span className={styles.trendDotRev} /> Revenus
+          </span>
+        </div>
       </div>
     </div>
   )
