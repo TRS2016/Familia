@@ -12,6 +12,7 @@ export interface KakeboCategory {
   name: string
   type: 'income' | 'fixed' | 'variable' | 'leisure' | 'extra'
   color: string | null
+  monthly_budget: number | null
   created_at: string
 }
 
@@ -261,6 +262,30 @@ export function useKakeboTrend(monthsBack = 6) {
         .order('date', { ascending: true })
       if (error) throw error
       return data as unknown as KakeboEntry[]
+    },
+  })
+}
+
+export function useUpdateCategoryBudget() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ id, monthly_budget }: { id: string; monthly_budget: number | null }) => {
+      const { error } = await supabase.from('kakebo_categories').update({ monthly_budget }).eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, monthly_budget }) => {
+      await queryClient.cancelQueries({ queryKey: KAKEBO_CATS_KEY })
+      const previous = queryClient.getQueryData<KakeboCategory[]>(KAKEBO_CATS_KEY) ?? []
+      queryClient.setQueryData<KakeboCategory[]>(KAKEBO_CATS_KEY,
+        previous.map(c => c.id === id ? { ...c, monthly_budget } : c)
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      queryClient.setQueryData(KAKEBO_CATS_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de sauvegarder le budget.' })
     },
   })
 }

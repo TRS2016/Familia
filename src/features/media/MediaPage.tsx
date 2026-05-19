@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, Plus, Trash2, Search } from 'lucide-react'
@@ -10,7 +10,7 @@ import { memberColor } from '../../lib/constants'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import {
-  useMediaItems, useAddMediaItem, useUpdateMediaStatus, useDeleteMediaItem, useRateMediaItem,
+  useMediaItems, useAddMediaItem, useUpdateMediaStatus, useDeleteMediaItem, useRateMediaItem, useCommentMediaItem,
   NEXT_STATUS,
 } from './useMedia'
 import type { MediaType, MediaItem } from './useMedia'
@@ -33,6 +33,7 @@ export default function MediaPage() {
   const updateStatus = useUpdateMediaStatus()
   const deleteItem   = useDeleteMediaItem()
   const rateItem     = useRateMediaItem()
+  const commentItem  = useCommentMediaItem()
 
   const { data: members = [] } = useQuery({
     queryKey: QK.membersList,
@@ -161,6 +162,7 @@ export default function MediaPage() {
                   onCycleStatus={() => updateStatus.mutate({ id: item.id, status: NEXT_STATUS[item.status] })}
                   onDelete={() => deleteItem.mutate(item.id)}
                   onRate={n => rateItem.mutate({ id: item.id, rating: n })}
+                  onComment={c => commentItem.mutate({ id: item.id, comment: c })}
                 />
               ))}
             </ul>
@@ -183,6 +185,7 @@ export default function MediaPage() {
                     onCycleStatus={() => updateStatus.mutate({ id: item.id, status: NEXT_STATUS[item.status] })}
                     onDelete={() => deleteItem.mutate(item.id)}
                     onRate={n => rateItem.mutate({ id: item.id, rating: n })}
+                  onComment={c => commentItem.mutate({ id: item.id, comment: c })}
                   />
                 ))}
               </ul>
@@ -268,16 +271,19 @@ export default function MediaPage() {
   )
 }
 
-function MediaRow({ item, members, done = false, onCycleStatus, onDelete, onRate }: {
+function MediaRow({ item, members, done = false, onCycleStatus, onDelete, onRate, onComment }: {
   item: MediaItem
   members: { id: string; display_name: string }[]
   done?: boolean
   onCycleStatus: () => void
   onDelete: () => void
   onRate: (rating: number | null) => void
+  onComment: (comment: string | null) => void
 }) {
   const meta    = TYPE_META[item.type]
   const memberIdx = members.findIndex(m => m.id === item.member_id)
+  const [commentText, setCommentText] = useState(item.comment ?? '')
+  useEffect(() => { setCommentText(item.comment ?? '') }, [item.comment])
 
   const statusStyle: Record<string, { background: string; color: string; borderColor: string }> = {
     'à voir':  { background: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border)' },
@@ -296,16 +302,30 @@ function MediaRow({ item, members, done = false, onCycleStatus, onDelete, onRate
           </span>
         )}
         {done && (
-          <div className={styles.starRow}>
-            {[1,2,3,4,5].map(n => (
-              <button
-                key={n}
-                className={[styles.star, (item.rating ?? 0) >= n ? styles.starFilled : ''].join(' ')}
-                onClick={() => onRate(item.rating === n ? null : n)}
-                aria-label={`${n} étoile${n > 1 ? 's' : ''}`}
-              >★</button>
-            ))}
-          </div>
+          <>
+            <div className={styles.starRow}>
+              {[1,2,3,4,5].map(n => (
+                <button
+                  key={n}
+                  className={[styles.star, (item.rating ?? 0) >= n ? styles.starFilled : ''].join(' ')}
+                  onClick={() => onRate(item.rating === n ? null : n)}
+                  aria-label={`${n} étoile${n > 1 ? 's' : ''}`}
+                >★</button>
+              ))}
+            </div>
+            <textarea
+              className={styles.commentInput}
+              value={commentText}
+              onChange={e => setCommentText(e.target.value)}
+              onBlur={() => {
+                const trimmed = commentText.trim()
+                const current = item.comment ?? ''
+                if (trimmed !== current) onComment(trimmed || null)
+              }}
+              placeholder="Ajouter une note…"
+              rows={1}
+            />
+          </>
         )}
       </div>
       <button

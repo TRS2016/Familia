@@ -16,6 +16,7 @@ import {
   useAddEntry,
   useEditEntry,
   useDeleteEntry,
+  useUpdateCategoryBudget,
 } from './useKakebo'
 import { useKakeboRealtime } from './useKakeboRealtime'
 import type { KakeboCategory, KakeboEntry } from './useKakebo'
@@ -71,9 +72,12 @@ export default function KakeboPage() {
   const [view, setView]             = useState<View>('bilan')
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
 
+  const updateCategoryBudget = useUpdateCategoryBudget()
+
   const [showAdd, setShowAdd]       = useState(false)
   const [showBudget, setShowBudget] = useState(false)
   const [budgetDraft, setBudgetDraft] = useState(400)
+  const [budgetDrafts, setBudgetDrafts] = useState<Record<string, string>>({})
 
   // Edit entry state
   const [editTarget, setEditTarget] = useState<KakeboEntry | null>(null)
@@ -183,11 +187,24 @@ export default function KakeboPage() {
 
   async function saveBudget() {
     await updateObjectif.mutateAsync(budgetDraft)
+    for (const [id, val] of Object.entries(budgetDrafts)) {
+      const num = parseFloat(val)
+      const monthly_budget = val.trim() === '' ? null : isNaN(num) || num <= 0 ? null : num
+      const cat = categories.find(c => c.id === id)
+      if (cat && cat.monthly_budget !== monthly_budget) {
+        updateCategoryBudget.mutate({ id, monthly_budget })
+      }
+    }
     setShowBudget(false)
   }
 
   function openBudgetModal() {
     setBudgetDraft(objectif)
+    const drafts: Record<string, string> = {}
+    for (const cat of categories.filter(c => c.type !== 'income')) {
+      drafts[cat.id] = cat.monthly_budget != null ? String(cat.monthly_budget) : ''
+    }
+    setBudgetDrafts(drafts)
     setShowBudget(true)
   }
 
@@ -534,6 +551,26 @@ export default function KakeboPage() {
                   className={styles.input}
                 />
               </div>
+              <div className={styles.budgetSeparator}>
+                <span className={styles.fieldLabel}>Budgets mensuels par catégorie</span>
+              </div>
+              {categories.filter(c => c.type !== 'income').map(cat => (
+                <div key={cat.id} className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>
+                    <span className={styles.catDot} style={{ background: catColor(cat) }} />
+                    {' '}{cat.name} (€)
+                  </label>
+                  <input
+                    type="number"
+                    min="1"
+                    step="1"
+                    value={budgetDrafts[cat.id] ?? ''}
+                    onChange={e => setBudgetDrafts(d => ({ ...d, [cat.id]: e.target.value }))}
+                    className={styles.input}
+                    placeholder="Sans limite"
+                  />
+                </div>
+              ))}
               <button className={styles.submitBtn} onClick={saveBudget} disabled={updateObjectif.isPending}>
                 {updateObjectif.isPending ? 'Enregistrement…' : 'Enregistrer'}
               </button>
@@ -665,6 +702,10 @@ function BilanView({
       {/* Category cards 2×2 */}
       <div className={styles.catGrid}>
         {arcs.map(({ cat, pct, value }) => {
+          const budget = cat.monthly_budget
+          const overBudget = budget != null && value > budget
+          const budgetPct = budget != null ? Math.min(value / budget * 100, 100) : Math.min(pct * 100, 100)
+          const barColor = budget != null ? (overBudget ? '#c0392b' : '#5B9E8F') : catColor(cat)
           return (
             <button key={cat.id} className={styles.catCard} onClick={() => onSelectCat(cat.id)}>
               <div className={styles.catCardTop}>
@@ -677,13 +718,21 @@ function BilanView({
               <div className={styles.catCardAmount}>
                 <span className={styles.catCardAmountVal}>{fmtEur(value)}</span>
                 <span className={styles.catCardAmountEur}>€</span>
+                {budget != null && (
+                  <span className={styles.catCardBudgetOf} style={{ color: overBudget ? '#c0392b' : 'var(--text-muted)' }}>
+                    /{fmtEur(budget)}
+                  </span>
+                )}
               </div>
               <div className={styles.catCardTrack}>
-                <div className={styles.catCardFill} style={{ width: `${Math.min(pct * 100, 100)}%`, background: catColor(cat) }} />
+                <div className={styles.catCardFill} style={{ width: `${budgetPct}%`, background: barColor }} />
               </div>
               <div className={styles.catCardMeta}>
                 <span>{entries.filter(e => e.category_id === cat.id).length} op.</span>
-                <span style={{ color: catColor(cat) }}>{(pct * 100).toFixed(0)}%</span>
+                {budget != null
+                  ? <span style={{ color: barColor }}>{overBudget ? '⚠ Dépassé' : `${budgetPct.toFixed(0)}%`}</span>
+                  : <span style={{ color: catColor(cat) }}>{(pct * 100).toFixed(0)}%</span>
+                }
               </div>
             </button>
           )

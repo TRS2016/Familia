@@ -15,6 +15,7 @@ export interface MediaItem {
   type: MediaType
   status: MediaStatus
   rating: number | null
+  comment: string | null
   created_at: string
   member: { display_name: string } | null
 }
@@ -90,6 +91,30 @@ export function useUpdateMediaStatus() {
     onError: (_err, _vars, ctx) => {
       queryClient.setQueryData(MEDIA_KEY, ctx?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de mettre à jour le statut.' })
+    },
+  })
+}
+
+export function useCommentMediaItem() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ id, comment }: { id: string; comment: string | null }) => {
+      const { error } = await supabase.from('media_items').update({ comment }).eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, comment }) => {
+      await queryClient.cancelQueries({ queryKey: MEDIA_KEY })
+      const previous = queryClient.getQueryData<MediaItem[]>(MEDIA_KEY) ?? []
+      queryClient.setQueryData<MediaItem[]>(MEDIA_KEY,
+        previous.map(m => m.id === id ? { ...m, comment } : m)
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      queryClient.setQueryData(MEDIA_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de sauvegarder le commentaire.' })
     },
   })
 }

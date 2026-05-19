@@ -1,4 +1,5 @@
-import { useQuery } from '@tanstack/react-query'
+import { useState, useEffect } from 'react'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ShoppingCart, Calendar, Settings, BookOpen, Flame, Tv } from 'lucide-react'
 import { format, addDays } from 'date-fns'
@@ -32,6 +33,7 @@ function Avatar({ name, index, size = 36 }: { name: string; index: number; size?
 interface HouseholdDetails {
   name: string
   members: { id: string; display_name: string }[]
+  note: string | null
 }
 
 interface UpcomingEvent {
@@ -55,9 +57,13 @@ function eventDateLabel(dateStr: string): string {
   return capitalize(format(new Date(y, m - 1, d), 'EEE d MMM', { locale: fr }))
 }
 
+const NOTE_KEY = (householdId: string) => ['household-note', householdId] as const
+
 export default function HomePage() {
   const { data: member } = useMember()
   const { showToast } = useToast()
+  const queryClient = useQueryClient()
+  const [noteText, setNoteText] = useState('')
 
   const { data: upcomingEvents } = useQuery({
     queryKey: ['home-events-upcoming', HOUSEHOLD_ID],
@@ -134,7 +140,7 @@ export default function HomePage() {
       const [householdRes, membersRes] = await Promise.all([
         supabase
           .from('households')
-          .select('name')
+          .select('name, note')
           .eq('id', member!.household_id)
           .single(),
         supabase
@@ -144,12 +150,33 @@ export default function HomePage() {
       ])
       if (householdRes.error) throw householdRes.error
       if (membersRes.error) throw membersRes.error
+      const hd = householdRes.data as { name: string; note: string | null }
       return {
-        name: (householdRes.data as { name: string }).name,
+        name: hd.name,
+        note: hd.note,
         members: membersRes.data as { id: string; display_name: string }[],
       }
     },
     enabled: !!member,
+  })
+
+  // Sync note text when household loads
+  useEffect(() => {
+    if (householdDetails?.note != null) setNoteText(householdDetails.note)
+  }, [householdDetails?.note])
+
+  const saveNote = useMutation({
+    mutationFn: async (note: string) => {
+      const { error } = await supabase.from('households').update({ note: note || null }).eq('id', member!.household_id)
+      if (error) throw error
+    },
+    onSuccess: (_, note) => {
+      queryClient.setQueryData(
+        QK.householdDetails(member!.household_id),
+        (old: HouseholdDetails | undefined) => old ? { ...old, note: note || null } : old
+      )
+    },
+    onError: () => showToast({ type: 'error', message: 'Impossible de sauvegarder la note.' }),
   })
 
   if (!member) return <LoadingPage />
@@ -327,6 +354,28 @@ export default function HomePage() {
           </div>
         </div>
       )}
+
+      {/* Widget — Mémo partagé */}
+      <div className={styles.widget}>
+        <div className={styles.widgetHead}>
+          <span className={styles.widgetLabel}>Mémo du foyer</span>
+          {saveNote.isPending && <span className={styles.noteSaving}>enregistrement…</span>}
+        </div>
+        <div className={styles.card}>
+          <textarea
+            className={styles.noteTextarea}
+            value={noteText}
+            onChange={e => setNoteText(e.target.value)}
+            onBlur={() => {
+              const trimmed = noteText.trim()
+              const current = householdDetails?.note ?? ''
+              if (trimmed !== current) saveNote.mutate(trimmed)
+            }}
+            placeholder="Laissez un message pour toute la famille…"
+            rows={3}
+          />
+        </div>
+      </div>
 
       {/* Members */}
       <p className={styles.sectionLabel}>

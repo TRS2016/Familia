@@ -377,3 +377,26 @@
   color: var(--text-muted);
   font-weight: 600;
 }
+
+/* ── Note widget ─────────────────────────────────────────────────────────── */
+
+.noteTextarea {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 14px;
+  color: var(--text);
+  resize: none;
+  outline: none;
+  line-height: 1.5;
+  box-sizing: border-box;
+}
+
+.noteTextarea::placeholder { color: var(--text-muted); }
+
+.noteSaving {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+}

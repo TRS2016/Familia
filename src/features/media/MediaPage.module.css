@@ -387,3 +387,23 @@
 .star:hover { color: #E8B84B; }
 
 .starFilled { color: #E8B84B; }
+
+/* ── Comment textarea ────────────────────────────────────────────────────── */
+
+.commentInput {
+  width: 100%;
+  margin-top: 4px;
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 12px;
+  color: var(--text-sub);
+  resize: none;
+  outline: none;
+  line-height: 1.5;
+  padding: 4px 0 0;
+  box-sizing: border-box;
+}
+
+.commentInput::placeholder { color: var(--text-muted); }

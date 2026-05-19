@@ -310,18 +310,21 @@ export type Database = {
           id: string
           kakebo_objectif_epargne: number | null
           name: string
+          note: string | null
         }
         Insert: {
           created_at?: string
           id?: string
           kakebo_objectif_epargne?: number | null
           name: string
+          note?: string | null
         }
         Update: {
           created_at?: string
           id?: string
           kakebo_objectif_epargne?: number | null
           name?: string
+          note?: string | null
         }
         Relationships: []
       }
@@ -331,6 +334,7 @@ export type Database = {
           created_at: string
           household_id: string
           id: string
+          monthly_budget: number | null
           name: string
           type: string
         }
@@ -339,6 +343,7 @@ export type Database = {
           created_at?: string
           household_id: string
           id?: string
+          monthly_budget?: number | null
           name: string
           type: string
         }
@@ -347,6 +352,7 @@ export type Database = {
           created_at?: string
           household_id?: string
           id?: string
+          monthly_budget?: number | null
           name?: string
           type?: string
         }
@@ -417,6 +423,7 @@ export type Database = {
       }
       media_items: {
         Row: {
+          comment: string | null
           created_at: string
           household_id: string
           id: string
@@ -427,6 +434,7 @@ export type Database = {
           type: string
         }
         Insert: {
+          comment?: string | null
           created_at?: string
           household_id: string
           id?: string
@@ -437,6 +445,7 @@ export type Database = {
           type: string
         }
         Update: {
+          comment?: string | null
           created_at?: string
           household_id?: string
           id?: string
