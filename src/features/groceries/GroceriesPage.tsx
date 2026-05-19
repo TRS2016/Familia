@@ -545,6 +545,16 @@ export default function GroceriesPage() {
         </form>
       )}
 
+      {/* Total estimé — mode édition, si des articles ont un prix */}
+      {!shoppingMode && totalLeft > 0 && (
+        <div className={styles.totalBar}>
+          <span className={styles.totalBarLabel}>
+            {uncheckedItems.filter(g => g.price !== null).length} article{uncheckedItems.filter(g => g.price !== null).length > 1 ? 's' : ''} estimé{uncheckedItems.filter(g => g.price !== null).length > 1 ? 's' : ''}
+          </span>
+          <span className={styles.totalBarAmount}>{formatPrice(totalLeft)}</span>
+        </div>
+      )}
+
       {/* Lien catalogue — mode édition */}
       {!shoppingMode && (
         <div className={styles.catalogLink}>

@@ -727,6 +727,65 @@
 .entryRow:hover .editBtn  { opacity: 1; }
 .entryRow:hover .deleteBtn { opacity: 1; }
 
+/* ── Detail view toggle ──────────────────────────────────────────────────── */
+
+.detailToggle {
+  display: flex;
+  gap: 4px;
+  margin: 0 16px 12px;
+  background: var(--bg-input);
+  border-radius: 10px;
+  padding: 3px;
+}
+
+.detailToggleBtn {
+  flex: 1;
+  padding: 6px 0;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s;
+}
+
+.detailToggleBtnActive {
+  background: var(--bg-card);
+  color: var(--text);
+  font-weight: 800;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* ── Date group (chronological view) ─────────────────────────────────────── */
+
+.dateGroup {
+  margin: 0 16px 12px;
+}
+
+.dateGroupHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 6px;
+}
+
+.dateGroupDate {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.dateGroupTotal {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
 /* ── Detail view ─────────────────────────────────────────────────────────── */
 
 .detailGroup {

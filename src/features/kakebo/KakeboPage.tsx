@@ -717,9 +717,23 @@ function DetailView({
   onDelete: (id: string) => void
   onReplay: (entry: KakeboEntry) => void
 }) {
+  const [groupMode, setGroupMode] = useState<'cat' | 'date'>('cat')
+
   return (
     <div className={styles.scrollArea}>
-      {categories.map(cat => {
+      {/* Toggle */}
+      <div className={styles.detailToggle}>
+        <button
+          className={[styles.detailToggleBtn, groupMode === 'cat' ? styles.detailToggleBtnActive : ''].join(' ')}
+          onClick={() => setGroupMode('cat')}
+        >Par catégorie</button>
+        <button
+          className={[styles.detailToggleBtn, groupMode === 'date' ? styles.detailToggleBtnActive : ''].join(' ')}
+          onClick={() => setGroupMode('date')}
+        >Par date</button>
+      </div>
+
+      {groupMode === 'cat' && categories.map(cat => {
         const catEntries = entries
           .filter(e => e.category_id === cat.id)
           .sort((a, b) => b.date.localeCompare(a.date))
@@ -758,6 +772,45 @@ function DetailView({
           </div>
         )
       })}
+
+      {groupMode === 'date' && (() => {
+        const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date))
+        const byDate = new Map<string, KakeboEntry[]>()
+        for (const e of sorted) {
+          if (!byDate.has(e.date)) byDate.set(e.date, [])
+          byDate.get(e.date)!.push(e)
+        }
+        if (sorted.length === 0) return <p className={styles.detailEmpty}>Aucune opération ce mois.</p>
+        return [...byDate.entries()].map(([date, dayEntries]) => {
+          const dayTotal = dayEntries
+            .filter(e => e.category?.type !== 'income')
+            .reduce((s, e) => s + Number(e.amount), 0)
+          return (
+            <div key={date} className={styles.dateGroup}>
+              <div className={styles.dateGroupHeader}>
+                <span className={styles.dateGroupDate}>
+                  {date.slice(8)} {MONTH_LABELS_FR[parseInt(date.slice(5, 7)) - 1]}
+                </span>
+                {dayTotal > 0 && (
+                  <span className={styles.dateGroupTotal}>{fmtEur(dayTotal)} €</span>
+                )}
+              </div>
+              <div className={styles.entryList}>
+                {dayEntries.map((e, i) => (
+                  <EntryRow
+                    key={e.id}
+                    entry={e}
+                    showBorder={i < dayEntries.length - 1}
+                    onEdit={() => onEdit(e)}
+                    onDelete={() => onDelete(e.id)}
+                    onReplay={() => onReplay(e)}
+                  />
+                ))}
+              </div>
+            </div>
+          )
+        })
+      })()}
     </div>
   )
 }

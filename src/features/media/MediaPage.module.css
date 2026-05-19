@@ -80,6 +80,80 @@
   font-weight: 800;
 }
 
+/* ── Search ──────────────────────────────────────────────────────────────── */
+
+.searchWrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 16px 10px;
+  background: var(--bg-input);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0 12px;
+  transition: border-color 0.15s;
+}
+
+.searchWrap:focus-within { border-color: var(--accent); }
+
+.searchIcon {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 14px;
+  color: var(--text);
+  padding: 10px 0;
+  outline: none;
+}
+
+.searchInput::placeholder { color: var(--text-muted); }
+
+.searchClear {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 16px;
+  padding: 0;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* ── Member filter ───────────────────────────────────────────────────────── */
+
+.memberFilter {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 12px;
+  flex-wrap: wrap;
+}
+
+.memberChip {
+  padding: 5px 12px;
+  border-radius: 99px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-sub);
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.memberChipActive {
+  font-weight: 800;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(224,123,84,0.1);
+}
+
 /* ── List ────────────────────────────────────────────────────────────────── */
 
 .list {

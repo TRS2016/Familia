@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Plus, Trash2 } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, Search } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
@@ -43,13 +43,26 @@ export default function MediaPage() {
     },
   })
 
-  const [filterType, setFilterType] = useState<MediaType | null>(null)
+  const [filterType, setFilterType]       = useState<MediaType | null>(null)
+  const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
+  const [search, setSearch]               = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [draft, setDraft] = useState<{ title: string; type: MediaType; member_id: string | null }>({
     title: '', type: 'film', member_id: null,
   })
 
-  const filtered = filterType ? items.filter(i => i.type === filterType) : items
+  const countByType = TYPES.reduce((acc, t) => {
+    acc[t] = items.filter(i => i.type === t).length
+    return acc
+  }, {} as Record<MediaType, number>)
+
+  const q = search.trim().toLowerCase()
+  const filtered = items.filter(i => {
+    if (filterType && i.type !== filterType) return false
+    if (filterMemberId && i.member_id !== filterMemberId) return false
+    if (q && !i.title.toLowerCase().includes(q)) return false
+    return true
+  })
   const active   = filtered.filter(i => i.status !== 'terminé')
   const done     = filtered.filter(i => i.status === 'terminé')
 
@@ -81,7 +94,7 @@ export default function MediaPage() {
           style={filterType === null ? { borderColor: 'var(--accent)', color: 'var(--accent)', background: 'rgba(224,123,84,0.1)' } : {}}
           onClick={() => setFilterType(null)}
         >
-          Tous
+          Tous · {items.length}
         </button>
         {TYPES.map(t => (
           <button
@@ -90,10 +103,48 @@ export default function MediaPage() {
             style={filterType === t ? { borderColor: 'var(--accent)', color: 'var(--accent)', background: 'rgba(224,123,84,0.1)' } : {}}
             onClick={() => setFilterType(t)}
           >
-            {TYPE_META[t].emoji} {TYPE_META[t].label}s
+            {TYPE_META[t].emoji} {TYPE_META[t].label}s · {countByType[t] ?? 0}
           </button>
         ))}
       </div>
+
+      {/* Search */}
+      <div className={styles.searchWrap}>
+        <Search size={14} className={styles.searchIcon} strokeWidth={2.5} />
+        <input
+          type="text"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Rechercher un titre…"
+          className={styles.searchInput}
+          autoComplete="off"
+        />
+        {search && (
+          <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Effacer">×</button>
+        )}
+      </div>
+
+      {/* Member filter */}
+      {members.length > 1 && (
+        <div className={styles.memberFilter}>
+          <button
+            className={[styles.memberChip, filterMemberId === null ? styles.memberChipActive : ''].join(' ')}
+            onClick={() => setFilterMemberId(null)}
+          >Tous</button>
+          {members.map((m, i) => {
+            const active = filterMemberId === m.id
+            const color  = memberColor(i)
+            return (
+              <button
+                key={m.id}
+                className={[styles.memberChip, active ? styles.memberChipActive : ''].join(' ')}
+                style={active ? { borderColor: color, background: `${color}1A`, color } : {}}
+                onClick={() => setFilterMemberId(id => id === m.id ? null : m.id)}
+              >{m.display_name}</button>
+            )
+          })}
+        </div>
+      )}
 
       {isLoading ? null : items.length === 0 ? (
         <EmptyState emoji="🎬" title="Rien à voir pour l'instant." description="Ajoutez un film, une série ou un livre !" />
@@ -135,8 +186,8 @@ export default function MediaPage() {
             </>
           )}
 
-          {filtered.length === 0 && filterType && (
-            <EmptyState emoji={TYPE_META[filterType].emoji} title={`Aucun(e) ${TYPE_META[filterType].label.toLowerCase()} dans la liste.`} />
+          {filtered.length === 0 && (filterType || filterMemberId || q) && (
+            <EmptyState emoji="🔍" title="Aucun résultat." description="Modifiez vos filtres ou la recherche." />
           )}
         </>
       )}
