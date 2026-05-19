@@ -26,6 +26,7 @@ export interface NewHabitInput {
   emoji: string
   member_id: string | null
   color: string | null
+  frequency?: string
 }
 
 // ── Query keys ────────────────────────────────────────────────────────────────
@@ -133,6 +134,7 @@ export function useAddHabit() {
           name: input.name.trim(),
           emoji: input.emoji,
           color: input.color,
+          frequency: input.frequency ?? 'daily',
         })
         .select('*, member:members(id, display_name)')
         .single()
@@ -173,6 +175,7 @@ export interface EditHabitInput {
   name: string
   emoji: string
   member_id: string | null
+  frequency?: string
 }
 
 export function useEditHabit() {
@@ -183,7 +186,7 @@ export function useEditHabit() {
     mutationFn: async (input: EditHabitInput): Promise<Habit> => {
       const { data, error } = await supabase
         .from('habits')
-        .update({ name: input.name.trim(), emoji: input.emoji, member_id: input.member_id })
+        .update({ name: input.name.trim(), emoji: input.emoji, member_id: input.member_id, frequency: input.frequency })
         .eq('id', input.id)
         .select('*, member:members(id, display_name)')
         .single()

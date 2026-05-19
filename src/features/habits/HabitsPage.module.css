@@ -691,3 +691,48 @@
   cursor: not-allowed;
   pointer-events: none;
 }
+
+/* ── Frequency pills ─────────────────────────────────────────────────────── */
+
+.freqPills {
+  display: flex;
+  gap: 6px;
+}
+
+.freqPill {
+  flex: 1;
+  padding: 8px 4px;
+  border-radius: 10px;
+  border: 2px solid var(--border);
+  background: transparent;
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--text-sub);
+  cursor: pointer;
+  text-align: center;
+  transition: all 0.15s;
+}
+
+.freqPillActive {
+  border-color: var(--accent);
+  background: rgba(224, 123, 84, 0.1);
+  color: var(--accent);
+}
+
+/* ── Weekly frequency badge in habit row ─────────────────────────────────── */
+
+.rowFreqBadge {
+  font-size: 9px;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border-radius: 99px;
+  padding: 1px 5px;
+  margin-left: 4px;
+}
+
+.rowFreqDone {
+  color: #5B9E8F;
+  background: rgba(91, 158, 143, 0.12);
+}

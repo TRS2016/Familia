@@ -77,6 +77,41 @@ export default function HomePage() {
     enabled: !!member,
   })
 
+  const { data: kakeboMonth } = useQuery({
+    queryKey: ['home-kakebo', HOUSEHOLD_ID],
+    queryFn: async () => {
+      const now  = new Date()
+      const from = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd')
+      const to   = format(new Date(now.getFullYear(), now.getMonth() + 1, 0), 'yyyy-MM-dd')
+      const { data, error } = await supabase
+        .from('kakebo_entries')
+        .select('amount, category:kakebo_categories(type)')
+        .eq('household_id', HOUSEHOLD_ID)
+        .gte('date', from)
+        .lte('date', to)
+      if (error) throw error
+      type Row = { amount: number; category: { type: string } | null }
+      const rows = data as unknown as Row[]
+      const expenses = rows.filter(r => r.category?.type !== 'income').reduce((s, r) => s + Number(r.amount), 0)
+      return { expenses }
+    },
+    enabled: !!member,
+  })
+
+  const { data: habitsToday } = useQuery({
+    queryKey: ['home-habits', HOUSEHOLD_ID],
+    queryFn: async () => {
+      const today = format(new Date(), 'yyyy-MM-dd')
+      const [habitsRes, completionsRes] = await Promise.all([
+        supabase.from('habits').select('id').eq('household_id', HOUSEHOLD_ID),
+        supabase.from('habit_completions').select('habit_id').eq('date', today).eq('completed', true),
+      ])
+      if (habitsRes.error) throw habitsRes.error
+      return { total: (habitsRes.data ?? []).length, done: (completionsRes.data ?? []).length }
+    },
+    enabled: !!member,
+  })
+
   const { data: groceryPreview } = useQuery({
     queryKey: ['home-groceries', HOUSEHOLD_ID],
     queryFn: async (): Promise<GroceryPreview[]> => {
@@ -169,8 +204,11 @@ export default function HomePage() {
           </div>
         </Link>
         <Link to="/calendar" className={styles.navCard}>
-          <div className={styles.navIconWrap} style={{ background: 'rgba(224,123,84,0.15)' }}>
+          <div className={styles.navIconWrap} style={{ background: 'rgba(224,123,84,0.15)', position: 'relative' }}>
             <Calendar size={22} color="var(--accent)" strokeWidth={2} />
+            {upcomingEvents && upcomingEvents.length > 0 && (
+              <span className={styles.navBadge}>{upcomingEvents.length}</span>
+            )}
           </div>
           <div>
             <div className={styles.navLabel}>Calendrier</div>
@@ -228,6 +266,42 @@ export default function HomePage() {
                 )
               })}
             </ul>
+          </div>
+        </div>
+      )}
+
+      {/* Widget — Budget du mois */}
+      {kakeboMonth && kakeboMonth.expenses > 0 && (
+        <div className={styles.widget}>
+          <div className={styles.widgetHead}>
+            <span className={styles.widgetLabel}>Budget du mois</span>
+            <Link to="/kakebo" className={styles.widgetLink}>Voir tout</Link>
+          </div>
+          <div className={styles.card}>
+            <div className={styles.summaryRow}>
+              <BookOpen size={15} color="#9B7AC4" strokeWidth={2.5} />
+              <span className={styles.summaryAmount}>
+                {kakeboMonth.expenses.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
+              </span>
+              <span className={styles.summarySub}>dépensé ce mois</span>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Widget — Habitudes */}
+      {habitsToday && habitsToday.total > 0 && (
+        <div className={styles.widget}>
+          <div className={styles.widgetHead}>
+            <span className={styles.widgetLabel}>Habitudes</span>
+            <Link to="/habits" className={styles.widgetLink}>Voir tout</Link>
+          </div>
+          <div className={styles.card}>
+            <div className={styles.summaryRow}>
+              <Flame size={15} color="#E8B84B" strokeWidth={2.5} />
+              <span className={styles.summaryAmount}>{habitsToday.done}/{habitsToday.total}</span>
+              <span className={styles.summarySub}>faites aujourd'hui</span>
+            </div>
           </div>
         </div>
       )}

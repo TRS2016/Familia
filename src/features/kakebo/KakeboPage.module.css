@@ -1226,3 +1226,67 @@
   opacity: 0.6;
   display: inline-block;
 }
+
+/* ── Annual summary card ─────────────────────────────────────────────────── */
+
+.annualCard {
+  margin: 0 16px 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+  padding: 16px;
+}
+
+.annualRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 0;
+}
+
+.annualLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.annualVal {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.annualDivider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}
+
+.annualCatTitle {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 14px 0 8px;
+}
+
+.annualCatRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+.annualCatName {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.annualCatVal {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--text-sub);
+}

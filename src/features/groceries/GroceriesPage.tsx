@@ -155,6 +155,7 @@ export default function GroceriesPage() {
     clearChecked, saveCurrentList, loadSavedList, replaceWithList,
   } = useGroceries()
   useGroceriesRealtime()
+  const catalog = useCatalog()
   const { showToast } = useToast()
 
   const [showCatalogPicker, setShowCatalogPicker] = useState(false)
@@ -223,8 +224,11 @@ export default function GroceriesPage() {
     return [...map.entries()].map(([id, name]) => ({ id, name }))
   }, [allItems])
 
-  // Suggestions noms depuis localStorage
-  const nameOptions = useMemo(() => getStoredNames(), [])
+  // Suggestions noms : catalogue + localStorage
+  const nameOptions = useMemo(() => {
+    const fromCatalog = catalog.query.data?.map(c => c.name) ?? []
+    return [...new Set([...fromCatalog, ...getStoredNames()])]
+  }, [catalog.query.data])
 
   // Suggestions enseignes : articles courants + localStorage
   const storeOptions = useMemo(() => {

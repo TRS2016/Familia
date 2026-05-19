@@ -24,6 +24,25 @@ import styles from './HabitsPage.module.css'
 const WEEK_LABELS   = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
 const EMOJI_PALETTE = ['⭐','🏃','📚','💧','🧘','🥗','😴','🎵','✍️','🌿','💊','🏋️','🎯','🚲','🧹']
 
+const FREQ_OPTS = [
+  { value: 'daily', label: 'Quotidien' },
+  { value: '3x',    label: '3×/sem.' },
+  { value: '2x',    label: '2×/sem.' },
+  { value: '1x',    label: '1×/sem.' },
+]
+
+function weekDates(): string[] {
+  const mon = startOfWeek(new Date(), { weekStartsOn: 1 })
+  return Array.from({ length: 7 }, (_, i) => format(addDays(mon, i), 'yyyy-MM-dd'))
+}
+
+function freqTarget(frequency: string): number {
+  if (frequency === '3x') return 3
+  if (frequency === '2x') return 2
+  if (frequency === '1x') return 1
+  return 7
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function HabitsPage() {
@@ -52,7 +71,7 @@ export default function HabitsPage() {
 
   const [weekCursor, setWeekCursor] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
   const [editTarget, setEditTarget] = useState<Habit | null>(null)
-  const [editDraft,  setEditDraft]  = useState({ name: '', emoji: '⭐', member_id: null as string | null })
+  const [editDraft,  setEditDraft]  = useState({ name: '', emoji: '⭐', member_id: null as string | null, frequency: 'daily' })
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
   const [showAdd,   setShowAdd]   = useState(false)
   const [showStats, setShowStats] = useState(false)
@@ -69,6 +88,7 @@ export default function HabitsPage() {
     name: '',
     emoji: '⭐',
     member_id: currentMember?.id ?? null as string | null,
+    frequency: 'daily',
   })
 
   const displayed = filterMemberId
@@ -85,7 +105,7 @@ export default function HabitsPage() {
   }
 
   function openEdit(habit: Habit) {
-    setEditDraft({ name: habit.name, emoji: habit.emoji, member_id: habit.member_id })
+    setEditDraft({ name: habit.name, emoji: habit.emoji, member_id: habit.member_id, frequency: habit.frequency ?? 'daily' })
     setEditTarget(habit)
   }
 
@@ -105,8 +125,9 @@ export default function HabitsPage() {
       emoji: draft.emoji,
       member_id: draft.member_id ?? firstMemberId,
       color: null,
+      frequency: draft.frequency,
     })
-    setDraft({ name: '', emoji: '⭐', member_id: currentMember?.id ?? firstMemberId })
+    setDraft({ name: '', emoji: '⭐', member_id: currentMember?.id ?? firstMemberId, frequency: 'daily' })
     setShowAdd(false)
   }
 
@@ -293,6 +314,20 @@ export default function HabitsPage() {
                 </div>
               </div>
 
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Fréquence</label>
+                <div className={styles.freqPills}>
+                  {FREQ_OPTS.map(opt => (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      className={[styles.freqPill, draft.frequency === opt.value ? styles.freqPillActive : ''].join(' ')}
+                      onClick={() => setDraft(d => ({ ...d, frequency: opt.value }))}
+                    >{opt.label}</button>
+                  ))}
+                </div>
+              </div>
+
               <button
                 type="submit"
                 className={styles.submitBtn}
@@ -352,6 +387,19 @@ export default function HabitsPage() {
                 })}
               </div>
             </div>
+            <div className={styles.fieldGroup}>
+              <label className={styles.fieldLabel}>Fréquence</label>
+              <div className={styles.freqPills}>
+                {FREQ_OPTS.map(opt => (
+                  <button
+                    key={opt.value}
+                    type="button"
+                    className={[styles.freqPill, editDraft.frequency === opt.value ? styles.freqPillActive : ''].join(' ')}
+                    onClick={() => setEditDraft(d => ({ ...d, frequency: opt.value }))}
+                  >{opt.label}</button>
+                ))}
+              </div>
+            </div>
             <button
               type="submit"
               className={styles.submitBtn}
@@ -393,6 +441,11 @@ function HabitRow({ habit, color, streak, dates, today, isDone, onToggle, onDele
   onEdit: () => void
   onStats: () => void
 }) {
+  const weekDone  = dates.filter(d => isDone(d)).length
+  const target    = freqTarget(habit.frequency ?? 'daily')
+  const isOnTrack = weekDone >= target
+  const nonDaily  = (habit.frequency ?? 'daily') !== 'daily'
+
   return (
     <div className={styles.row}>
       {/* Habit info */}
@@ -403,6 +456,11 @@ function HabitRow({ habit, color, streak, dates, today, isDone, onToggle, onDele
           <div className={styles.rowStreak}>
             <Flame size={10} strokeWidth={2.5} color="#E07B54" />
             <span className={styles.rowStreakVal}>{streak}j</span>
+            {nonDaily && (
+              <span className={[styles.rowFreqBadge, isOnTrack ? styles.rowFreqDone : ''].join(' ')}>
+                {weekDone}/{target}
+              </span>
+            )}
           </div>
         </div>
         <div className={styles.rowActions}>

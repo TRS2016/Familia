@@ -138,6 +138,27 @@
   font-weight: 600;
 }
 
+/* ── Nav card badge ──────────────────────────────────────────────────────── */
+
+.navBadge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 99px;
+  font-size: 9px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
+  box-sizing: border-box;
+}
+
 /* ── Widgets ─────────────────────────────────────────────────────────────── */
 
 .widget {
@@ -334,4 +355,25 @@
 .signOutBtn:hover {
   color: var(--text-sub);
   background: var(--border-subtle);
+}
+
+/* ── Summary widget row (kakebo / habitudes) ─────────────────────────────── */
+
+.summaryRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.summaryAmount {
+  font-size: 18px;
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: -0.3px;
+}
+
+.summarySub {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
 }
