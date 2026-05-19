@@ -14,6 +14,7 @@ export interface MediaItem {
   title: string
   type: MediaType
   status: MediaStatus
+  rating: number | null
   created_at: string
   member: { display_name: string } | null
 }
@@ -89,6 +90,30 @@ export function useUpdateMediaStatus() {
     onError: (_err, _vars, ctx) => {
       queryClient.setQueryData(MEDIA_KEY, ctx?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de mettre à jour le statut.' })
+    },
+  })
+}
+
+export function useRateMediaItem() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ id, rating }: { id: string; rating: number | null }) => {
+      const { error } = await supabase.from('media_items').update({ rating }).eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, rating }) => {
+      await queryClient.cancelQueries({ queryKey: MEDIA_KEY })
+      const previous = queryClient.getQueryData<MediaItem[]>(MEDIA_KEY) ?? []
+      queryClient.setQueryData<MediaItem[]>(MEDIA_KEY,
+        previous.map(m => m.id === id ? { ...m, rating } : m)
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      queryClient.setQueryData(MEDIA_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de sauvegarder la note.' })
     },
   })
 }

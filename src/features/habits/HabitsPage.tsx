@@ -653,6 +653,37 @@ function StatsModal({ habit, habits, completions, members, onSelectHabit, onClos
           )}
         </div>
 
+        {/* 4-week progress */}
+        {!yearLoading && (() => {
+          const weekTarget = freqTarget(habit.frequency ?? 'daily')
+          const last4 = Array.from({ length: 4 }, (_, i) => {
+            const wStart = addDays(startOfWeek(new Date(), { weekStartsOn: 1 }), -(3 - i) * 7)
+            const days   = Array.from({ length: 7 }, (_, d) => format(addDays(wStart, d), 'yyyy-MM-dd'))
+            const count  = days.filter(d => doneDates.has(d)).length
+            const pct    = Math.min(100, Math.round(count / weekTarget * 100))
+            return { label: format(wStart, 'd MMM', { locale: fr }), count, pct }
+          })
+          return (
+            <div className={styles.weekBarsSection}>
+              <p className={styles.sectionLabel}>4 dernières semaines</p>
+              <div className={styles.weekProgressBars}>
+                {last4.map((w, i) => (
+                  <div key={i} className={styles.weekProgressWrap}>
+                    <div className={styles.weekProgressTrack}>
+                      <div
+                        className={styles.weekProgressFill}
+                        style={{ height: `${w.pct}%`, background: color }}
+                      />
+                    </div>
+                    <span className={styles.weekProgressPct}>{w.pct}%</span>
+                    <span className={styles.weekProgressLabel}>{w.label}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Weekly bars */}
         <div className={styles.weekBarsSection}>
           <p className={styles.sectionLabel}>Cette semaine</p>

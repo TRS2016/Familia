@@ -421,6 +421,7 @@ export type Database = {
           household_id: string
           id: string
           member_id: string | null
+          rating: number | null
           status: string
           title: string
           type: string
@@ -430,6 +431,7 @@ export type Database = {
           household_id: string
           id?: string
           member_id?: string | null
+          rating?: number | null
           status?: string
           title: string
           type: string
@@ -439,6 +441,7 @@ export type Database = {
           household_id?: string
           id?: string
           member_id?: string | null
+          rating?: number | null
           status?: string
           title?: string
           type?: string

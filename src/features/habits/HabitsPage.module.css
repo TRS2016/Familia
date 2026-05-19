@@ -638,6 +638,55 @@
   color: var(--text-muted);
 }
 
+/* ── 4-week progress ─────────────────────────────────────────────────────── */
+
+.weekProgressBars {
+  display: flex;
+  gap: 10px;
+  align-items: flex-end;
+  height: 80px;
+}
+
+.weekProgressWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  height: 100%;
+}
+
+.weekProgressTrack {
+  flex: 1;
+  width: 100%;
+  background: var(--border-subtle);
+  border-radius: 4px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.weekProgressFill {
+  width: 100%;
+  border-radius: 4px;
+  transition: height 0.4s ease;
+  min-height: 3px;
+}
+
+.weekProgressPct {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--text-sub);
+}
+
+.weekProgressLabel {
+  font-size: 9px;
+  font-weight: 700;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
 /* ── Week navigation ─────────────────────────────────────────────────────── */
 
 .weekNav {
