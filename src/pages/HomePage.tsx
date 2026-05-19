@@ -63,8 +63,6 @@ function eventDateLabel(dateStr: string): string {
   return capitalize(format(new Date(y, m - 1, d), 'EEE d MMM', { locale: fr }))
 }
 
-const NOTE_KEY = (householdId: string) => ['household-note', householdId] as const
-
 export default function HomePage() {
   const { data: member } = useMember()
   const { showToast } = useToast()
