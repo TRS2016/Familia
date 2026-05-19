@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { format, addMonths, subMonths, getDaysInMonth } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Settings, Trash2, Pencil, RefreshCcw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Settings, Trash2, Pencil, RefreshCcw, Download } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -185,6 +185,27 @@ export default function KakeboPage() {
     )
   }
 
+  function exportCsv() {
+    const header = 'Date,Catégorie,Type,Description,Montant\n'
+    const rows = entries
+      .filter(e => e.category?.type !== 'income')
+      .map(e => [
+        e.date,
+        e.category?.name ?? '',
+        e.category?.type ?? '',
+        `"${(e.description ?? '').replace(/"/g, '""')}"`,
+        Number(e.amount).toFixed(2),
+      ].join(','))
+      .join('\n')
+    const blob = new Blob(['﻿' + header + rows], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `kakebo-${year}-${String(month).padStart(2, '0')}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function saveBudget() {
     await updateObjectif.mutateAsync(budgetDraft)
     for (const [id, val] of Object.entries(budgetDrafts)) {
@@ -256,6 +277,11 @@ export default function KakeboPage() {
           </div>
         </div>
         <div className={styles.headerActions}>
+          {entries.length > 0 && (
+            <button className={styles.iconBtn} onClick={exportCsv} aria-label="Exporter CSV" title="Exporter CSV">
+              <Download size={15} strokeWidth={2} />
+            </button>
+          )}
           <button className={styles.iconBtn} onClick={openBudgetModal} aria-label="Paramètres">
             <Settings size={15} strokeWidth={2} />
           </button>

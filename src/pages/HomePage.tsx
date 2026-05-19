@@ -48,6 +48,12 @@ interface GroceryPreview {
   name: string
 }
 
+interface HabitPreview {
+  id: string
+  name: string
+  emoji: string
+}
+
 function eventDateLabel(dateStr: string): string {
   const today    = format(new Date(), 'yyyy-MM-dd')
   const tomorrow = format(addDays(new Date(), 1), 'yyyy-MM-dd')
@@ -109,11 +115,14 @@ export default function HomePage() {
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd')
       const [habitsRes, completionsRes] = await Promise.all([
-        supabase.from('habits').select('id').eq('household_id', HOUSEHOLD_ID),
+        supabase.from('habits').select('id, name, emoji').eq('household_id', HOUSEHOLD_ID).order('created_at', { ascending: true }),
         supabase.from('habit_completions').select('habit_id').eq('date', today).eq('completed', true),
       ])
       if (habitsRes.error) throw habitsRes.error
-      return { total: (habitsRes.data ?? []).length, done: (completionsRes.data ?? []).length }
+      const all = (habitsRes.data ?? []) as HabitPreview[]
+      const doneIds = new Set((completionsRes.data ?? []).map((c: { habit_id: string }) => c.habit_id))
+      const pending = all.filter(h => !doneIds.has(h.id))
+      return { total: all.length, done: all.length - pending.length, pending }
     },
     enabled: !!member,
   })
@@ -329,6 +338,16 @@ export default function HomePage() {
               <span className={styles.summaryAmount}>{habitsToday.done}/{habitsToday.total}</span>
               <span className={styles.summarySub}>faites aujourd'hui</span>
             </div>
+            {habitsToday.pending.length > 0 && (
+              <div className={styles.habitsPending}>
+                {habitsToday.pending.slice(0, 4).map(h => (
+                  <span key={h.id} className={styles.habitPendingChip}>{h.emoji} {h.name}</span>
+                ))}
+                {habitsToday.pending.length > 4 && (
+                  <span className={styles.habitPendingMore}>+{habitsToday.pending.length - 4}</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

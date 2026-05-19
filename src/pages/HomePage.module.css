@@ -400,3 +400,32 @@
   color: var(--text-muted);
   font-weight: 600;
 }
+
+/* ── Habits pending chips ─────────────────────────────────────────────────── */
+
+.habitsPending {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.habitPendingChip {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-sub);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 99px;
+  padding: 3px 8px;
+}
+
+.habitPendingMore {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 3px 4px;
+  align-self: center;
+}

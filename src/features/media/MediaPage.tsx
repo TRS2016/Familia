@@ -45,9 +45,10 @@ export default function MediaPage() {
     },
   })
 
-  const [filterType, setFilterType]       = useState<MediaType | null>(null)
+  const [filterType, setFilterType]         = useState<MediaType | null>(null)
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
-  const [search, setSearch]               = useState('')
+  const [filterTopRated, setFilterTopRated] = useState(false)
+  const [search, setSearch]                 = useState('')
   const [showAdd, setShowAdd] = useState(false)
   const [draft, setDraft] = useState<{ title: string; type: MediaType; member_id: string | null }>({
     title: '', type: 'film', member_id: null,
@@ -62,6 +63,7 @@ export default function MediaPage() {
   const filtered = items.filter(i => {
     if (filterType && i.type !== filterType) return false
     if (filterMemberId && i.member_id !== filterMemberId) return false
+    if (filterTopRated && (i.rating ?? 0) < 4) return false
     if (q && !i.title.toLowerCase().includes(q)) return false
     return true
   })
@@ -108,6 +110,13 @@ export default function MediaPage() {
             {TYPE_META[t].emoji} {TYPE_META[t].label}s · {countByType[t] ?? 0}
           </button>
         ))}
+        <button
+          className={[styles.filterPill, filterTopRated ? styles.filterPillActive : ''].join(' ')}
+          style={filterTopRated ? { borderColor: '#E8B84B', color: '#E8B84B', background: 'rgba(232,184,75,0.12)' } : {}}
+          onClick={() => setFilterTopRated(v => !v)}
+        >
+          ★ 4+
+        </button>
       </div>
 
       {/* Search */}
@@ -192,7 +201,7 @@ export default function MediaPage() {
             </>
           )}
 
-          {filtered.length === 0 && (filterType || filterMemberId || q) && (
+          {filtered.length === 0 && (filterType || filterMemberId || q || filterTopRated) && (
             <EmptyState emoji="🔍" title="Aucun résultat." description="Modifiez vos filtres ou la recherche." />
           )}
         </>
