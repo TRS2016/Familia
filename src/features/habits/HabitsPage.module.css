@@ -692,6 +692,55 @@
   pointer-events: none;
 }
 
+/* ── Confirmation modal ──────────────────────────────────────────────────── */
+
+.confirmText {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-sub);
+  line-height: 1.5;
+  margin: 0 0 8px;
+}
+
+.confirmActions {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.cancelBtn {
+  flex: 1;
+  padding: 13px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 14px;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.cancelBtn:hover { background: var(--border-subtle); }
+
+.dangerBtn {
+  flex: 1;
+  padding: 13px;
+  border-radius: var(--radius-md);
+  border: none;
+  background: #D94F4F;
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: 14px;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.dangerBtn:hover { opacity: 0.85; }
+.dangerBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 /* ── Frequency pills ─────────────────────────────────────────────────────── */
 
 .freqPills {

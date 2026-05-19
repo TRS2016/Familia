@@ -76,6 +76,7 @@ export default function HabitsPage() {
   const [showAdd,   setShowAdd]   = useState(false)
   const [showStats, setShowStats] = useState(false)
   const [statsHabitId, setStatsHabitId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
 
   const today          = format(new Date(), 'yyyy-MM-dd')
   const currentWeekStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
@@ -253,7 +254,7 @@ export default function HabitsPage() {
                 today={today}
                 isDone={date => isDone(habit.id, date)}
                 onToggle={date => handleToggle(habit.id, date)}
-                onDelete={() => deleteHabit.mutate(habit.id)}
+                onDelete={() => setConfirmDeleteId(habit.id)}
                 onEdit={() => openEdit(habit)}
                 onStats={() => { setStatsHabitId(habit.id); setShowStats(true) }}
               />
@@ -422,6 +423,35 @@ export default function HabitsPage() {
           onClose={() => setShowStats(false)}
         />
       )}
+
+      {/* ── Confirmation suppression ──────────────────────────────────── */}
+      {confirmDeleteId && (() => {
+        const target = habits.find(h => h.id === confirmDeleteId)
+        return (
+          <SlideUpModal title="Supprimer l'habitude ?" onClose={() => setConfirmDeleteId(null)}>
+            <div className={styles.form}>
+              <p className={styles.confirmText}>
+                « {target?.emoji} {target?.name} » sera supprimée définitivement ainsi que tout son historique.
+              </p>
+              <div className={styles.confirmActions}>
+                <button className={styles.cancelBtn} onClick={() => setConfirmDeleteId(null)}>
+                  Annuler
+                </button>
+                <button
+                  className={styles.dangerBtn}
+                  disabled={deleteHabit.isPending}
+                  onClick={() => {
+                    deleteHabit.mutate(confirmDeleteId)
+                    setConfirmDeleteId(null)
+                  }}
+                >
+                  Supprimer
+                </button>
+              </div>
+            </div>
+          </SlideUpModal>
+        )
+      })()}
 
     </div>
   )

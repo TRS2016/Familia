@@ -3,10 +3,11 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { format, addMonths, subMonths, getDaysInMonth } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Settings, Trash2, Pencil } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Settings, Trash2, Pencil, RefreshCcw } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
+import { useToast } from '../../components/Toast'
 import {
   useKakeboCategories,
   useKakeboEntries,
@@ -56,9 +57,16 @@ export default function KakeboPage() {
   const { data: trendEntries = [], isLoading: trendLoading } = useKakeboTrend(12)
   useKakeboRealtime()
 
+  const { showToast } = useToast()
+
   const addEntry    = useAddEntry(year, month)
   const editEntry   = useEditEntry(year, month)
   const deleteEntry = useDeleteEntry(year, month)
+
+  // Replay always targets the actual current month, regardless of the displayed month
+  const nowYear  = new Date().getFullYear()
+  const nowMonth = new Date().getMonth() + 1
+  const replayEntry = useAddEntry(nowYear, nowMonth)
 
   const [view, setView]             = useState<View>('bilan')
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
@@ -158,6 +166,19 @@ export default function KakeboPage() {
       description: editDraft.description,
     })
     setEditTarget(null)
+  }
+
+  function handleReplay(entry: KakeboEntry) {
+    if (!entry.category_id) return
+    replayEntry.mutate(
+      {
+        category_id: entry.category_id,
+        amount: Number(entry.amount),
+        date: format(new Date(), 'yyyy-MM-dd'),
+        description: entry.description ?? '',
+      },
+      { onSuccess: () => showToast({ type: 'success', message: 'Opération dupliquée pour aujourd\'hui.' }) }
+    )
   }
 
   async function saveBudget() {
@@ -274,6 +295,7 @@ export default function KakeboPage() {
               revenus={totalRevenusMois}
               onEdit={openEdit}
               onDelete={id => deleteEntry.mutate(id)}
+              onReplay={handleReplay}
             />
           )}
 
@@ -297,6 +319,7 @@ export default function KakeboPage() {
               onSelectCat={setSelectedCatId}
               onShowDetail={() => setView('detail')}
               onEdit={openEdit}
+              onReplay={handleReplay}
             />
           )}
 
@@ -307,6 +330,7 @@ export default function KakeboPage() {
               entries={entries}
               onEdit={openEdit}
               onDelete={id => deleteEntry.mutate(id)}
+              onReplay={handleReplay}
             />
           )}
 
@@ -527,7 +551,7 @@ function BilanView({
   arcs, donutR, donutC, totalDepenses, revenus, objectifEpargne,
   epargneReelle, solde, moodEmoji, moodLabel,
   dailyTotals, maxDaily, todayDay,
-  entries, onSelectCat, onShowDetail, onEdit,
+  entries, onSelectCat, onShowDetail, onEdit, onReplay,
 }: {
   arcs: { cat: KakeboCategory; pct: number; dash: number; offset: number; value: number }[]
   donutR: number; donutC: number
@@ -539,6 +563,7 @@ function BilanView({
   onSelectCat: (id: string) => void
   onShowDetail: () => void
   onEdit: (entry: KakeboEntry) => void
+  onReplay: (entry: KakeboEntry) => void
 }) {
   const epargnePct  = revenus > 0 ? Math.max(0, Math.min(1, epargneReelle / revenus)) : 0
   const objectifPct = revenus > 0 ? Math.max(0, Math.min(1, objectifEpargne / revenus)) : 0
@@ -674,7 +699,7 @@ function BilanView({
           </div>
           <div className={styles.entryList}>
             {recentEntries.map((e, i) => (
-              <EntryRow key={e.id} entry={e} showBorder={i < recentEntries.length - 1} onEdit={() => onEdit(e)} />
+              <EntryRow key={e.id} entry={e} showBorder={i < recentEntries.length - 1} onEdit={() => onEdit(e)} onReplay={() => onReplay(e)} />
             ))}
           </div>
         </>
@@ -684,12 +709,13 @@ function BilanView({
 }
 
 function DetailView({
-  categories, entries, onEdit, onDelete,
+  categories, entries, onEdit, onDelete, onReplay,
 }: {
   categories: KakeboCategory[]
   entries: KakeboEntry[]
   onEdit: (entry: KakeboEntry) => void
   onDelete: (id: string) => void
+  onReplay: (entry: KakeboEntry) => void
 }) {
   return (
     <div className={styles.scrollArea}>
@@ -723,6 +749,7 @@ function DetailView({
                       showBorder={i < catEntries.length - 1}
                       onEdit={() => onEdit(e)}
                       onDelete={() => onDelete(e.id)}
+                      onReplay={() => onReplay(e)}
                     />
                   ))}
                 </div>
@@ -736,13 +763,14 @@ function DetailView({
 }
 
 function CategoryDetail({
-  cat, entries, revenus, onEdit, onDelete,
+  cat, entries, revenus, onEdit, onDelete, onReplay,
 }: {
   cat: KakeboCategory
   entries: KakeboEntry[]
   revenus: number
   onEdit: (entry: KakeboEntry) => void
   onDelete: (id: string) => void
+  onReplay: (entry: KakeboEntry) => void
 }) {
   const total    = entries.reduce((s, e) => s + Number(e.amount), 0)
   const count    = entries.length
@@ -792,6 +820,7 @@ function CategoryDetail({
                 showBorder={i < sorted.length - 1}
                 onEdit={() => onEdit(e)}
                 onDelete={() => onDelete(e.id)}
+                onReplay={() => onReplay(e)}
               />
             ))}
           </div>
@@ -862,11 +891,12 @@ function ReflexionView({
   )
 }
 
-function EntryRow({ entry, showBorder, onEdit, onDelete }: {
+function EntryRow({ entry, showBorder, onEdit, onDelete, onReplay }: {
   entry: KakeboEntry
   showBorder: boolean
   onEdit?: () => void
   onDelete?: () => void
+  onReplay?: () => void
 }) {
   const cat = entry.category
   const isIncome = cat?.type === 'income'
@@ -888,6 +918,11 @@ function EntryRow({ entry, showBorder, onEdit, onDelete }: {
         <span className={styles.entryAmount} style={isIncome ? { color: '#5B9E8F' } : undefined}>
           {isIncome ? '+' : '−'}{fmtEur(Number(entry.amount))} €
         </span>
+        {onReplay && (
+          <button className={styles.replayBtn} onClick={onReplay} aria-label="Rejouer">
+            <RefreshCcw size={12} strokeWidth={2} />
+          </button>
+        )}
         {onEdit && (
           <button className={styles.editBtn} onClick={onEdit} aria-label="Modifier">
             <Pencil size={13} strokeWidth={2} />

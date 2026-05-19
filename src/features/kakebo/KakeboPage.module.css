@@ -708,6 +708,22 @@
   transition: opacity 0.15s;
 }
 
+.replayBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px;
+  display: flex;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.15s, color 0.15s;
+  border-radius: 4px;
+}
+
+.entryRow:hover .replayBtn { opacity: 1; }
+.replayBtn:hover { color: #5B9E8F; }
+
 .entryRow:hover .editBtn  { opacity: 1; }
 .entryRow:hover .deleteBtn { opacity: 1; }
 

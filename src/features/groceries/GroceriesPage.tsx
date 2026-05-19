@@ -238,6 +238,17 @@ export default function GroceriesPage() {
   }, [allItems])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
+  function handleNameChange(val: string) {
+    setNewName(val)
+    const match = catalog.query.data?.find(c => c.name.toLowerCase() === val.toLowerCase())
+    if (match) {
+      if (match.price !== null) setNewPrice(String(match.price).replace('.', ','))
+      if (match.category) setFormCategory(match.category)
+      if (match.store) setNewStore(match.store)
+      setFormExpanded(true)
+    }
+  }
+
   function handleAdd(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const name = newName.trim()
@@ -428,7 +439,7 @@ export default function GroceriesPage() {
               list="grocery-names-list"
               type="text"
               value={newName}
-              onChange={e => setNewName(e.target.value)}
+              onChange={e => handleNameChange(e.target.value)}
               placeholder="Ajouter un article..."
               disabled={addGrocery.isPending}
               className={styles.addInput}
