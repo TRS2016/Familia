@@ -423,34 +423,49 @@ export type Database = {
       }
       media_items: {
         Row: {
+          author_director: string | null
           comment: string | null
           created_at: string
+          finished_at: string | null
+          genre: string | null
           household_id: string
           id: string
           member_id: string | null
           rating: number | null
+          release_year: number | null
+          started_at: string | null
           status: string
           title: string
           type: string
         }
         Insert: {
+          author_director?: string | null
           comment?: string | null
           created_at?: string
+          finished_at?: string | null
+          genre?: string | null
           household_id: string
           id?: string
           member_id?: string | null
           rating?: number | null
+          release_year?: number | null
+          started_at?: string | null
           status?: string
           title: string
           type: string
         }
         Update: {
+          author_director?: string | null
           comment?: string | null
           created_at?: string
+          finished_at?: string | null
+          genre?: string | null
           household_id?: string
           id?: string
           member_id?: string | null
           rating?: number | null
+          release_year?: number | null
+          started_at?: string | null
           status?: string
           title?: string
           type?: string

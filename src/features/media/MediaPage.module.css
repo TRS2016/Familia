@@ -170,6 +170,7 @@
   gap: 10px;
   padding: 11px 0;
   border-bottom: 1px solid var(--border-subtle);
+  cursor: pointer;
 }
 
 .item:last-child { border-bottom: none; }
@@ -407,3 +408,196 @@
 }
 
 .commentInput::placeholder { color: var(--text-muted); }
+
+/* ── Sort row ────────────────────────────────────────────────────────────── */
+
+.sortRow {
+  display: flex;
+  gap: 6px;
+  padding: 0 16px 12px;
+  flex-wrap: wrap;
+}
+
+.sortPill {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1.5px solid var(--border);
+  border-radius: 99px;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: var(--font-family);
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.sortPillActive {
+  color: var(--text);
+  border-color: var(--text-sub);
+}
+
+/* ── Item sub-row ────────────────────────────────────────────────────────── */
+
+.itemSubRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.itemMemberDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.itemRatingMini {
+  font-size: 10px;
+  color: #E8B84B;
+  letter-spacing: 0.5px;
+  margin-top: 2px;
+}
+
+/* ── Field row (side-by-side fields) ─────────────────────────────────────── */
+
+.fieldRow {
+  display: flex;
+  gap: 12px;
+}
+
+.fieldRow .fieldGroup {
+  flex: 1;
+  min-width: 0;
+}
+
+.optional {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+/* ── Detail view ─────────────────────────────────────────────────────────── */
+
+.detailView {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.detailMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.detailMetaItem {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-sub);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 8px;
+}
+
+.detailDates {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.detailDateItem {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.detailMemberTag {
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.detailSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.detailSectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.detailActions {
+  display: flex;
+  gap: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.editBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-family);
+  color: var(--accent);
+  background: rgba(224,123,84,0.1);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-pill);
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.editBtn:hover { opacity: 0.75; }
+
+.deleteActionBtn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  font-family: var(--font-family);
+  color: #E05454;
+  background: rgba(224,84,84,0.08);
+  border: 1.5px solid rgba(224,84,84,0.3);
+  border-radius: var(--radius-pill);
+  padding: 7px 14px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.deleteActionBtn:hover { opacity: 0.75; }
+
+/* ── Edit form actions ───────────────────────────────────────────────────── */
+
+.editActions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cancelEditBtn {
+  background: none;
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 700;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.15s;
+  text-align: center;
+}
+
+.cancelEditBtn:hover { background: var(--border-subtle); }

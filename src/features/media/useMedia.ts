@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { format } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
@@ -16,6 +17,11 @@ export interface MediaItem {
   status: MediaStatus
   rating: number | null
   comment: string | null
+  author_director: string | null
+  release_year: number | null
+  genre: string | null
+  started_at: string | null
+  finished_at: string | null
   created_at: string
   member: { display_name: string } | null
 }
@@ -24,12 +30,26 @@ export interface NewMediaInput {
   title: string
   type: MediaType
   member_id: string | null
+  author_director?: string | null
+  release_year?: number | null
+  genre?: string | null
+}
+
+export interface UpdateMediaInput {
+  id: string
+  title?: string
+  type?: MediaType
+  author_director?: string | null
+  release_year?: number | null
+  genre?: string | null
+  rating?: number | null
+  comment?: string | null
 }
 
 export const MEDIA_KEY = ['media-items', HOUSEHOLD_ID] as const
 
 const NEXT_STATUS: Record<MediaStatus, MediaStatus> = {
-  'à voir':  'en cours',
+  'à voir':   'en cours',
   'en cours': 'terminé',
   'terminé':  'à voir',
 }
@@ -58,16 +78,19 @@ export function useAddMediaItem() {
   return useMutation({
     mutationFn: async (input: NewMediaInput) => {
       const { error } = await supabase.from('media_items').insert({
-        household_id: HOUSEHOLD_ID,
-        member_id: input.member_id ?? member?.id ?? null,
-        title: input.title.trim(),
-        type: input.type,
-        status: 'à voir',
+        household_id:    HOUSEHOLD_ID,
+        member_id:       input.member_id ?? member?.id ?? null,
+        title:           input.title.trim(),
+        type:            input.type,
+        status:          'à voir',
+        author_director: input.author_director ?? null,
+        release_year:    input.release_year ?? null,
+        genre:           input.genre ?? null,
       })
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: MEDIA_KEY }),
-    onError: () => showToast({ type: 'error', message: 'Impossible d\'ajouter l\'élément.' }),
+    onError: () => showToast({ type: 'error', message: "Impossible d'ajouter l'élément." }),
   })
 }
 
@@ -76,15 +99,25 @@ export function useUpdateMediaStatus() {
   const { showToast } = useToast()
 
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: MediaStatus }) => {
-      const { error } = await supabase.from('media_items').update({ status }).eq('id', id)
+    mutationFn: async ({ id, status, current }: { id: string; status: MediaStatus; current: MediaItem }) => {
+      const today = format(new Date(), 'yyyy-MM-dd')
+      const patch: { status: string; started_at?: string; finished_at?: string | null } = { status }
+      if (status === 'en cours' && !current.started_at) patch.started_at = today
+      if (status === 'terminé') patch.finished_at = today
+      if (status === 'à voir') patch.finished_at = null
+      const { error } = await supabase.from('media_items').update(patch).eq('id', id)
       if (error) throw error
     },
-    onMutate: async ({ id, status }) => {
+    onMutate: async ({ id, status, current }) => {
       await queryClient.cancelQueries({ queryKey: MEDIA_KEY })
       const previous = queryClient.getQueryData<MediaItem[]>(MEDIA_KEY) ?? []
+      const today = format(new Date(), 'yyyy-MM-dd')
+      const patch: Partial<MediaItem> = { status }
+      if (status === 'en cours' && !current.started_at) patch.started_at = today
+      if (status === 'terminé') patch.finished_at = today
+      if (status === 'à voir') patch.finished_at = null
       queryClient.setQueryData<MediaItem[]>(MEDIA_KEY,
-        previous.map(m => m.id === id ? { ...m, status } : m)
+        previous.map(m => m.id === id ? { ...m, ...patch } : m)
       )
       return { previous }
     },
@@ -95,50 +128,26 @@ export function useUpdateMediaStatus() {
   })
 }
 
-export function useCommentMediaItem() {
+export function useUpdateMediaItem() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
 
   return useMutation({
-    mutationFn: async ({ id, comment }: { id: string; comment: string | null }) => {
-      const { error } = await supabase.from('media_items').update({ comment }).eq('id', id)
+    mutationFn: async ({ id, ...fields }: UpdateMediaInput) => {
+      const { error } = await supabase.from('media_items').update(fields).eq('id', id)
       if (error) throw error
     },
-    onMutate: async ({ id, comment }) => {
+    onMutate: async ({ id, ...fields }) => {
       await queryClient.cancelQueries({ queryKey: MEDIA_KEY })
       const previous = queryClient.getQueryData<MediaItem[]>(MEDIA_KEY) ?? []
       queryClient.setQueryData<MediaItem[]>(MEDIA_KEY,
-        previous.map(m => m.id === id ? { ...m, comment } : m)
+        previous.map(m => m.id === id ? { ...m, ...fields } : m)
       )
       return { previous }
     },
     onError: (_err, _vars, ctx) => {
       queryClient.setQueryData(MEDIA_KEY, ctx?.previous ?? [])
-      showToast({ type: 'error', message: 'Impossible de sauvegarder le commentaire.' })
-    },
-  })
-}
-
-export function useRateMediaItem() {
-  const queryClient = useQueryClient()
-  const { showToast } = useToast()
-
-  return useMutation({
-    mutationFn: async ({ id, rating }: { id: string; rating: number | null }) => {
-      const { error } = await supabase.from('media_items').update({ rating }).eq('id', id)
-      if (error) throw error
-    },
-    onMutate: async ({ id, rating }) => {
-      await queryClient.cancelQueries({ queryKey: MEDIA_KEY })
-      const previous = queryClient.getQueryData<MediaItem[]>(MEDIA_KEY) ?? []
-      queryClient.setQueryData<MediaItem[]>(MEDIA_KEY,
-        previous.map(m => m.id === id ? { ...m, rating } : m)
-      )
-      return { previous }
-    },
-    onError: (_err, _vars, ctx) => {
-      queryClient.setQueryData(MEDIA_KEY, ctx?.previous ?? [])
-      showToast({ type: 'error', message: 'Impossible de sauvegarder la note.' })
+      showToast({ type: 'error', message: 'Impossible de sauvegarder.' })
     },
   })
 }
@@ -160,7 +169,7 @@ export function useDeleteMediaItem() {
     },
     onError: (_err, _id, ctx) => {
       queryClient.setQueryData(MEDIA_KEY, ctx?.previous ?? [])
-      showToast({ type: 'error', message: 'Impossible de supprimer l\'élément.' })
+      showToast({ type: 'error', message: "Impossible de supprimer l'élément." })
     },
   })
 }
