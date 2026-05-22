@@ -1427,6 +1427,15 @@
 
 /* ── Drag & drop ─────────────────────────────────────────────────────────── */
 
+/* Empêche le navigateur mobile d'intercepter le geste comme un scroll
+   avant que notre pointermove se déclenche. */
+.itemDraggable {
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  cursor: grab;
+}
+
 .dragHandle {
   display: flex;
   align-items: center;

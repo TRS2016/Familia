@@ -54,6 +54,7 @@ export function GroceryItem({
     <li
       className={[
         styles.item,
+        showHandle ? styles.itemDraggable : '',
         shoppingMode ? styles.itemShopping : '',
         compact ? styles.itemCompact : '',
         item.checked ? styles.itemChecked : '',
