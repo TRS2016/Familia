@@ -87,6 +87,47 @@ export type Database = {
           },
         ]
       }
+      grocery_catalog: {
+        Row: {
+          category: string | null
+          created_at: string
+          household_id: string
+          id: string
+          name: string
+          price: number | null
+          quantity: string | null
+          store: string | null
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          household_id: string
+          id?: string
+          name: string
+          price?: number | null
+          quantity?: string | null
+          store?: string | null
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          household_id?: string
+          id?: string
+          name?: string
+          price?: number | null
+          quantity?: string | null
+          store?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "grocery_catalog_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       grocery_saved_items: {
         Row: {
           category: string | null

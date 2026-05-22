@@ -1,20 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Tables } from '../../lib/database.types'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useToast } from '../../components/Toast'
 
 export const CATALOG_KEY = ['grocery-catalog', HOUSEHOLD_ID] as const
 
-export interface CatalogItem {
-  id: string
-  household_id: string
-  name: string
-  price: number | null
-  quantity: string | null
-  category: string | null
-  store: string | null
-  created_at: string
-}
+export type CatalogItem = Tables<'grocery_catalog'>
 
 export function useCatalog() {
   const queryClient = useQueryClient()
@@ -24,12 +16,12 @@ export function useCatalog() {
     queryKey: CATALOG_KEY,
     queryFn: async (): Promise<CatalogItem[]> => {
       const { data, error } = await supabase
-        .from('grocery_catalog' as any)
+        .from('grocery_catalog')
         .select('*')
         .eq('household_id', HOUSEHOLD_ID)
         .order('name', { ascending: true })
       if (error) throw error
-      return data as unknown as CatalogItem[]
+      return data
     },
   })
 
@@ -42,7 +34,7 @@ export function useCatalog() {
       store?: string | null
     }): Promise<CatalogItem> => {
       const { data, error } = await supabase
-        .from('grocery_catalog' as any)
+        .from('grocery_catalog')
         .insert({
           household_id: HOUSEHOLD_ID,
           name: item.name.trim(),
@@ -54,7 +46,7 @@ export function useCatalog() {
         .select()
         .single()
       if (error) throw error
-      return data as unknown as CatalogItem
+      return data
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: CATALOG_KEY }),
     onError: () => showToast({ type: 'error', message: "Impossible d'ajouter l'article." }),
@@ -70,7 +62,7 @@ export function useCatalog() {
       store?: string | null
     }) => {
       const { error } = await supabase
-        .from('grocery_catalog' as any)
+        .from('grocery_catalog')
         .update({
           name: item.name.trim(),
           price: item.price ?? null,
@@ -88,7 +80,7 @@ export function useCatalog() {
   const deleteItem = useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase
-        .from('grocery_catalog' as any)
+        .from('grocery_catalog')
         .delete()
         .eq('id', id)
       if (error) throw error
