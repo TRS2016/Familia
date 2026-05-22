@@ -179,13 +179,13 @@ export default function GroceriesPage() {
   // En mode shopping : tri auto par enseigne + filtre membre désactivé
   const effectiveGroupMode: GroupMode = shoppingMode ? 'store' : groupMode
 
-  // En mode édition : ordre drag & drop. En shopping : tri par enseigne pour le groupage.
+  // En mode édition : ordre drag & drop. En shopping : ordre de shoppingItems (modifiable par DnD).
   const uncheckedFiltered = useMemo(() => {
     const unchecked = allItems.filter(g => !g.checked)
     const filtered = !shoppingMode && filterMemberId
       ? unchecked.filter(g => g.created_by === filterMemberId)
       : unchecked
-    if (shoppingMode) return [...filtered].sort((a, b) => (a.store ?? '').localeCompare(b.store ?? ''))
+    if (shoppingMode) return filtered
     return applyOrder(filtered, orderedIds)
   }, [allItems, orderedIds, filterMemberId, shoppingMode])
 
@@ -246,51 +246,82 @@ export default function GroceriesPage() {
   // ── Drag & drop (pointer events, mobile + desktop) ───────────────────────────
   const startDrag = useCallback((itemId: string, e: React.PointerEvent<HTMLButtonElement>) => {
     e.preventDefault()
+    const handle = e.currentTarget
+    // setPointerCapture redirects all subsequent pointer events to this element,
+    // even when the pointer moves outside — essential for reliable mobile drag.
+    handle.setPointerCapture(e.pointerId)
+
     dragStateRef.current = { draggingId: itemId, dragOverId: null }
     setDraggingId(itemId)
-    document.body.style.touchAction = 'none'
+
+    // Y-coordinate hit test against draggable items only.
+    // elementFromPoint would return the dragging item itself (blocks the hit),
+    // so we compare pointer Y against each item's bounding rect instead.
+    function getItemIdAtY(clientY: number): string | null {
+      const els = document.querySelectorAll<HTMLElement>('[data-grocery-id][data-draggable]')
+      for (const el of els) {
+        const rect = el.getBoundingClientRect()
+        if (clientY >= rect.top && clientY < rect.bottom) {
+          return el.dataset.groceryId ?? null
+        }
+      }
+      return null
+    }
 
     function onMove(ev: PointerEvent) {
+      ev.preventDefault()
       const state = dragStateRef.current
       if (!state) return
-      const el = document.elementFromPoint(ev.clientX, ev.clientY)
-      const liEl = el?.closest('[data-grocery-id]') as HTMLElement | null
-      const targetId = liEl?.dataset.groceryId ?? null
-      if (targetId !== state.draggingId && targetId !== state.dragOverId) {
+      const targetId = getItemIdAtY(ev.clientY)
+      if (targetId !== null && targetId !== state.draggingId && targetId !== state.dragOverId) {
         state.dragOverId = targetId
         setDragOverId(targetId)
       }
     }
 
+    const isShoppingMode = shoppingMode
+
     function endDrag() {
       const state = dragStateRef.current
       if (state?.draggingId && state?.dragOverId) {
         const { draggingId: dId, dragOverId: overId } = state
-        setOrderedIds(prev => {
-          const next = [...prev]
-          const from = next.indexOf(dId)
-          const to = next.indexOf(overId)
-          if (from !== -1 && to !== -1) {
-            next.splice(from, 1)
-            next.splice(to, 0, dId)
-          }
-          try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch {}
-          return next
-        })
+        if (isShoppingMode) {
+          setShoppingItems(prev => {
+            const next = [...prev]
+            const from = next.findIndex(g => g.id === dId)
+            const to = next.findIndex(g => g.id === overId)
+            if (from !== -1 && to !== -1) {
+              const [moved] = next.splice(from, 1)
+              next.splice(to, 0, moved)
+            }
+            return next
+          })
+        } else {
+          setOrderedIds(prev => {
+            const next = [...prev]
+            const from = next.indexOf(dId)
+            const to = next.indexOf(overId)
+            if (from !== -1 && to !== -1) {
+              next.splice(from, 1)
+              next.splice(to, 0, dId)
+            }
+            try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch {}
+            return next
+          })
+        }
       }
       dragStateRef.current = null
       setDraggingId(null)
       setDragOverId(null)
-      document.body.style.touchAction = ''
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', endDrag)
-      window.removeEventListener('pointercancel', endDrag)
+      handle.removeEventListener('pointermove', onMove)
+      handle.removeEventListener('pointerup', endDrag)
+      handle.removeEventListener('pointercancel', endDrag)
     }
 
-    window.addEventListener('pointermove', onMove)
-    window.addEventListener('pointerup', endDrag)
-    window.addEventListener('pointercancel', endDrag)
-  }, [])
+    handle.addEventListener('pointermove', onMove)
+    handle.addEventListener('pointerup', endDrag)
+    handle.addEventListener('pointercancel', endDrag)
+  }, [shoppingMode])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   function handleNameChange(val: string) {
@@ -735,7 +766,7 @@ export default function GroceriesPage() {
                 onToggle={() => shoppingMode ? toggleShoppingItem(item.id) : toggleGrocery.mutate({ id: item.id, checked: true })}
                 onDelete={() => deleteGrocery.mutate(item.id)}
                 onEdit={() => openEdit(item)}
-                showHandle={!shoppingMode && !item.checked}
+                showHandle={!item.checked}
                 isDragging={draggingId === item.id}
                 isDragOver={dragOverId === item.id}
                 onDragStart={e => startDrag(item.id, e)}

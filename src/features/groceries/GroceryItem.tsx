@@ -64,6 +64,7 @@ export function GroceryItem({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       data-grocery-id={item.id}
+      data-draggable={showHandle ? 'true' : undefined}
     >
 
       {showHandle && (
