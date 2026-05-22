@@ -120,7 +120,7 @@ type GroupMode = 'category' | 'store'
 export default function GroceriesPage() {
   const {
     query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery,
-    clearChecked, saveCurrentList, loadSavedList, replaceWithList,
+    clearChecked, saveCurrentList, loadSavedList,
   } = useGroceries()
   useGroceriesRealtime()
   const catalog = useCatalog()
@@ -146,6 +146,7 @@ export default function GroceriesPage() {
 
   // ── Mode shopping ───────────────────────────────────────────────────────────
   const [shoppingMode, setShoppingMode]   = useState(false)
+  const [shoppingItems, setShoppingItems] = useState<Grocery[]>([])
   const [budget, setBudget]               = useState(() => localStorage.getItem('familia-grocery-budget') ?? '')
   const [editingBudget, setEditingBudget] = useState(false)
   const [showLoadModal, setShowLoadModal] = useState(false)
@@ -169,7 +170,8 @@ export default function GroceriesPage() {
   const dragStateRef = useRef<{ draggingId: string; dragOverId: string | null } | null>(null)
 
   // ── Données dérivées ────────────────────────────────────────────────────────
-  const allItems       = query.data ?? []
+  // En mode shopping : liste locale éphémère. En mode édition : données Supabase.
+  const allItems       = shoppingMode ? shoppingItems : (query.data ?? [])
   const checked        = sortChecked(allItems)
   const checkedItems   = allItems.filter(g => g.checked)
   const uncheckedItems = allItems.filter(g => !g.checked)
@@ -378,6 +380,35 @@ export default function GroceriesPage() {
     setBudget('')
     localStorage.removeItem('familia-grocery-budget')
     setEditingBudget(false)
+  }
+
+  function loadShoppingList(savedItems: Array<{ name: string; quantity: string | null; price: number | null; category: string | null; store: string | null }>) {
+    setShoppingItems(savedItems.map((item, i) => ({
+      id: `shopping-${i}-${Date.now()}`,
+      household_id: HOUSEHOLD_ID,
+      created_by: null,
+      name: item.name,
+      quantity: item.quantity,
+      price: item.price,
+      category: item.category,
+      store: item.store,
+      checked: false,
+      checked_by: null,
+      checked_at: null,
+      created_at: new Date().toISOString(),
+      created_by_member: null,
+      checked_by_member: null,
+    })))
+    setShowLoadModal(false)
+  }
+
+  function toggleShoppingItem(id: string) {
+    setShoppingItems(prev => prev.map(g =>
+      g.id === id
+        ? { ...g, checked: !g.checked, checked_at: !g.checked ? new Date().toISOString() : null }
+        : g
+    ))
+    navigator.vibrate?.(50)
   }
 
   function handleShoppingToggle() {
@@ -701,7 +732,7 @@ export default function GroceriesPage() {
                 item={item}
                 shoppingMode={shoppingMode}
                 compact={compactMode}
-                onToggle={() => toggleGrocery.mutate({ id: item.id, checked: true })}
+                onToggle={() => shoppingMode ? toggleShoppingItem(item.id) : toggleGrocery.mutate({ id: item.id, checked: true })}
                 onDelete={() => deleteGrocery.mutate(item.id)}
                 onEdit={() => openEdit(item)}
                 showHandle={!shoppingMode && !item.checked}
@@ -738,7 +769,7 @@ export default function GroceriesPage() {
                 item={item}
                 shoppingMode={shoppingMode}
                 compact={compactMode}
-                onToggle={() => toggleGrocery.mutate({ id: item.id, checked: false })}
+                onToggle={() => shoppingMode ? toggleShoppingItem(item.id) : toggleGrocery.mutate({ id: item.id, checked: false })}
                 onDelete={() => deleteGrocery.mutate(item.id)}
                 onEdit={() => openEdit(item)}
               />
@@ -856,9 +887,9 @@ export default function GroceriesPage() {
       {showLoadModal && (
         <SlideUpModal title="Choisir une liste" onClose={() => setShowLoadModal(false)}>
           <LoadListModal
-            currentItemCount={uncheckedItems.length}
+            currentItemCount={shoppingItems.filter(g => !g.checked).length}
             onClose={() => setShowLoadModal(false)}
-            replaceWithList={replaceWithList}
+            onLoad={loadShoppingList}
           />
         </SlideUpModal>
       )}

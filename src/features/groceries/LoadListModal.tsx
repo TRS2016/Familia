@@ -2,18 +2,18 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Check } from 'lucide-react'
 import { useSavedLists, useSavedListDetail } from './useSavedLists'
-import type { useGroceries } from './useGroceries'
+import type { SavedItem } from './useSavedLists'
 import Spinner from '../../components/Spinner'
 import styles from './GroceriesPage.module.css'
 
 export function LoadListModal({
   currentItemCount,
   onClose,
-  replaceWithList,
+  onLoad,
 }: {
   currentItemCount: number
   onClose: () => void
-  replaceWithList: ReturnType<typeof useGroceries>['replaceWithList']
+  onLoad: (items: SavedItem[]) => void
 }) {
   const { query: listsQuery } = useSavedLists()
   const [selectedId, setSelectedId] = useState<string | null>(null)
@@ -22,7 +22,7 @@ export function LoadListModal({
 
   function handleLoad() {
     if (!selectedId || !itemsQuery.data) return
-    replaceWithList.mutate(itemsQuery.data, { onSuccess: onClose })
+    onLoad(itemsQuery.data)
   }
 
   return (
@@ -81,9 +81,9 @@ export function LoadListModal({
           <button
             className={styles.loadModalBtn}
             onClick={handleLoad}
-            disabled={replaceWithList.isPending || itemsQuery.isLoading}
+            disabled={itemsQuery.isLoading}
           >
-            {replaceWithList.isPending ? 'Chargement…' : 'Démarrer avec cette liste'}
+            {itemsQuery.isLoading ? 'Chargement…' : 'Démarrer avec cette liste'}
           </button>
         </div>
       )}
