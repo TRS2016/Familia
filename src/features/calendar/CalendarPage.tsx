@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react'
-import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   addDays, addWeeks, addMonths,
@@ -17,23 +16,18 @@ import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useEvents } from './useEvents'
 import { useEventsRealtime } from './useEventsRealtime'
-import type { CalendarEvent, NewEventInput, RecurrenceType } from './useEvents'
+import type { CalendarEvent, NewEventInput } from './useEvents'
 import { MEMBER_PALETTE } from '../../lib/constants'
 import { QK } from '../../lib/query-keys'
 import { capitalize } from '../../lib/utils'
+import { pgTimeToInput, timeToMinutes, layoutDayEvents } from './calendar.utils'
+import { EventFormModal } from './EventFormModal'
 import styles from './CalendarPage.module.css'
 
 type View = 'week' | '3day' | 'month' | 'agenda'
 
 const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const HOUR_HEIGHT = 48 // px per hour in the week grid
-
-const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
-  { key: 'none',    label: 'Jamais'  },
-  { key: 'weekly',  label: 'Hebdo'   },
-  { key: 'monthly', label: 'Mensuel' },
-  { key: 'yearly',  label: 'Annuel'  },
-]
 
 export function getMemberColor(
   memberId: string | null,
@@ -42,51 +36,6 @@ export function getMemberColor(
   if (!memberId || allMembers.length === 0) return '#A89F97'
   const index = allMembers.findIndex(m => m.id === memberId)
   return MEMBER_PALETTE[index >= 0 ? index % MEMBER_PALETTE.length : 0]
-}
-
-function pgTimeToInput(t: string | null): string {
-  return t ? t.slice(0, 5) : ''
-}
-
-function timeToMinutes(t: string): number {
-  const [h, m] = t.split(':').map(Number)
-  return h * 60 + m
-}
-
-type EventLayout = { col: number; totalCols: number }
-
-function layoutDayEvents(events: CalendarEvent[]): Map<string, EventLayout> {
-  const timed = events.filter(e => !e.all_day && e.start_time)
-  if (timed.length === 0) return new Map()
-
-  const sorted = [...timed].sort((a, b) => (a.start_time ?? '').localeCompare(b.start_time ?? ''))
-  const colAssignment = new Map<string, number>()
-  const colEndMin: number[] = []
-
-  for (const ev of sorted) {
-    const s = timeToMinutes(ev.start_time!)
-    const e = ev.end_time ? timeToMinutes(ev.end_time) : s + 60
-    let col = colEndMin.findIndex(end => end <= s)
-    if (col === -1) { col = colEndMin.length; colEndMin.push(e) }
-    else colEndMin[col] = e
-    colAssignment.set(ev.id, col)
-  }
-
-  const result = new Map<string, EventLayout>()
-  for (const ev of sorted) {
-    const s = timeToMinutes(ev.start_time!)
-    const e = ev.end_time ? timeToMinutes(ev.end_time) : s + 60
-    const myCol = colAssignment.get(ev.id)!
-    const overlapping = sorted.filter(o => {
-      if (o.id === ev.id) return false
-      const os = timeToMinutes(o.start_time!)
-      const oe = o.end_time ? timeToMinutes(o.end_time) : os + 60
-      return os < e && oe > s
-    })
-    const totalCols = Math.max(myCol + 1, ...overlapping.map(o => (colAssignment.get(o.id) ?? 0) + 1))
-    result.set(ev.id, { col: myCol, totalCols })
-  }
-  return result
 }
 
 export default function CalendarPage() {
@@ -253,71 +202,29 @@ export default function CalendarPage() {
 
   // ── Form state ───────────────────────────────────────────────────────────
   const [showForm, setShowForm] = useState(false)
-  const [editingId, setEditingId] = useState<string | null>(null)
-  const [editingRecurrenceGroupId, setEditingRecurrenceGroupId] = useState<string | null>(null)
-  const [editScope, setEditScope] = useState<'one' | 'series'>('one')
-  const [formTitle, setFormTitle] = useState('')
-  const [formDate, setFormDate] = useState(format(new Date(), 'yyyy-MM-dd'))
-  const [formStartTime, setFormStartTime] = useState('')
-  const [formEndTime, setFormEndTime] = useState('')
-  const [formAllDay, setFormAllDay] = useState(false)
-  const [formMemberId, setFormMemberId] = useState<string | null>(null)
-  const [formLocation, setFormLocation] = useState('')
-  const [formDescription, setFormDescription] = useState('')
-  const [formRecurrence, setFormRecurrence] = useState<RecurrenceType>('none')
+  const [editingEvent, setEditingEvent] = useState<CalendarEvent | null>(null)
+  const [addDefaults, setAddDefaults] = useState<{ date?: string; startTime?: string; endTime?: string }>({})
 
   function openAddForm(defaultDate?: string, defaultStartTime?: string, defaultEndTime?: string) {
-    setEditingId(null)
-    setEditingRecurrenceGroupId(null)
-    setEditScope('one')
-    setFormTitle('')
-    setFormDate(defaultDate ?? format(new Date(), 'yyyy-MM-dd'))
-    setFormStartTime(defaultStartTime ?? '')
-    setFormEndTime(defaultEndTime ?? '')
-    setFormAllDay(false)
-    setFormMemberId(member?.id ?? null)
-    setFormLocation('')
-    setFormDescription('')
-    setFormRecurrence('none')
+    setEditingEvent(null)
+    setAddDefaults({ date: defaultDate, startTime: defaultStartTime, endTime: defaultEndTime })
     setShowForm(true)
   }
 
   function openEditForm(event: CalendarEvent) {
-    setEditingId(event.id)
-    setEditingRecurrenceGroupId(event.recurrence_group_id)
-    setEditScope('one')
-    setFormTitle(event.title)
-    setFormDate(event.date)
-    setFormStartTime(pgTimeToInput(event.start_time))
-    setFormEndTime(pgTimeToInput(event.end_time))
-    setFormAllDay(event.all_day)
-    setFormMemberId(event.member_id)
-    setFormLocation(event.location ?? '')
-    setFormDescription(event.description ?? '')
-    setFormRecurrence((event.recurrence_type as RecurrenceType | null) ?? 'none')
+    setEditingEvent(event)
+    setAddDefaults({})
     setShowForm(true)
   }
 
   function closeForm() {
     setShowForm(false)
-    setEditingId(null)
+    setEditingEvent(null)
   }
 
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    const input: NewEventInput = {
-      title: formTitle,
-      date: formDate,
-      start_time: formAllDay ? null : (formStartTime || null),
-      end_time: formAllDay ? null : (formEndTime || null),
-      all_day: formAllDay,
-      member_id: formMemberId,
-      location: formLocation || null,
-      description: formDescription || null,
-      recurrence: formRecurrence,
-    }
-    if (editingId) {
-      updateEvent.mutate({ id: editingId, ...input, scope: editScope, recurrenceGroupId: editingRecurrenceGroupId })
+  function handleFormSubmit(input: NewEventInput, editScope: 'one' | 'series') {
+    if (editingEvent) {
+      updateEvent.mutate({ id: editingEvent.id, ...input, scope: editScope, recurrenceGroupId: editingEvent.recurrence_group_id })
     } else {
       addEvent.mutate(input)
     }
@@ -857,229 +764,17 @@ export default function CalendarPage() {
         <Plus size={24} strokeWidth={2.5} />
       </button>
 
-      {/* Modal slide-up */}
-      {showForm && (
-        <div className={styles.overlay} onClick={closeForm}>
-          <div className={styles.sheet} onClick={e => e.stopPropagation()}>
-            <div className={styles.sheetHandle} />
-            <div className={styles.sheetHeader}>
-              <h2 className={styles.sheetTitle}>
-                {editingId ? 'Modifier l\'événement' : 'Nouvel événement'}
-              </h2>
-              <button className={styles.sheetClose} onClick={closeForm} aria-label="Fermer">
-                <X size={20} strokeWidth={2} />
-              </button>
-            </div>
-
-            <form onSubmit={handleSubmit} className={styles.sheetBody}>
-
-              <div className={styles.formField}>
-                <label htmlFor="ev-title" className={styles.formLabel}>Titre *</label>
-                <input
-                  id="ev-title"
-                  type="text"
-                  value={formTitle}
-                  onChange={e => setFormTitle(e.target.value)}
-                  className={styles.formInput}
-                  placeholder="Ex : Dentiste"
-                  required
-                  autoFocus
-                />
-              </div>
-
-              <div className={styles.formField}>
-                <label htmlFor="ev-date" className={styles.formLabel}>Date *</label>
-                <input
-                  id="ev-date"
-                  type="date"
-                  value={formDate}
-                  onChange={e => setFormDate(e.target.value)}
-                  className={styles.formInput}
-                  required
-                />
-              </div>
-
-              <div className={styles.formCheckRow}>
-                <input
-                  id="ev-allday"
-                  type="checkbox"
-                  checked={formAllDay}
-                  onChange={e => setFormAllDay(e.target.checked)}
-                  className={styles.formCheckbox}
-                />
-                <label htmlFor="ev-allday" className={styles.formCheckLabel}>
-                  Toute la journée
-                </label>
-              </div>
-
-              {!formAllDay && (
-                <div className={styles.formRow}>
-                  <div className={styles.formField} style={{ flex: 1 }}>
-                    <label htmlFor="ev-start" className={styles.formLabel}>Début</label>
-                    <input
-                      id="ev-start"
-                      type="time"
-                      value={formStartTime}
-                      onChange={e => setFormStartTime(e.target.value)}
-                      className={styles.formInput}
-                    />
-                  </div>
-                  <div className={styles.formField} style={{ flex: 1 }}>
-                    <label htmlFor="ev-end" className={styles.formLabel}>Fin</label>
-                    <input
-                      id="ev-end"
-                      type="time"
-                      value={formEndTime}
-                      onChange={e => setFormEndTime(e.target.value)}
-                      className={styles.formInput}
-                    />
-                  </div>
-                </div>
-              )}
-
-              <div className={styles.formField}>
-                <span className={styles.formLabel}>Pour</span>
-                <div className={styles.memberRow}>
-                  <button
-                    type="button"
-                    className={styles.memberBtn}
-                    style={!formMemberId ? {
-                      borderColor: '#A89F97',
-                      background: 'rgba(168,159,151,0.12)',
-                      color: '#A89F97',
-                    } : {}}
-                    onClick={() => setFormMemberId(null)}
-                  >
-                    Tous
-                  </button>
-                  {householdMembers.map((m, i) => {
-                    const color = MEMBER_PALETTE[i % MEMBER_PALETTE.length]
-                    const active = formMemberId === m.id
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        className={styles.memberBtn}
-                        style={active ? {
-                          borderColor: color,
-                          background: color + '22',
-                          color,
-                        } : {}}
-                        onClick={() => setFormMemberId(m.id)}
-                      >
-                        {m.display_name}
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-
-              <div className={styles.formField}>
-                <label htmlFor="ev-location" className={styles.formLabel}>Lieu</label>
-                <input
-                  id="ev-location"
-                  type="text"
-                  value={formLocation}
-                  onChange={e => setFormLocation(e.target.value)}
-                  className={styles.formInput}
-                  placeholder="Adresse ou lieu (optionnel)"
-                />
-              </div>
-
-              <div className={styles.formField}>
-                <label htmlFor="ev-desc" className={styles.formLabel}>Notes</label>
-                <textarea
-                  id="ev-desc"
-                  value={formDescription}
-                  onChange={e => setFormDescription(e.target.value)}
-                  className={styles.formTextarea}
-                  placeholder="Infos pratiques, numéro, lien…"
-                  rows={2}
-                />
-              </div>
-
-              {!editingId && (
-                <div className={styles.formField}>
-                  <span className={styles.formLabel}>Répétition</span>
-                  <div className={styles.recurrenceRow}>
-                    {RECURRENCE_OPTIONS.map(opt => (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        className={[styles.recurrenceBtn, formRecurrence === opt.key ? styles.recurrenceBtnActive : ''].join(' ')}
-                        onClick={() => setFormRecurrence(opt.key)}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {editingId && editingRecurrenceGroupId && editScope === 'series' && (
-                <div className={styles.formField}>
-                  <span className={styles.formLabel}>Répétition</span>
-                  <div className={styles.recurrenceRow}>
-                    {RECURRENCE_OPTIONS.filter(o => o.key !== 'none').map(opt => (
-                      <button
-                        key={opt.key}
-                        type="button"
-                        className={[styles.recurrenceBtn, formRecurrence === opt.key ? styles.recurrenceBtnActive : ''].join(' ')}
-                        onClick={() => setFormRecurrence(opt.key)}
-                      >
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {editingId && editingRecurrenceGroupId && (
-                <div className={styles.formField}>
-                  <span className={styles.formLabel}>Modifier</span>
-                  <div className={styles.recurrenceRow}>
-                    <button type="button"
-                      className={[styles.recurrenceBtn, editScope === 'one' ? styles.recurrenceBtnActive : ''].join(' ')}
-                      onClick={() => setEditScope('one')}>
-                      Cet événement
-                    </button>
-                    <button type="button"
-                      className={[styles.recurrenceBtn, editScope === 'series' ? styles.recurrenceBtnActive : ''].join(' ')}
-                      onClick={() => setEditScope('series')}>
-                      Toute la série
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              <button type="submit" disabled={isPending} className={styles.submitBtn}>
-                {isPending ? 'Enregistrement…' : editingId ? 'Enregistrer' : 'Ajouter'}
-              </button>
-
-              {editingId && editingRecurrenceGroupId && (
-                <button
-                  type="button"
-                  className={styles.deleteEventBtn}
-                  onClick={() => { deleteEvent.mutate({ id: editingId, groupId: editingRecurrenceGroupId }); closeForm() }}
-                >
-                  Supprimer toute la série
-                </button>
-              )}
-
-              {editingId && (
-                <button
-                  type="button"
-                  className={styles.deleteEventBtn}
-                  onClick={() => { deleteEvent.mutate({ id: editingId }); closeForm() }}
-                >
-                  {editingRecurrenceGroupId ? 'Supprimer cet événement' : 'Supprimer l\'événement'}
-                </button>
-              )}
-
-            </form>
-          </div>
-        </div>
-      )}
+      <EventFormModal
+        isOpen={showForm}
+        editingEvent={editingEvent}
+        addDefaults={addDefaults}
+        currentMemberId={member?.id ?? null}
+        householdMembers={householdMembers}
+        isPending={isPending}
+        onClose={closeForm}
+        onSubmit={handleFormSubmit}
+        onDelete={(id, groupId) => { deleteEvent.mutate({ id, groupId }); closeForm() }}
+      />
 
     </div>
   )
