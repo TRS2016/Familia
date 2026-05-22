@@ -185,5 +185,25 @@ export function useSavedListDetail(listId: string) {
     onError: () => showToast({ type: 'error', message: "Impossible de supprimer l'article." }),
   })
 
-  return { query, addItem, updateItem, deleteItem }
+  const moveItem = useMutation({
+    mutationFn: async ({ item, toListId }: { item: SavedItem; toListId: string }) => {
+      const { error: insertErr } = await supabase
+        .from('grocery_saved_items')
+        .insert({ list_id: toListId, name: item.name, quantity: item.quantity, price: item.price, category: item.category, store: item.store })
+      if (insertErr) throw insertErr
+      const { error: deleteErr } = await supabase
+        .from('grocery_saved_items')
+        .delete()
+        .eq('id', item.id)
+      if (deleteErr) throw deleteErr
+    },
+    onSuccess: (_data, { toListId }) => {
+      queryClient.invalidateQueries({ queryKey: savedItemsKey(listId) })
+      queryClient.invalidateQueries({ queryKey: savedItemsKey(toListId) })
+      queryClient.invalidateQueries({ queryKey: SAVED_LISTS_KEY })
+    },
+    onError: () => showToast({ type: 'error', message: "Impossible de déplacer l'article." }),
+  })
+
+  return { query, addItem, updateItem, deleteItem, moveItem }
 }

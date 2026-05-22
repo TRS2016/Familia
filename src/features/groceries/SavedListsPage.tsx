@@ -149,8 +149,9 @@ function ListDetailView({
   listName: string
   onBack: () => void
 }) {
-  const { renameList, duplicateList } = useSavedLists()
-  const { query, addItem, updateItem, deleteItem } = useSavedListDetail(listId)
+  const { renameList, duplicateList, query: listsQuery } = useSavedLists()
+  const { query, addItem, updateItem, deleteItem, moveItem } = useSavedListDetail(listId)
+  const otherLists = (listsQuery.data ?? []).filter(l => l.id !== listId)
   const { loadSavedList } = useGroceries()
   const navigate = useNavigate()
 
@@ -392,6 +393,28 @@ function ListDetailView({
             >
               Supprimer cet article
             </button>
+
+            {otherLists.length > 0 && (
+              <div className={styles.moveSection}>
+                <span className={styles.moveSectionLabel}>Déplacer vers</span>
+                <div className={styles.moveChips}>
+                  {otherLists.map(list => (
+                    <button
+                      key={list.id}
+                      type="button"
+                      className={styles.moveChip}
+                      disabled={moveItem.isPending}
+                      onClick={() => moveItem.mutate(
+                        { item: editingItem, toListId: list.id },
+                        { onSuccess: () => setEditingItem(null) },
+                      )}
+                    >
+                      {list.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
           </form>
         </SlideUpModal>

@@ -1,4 +1,4 @@
-/* ── Page ────────────────────────────────────────────────────────────────── */
+﻿/* â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .page {
   min-height: 100vh;
@@ -10,7 +10,7 @@
   margin: 0 auto;
 }
 
-/* ── Header ──────────────────────────────────────────────────────────────── */
+/* â”€â”€ Header â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .header {
   display: flex;
@@ -108,7 +108,7 @@
 
 .createBtn:hover { opacity: 0.85; }
 
-/* ── Index des listes ────────────────────────────────────────────────────── */
+/* â”€â”€ Index des listes â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .listIndex {
   list-style: none;
@@ -170,7 +170,7 @@
 
 .listDeleteBtn:hover { color: #c0392b; }
 
-/* ── Formulaire de création ──────────────────────────────────────────────── */
+/* â”€â”€ Formulaire de crÃ©ation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .createForm {
   padding: 4px 20px 0;
@@ -213,7 +213,7 @@
 
 .submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ── Add form (vue détail) ───────────────────────────────────────────────── */
+/* â”€â”€ Add form (vue dÃ©tail) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .addForm {
   position: sticky;
@@ -263,7 +263,7 @@
 
 .addBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 
-/* ── Liste d'articles (vue détail) ──────────────────────────────────────── */
+/* â”€â”€ Liste d'articles (vue dÃ©tail) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .itemList {
   list-style: none;
@@ -329,7 +329,7 @@
 
 .itemDeleteBtn:hover { color: #c0392b; }
 
-/* ── Actions (vue détail) ────────────────────────────────────────────────── */
+/* â”€â”€ Actions (vue dÃ©tail) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .actions {
   display: flex;
@@ -377,7 +377,7 @@
 .actionDuplicate:hover { border-color: var(--accent); color: var(--accent); }
 .actionDuplicate:disabled { opacity: 0.5; cursor: not-allowed; }
 
-/* ── Edit modal ──────────────────────────────────────────────────────────── */
+/* â”€â”€ Edit modal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .editForm {
   padding: 0 20px;
@@ -457,7 +457,7 @@
 
 .deleteItemBtn:hover { background: rgba(192, 57, 43, 0.06); }
 
-/* ── Toast feedback ──────────────────────────────────────────────────────── */
+/* â”€â”€ Toast feedback â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .loadToast {
   position: fixed;
@@ -474,3 +474,48 @@
   white-space: nowrap;
   z-index: 999;
 }
+
+/* ── Déplacer vers une autre liste ───────────────────────────────────────── */
+
+.moveSection {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.moveSectionLabel {
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.moveChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.moveChip {
+  background: none;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-pill);
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.moveChip:hover {
+  border-color: var(--accent);
+  background: rgba(224, 123, 84, 0.08);
+  color: var(--accent);
+}
+
+.moveChip:disabled { opacity: 0.5; cursor: not-allowed; }
