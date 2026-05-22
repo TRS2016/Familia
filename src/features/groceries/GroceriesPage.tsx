@@ -244,19 +244,15 @@ export default function GroceriesPage() {
   }, [query.data])
 
   // ── Drag & drop (pointer events, mobile + desktop) ───────────────────────────
-  const startDrag = useCallback((itemId: string, e: React.PointerEvent<HTMLButtonElement>) => {
-    e.preventDefault()
-    const handle = e.currentTarget
-    // setPointerCapture redirects all subsequent pointer events to this element,
-    // even when the pointer moves outside — essential for reliable mobile drag.
-    handle.setPointerCapture(e.pointerId)
-
+  const startDrag = useCallback((itemId: string, e: React.PointerEvent<HTMLLIElement>) => {
+    const startX = e.clientX
+    const startY = e.clientY
+    const THRESHOLD = 6  // px avant d'activer le drag
+    let dragActivated = false
     dragStateRef.current = { draggingId: itemId, dragOverId: null }
-    setDraggingId(itemId)
 
-    // Y-coordinate hit test against draggable items only.
-    // elementFromPoint would return the dragging item itself (blocks the hit),
-    // so we compare pointer Y against each item's bounding rect instead.
+    // Hit test par Y — évite le problème de elementFromPoint qui renvoie
+    // l'élément en cours de drag (même à opacity 0.3, il bloque le hit).
     function getItemIdAtY(clientY: number): string | null {
       const els = document.querySelectorAll<HTMLElement>('[data-grocery-id][data-draggable]')
       for (const el of els) {
@@ -269,6 +265,18 @@ export default function GroceriesPage() {
     }
 
     function onMove(ev: PointerEvent) {
+      if (!dragActivated) {
+        const dx = ev.clientX - startX
+        const dy = ev.clientY - startY
+        // N'active le drag que si le mouvement est principalement vertical
+        // (évite de conflictenr avec le swipe horizontal « cocher »).
+        if (Math.sqrt(dx * dx + dy * dy) > THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
+          dragActivated = true
+          ev.preventDefault()
+          setDraggingId(itemId)
+        }
+        return
+      }
       ev.preventDefault()
       const state = dragStateRef.current
       if (!state) return
@@ -282,45 +290,47 @@ export default function GroceriesPage() {
     const isShoppingMode = shoppingMode
 
     function endDrag() {
-      const state = dragStateRef.current
-      if (state?.draggingId && state?.dragOverId) {
-        const { draggingId: dId, dragOverId: overId } = state
-        if (isShoppingMode) {
-          setShoppingItems(prev => {
-            const next = [...prev]
-            const from = next.findIndex(g => g.id === dId)
-            const to = next.findIndex(g => g.id === overId)
-            if (from !== -1 && to !== -1) {
-              const [moved] = next.splice(from, 1)
-              next.splice(to, 0, moved)
-            }
-            return next
-          })
-        } else {
-          setOrderedIds(prev => {
-            const next = [...prev]
-            const from = next.indexOf(dId)
-            const to = next.indexOf(overId)
-            if (from !== -1 && to !== -1) {
-              next.splice(from, 1)
-              next.splice(to, 0, dId)
-            }
-            try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch {}
-            return next
-          })
+      if (dragActivated) {
+        const state = dragStateRef.current
+        if (state?.draggingId && state?.dragOverId) {
+          const { draggingId: dId, dragOverId: overId } = state
+          if (isShoppingMode) {
+            setShoppingItems(prev => {
+              const next = [...prev]
+              const from = next.findIndex(g => g.id === dId)
+              const to = next.findIndex(g => g.id === overId)
+              if (from !== -1 && to !== -1) {
+                const [moved] = next.splice(from, 1)
+                next.splice(to, 0, moved)
+              }
+              return next
+            })
+          } else {
+            setOrderedIds(prev => {
+              const next = [...prev]
+              const from = next.indexOf(dId)
+              const to = next.indexOf(overId)
+              if (from !== -1 && to !== -1) {
+                next.splice(from, 1)
+                next.splice(to, 0, dId)
+              }
+              try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch {}
+              return next
+            })
+          }
         }
       }
       dragStateRef.current = null
       setDraggingId(null)
       setDragOverId(null)
-      handle.removeEventListener('pointermove', onMove)
-      handle.removeEventListener('pointerup', endDrag)
-      handle.removeEventListener('pointercancel', endDrag)
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', endDrag)
+      window.removeEventListener('pointercancel', endDrag)
     }
 
-    handle.addEventListener('pointermove', onMove)
-    handle.addEventListener('pointerup', endDrag)
-    handle.addEventListener('pointercancel', endDrag)
+    window.addEventListener('pointermove', onMove, { passive: false })
+    window.addEventListener('pointerup', endDrag)
+    window.addEventListener('pointercancel', endDrag)
   }, [shoppingMode])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
@@ -769,7 +779,7 @@ export default function GroceriesPage() {
                 showHandle={!item.checked}
                 isDragging={draggingId === item.id}
                 isDragOver={dragOverId === item.id}
-                onDragStart={e => startDrag(item.id, e)}
+                onDragStart={(e: React.PointerEvent<HTMLLIElement>) => startDrag(item.id, e)}
               />
             ))}
           </ul>

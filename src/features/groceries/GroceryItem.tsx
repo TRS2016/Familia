@@ -17,7 +17,7 @@ export function GroceryItem({
   showHandle?: boolean
   isDragging?: boolean
   isDragOver?: boolean
-  onDragStart?: (e: React.PointerEvent<HTMLButtonElement>) => void
+  onDragStart?: (e: React.PointerEvent<HTMLLIElement>) => void
 }) {
   const isOptimistic = item.id.startsWith('optimistic-')
 
@@ -65,17 +65,18 @@ export function GroceryItem({
       onTouchEnd={handleTouchEnd}
       data-grocery-id={item.id}
       data-draggable={showHandle ? 'true' : undefined}
+      onPointerDown={showHandle && onDragStart ? (e => {
+        // N'initie pas le drag si le pointeur est sur un bouton (checkbox, supprimer)
+        if ((e.target as HTMLElement).closest('button')) return
+        onDragStart(e)
+      }) : undefined}
     >
 
+      {/* Affordance visuelle uniquement — le drag est déclenché par le <li> entier */}
       {showHandle && (
-        <button
-          className={styles.dragHandle}
-          onPointerDown={onDragStart}
-          aria-label="Réordonner"
-          tabIndex={-1}
-        >
+        <span className={styles.dragHandle} aria-hidden="true">
           <GripVertical size={14} strokeWidth={2} />
-        </button>
+        </span>
       )}
 
       <button
