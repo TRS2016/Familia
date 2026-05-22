@@ -1,12 +1,12 @@
 import { useRef } from 'react'
-import { Check, Trash2, MapPin, GripVertical } from 'lucide-react'
+import { Check, Trash2, MapPin } from 'lucide-react'
 import type { Grocery } from './useGroceries'
 import { getCategoryEmoji, formatPrice } from './groceries.utils'
 import styles from './GroceriesPage.module.css'
 
 export function GroceryItem({
   item, shoppingMode, compact, onToggle, onDelete, onEdit,
-  showHandle, isDragging, isDragOver, onDragStart,
+  isDragging, isDragOver, onDragStart,
 }: {
   item: Grocery
   shoppingMode: boolean
@@ -14,7 +14,6 @@ export function GroceryItem({
   onToggle: () => void
   onDelete: () => void
   onEdit: () => void
-  showHandle?: boolean
   isDragging?: boolean
   isDragOver?: boolean
   onDragStart?: (e: React.PointerEvent<HTMLLIElement>) => void
@@ -54,7 +53,7 @@ export function GroceryItem({
     <li
       className={[
         styles.item,
-        showHandle ? styles.itemDraggable : '',
+        onDragStart ? styles.itemDraggable : '',
         shoppingMode ? styles.itemShopping : '',
         compact ? styles.itemCompact : '',
         item.checked ? styles.itemChecked : '',
@@ -65,20 +64,13 @@ export function GroceryItem({
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
       data-grocery-id={item.id}
-      data-draggable={showHandle ? 'true' : undefined}
-      onPointerDown={showHandle && onDragStart ? (e => {
+      data-draggable={onDragStart ? 'true' : undefined}
+      onPointerDown={onDragStart ? (e => {
         // N'initie pas le drag si le pointeur est sur un bouton (checkbox, supprimer)
         if ((e.target as HTMLElement).closest('button')) return
         onDragStart(e)
       }) : undefined}
     >
-
-      {/* Affordance visuelle uniquement — le drag est déclenché par le <li> entier */}
-      {showHandle && (
-        <span className={styles.dragHandle} aria-hidden="true">
-          <GripVertical size={14} strokeWidth={2} />
-        </span>
-      )}
 
       <button
         className={[

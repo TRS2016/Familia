@@ -776,7 +776,6 @@ export default function GroceriesPage() {
                 onToggle={() => shoppingMode ? toggleShoppingItem(item.id) : toggleGrocery.mutate({ id: item.id, checked: true })}
                 onDelete={() => deleteGrocery.mutate(item.id)}
                 onEdit={() => openEdit(item)}
-                showHandle={!item.checked}
                 isDragging={draggingId === item.id}
                 isDragOver={dragOverId === item.id}
                 onDragStart={(e: React.PointerEvent<HTMLLIElement>) => startDrag(item.id, e)}
