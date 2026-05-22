@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
+import { HOUSEHOLD_ID } from '../../lib/config'
 import type { Grocery } from './useGroceries'
 import { CATEGORIES, CATEGORY_ORDER, getCategoryEmoji, formatPrice } from './groceries.utils'
 import type { CategoryKey } from './groceries.utils'
@@ -22,6 +23,7 @@ import styles from './GroceriesPage.module.css'
 
 const STORES_STORAGE_KEY = 'familia-grocery-stores'
 const NAMES_STORAGE_KEY  = 'familia-grocery-names'
+const ORDER_STORAGE_KEY  = `familia-grocery-order-${HOUSEHOLD_ID}`
 
 // ── Utilitaires ───────────────────────────────────────────────────────────────
 
@@ -62,11 +64,10 @@ function persistName(name: string) {
 
 // ── Tri ───────────────────────────────────────────────────────────────────────
 
-function sortUnchecked(items: Grocery[], filterMemberId: string | null = null): Grocery[] {
-  const src = filterMemberId ? items.filter(g => g.created_by === filterMemberId) : items
-  return src
-    .filter(g => !g.checked)
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+function applyOrder(items: Grocery[], orderedIds: string[]): Grocery[] {
+  if (!orderedIds.length) return items
+  const rank = new Map(orderedIds.map((id, i) => [id, i]))
+  return [...items].sort((a, b) => (rank.get(a.id) ?? orderedIds.length) - (rank.get(b.id) ?? orderedIds.length))
 }
 
 function sortChecked(items: Grocery[]): Grocery[] {
@@ -86,43 +87,30 @@ function groupByCategory(items: Grocery[]): Group[] {
   const hasAny = items.some(g => g.category)
   if (!hasAny) return [{ label: null, items }]
 
-  const map = new Map<string | null, Grocery[]>([[null, []]])
-  for (const key of CATEGORY_ORDER) map.set(key, [])
-
+  // Preserve items insertion order — groups appear in the order their first item was encountered
+  const groupOrder: (string | null)[] = []
+  const map = new Map<string | null, Grocery[]>()
   for (const item of items) {
-    const k = item.category && CATEGORY_ORDER.includes(item.category as CategoryKey)
-      ? item.category : null
+    const k = item.category && CATEGORY_ORDER.includes(item.category as CategoryKey) ? item.category : null
+    if (!map.has(k)) { map.set(k, []); groupOrder.push(k) }
     map.get(k)!.push(item)
   }
-
-  const groups: Group[] = []
-  const nullItems = map.get(null)!
-  if (nullItems.length) groups.push({ label: null, items: nullItems })
-  for (const key of CATEGORY_ORDER) {
-    const g = map.get(key)!
-    if (g.length) groups.push({ label: key, items: g })
-  }
-  return groups
+  return groupOrder.map(k => ({ label: k, items: map.get(k)! }))
 }
 
 function groupByStore(items: Grocery[]): Group[] {
   const hasAny = items.some(g => g.store)
   if (!hasAny) return [{ label: null, items }]
 
-  const map = new Map<string | null, Grocery[]>([[null, []]])
+  // Preserve items insertion order
+  const groupOrder: (string | null)[] = []
+  const map = new Map<string | null, Grocery[]>()
   for (const item of items) {
     const k = item.store || null
-    if (!map.has(k)) map.set(k, [])
+    if (!map.has(k)) { map.set(k, []); groupOrder.push(k) }
     map.get(k)!.push(item)
   }
-
-  const groups: Group[] = []
-  const nullItems = map.get(null)!
-  if (nullItems.length) groups.push({ label: null, items: nullItems })
-
-  const names = [...map.keys()].filter((k): k is string => k !== null).sort()
-  for (const name of names) groups.push({ label: name, items: map.get(name)! })
-  return groups
+  return groupOrder.map(k => ({ label: k, items: map.get(k)! }))
 }
 
 // ── Composant principal ───────────────────────────────────────────────────────
@@ -171,6 +159,15 @@ export default function GroceriesPage() {
   const [compactMode, setCompactMode]       = useState(false)
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
 
+  // ── Ordre drag & drop ────────────────────────────────────────────────────────
+  const [orderedIds, setOrderedIds] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem(ORDER_STORAGE_KEY) ?? '[]') }
+    catch { return [] }
+  })
+  const [draggingId, setDraggingId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+  const dragStateRef = useRef<{ draggingId: string; dragOverId: string | null } | null>(null)
+
   // ── Données dérivées ────────────────────────────────────────────────────────
   const allItems       = query.data ?? []
   const checked        = sortChecked(allItems)
@@ -179,10 +176,21 @@ export default function GroceriesPage() {
 
   // En mode shopping : tri auto par enseigne + filtre membre désactivé
   const effectiveGroupMode: GroupMode = shoppingMode ? 'store' : groupMode
-  const uncheckedFiltered = sortUnchecked(allItems, shoppingMode ? null : filterMemberId)
-  const uncheckedGroups = effectiveGroupMode === 'category'
-    ? groupByCategory(uncheckedFiltered)
-    : groupByStore(uncheckedFiltered)
+
+  // En mode édition : ordre drag & drop. En shopping : tri par enseigne pour le groupage.
+  const uncheckedFiltered = useMemo(() => {
+    const unchecked = allItems.filter(g => !g.checked)
+    const filtered = !shoppingMode && filterMemberId
+      ? unchecked.filter(g => g.created_by === filterMemberId)
+      : unchecked
+    if (shoppingMode) return [...filtered].sort((a, b) => (a.store ?? '').localeCompare(b.store ?? ''))
+    return applyOrder(filtered, orderedIds)
+  }, [allItems, orderedIds, filterMemberId, shoppingMode])
+
+  const uncheckedGroups = useMemo(
+    () => effectiveGroupMode === 'category' ? groupByCategory(uncheckedFiltered) : groupByStore(uncheckedFiltered),
+    [uncheckedFiltered, effectiveGroupMode],
+  )
 
   const hasAnyStore    = allItems.some(g => g.store)
   const hasAnyPrice    = allItems.some(g => g.price !== null)
@@ -216,6 +224,71 @@ export default function GroceriesPage() {
     const fromStorage = getStoredStores()
     return [...new Set([...fromQuery, ...fromStorage])].sort()
   }, [allItems])
+
+  // ── Sync ordre avec les données serveur ──────────────────────────────────────
+  useEffect(() => {
+    const data = query.data
+    if (!data) return
+    const uncheckedIds = data.filter(g => !g.checked).map(g => g.id)
+    setOrderedIds(prev => {
+      const prevSet = new Set(prev)
+      const currentSet = new Set(uncheckedIds)
+      const newIds = uncheckedIds.filter(id => !prevSet.has(id))  // nouveaux → devant
+      const filtered = prev.filter(id => currentSet.has(id))       // retirer les supprimés
+      const next = [...newIds, ...filtered]
+      try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch {}
+      return next
+    })
+  }, [query.data])
+
+  // ── Drag & drop (pointer events, mobile + desktop) ───────────────────────────
+  const startDrag = useCallback((itemId: string, e: React.PointerEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    dragStateRef.current = { draggingId: itemId, dragOverId: null }
+    setDraggingId(itemId)
+    document.body.style.touchAction = 'none'
+
+    function onMove(ev: PointerEvent) {
+      const state = dragStateRef.current
+      if (!state) return
+      const el = document.elementFromPoint(ev.clientX, ev.clientY)
+      const liEl = el?.closest('[data-grocery-id]') as HTMLElement | null
+      const targetId = liEl?.dataset.groceryId ?? null
+      if (targetId !== state.draggingId && targetId !== state.dragOverId) {
+        state.dragOverId = targetId
+        setDragOverId(targetId)
+      }
+    }
+
+    function endDrag() {
+      const state = dragStateRef.current
+      if (state?.draggingId && state?.dragOverId) {
+        const { draggingId: dId, dragOverId: overId } = state
+        setOrderedIds(prev => {
+          const next = [...prev]
+          const from = next.indexOf(dId)
+          const to = next.indexOf(overId)
+          if (from !== -1 && to !== -1) {
+            next.splice(from, 1)
+            next.splice(to, 0, dId)
+          }
+          try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch {}
+          return next
+        })
+      }
+      dragStateRef.current = null
+      setDraggingId(null)
+      setDragOverId(null)
+      document.body.style.touchAction = ''
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', endDrag)
+      window.removeEventListener('pointercancel', endDrag)
+    }
+
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', endDrag)
+    window.addEventListener('pointercancel', endDrag)
+  }, [])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   function handleNameChange(val: string) {
@@ -631,6 +704,10 @@ export default function GroceriesPage() {
                 onToggle={() => toggleGrocery.mutate({ id: item.id, checked: true })}
                 onDelete={() => deleteGrocery.mutate(item.id)}
                 onEdit={() => openEdit(item)}
+                showHandle={!shoppingMode && !item.checked}
+                isDragging={draggingId === item.id}
+                isDragOver={dragOverId === item.id}
+                onDragStart={e => startDrag(item.id, e)}
               />
             ))}
           </ul>

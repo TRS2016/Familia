@@ -1424,3 +1424,33 @@
   color: var(--accent);
   text-decoration: none;
 }
+
+/* ── Drag & drop ─────────────────────────────────────────────────────────── */
+
+.dragHandle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 32px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: grab;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0.4;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.dragHandle:active { cursor: grabbing; opacity: 0.7; }
+
+.itemDragging {
+  opacity: 0.3;
+}
+
+.itemDragOver {
+  border-top: 2px solid var(--accent) !important;
+}

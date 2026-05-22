@@ -1,11 +1,12 @@
 import { useRef } from 'react'
-import { Check, Trash2, MapPin } from 'lucide-react'
+import { Check, Trash2, MapPin, GripVertical } from 'lucide-react'
 import type { Grocery } from './useGroceries'
 import { getCategoryEmoji, formatPrice } from './groceries.utils'
 import styles from './GroceriesPage.module.css'
 
 export function GroceryItem({
   item, shoppingMode, compact, onToggle, onDelete, onEdit,
+  showHandle, isDragging, isDragOver, onDragStart,
 }: {
   item: Grocery
   shoppingMode: boolean
@@ -13,6 +14,10 @@ export function GroceryItem({
   onToggle: () => void
   onDelete: () => void
   onEdit: () => void
+  showHandle?: boolean
+  isDragging?: boolean
+  isDragOver?: boolean
+  onDragStart?: (e: React.PointerEvent<HTMLButtonElement>) => void
 }) {
   const isOptimistic = item.id.startsWith('optimistic-')
 
@@ -53,10 +58,24 @@ export function GroceryItem({
         compact ? styles.itemCompact : '',
         item.checked ? styles.itemChecked : '',
         isOptimistic ? styles.itemOptimistic : '',
+        isDragging ? styles.itemDragging : '',
+        isDragOver ? styles.itemDragOver : '',
       ].join(' ')}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
+      data-grocery-id={item.id}
     >
+
+      {showHandle && (
+        <button
+          className={styles.dragHandle}
+          onPointerDown={onDragStart}
+          aria-label="Réordonner"
+          tabIndex={-1}
+        >
+          <GripVertical size={14} strokeWidth={2} />
+        </button>
+      )}
 
       <button
         className={[
