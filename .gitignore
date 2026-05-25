@@ -30,3 +30,6 @@ dist-ssr
 Familia v6.html
 
 .vercel
+
+# Rapport d'état local (non versionné)
+STATE.md

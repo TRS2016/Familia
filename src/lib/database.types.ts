@@ -12,6 +12,31 @@ export type Database = {
   __InternalSupabase: {
     PostgrestVersion: "14.5"
   }
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          extensions?: Json
+          operationName?: string
+          query?: string
+          variables?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       events: {
@@ -83,6 +108,73 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      groceries: {
+        Row: {
+          category: string | null
+          checked: boolean
+          checked_at: string | null
+          checked_by: string | null
+          created_at: string
+          created_by: string | null
+          household_id: string
+          id: string
+          name: string
+          price: number | null
+          quantity: string | null
+          store: string | null
+        }
+        Insert: {
+          category?: string | null
+          checked?: boolean
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          household_id: string
+          id?: string
+          name: string
+          price?: number | null
+          quantity?: string | null
+          store?: string | null
+        }
+        Update: {
+          category?: string | null
+          checked?: boolean
+          checked_at?: string | null
+          checked_by?: string | null
+          created_at?: string
+          created_by?: string | null
+          household_id?: string
+          id?: string
+          name?: string
+          price?: number | null
+          quantity?: string | null
+          store?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "groceries_checked_by_fkey"
+            columns: ["checked_by"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "groceries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "groceries_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
             referencedColumns: ["id"]
           },
         ]
@@ -191,73 +283,6 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "grocery_saved_lists_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      groceries: {
-        Row: {
-          category: string | null
-          checked: boolean
-          checked_at: string | null
-          checked_by: string | null
-          created_at: string
-          created_by: string | null
-          household_id: string
-          id: string
-          name: string
-          price: number | null
-          quantity: string | null
-          store: string | null
-        }
-        Insert: {
-          category?: string | null
-          checked?: boolean
-          checked_at?: string | null
-          checked_by?: string | null
-          created_at?: string
-          created_by?: string | null
-          household_id: string
-          id?: string
-          name: string
-          price?: number | null
-          quantity?: string | null
-          store?: string | null
-        }
-        Update: {
-          category?: string | null
-          checked?: boolean
-          checked_at?: string | null
-          checked_by?: string | null
-          created_at?: string
-          created_by?: string | null
-          household_id?: string
-          id?: string
-          name?: string
-          price?: number | null
-          quantity?: string | null
-          store?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "groceries_checked_by_fkey"
-            columns: ["checked_by"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "groceries_created_by_fkey"
-            columns: ["created_by"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "groceries_household_id_fkey"
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
@@ -697,6 +722,9 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {},
   },
