@@ -12,10 +12,11 @@ interface ToastItem {
   type: ToastType
   message: string
   leaving: boolean
+  persistent?: boolean
 }
 
 interface ToastContextValue {
-  showToast: (opts: { type: ToastType; message: string }) => void
+  showToast: (opts: { type: ToastType; message: string; persistent?: boolean }) => void
 }
 
 // ── Context ───────────────────────────────────────────────────────────────
@@ -44,10 +45,10 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     }, LEAVE_DURATION)
   }, [])
 
-  const showToast = useCallback(({ type, message }: { type: ToastType; message: string }) => {
+  const showToast = useCallback(({ type, message, persistent }: { type: ToastType; message: string; persistent?: boolean }) => {
     const id = crypto.randomUUID()
-    setToasts(prev => [...prev, { id, type, message, leaving: false }])
-    setTimeout(() => dismiss(id), DISMISS_DELAY)
+    setToasts(prev => [...prev, { id, type, message, leaving: false, persistent }])
+    if (!persistent) setTimeout(() => dismiss(id), DISMISS_DELAY)
   }, [dismiss])
 
   return (
