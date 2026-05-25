@@ -46,7 +46,22 @@ export function urlBase64ToUint8Array(base64String: string): Uint8Array<ArrayBuf
   return view
 }
 
-export async function subscribeToPush(memberId: string): Promise<void> {
+async function resolveOwnMemberId(): Promise<string> {
+  const { data: { user }, error: userError } = await supabase.auth.getUser()
+  if (userError || !user) throw new PushError('DB_ERROR', 'Not authenticated')
+
+  const { data: member, error: memberError } = await supabase
+    .from('members')
+    .select('id')
+    .eq('user_id', user.id)
+    .limit(1)
+    .maybeSingle()
+
+  if (memberError || !member) throw new PushError('DB_ERROR', 'No member found for authenticated user')
+  return member.id
+}
+
+export async function subscribeToPush(): Promise<void> {
   if (!isPushSupported()) throw new PushError('NOT_SUPPORTED', 'Push not supported')
   if (isIOSNonStandalone()) throw new PushError('IOS_NOT_INSTALLED', 'Not installed as PWA on iOS')
   if (Notification.permission === 'denied') throw new PushError('PERMISSION_DENIED', 'Permission denied')
@@ -79,6 +94,8 @@ export async function subscribeToPush(memberId: string): Promise<void> {
   const auth = json.keys?.auth
   if (!p256dh || !auth) throw new PushError('SUBSCRIBE_FAILED', 'Missing subscription keys')
 
+  const memberId = await resolveOwnMemberId()
+
   const { error } = await supabase.from('push_subscriptions').upsert(
     {
       member_id: memberId,
@@ -93,7 +110,7 @@ export async function subscribeToPush(memberId: string): Promise<void> {
   if (error) throw new PushError('DB_ERROR', error.message)
 }
 
-export async function unsubscribeFromPush(memberId: string): Promise<void> {
+export async function unsubscribeFromPush(): Promise<void> {
   if (!isPushSupported()) return
 
   const registration = await navigator.serviceWorker.ready.catch(() => null)
@@ -102,11 +119,14 @@ export async function unsubscribeFromPush(memberId: string): Promise<void> {
   const subscription = await registration.pushManager.getSubscription().catch(() => null)
   if (!subscription) return
 
-  await supabase
-    .from('push_subscriptions')
-    .delete()
-    .eq('endpoint', subscription.endpoint)
-    .eq('member_id', memberId)
+  const memberId = await resolveOwnMemberId().catch(() => null)
+  if (memberId) {
+    await supabase
+      .from('push_subscriptions')
+      .delete()
+      .eq('endpoint', subscription.endpoint)
+      .eq('member_id', memberId)
+  }
 
   await subscription.unsubscribe().catch(() => null)
 }

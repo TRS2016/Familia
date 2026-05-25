@@ -60,9 +60,9 @@ export function useNotificationToggle() {
     mutationFn: async (enabled: boolean) => {
       if (!member) throw new Error('No member')
       if (enabled) {
-        await subscribeToPush(member.id)
+        await subscribeToPush()
       } else {
-        await unsubscribeFromPush(member.id)
+        await unsubscribeFromPush()
       }
       const { error } = await supabase
         .from('members')
