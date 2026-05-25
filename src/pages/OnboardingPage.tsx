@@ -44,6 +44,21 @@ export default function OnboardingPage() {
     setSubmitting(true)
     setErrorMsg(null)
 
+    // Guard: member may already exist if the session was reset (Clear site data + reconnect).
+    // Avoids a UNIQUE(user_id) violation and provides a clean recovery path.
+    const { data: existing } = await supabase
+      .from('members')
+      .select('*')
+      .eq('user_id', session.user.id)
+      .limit(1)
+      .maybeSingle()
+
+    if (existing) {
+      queryClient.setQueryData(QK.member(session.user.id), existing as Member)
+      navigate('/', { replace: true })
+      return
+    }
+
     const { data, error } = await supabase
       .from('members')
       .insert({
