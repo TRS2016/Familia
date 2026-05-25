@@ -9,6 +9,7 @@ import { useAuth } from '../auth/useAuth'
 import { QK } from '../lib/query-keys'
 import { useMember } from '../auth/useMember'
 import type { Member } from '../auth/useMember'
+import { useNotificationToggle } from '../auth/useNotificationToggle'
 import { useToast } from '../components/Toast'
 import { MEMBER_PALETTE } from '../lib/constants'
 import { useTheme } from '../lib/useTheme'
@@ -21,6 +22,7 @@ export default function SettingsPage() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const { theme, setTheme } = useTheme()
+  const { enabled: notifEnabled, toggle: toggleNotif, isPending: notifPending } = useNotificationToggle()
 
   // ── Display name ──────────────────────────────────────────────────────────
   const [displayName, setDisplayName] = useState(member?.display_name ?? '')
@@ -257,6 +259,27 @@ export default function SettingsPage() {
             Ajoute <code>VITE_CAL_SECRET</code> et <code>SUPABASE_SERVICE_ROLE_KEY</code> dans les variables d'environnement Vercel pour activer cette fonctionnalité.
           </p>
         )}
+      </section>
+
+      {/* ── Notifications ────────────────────────────────────────────────── */}
+      <section className={styles.section}>
+        <h2 className={styles.sectionTitle}>Notifications</h2>
+        <div className={styles.toggleRow}>
+          <span className={styles.toggleLabel}>Activer les notifications</span>
+          <button
+            className={[styles.toggle, notifEnabled ? styles.toggleOn : ''].join(' ')}
+            onClick={toggleNotif}
+            disabled={notifPending}
+            role="switch"
+            aria-checked={notifEnabled}
+            aria-label="Activer les notifications"
+          >
+            <span className={styles.toggleThumb} />
+          </button>
+        </div>
+        <p className={styles.helpText}>
+          Recevez une notification quand un autre membre vous prévient d'un ajout important (course, événement, dépense). À activer sur chaque appareil.
+        </p>
       </section>
 
       {/* ── Danger zone ──────────────────────────────────────────────────── */}
