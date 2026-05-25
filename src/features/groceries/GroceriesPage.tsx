@@ -1,4 +1,5 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useSessionState } from '../../lib/useSessionState'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -144,9 +145,9 @@ export default function GroceriesPage() {
   const [editStore, setEditStore]       = useState('')
   const [editCategory, setEditCategory] = useState<string | null>(null)
 
-  // ── Mode shopping ───────────────────────────────────────────────────────────
-  const [shoppingMode, setShoppingMode]   = useState(false)
-  const [shoppingItems, setShoppingItems] = useState<Grocery[]>([])
+  // ── Mode shopping (persisté en sessionStorage — survit aux reloads, pas aux fermetures d'onglet)
+  const [shoppingMode, setShoppingMode]   = useSessionState<boolean>(`familia-shopping-mode-${HOUSEHOLD_ID}`, false)
+  const [shoppingItems, setShoppingItems] = useSessionState<Grocery[]>(`familia-shopping-${HOUSEHOLD_ID}`, [])
   const [budget, setBudget]               = useState(() => localStorage.getItem('familia-grocery-budget') ?? '')
   const [editingBudget, setEditingBudget] = useState(false)
   const [showLoadModal, setShowLoadModal] = useState(false)
@@ -455,10 +456,11 @@ export default function GroceriesPage() {
   function handleShoppingToggle() {
     if (!shoppingMode) {
       setShoppingMode(true)
-      setShowLoadModal(true)
+      setShowLoadModal(shoppingItems.length === 0)
       setEditingBudget(false)
     } else {
       setShoppingMode(false)
+      setShoppingItems([])
     }
   }
 
