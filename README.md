@@ -1,73 +1,89 @@
-# React + TypeScript + Vite
+# Familia
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Application de gestion familiale partagée (courses, calendrier, budget, habitudes, médias) pour 2 à 4 membres d'un même foyer.
 
-Currently, two official plugins are available:
+## Stack
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Vite 8** + **React 19** + **TypeScript strict**
+- **Supabase** : Postgres, Auth magic-link, Realtime, Storage
+- **TanStack Query v5** : état serveur et cache
+- **React Router v7**
+- **CSS Modules** (pas de Tailwind ni de CSS-in-JS)
+- **Vercel** : déploiement et hébergement
+- **PWA** : vite-plugin-pwa, installable sur mobile et desktop
 
-## React Compiler
+## Features
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+- Auth par magic-link email (pas de mot de passe)
+- Liste de courses partagée avec sync temps réel, drag & drop, mode shopping, listes sauvegardées, catalogue personnel
+- Calendrier partagé : récurrence, 4 vues (mois / semaine / jour / agenda), export iCal
+- Budget Kakebo : entrées/dépenses par catégorie, bilan mensuel, export CSV
+- Suivi d'habitudes : progression sur 4 semaines, streak
+- Suivi de médias : films, séries, livres, jeux — notation, statut, tri configurable
+- PWA installable (manifest + service worker, mise à jour à la demande)
 
-## Expanding the ESLint configuration
+## Architecture
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```
+src/
+├── lib/           # Supabase client, config (HOUSEHOLD_ID), types générés, hooks utilitaires
+├── auth/          # AuthProvider, RequireAuth, RequireMember, LoginPage, AuthCallback
+├── pages/         # Pages transversales : HomePage, OnboardingPage, SettingsPage
+├── features/
+│   ├── groceries/ # Liste de courses + listes sauvegardées + catalogue
+│   ├── calendar/  # Calendrier partagé
+│   ├── kakebo/    # Budget
+│   ├── habits/    # Habitudes
+│   └── media/     # Médias
+└── components/    # UI réutilisable : Modal, Toast, UpdatePrompt, Spinner, EmptyState…
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+Chaque dossier `features/*` contient ses propres composants, hooks de données et CSS Modules. Les hooks qui touchent Supabase vivent dans `use<X>.ts` à côté des composants qui les consomment.
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## Setup local
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
-```
+1. `npm install`
+2. Copier `.env.example` en `.env.local` et renseigner les trois variables :
+   ```
+   VITE_SUPABASE_URL=https://<project-ref>.supabase.co
+   VITE_SUPABASE_PUBLISHABLE_KEY=<anon-key>
+   VITE_HOUSEHOLD_ID=<uuid-du-foyer>
+   ```
+3. `npm run dev`
+
+Le foyer (`household`) doit exister dans Supabase et au moins un `member` doit y être associé. Sans ça, l'app renvoie vers l'onboarding.
+
+## Scripts disponibles
+
+| Commande | Usage |
+|---|---|
+| `npm run dev` | Serveur de développement |
+| `npm run build` | Build de production (TypeScript + Vite) |
+| `npm run preview` | Prévisualisation du build prod — utile pour tester la PWA |
+| `npx supabase gen types typescript --project-id <id> --schema public > src/lib/database.types.ts` | Régénérer les types depuis le schéma Supabase |
+
+## Déploiement
+
+Déploiement automatique sur Vercel à chaque push sur `master`. Les trois variables d'environnement (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, `VITE_HOUSEHOLD_ID`) sont configurées dans les settings du projet Vercel.
+
+## Base de données
+
+Tables principales : `households`, `members`, `groceries`, `grocery_lists`, `grocery_list_items`, `grocery_catalog`, `events`, `habits`, `habit_logs`, `kakebo_entries`, `kakebo_categories`, `monthly_budget`, `media_items`.
+
+RLS (Row Level Security) activée sur toutes les tables — les politiques filtrent par `household_id`. Realtime activé sur `groceries` et `events` pour la synchronisation entre membres.
+
+Le schéma complet est consultable dans le dashboard Supabase (Table Editor ou SQL Editor).
+
+## Multi-foyer
+
+Non. L'app gère un seul foyer, identifié par `VITE_HOUSEHOLD_ID`. Décision intentionnelle pour un usage perso : pas d'UI de sélection de foyer, pas de logique multi-tenant. Si le besoin évolue, ce sera une refonte, pas un ajout.
+
+## Documentation interne
+
+- **`CLAUDE.md`** — contexte projet, stack cible, règles de délégation aux sous-agents IA (OpenCode, Copilot)
+- **`SETUP.md`** — configuration de l'environnement de dev Claude Code + OpenCode + Copilot CLI
+- **`STATE.md`** — snapshot d'avancement généré à la demande, non versionné (dans `.gitignore`)
+
+## Licence
+
+Projet personnel, non distribué. Pas de licence formelle.
