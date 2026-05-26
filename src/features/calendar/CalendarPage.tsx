@@ -596,7 +596,7 @@ export default function CalendarPage() {
                               background: color + '33',
                               borderLeft: `3px solid ${color}`,
                             }}
-                            onClick={e => { e.stopPropagation(); !isOptimistic && openEditForm(ev) }}
+                            onClick={e => { e.stopPropagation(); if (!isOptimistic) openEditForm(ev) }}
                           >
                             <span className={styles.weekGridEventTitle}>{ev.title}</span>
                             {!isShort && (

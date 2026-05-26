@@ -15,7 +15,7 @@ function groupCatalogByCategory(items: CatalogItem[]) {
   const map = new Map<string | null, CatalogItem[]>([[null, []]])
   for (const key of CATEGORY_ORDER) map.set(key, [])
   for (const item of items) {
-    const k = item.category && CATEGORY_ORDER.includes(item.category as any) ? item.category : null
+    const k = item.category && (CATEGORY_ORDER as readonly string[]).includes(item.category) ? item.category : null
     map.get(k)!.push(item)
   }
   const groups: { label: string | null; emoji: string; items: CatalogItem[] }[] = []
