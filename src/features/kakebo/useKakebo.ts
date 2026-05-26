@@ -161,10 +161,32 @@ export function useAddEntry(year: number, month: number) {
       if (error) throw error
       return data as unknown as KakeboEntry
     },
-    onSuccess: newEntry => {
-      queryClient.setQueryData<KakeboEntry[]>(key, old => [newEntry, ...(old ?? [])])
+    onMutate: async (input: NewEntryInput) => {
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<KakeboEntry[]>(key) ?? []
+      const categories = queryClient.getQueryData<KakeboCategory[]>(KAKEBO_CATS_KEY) ?? []
+      const optimistic: KakeboEntry = {
+        id: `optimistic-${Date.now()}`,
+        household_id: HOUSEHOLD_ID,
+        category_id: input.category_id,
+        member_id: member?.id ?? null,
+        amount: input.amount,
+        date: input.date,
+        description: input.description.trim() || null,
+        created_at: new Date().toISOString(),
+        category: categories.find(c => c.id === input.category_id) ?? null,
+        member: member ? { display_name: member.display_name } : null,
+      }
+      queryClient.setQueryData<KakeboEntry[]>(key, [optimistic, ...previous])
+      return { previous, optimisticId: optimistic.id }
     },
-    onError: () => {
+    onSuccess: (newEntry, _input, context) => {
+      queryClient.setQueryData<KakeboEntry[]>(key, old =>
+        (old ?? []).map(e => e.id === context?.optimisticId ? newEntry : e)
+      )
+    },
+    onError: (_err, _input, context) => {
+      queryClient.setQueryData(key, context?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible d\'ajouter l\'opération.' })
     },
   })
@@ -191,12 +213,29 @@ export function useEditEntry(year: number, month: number) {
       if (error) throw error
       return data as unknown as KakeboEntry
     },
+    onMutate: async (input: EditEntryInput) => {
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<KakeboEntry[]>(key) ?? []
+      const categories = queryClient.getQueryData<KakeboCategory[]>(KAKEBO_CATS_KEY) ?? []
+      queryClient.setQueryData<KakeboEntry[]>(key, old =>
+        (old ?? []).map(e => e.id !== input.id ? e : {
+          ...e,
+          category_id: input.category_id,
+          amount: input.amount,
+          date: input.date,
+          description: input.description.trim() || null,
+          category: categories.find(c => c.id === input.category_id) ?? e.category,
+        })
+      )
+      return { previous }
+    },
     onSuccess: updated => {
       queryClient.setQueryData<KakeboEntry[]>(key, old =>
         (old ?? []).map(e => e.id === updated.id ? updated : e)
       )
     },
-    onError: () => {
+    onError: (_err, _input, context) => {
+      queryClient.setQueryData(key, context?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de modifier l\'opération.' })
     },
   })

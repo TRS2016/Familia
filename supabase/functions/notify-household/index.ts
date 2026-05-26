@@ -221,7 +221,8 @@ Deno.serve(async (req: Request) => {
     return err('Server misconfiguration: VAPID keys not set', 500)
   }
 
-  webpush.setVapidDetails('mailto:dyrecas@gmail.com', vapidPublicKey, vapidPrivateKey)
+  const vapidContact = Deno.env.get('VAPID_CONTACT_EMAIL') ?? 'mailto:dyrecas@gmail.com'
+  webpush.setVapidDetails(vapidContact, vapidPublicKey, vapidPrivateKey)
 
   console.log('[notify-household] Sending push to', subscriptions.length, 'subscription(s)...')
 
@@ -231,12 +232,17 @@ Deno.serve(async (req: Request) => {
   let sent = 0
   let failed = 0
 
+  // Each promise resolves to { sub, statusCode } or rejects to { sub, error }.
+  // Including sub in both paths avoids an O(n²) indexOf lookup in the result loop.
   const results = await Promise.allSettled(
     subscriptions.map((sub: PushSubscription) =>
       webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
         payloadString,
-      ).then(res => ({ sub, statusCode: res.statusCode }))
+      ).then(
+        res => ({ sub, statusCode: res.statusCode }),
+        (err: unknown) => { throw { sub, error: err as { statusCode?: number; message?: string } } },
+      )
     )
   )
 
@@ -251,9 +257,8 @@ Deno.serve(async (req: Request) => {
       sent++
       details.push({ member_id: sub.member_id, display_name: displayName, endpoint_hash: endpointHash(sub.endpoint), status: 'sent' })
     } else {
-      const rawError = result.reason as { statusCode?: number; message?: string }
+      const { sub, error: rawError } = result.reason as { sub: PushSubscription; error: { statusCode?: number; message?: string } }
       const statusCode = rawError?.statusCode
-      const sub = subscriptions[results.indexOf(result)]
       const displayName = memberById[sub.member_id]?.display_name ?? 'unknown'
 
       if (statusCode === 410 || statusCode === 404) {
