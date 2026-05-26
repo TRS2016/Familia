@@ -82,7 +82,7 @@ export function useRecentCompletions(habitIds: string[]) {
 /** All completions for one habit in a given year — for heatmap in stats modal */
 export function useYearCompletions(habitId: string | null, year: number) {
   return useQuery({
-    queryKey: ['habit-completions', habitId, 'year', year],
+    queryKey: ['habit-completions', HOUSEHOLD_ID, habitId, 'year', year],
     queryFn: async (): Promise<HabitCompletion[]> => {
       const { data, error } = await supabase
         .from('habit_completions')
