@@ -76,21 +76,56 @@ export function useAddMediaItem() {
   const { showToast } = useToast()
 
   return useMutation({
-    mutationFn: async (input: NewMediaInput) => {
-      const { error } = await supabase.from('media_items').insert({
-        household_id:    HOUSEHOLD_ID,
-        member_id:       input.member_id ?? member?.id ?? null,
-        title:           input.title.trim(),
-        type:            input.type,
-        status:          'à voir',
-        author_director: input.author_director ?? null,
-        release_year:    input.release_year ?? null,
-        genre:           input.genre ?? null,
-      })
+    mutationFn: async (input: NewMediaInput): Promise<MediaItem> => {
+      const { data, error } = await supabase
+        .from('media_items')
+        .insert({
+          household_id:    HOUSEHOLD_ID,
+          member_id:       input.member_id ?? member?.id ?? null,
+          title:           input.title.trim(),
+          type:            input.type,
+          status:          'à voir',
+          author_director: input.author_director ?? null,
+          release_year:    input.release_year ?? null,
+          genre:           input.genre ?? null,
+        })
+        .select('*, member:members(display_name)')
+        .single()
       if (error) throw error
+      return data as unknown as MediaItem
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: MEDIA_KEY }),
-    onError: () => showToast({ type: 'error', message: "Impossible d'ajouter l'élément." }),
+    onMutate: async (input: NewMediaInput) => {
+      await queryClient.cancelQueries({ queryKey: MEDIA_KEY })
+      const previous = queryClient.getQueryData<MediaItem[]>(MEDIA_KEY) ?? []
+      const optimistic: MediaItem = {
+        id: `optimistic-${Date.now()}`,
+        household_id: HOUSEHOLD_ID,
+        member_id: input.member_id ?? member?.id ?? null,
+        title: input.title.trim(),
+        type: input.type,
+        status: 'à voir',
+        rating: null,
+        comment: null,
+        author_director: input.author_director ?? null,
+        release_year: input.release_year ?? null,
+        genre: input.genre ?? null,
+        started_at: null,
+        finished_at: null,
+        created_at: new Date().toISOString(),
+        member: member ? { display_name: member.display_name } : null,
+      }
+      queryClient.setQueryData<MediaItem[]>(MEDIA_KEY, [optimistic, ...previous])
+      return { previous, optimisticId: optimistic.id }
+    },
+    onSuccess: (newItem, _input, context) => {
+      queryClient.setQueryData<MediaItem[]>(MEDIA_KEY, old =>
+        (old ?? []).map(m => m.id === context?.optimisticId ? newItem : m)
+      )
+    },
+    onError: (_err, _input, ctx) => {
+      queryClient.setQueryData(MEDIA_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: "Impossible d'ajouter l'élément." })
+    },
   })
 }
 

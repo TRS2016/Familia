@@ -3,6 +3,7 @@ import { format, subDays } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useToast } from '../../components/Toast'
+import { useMember } from '../../auth/useMember'
 import type { Tables } from '../../lib/database.types'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -122,6 +123,7 @@ export function calcStreak(habitId: string, completions: HabitCompletion[]): num
 
 export function useAddHabit() {
   const queryClient = useQueryClient()
+  const { data: member } = useMember()
   const { showToast } = useToast()
 
   return useMutation({
@@ -141,10 +143,34 @@ export function useAddHabit() {
       if (error) throw error
       return data as unknown as Habit
     },
-    onSuccess: newHabit => {
-      queryClient.setQueryData<Habit[]>(HABITS_KEY, old => [...(old ?? []), newHabit])
+    onMutate: async (input: NewHabitInput) => {
+      await queryClient.cancelQueries({ queryKey: HABITS_KEY })
+      const previous = queryClient.getQueryData<Habit[]>(HABITS_KEY) ?? []
+      const optimistic: Habit = {
+        id: `optimistic-${Date.now()}`,
+        household_id: HOUSEHOLD_ID,
+        member_id: input.member_id,
+        name: input.name.trim(),
+        emoji: input.emoji,
+        color: input.color,
+        frequency: input.frequency ?? 'daily',
+        created_at: new Date().toISOString(),
+        member: (member && input.member_id === member.id)
+          ? { id: member.id, display_name: member.display_name }
+          : null,
+      }
+      queryClient.setQueryData<Habit[]>(HABITS_KEY, [...previous, optimistic])
+      return { previous, optimisticId: optimistic.id }
     },
-    onError: () => showToast({ type: 'error', message: 'Impossible de créer l\'habitude.' }),
+    onSuccess: (newHabit, _input, context) => {
+      queryClient.setQueryData<Habit[]>(HABITS_KEY, old =>
+        (old ?? []).map(h => h.id === context?.optimisticId ? newHabit : h)
+      )
+    },
+    onError: (_err, _vars, ctx) => {
+      queryClient.setQueryData(HABITS_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de créer l\'habitude.' })
+    },
   })
 }
 
@@ -193,12 +219,30 @@ export function useEditHabit() {
       if (error) throw error
       return data as unknown as Habit
     },
+    onMutate: async (input: EditHabitInput) => {
+      await queryClient.cancelQueries({ queryKey: HABITS_KEY })
+      const previous = queryClient.getQueryData<Habit[]>(HABITS_KEY) ?? []
+      queryClient.setQueryData<Habit[]>(HABITS_KEY, old =>
+        (old ?? []).map(h => h.id !== input.id ? h : {
+          ...h,
+          name: input.name.trim(),
+          emoji: input.emoji,
+          member_id: input.member_id,
+          frequency: input.frequency ?? h.frequency,
+          member: h.member_id === input.member_id ? h.member : null,
+        })
+      )
+      return { previous }
+    },
     onSuccess: updated => {
       queryClient.setQueryData<Habit[]>(HABITS_KEY, old =>
         (old ?? []).map(h => h.id === updated.id ? updated : h)
       )
     },
-    onError: () => showToast({ type: 'error', message: 'Impossible de modifier l\'habitude.' }),
+    onError: (_err, _vars, ctx) => {
+      queryClient.setQueryData(HABITS_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de modifier l\'habitude.' })
+    },
   })
 }
 
