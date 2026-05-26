@@ -117,18 +117,25 @@ export default function HabitsPage() {
     setEditTarget(null)
   }
 
+  /**
+   * On compte sur RequireMember pour que currentMember soit chargé avant le rendu.
+   * Si draft.member_id et currentMember sont tous deux null, c'est une anomalie : on abort.
+   */
   async function handleAddSubmit(e: FormEvent) {
     e.preventDefault()
     if (!draft.name.trim()) return
-    const firstMemberId = members[0]?.id ?? null
+    if (!draft.member_id && !currentMember) {
+      console.error('[HabitsPage] handleAddSubmit: currentMember est null, impossible de créer l\'habitude')
+      return
+    }
     await addHabit.mutateAsync({
       name: draft.name,
       emoji: draft.emoji,
-      member_id: draft.member_id ?? firstMemberId,
+      member_id: draft.member_id ?? currentMember?.id ?? null,
       color: null,
       frequency: draft.frequency,
     })
-    setDraft({ name: '', emoji: '⭐', member_id: currentMember?.id ?? firstMemberId, frequency: 'daily' })
+    setDraft({ name: '', emoji: '⭐', member_id: currentMember?.id ?? null, frequency: 'daily' })
     setShowAdd(false)
   }
 
