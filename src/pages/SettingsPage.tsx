@@ -101,6 +101,23 @@ export default function SettingsPage() {
     })
   }
 
+  // ── Notification test ─────────────────────────────────────────────────────
+  const [testingNotif, setTestingNotif] = useState(false)
+
+  async function handleTestNotification() {
+    if (!session) return
+    setTestingNotif(true)
+    const { error } = await supabase.functions.invoke('notify-household', {
+      body: { title: 'Test Familia 🔔', body: 'Notification test — si tu vois ça, les push fonctionnent !' },
+    })
+    setTestingNotif(false)
+    if (error) {
+      showToast({ type: 'error', message: 'Échec du test : ' + (error.message ?? 'inconnu') })
+    } else {
+      showToast({ type: 'success', message: 'Envoyé ! Vérifiez les notifications sur l\'autre appareil.' })
+    }
+  }
+
   // ── Delete account ────────────────────────────────────────────────────────
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -280,6 +297,15 @@ export default function SettingsPage() {
         <p className={styles.helpText}>
           Recevez une notification quand un autre membre vous prévient d'un ajout important (course, événement, dépense). À activer sur chaque appareil.
         </p>
+        {notifEnabled && (
+          <button
+            className={styles.btnSecondary}
+            onClick={handleTestNotification}
+            disabled={testingNotif}
+          >
+            {testingNotif ? 'Envoi…' : 'Envoyer une notification test'}
+          </button>
+        )}
       </section>
 
       {/* ── Danger zone ──────────────────────────────────────────────────── */}
