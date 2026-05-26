@@ -23,9 +23,10 @@ const TYPE_META: Record<MediaType, { emoji: string; label: string }> = {
   film:  { emoji: '🎬', label: 'Film'  },
   série: { emoji: '📺', label: 'Série' },
   livre: { emoji: '📚', label: 'Livre' },
+  jeu:   { emoji: '🎮', label: 'Jeu'   },
 }
 
-const TYPES: MediaType[] = ['film', 'série', 'livre']
+const TYPES: MediaType[] = ['film', 'série', 'livre', 'jeu']
 
 type SortBy = 'added' | 'title' | 'rating' | 'finished'
 

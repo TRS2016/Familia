@@ -5,7 +5,7 @@ import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useToast } from '../../components/Toast'
 
-export type MediaType   = 'film' | 'série' | 'livre'
+export type MediaType   = 'film' | 'série' | 'livre' | 'jeu'
 export type MediaStatus = 'à voir' | 'en cours' | 'terminé'
 
 export interface MediaItem {
