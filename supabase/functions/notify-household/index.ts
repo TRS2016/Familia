@@ -1,4 +1,5 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
+import webpush from 'npm:web-push@3.6.7'
 import { corsHeaders } from '../_shared/cors.ts'
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -8,6 +9,7 @@ interface NotifyBody {
   body: string
   module?: string
   data?: Record<string, unknown>
+  dry_run?: boolean
 }
 
 interface Member {
@@ -26,11 +28,14 @@ interface PushSubscription {
   auth: string
 }
 
-interface DryRunEntry {
+type SendStatus = 'sent' | 'failed' | 'removed'
+
+interface SendDetail {
   member_id: string
   display_name: string
-  endpoint: string
-  payload: { title: string; body: string; module?: string; data?: Record<string, unknown> }
+  endpoint_hash: string  // last 8 chars only — enough to correlate logs without leaking URLs
+  status: SendStatus
+  error?: string
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -44,6 +49,10 @@ function json(data: unknown, status = 200): Response {
 
 function err(message: string, status: number): Response {
   return json({ error: message }, status)
+}
+
+function endpointHash(endpoint: string): string {
+  return endpoint.slice(-8)
 }
 
 /**
@@ -158,7 +167,8 @@ Deno.serve(async (req: Request) => {
     ...(body.module ? { module: body.module } : {}),
     ...(body.data ? { data: body.data } : {}),
   }
-  console.log('[notify-household] Payload:', JSON.stringify(payload))
+  const isDryRun = body.dry_run === true
+  console.log('[notify-household] Payload:', JSON.stringify(payload), isDryRun ? '(dry-run)' : '')
 
   // ── 4. Discover recipients & subscriptions ───────────────────────────────
 
@@ -179,25 +189,121 @@ Deno.serve(async (req: Request) => {
   }
   console.log('[notify-household] Subscriptions count:', subscriptions.length)
 
-  // ── 5. Dry-run response ──────────────────────────────────────────────────
+  // ── 4b. Dry-run shortcut ─────────────────────────────────────────────────
 
   const memberById = Object.fromEntries(recipients.map((m: Member) => [m.id, m]))
 
-  const wouldHaveSent: DryRunEntry[] = subscriptions.map((sub: PushSubscription) => ({
-    member_id: sub.member_id,
-    display_name: memberById[sub.member_id]?.display_name ?? 'unknown',
-    endpoint: sub.endpoint,
-    payload,
-  }))
+  if (isDryRun) {
+    const wouldHaveSent = subscriptions.map((sub: PushSubscription) => ({
+      member_id: sub.member_id,
+      display_name: memberById[sub.member_id]?.display_name ?? 'unknown',
+      endpoint: sub.endpoint,
+      payload,
+    }))
+    console.log('[notify-household] Dry-run. Would have sent:', wouldHaveSent.length, 'push(es)')
+    return json({
+      dry_run: true,
+      sender_member_id: sender.id,
+      sender_display_name: sender.display_name,
+      recipients_count: recipients.length,
+      subscriptions_count: subscriptions.length,
+      would_have_sent: wouldHaveSent,
+    })
+  }
 
-  console.log('[notify-household] Dry-run complete. Would have sent:', wouldHaveSent.length, 'push(es)')
+  // ── 5. Send notifications ─────────────────────────────────────────────────
+
+  const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')
+  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')
+
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    console.error('[notify-household] Missing VAPID_PUBLIC_KEY or VAPID_PRIVATE_KEY env vars')
+    return err('Server misconfiguration: VAPID keys not set', 500)
+  }
+
+  webpush.setVapidDetails('mailto:dyrecas@gmail.com', vapidPublicKey, vapidPrivateKey)
+
+  console.log('[notify-household] Sending push to', subscriptions.length, 'subscription(s)...')
+
+  const payloadString = JSON.stringify(payload)
+  const deadEndpoints: string[] = []
+  const details: SendDetail[] = []
+  let sent = 0
+  let failed = 0
+
+  const results = await Promise.allSettled(
+    subscriptions.map((sub: PushSubscription) =>
+      webpush.sendNotification(
+        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        payloadString,
+      ).then(res => ({ sub, statusCode: res.statusCode }))
+    )
+  )
+
+  for (const result of results) {
+    if (result.status === 'fulfilled') {
+      const { sub, statusCode } = result.value
+      const displayName = memberById[sub.member_id]?.display_name ?? 'unknown'
+      console.log(
+        '[notify-household] Push sent to', displayName,
+        `(…${endpointHash(sub.endpoint)}) — HTTP ${statusCode}`,
+      )
+      sent++
+      details.push({ member_id: sub.member_id, display_name: displayName, endpoint_hash: endpointHash(sub.endpoint), status: 'sent' })
+    } else {
+      const rawError = result.reason as { statusCode?: number; message?: string }
+      const statusCode = rawError?.statusCode
+      const sub = subscriptions[results.indexOf(result)]
+      const displayName = memberById[sub.member_id]?.display_name ?? 'unknown'
+
+      if (statusCode === 410 || statusCode === 404) {
+        // Dead subscription — schedule for cleanup
+        deadEndpoints.push(sub.endpoint)
+        console.log(
+          '[notify-household] Dead subscription detected for', displayName,
+          `(…${endpointHash(sub.endpoint)}) — HTTP ${statusCode}`,
+        )
+        details.push({ member_id: sub.member_id, display_name: displayName, endpoint_hash: endpointHash(sub.endpoint), status: 'removed' })
+      } else {
+        failed++
+        const errorMsg = rawError?.message ?? String(result.reason)
+        console.error(
+          '[notify-household] Push failed for', displayName,
+          `(…${endpointHash(sub.endpoint)}) — HTTP ${statusCode ?? 'unknown'}: ${errorMsg}`,
+        )
+        details.push({ member_id: sub.member_id, display_name: displayName, endpoint_hash: endpointHash(sub.endpoint), status: 'failed', error: errorMsg })
+      }
+    }
+  }
+
+  // ── 6. Batch DELETE dead subscriptions ───────────────────────────────────
+
+  let removedDeadSubscriptions = 0
+
+  if (deadEndpoints.length > 0) {
+    console.log('[notify-household] Cleaning up', deadEndpoints.length, 'dead subscription(s)...')
+    const { error: deleteError, count } = await supabase
+      .from('push_subscriptions')
+      .delete({ count: 'exact' })
+      .in('endpoint', deadEndpoints)
+
+    if (deleteError) {
+      console.error('[notify-household] Failed to delete dead subscriptions:', deleteError.message)
+      // Dead subs remain in DB — they'll be cleaned up next send. Non-fatal.
+    } else {
+      removedDeadSubscriptions = count ?? 0
+    }
+  }
+
+  console.log(
+    `[notify-household] Done. Sent: ${sent}, Failed: ${failed}, Removed: ${removedDeadSubscriptions}`,
+  )
 
   return json({
-    dry_run: true,
+    sent,
+    failed,
+    removed_dead_subscriptions: removedDeadSubscriptions,
     sender_member_id: sender.id,
-    sender_display_name: sender.display_name,
-    recipients_count: recipients.length,
-    subscriptions_count: subscriptions.length,
-    would_have_sent: wouldHaveSent,
+    details,
   })
 })

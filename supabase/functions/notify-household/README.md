@@ -2,8 +2,6 @@
 
 Edge Function qui envoie une notification Web Push à tous les membres du foyer (sauf l'expéditeur).
 
-**Status : Phase 3.1 — Dry-run uniquement.** La fonction découvre les destinataires et leurs subscriptions mais n'envoie pas encore de push réel. La réponse décrit ce qui *aurait été* envoyé.
-
 ---
 
 ## Endpoint
@@ -16,12 +14,13 @@ Content-Type: application/json
 
 ## Body
 
-| Champ    | Type   | Requis | Description                                      |
-|----------|--------|--------|--------------------------------------------------|
-| `title`  | string | ✓      | Titre de la notification                         |
-| `body`   | string | ✓      | Corps de la notification                         |
-| `module` | string | –      | Module source (ex: `"groceries"`, `"calendar"`)  |
-| `data`   | object | –      | Payload arbitraire transmis au service worker    |
+| Champ     | Type    | Requis | Description                                          |
+|-----------|---------|--------|------------------------------------------------------|
+| `title`   | string  | ✓      | Titre de la notification                             |
+| `body`    | string  | ✓      | Corps de la notification                             |
+| `module`  | string  | –      | Module source (ex: `"groceries"`, `"calendar"`)      |
+| `data`    | object  | –      | Payload arbitraire transmis au service worker        |
+| `dry_run` | boolean | –      | Si `true`, simule l'envoi sans appeler les push services |
 
 ### Exemple
 
@@ -37,7 +36,28 @@ Content-Type: application/json
 
 ## Réponses
 
-### 200 OK — Dry-run
+### 200 OK — Envoi réel
+
+```json
+{
+  "sent": 2,
+  "failed": 0,
+  "removed_dead_subscriptions": 0,
+  "sender_member_id": "abc123",
+  "details": [
+    {
+      "member_id": "def456",
+      "display_name": "Sezin",
+      "endpoint_hash": "a1b2c3d4",
+      "status": "sent"
+    }
+  ]
+}
+```
+
+`status` par détail : `"sent"` | `"failed"` | `"removed"` (subscription morte 410/404, supprimée automatiquement).
+
+### 200 OK — Dry-run (`dry_run: true`)
 
 ```json
 {
@@ -51,11 +71,7 @@ Content-Type: application/json
       "member_id": "def456",
       "display_name": "Sezin",
       "endpoint": "https://fcm.googleapis.com/...",
-      "payload": {
-        "title": "Liste de courses mise à jour",
-        "body": "Reddy a ajouté 3 articles",
-        "module": "groceries"
-      }
+      "payload": { "title": "...", "body": "..." }
     }
   ]
 }
@@ -67,37 +83,37 @@ Content-Type: application/json
 { "error": "\"title\" is required and must be a non-empty string" }
 ```
 
-### 401 Unauthorized
+### 401 Unauthorized — JWT manquant ou invalide
 
-```json
-{ "error": "Missing or malformed Authorization header" }
-```
+### 403 Forbidden — Membre introuvable pour cet utilisateur
 
-### 403 Forbidden
-
-```json
-{ "error": "Member not found" }
-```
-
-### 405 Method Not Allowed
-
-```json
-{ "error": "Method not allowed" }
-```
+### 405 Method Not Allowed — Seul POST est accepté
 
 ### 500 Internal Server Error
 
 ```json
-{ "error": "Failed to fetch recipients" }
+{ "error": "Server misconfiguration: VAPID keys not set" }
 ```
 
 ---
 
 ## Comportement
 
-- Seuls les membres avec `notifications_enabled = true` sont inclus dans les destinataires.
-- L'expéditeur est toujours exclu, même s'il a des subscriptions actives.
-- Un membre peut avoir plusieurs subscriptions (plusieurs appareils) — toutes apparaissent dans `would_have_sent`.
+- Seuls les membres avec `notifications_enabled = true` sont inclus.
+- L'expéditeur est toujours exclu (même s'il a des subscriptions actives).
+- Un membre peut avoir plusieurs subscriptions (plusieurs appareils) — toutes sont notifiées.
+- Les subscriptions qui retournent **410 ou 404** sont supprimées automatiquement en batch après l'envoi.
+- Les autres échecs sont loggés mais la subscription est conservée.
+- `endpoint_hash` dans les détails = 8 derniers caractères de l'endpoint, pour corréler les logs sans exposer l'URL complète.
+
+## Variables d'environnement requises
+
+| Variable                  | Description                                  |
+|---------------------------|----------------------------------------------|
+| `SUPABASE_URL`            | Injecté automatiquement par Supabase          |
+| `SUPABASE_SERVICE_ROLE_KEY` | Injecté automatiquement par Supabase        |
+| `VAPID_PUBLIC_KEY`        | Clé publique VAPID (base64 url-safe)         |
+| `VAPID_PRIVATE_KEY`       | Clé privée VAPID (base64 url-safe)           |
 
 ## Extension future (Phase 4)
 
