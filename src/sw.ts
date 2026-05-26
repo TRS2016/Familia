@@ -5,7 +5,18 @@ import { precacheAndRoute } from 'workbox-precaching'
 // to avoid the DOM/WebWorker lib conflict. Compiled by Vite/esbuild, not tsc.
 declare const self: ServiceWorkerGlobalScope
 
-// ── Precache ──────────────────────────────────────────────────────────────
+// ── Lifecycle ─────────────────────────────────────────────────────────────
+
+// In generateSW mode Workbox injected this automatically; in injectManifest we do it manually.
+// useRegisterSW(registerType:'prompt') sends {type:'SKIP_WAITING'} when the user clicks "Recharger",
+// then listens for the controllerchange event to reload the page.
+self.addEventListener('message', (event) => {
+  if ((event.data as { type?: string } | null)?.type === 'SKIP_WAITING') {
+    void self.skipWaiting()
+  }
+})
+
+// ── Precache ─────────────────────────────────────────────────────────────
 
 precacheAndRoute(self.__WB_MANIFEST)
 
