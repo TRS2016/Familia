@@ -10,6 +10,9 @@ export default defineConfig({
       srcDir: 'src',
       filename: 'sw.ts',
       registerType: 'prompt',
+      injectManifest: {
+        rollupFormat: 'iife',
+      },
       manifest: {
         name: 'Familia',
         short_name: 'Familia',
