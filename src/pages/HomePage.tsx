@@ -48,6 +48,15 @@ interface GroceryPreview {
   name: string
 }
 
+interface MomentPreview {
+  id: string
+  member_id: string
+  text: string | null
+  photo_path: string | null
+  created_at: string
+  member: { id: string; display_name: string } | null
+}
+
 interface HabitPreview {
   id: string
   name: string
@@ -137,6 +146,21 @@ export default function HomePage() {
         .limit(10)
       if (error) throw error
       return data as GroceryPreview[]
+    },
+    enabled: !!member,
+  })
+
+  const { data: recentMoments } = useQuery({
+    queryKey: ['home-moments', HOUSEHOLD_ID],
+    queryFn: async (): Promise<MomentPreview[]> => {
+      const { data, error } = await supabase
+        .from('moments')
+        .select('id, member_id, text, photo_path, created_at, member:members(id, display_name)')
+        .eq('household_id', HOUSEHOLD_ID)
+        .order('created_at', { ascending: false })
+        .limit(3)
+      if (error) throw error
+      return data as unknown as MomentPreview[]
     },
     enabled: !!member,
   })
@@ -377,6 +401,35 @@ export default function HomePage() {
               {groceryPreview.slice(0, 5).map(g => g.name).join(' · ')}
               {groceryPreview.length > 5 ? ' · …' : ''}
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* Widget — Moments récents */}
+      {recentMoments && recentMoments.length > 0 && (
+        <div className={styles.widget}>
+          <div className={styles.widgetHead}>
+            <span className={styles.widgetLabel}>Moments</span>
+            <Link to="/moments" className={styles.widgetLink}>Voir tout</Link>
+          </div>
+          <div className={styles.card}>
+            <ul className={styles.momentsList}>
+              {recentMoments.map((m, i) => {
+                const members    = householdDetails?.members ?? []
+                const memberIdx  = members.findIndex(hm => hm.id === m.member_id)
+                const color      = MEMBER_PALETTE[memberIdx >= 0 ? memberIdx % MEMBER_PALETTE.length : 0]
+                const preview    = m.text
+                  ? (m.text.length > 55 ? m.text.slice(0, 52) + '…' : m.text)
+                  : '📸 Photo'
+                return (
+                  <li key={m.id} className={[styles.momentRow, i === 0 ? styles.momentRowFirst : ''].join(' ')}>
+                    <span className={styles.momentDot} style={{ background: color }} />
+                    <span className={styles.momentAuthor}>{m.member?.display_name ?? '?'}</span>
+                    <span className={styles.momentPreview}>{preview}</span>
+                  </li>
+                )
+              })}
+            </ul>
           </div>
         </div>
       )}
