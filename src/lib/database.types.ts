@@ -632,6 +632,54 @@ export type Database = {
           },
         ]
       }
+      moments: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          household_id: string
+          id: string
+          member_id: string
+          photo_archived: boolean
+          photo_path: string | null
+          text: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          household_id: string
+          id?: string
+          member_id: string
+          photo_archived?: boolean
+          photo_path?: string | null
+          text?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          household_id?: string
+          id?: string
+          member_id?: string
+          photo_archived?: boolean
+          photo_path?: string | null
+          text?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moments_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

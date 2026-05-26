@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ShoppingCart, Calendar, Settings, BookOpen, Flame, Tv } from 'lucide-react'
+import { ShoppingCart, Calendar, Settings, BookOpen, Flame, Tv, Camera } from 'lucide-react'
 import { format, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
@@ -274,6 +274,15 @@ export default function HomePage() {
           <div>
             <div className={styles.navLabel}>Médias</div>
             <div className={styles.navSub}>Films · Séries · Livres</div>
+          </div>
+        </Link>
+        <Link to="/moments" className={styles.navCard}>
+          <div className={styles.navIconWrap} style={{ background: 'rgba(212,119,138,0.15)' }}>
+            <Camera size={22} color="#D4778A" strokeWidth={2} />
+          </div>
+          <div>
+            <div className={styles.navLabel}>Moments</div>
+            <div className={styles.navSub}>Journal photo</div>
           </div>
         </Link>
       </div>
