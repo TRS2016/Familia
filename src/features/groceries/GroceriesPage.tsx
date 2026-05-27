@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import {
   ChevronLeft, Plus, SlidersHorizontal, ShoppingCart,
   MapPin, Bookmark, FolderOpen, Share2, AlignJustify, LayoutList,
-  Search, X, Clock,
+  Search, X, Clock, Link as LinkIcon, Trash2,
 } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
@@ -19,6 +19,7 @@ import { LoadListModal } from './LoadListModal'
 import { useCatalog } from './useCatalog'
 import { useShoppingHistory, useSaveSession, useSessionSuggestions } from './useShoppingHistory'
 import type { SessionItem } from './useShoppingHistory'
+import { useShareToken } from './useShareToken'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -181,9 +182,12 @@ export default function GroceriesPage() {
   const [filterText, setFilterText]             = useState('')
   const [showArchivePrompt, setShowArchivePrompt] = useState(false)
   const [showHistory, setShowHistory]             = useState(false)
+  const [showClearConfirm, setShowClearConfirm]   = useState(false)
+  const [showShareModal, setShowShareModal]       = useState(false)
 
   const { data: sessions = [], isLoading: sessionsLoading } = useShoppingHistory({ enabled: showHistory })
   const { data: sessionSuggestions = [] } = useSessionSuggestions()
+  const shareToken = useShareToken()
 
   // ── Ordre drag & drop ────────────────────────────────────────────────────────
   const [orderedIds, setOrderedIds] = useState<string[]>(() => {
@@ -371,6 +375,44 @@ export default function GroceriesPage() {
   }, [shoppingMode, setShoppingItems])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
+  // ── Stats sessions (Lot 6) ───────────────────────────────────────────────
+  const sessionStats = useMemo(() => {
+    if (!sessions.length) return null
+    const now = new Date()
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+    const thisMonth = sessions.filter(s => s.created_at >= monthStart)
+    const totalThisMonth = thisMonth.reduce((sum, s) => sum + (s.total ?? 0), 0)
+    const withTotal = sessions.filter(s => s.total !== null)
+    const avg = withTotal.length ? withTotal.reduce((sum, s) => sum + (s.total ?? 0), 0) / withTotal.length : null
+    const freq = new Map<string, number>()
+    for (const s of sessions) {
+      for (const item of (s.items as unknown as SessionItem[]) ?? []) {
+        if (item.name) freq.set(item.name, (freq.get(item.name) ?? 0) + 1)
+      }
+    }
+    const top3 = [...freq.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name]) => name)
+    return { thisMonthCount: thisMonth.length, totalThisMonth, avg, top3 }
+  }, [sessions])
+
+  // ── Partage liste (Lot 7) ────────────────────────────────────────────────
+  const shareUrl = shareToken.query.data
+    ? `${window.location.origin}/share/${shareToken.query.data.token}`
+    : null
+
+  async function handleCreateShareLink() {
+    const result = await shareToken.create.mutateAsync()
+    const url = `${window.location.origin}/share/${result.token}`
+    if (navigator.share) {
+      navigator.share({ url, title: 'Liste de courses Familia' }).catch(() => {
+        navigator.clipboard.writeText(url)
+        showToast({ type: 'success', message: 'Lien copié !' })
+      })
+    } else {
+      navigator.clipboard.writeText(url)
+      showToast({ type: 'success', message: 'Lien copié !' })
+    }
+  }
+
   function handleNameChange(val: string) {
     setNewName(val)
     const lower = val.toLowerCase()
@@ -531,23 +573,6 @@ export default function GroceriesPage() {
     setShoppingItems([])
   }
 
-  function handleShare() {
-    const lines = uncheckedItems.map(g => {
-      let line = `• ${g.name}`
-      if (g.quantity) line += ` ×${g.quantity}`
-      if (g.store) line += ` (${g.store})`
-      return line
-    })
-    const text = `Liste de courses :\n${lines.join('\n')}`
-    if (navigator.share) {
-      navigator.share({ text }).catch(() => {/* annulé par l'utilisateur */})
-    } else {
-      navigator.clipboard.writeText(text).then(() => {
-        showToast({ type: 'success', message: 'Liste copiée !' })
-      })
-    }
-  }
-
   // ── Rendu ────────────────────────────────────────────────────────────────────
   return (
     <div className={styles.page}>
@@ -573,7 +598,7 @@ export default function GroceriesPage() {
               {uncheckedItems.length > 0 && (
                 <button
                   className={styles.headerIconBtn}
-                  onClick={handleShare}
+                  onClick={() => setShowShareModal(true)}
                   aria-label="Partager la liste"
                 >
                   <Share2 size={15} strokeWidth={2.5} />
@@ -895,7 +920,7 @@ export default function GroceriesPage() {
             {!shoppingMode && (
               <button
                 className={styles.clearBtn}
-                onClick={() => clearChecked.mutate()}
+                onClick={() => setShowClearConfirm(true)}
                 disabled={clearChecked.isPending}
               >
                 Tout effacer
@@ -1062,7 +1087,7 @@ export default function GroceriesPage() {
         </SlideUpModal>
       )}
 
-      {/* Modal — Historique des courses */}
+      {/* Modal — Historique des courses + stats budget (Lot 6) */}
       {showHistory && (
         <SlideUpModal title="Historique des courses" onClose={() => setShowHistory(false)}>
           <div className={styles.historyBody}>
@@ -1071,24 +1096,128 @@ export default function GroceriesPage() {
             ) : sessions.length === 0 ? (
               <p className={styles.historyEmpty}>Aucune session archivée pour l'instant.</p>
             ) : (
-              <ul className={styles.historyList}>
-                {sessions.map(s => (
-                  <li key={s.id} className={styles.historyItem}>
-                    <div className={styles.historyItemLeft}>
-                      <span className={styles.historyDate}>{formatSessionDate(s.created_at)}</span>
-                      {s.done_by_member && (
-                        <span className={styles.historyMember}>{s.done_by_member.display_name}</span>
-                      )}
+              <>
+                {sessionStats && (
+                  <div className={styles.statsGrid}>
+                    <div className={styles.statCard}>
+                      <span className={styles.statValue}>{sessionStats.thisMonthCount}</span>
+                      <span className={styles.statLabel}>sessions ce mois</span>
                     </div>
-                    <div className={styles.historyItemRight}>
-                      <span className={styles.historyCount}>{s.item_count} art.</span>
-                      {s.total !== null && (
-                        <span className={styles.historyTotal}>{formatPrice(s.total)}</span>
-                      )}
-                    </div>
-                  </li>
-                ))}
-              </ul>
+                    {sessionStats.totalThisMonth > 0 && (
+                      <div className={styles.statCard}>
+                        <span className={styles.statValue}>{formatPrice(sessionStats.totalThisMonth)}</span>
+                        <span className={styles.statLabel}>dépensés ce mois</span>
+                      </div>
+                    )}
+                    {sessionStats.avg !== null && (
+                      <div className={styles.statCard}>
+                        <span className={styles.statValue}>{formatPrice(sessionStats.avg)}</span>
+                        <span className={styles.statLabel}>moy. / session</span>
+                      </div>
+                    )}
+                    {sessionStats.top3.length > 0 && (
+                      <div className={[styles.statCard, styles.statCardWide].join(' ')}>
+                        <span className={styles.statLabel}>Articles fréquents</span>
+                        <span className={styles.statTopItems}>{sessionStats.top3.join(' · ')}</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+                <ul className={styles.historyList}>
+                  {sessions.map(s => (
+                    <li key={s.id} className={styles.historyItem}>
+                      <div className={styles.historyItemLeft}>
+                        <span className={styles.historyDate}>{formatSessionDate(s.created_at)}</span>
+                        {s.done_by_member && (
+                          <span className={styles.historyMember}>{s.done_by_member.display_name}</span>
+                        )}
+                      </div>
+                      <div className={styles.historyItemRight}>
+                        <span className={styles.historyCount}>{s.item_count} art.</span>
+                        {s.total !== null && (
+                          <span className={styles.historyTotal}>{formatPrice(s.total)}</span>
+                        )}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </>
+            )}
+          </div>
+        </SlideUpModal>
+      )}
+
+      {/* Modal — Confirmer la suppression des articles cochés (Lot 3) */}
+      {showClearConfirm && (
+        <SlideUpModal title="Effacer les articles cochés ?" onClose={() => setShowClearConfirm(false)}>
+          <div className={styles.archivePromptBody}>
+            <p className={styles.archivePromptSummary}>
+              🗑 <strong>{checkedItems.length}</strong> article{checkedItems.length > 1 ? 's' : ''} coché{checkedItems.length > 1 ? 's' : ''} seront supprimés définitivement.
+            </p>
+            <button
+              className={styles.archiveBtn}
+              style={{ background: '#c0392b' }}
+              onClick={() => { clearChecked.mutate(); setShowClearConfirm(false) }}
+              disabled={clearChecked.isPending}
+            >
+              Supprimer
+            </button>
+            <button
+              className={styles.archiveSkipBtn}
+              onClick={() => setShowClearConfirm(false)}
+            >
+              Annuler
+            </button>
+          </div>
+        </SlideUpModal>
+      )}
+
+      {/* Modal — Partager la liste en lecture seule (Lot 7) */}
+      {showShareModal && (
+        <SlideUpModal title="Partager la liste" onClose={() => setShowShareModal(false)}>
+          <div className={styles.shareModalBody}>
+            <p className={styles.shareModalHint}>
+              Génère un lien valable 7 jours pour partager la liste en lecture seule, sans compte requis.
+            </p>
+            {shareUrl ? (
+              <>
+                <div className={styles.shareUrlBox}>
+                  <LinkIcon size={13} strokeWidth={2.5} className={styles.shareUrlIcon} />
+                  <span className={styles.shareUrlText}>{shareUrl}</span>
+                </div>
+                <button
+                  className={styles.archiveBtn}
+                  onClick={() => {
+                    navigator.clipboard.writeText(shareUrl)
+                    showToast({ type: 'success', message: 'Lien copié !' })
+                  }}
+                >
+                  Copier le lien
+                </button>
+                <button
+                  className={styles.archiveSkipBtn}
+                  onClick={() => handleCreateShareLink()}
+                  disabled={shareToken.create.isPending}
+                >
+                  Regénérer le lien
+                </button>
+                <button
+                  className={[styles.archiveSkipBtn, styles.shareDangerBtn].join(' ')}
+                  onClick={() => { shareToken.revoke.mutate(); setShowShareModal(false) }}
+                  disabled={shareToken.revoke.isPending}
+                >
+                  <Trash2 size={13} strokeWidth={2.5} />
+                  Révoquer l'accès
+                </button>
+              </>
+            ) : (
+              <button
+                className={styles.archiveBtn}
+                onClick={() => handleCreateShareLink()}
+                disabled={shareToken.create.isPending}
+              >
+                {shareToken.create.isPending ? 'Création…' : 'Créer le lien'}
+              </button>
             )}
           </div>
         </SlideUpModal>

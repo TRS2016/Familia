@@ -1594,6 +1594,108 @@
 
 .searchClear:hover { color: var(--text); }
 
+/* ── Stats budget (Lot 6) ────────────────────────────────────────────────── */
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 0 16px 16px;
+}
+
+.statCard {
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  box-shadow: var(--shadow-card);
+}
+
+.statCardWide {
+  grid-column: 1 / -1;
+}
+
+.statValue {
+  font-size: 18px;
+  font-weight: 900;
+  color: #5B9E8F;
+  letter-spacing: -0.3px;
+  line-height: 1;
+}
+
+.statLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.statTopItems {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  margin-top: 2px;
+}
+
+/* ── Share modal (Lot 7) ─────────────────────────────────────────────────── */
+
+.shareModalBody {
+  padding: 0 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.shareModalHint {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin: 0 0 4px;
+  line-height: 1.5;
+}
+
+.shareUrlBox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-card);
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+}
+
+.shareUrlIcon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.shareUrlText {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+}
+
+.shareDangerBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  color: #c0392b;
+  border-color: rgba(192, 57, 43, 0.3);
+}
+
+.shareDangerBtn:hover {
+  border-color: #c0392b;
+}
+
 /* ── Drag & drop ─────────────────────────────────────────────────────────── */
 
 /* Empêche le navigateur mobile d'intercepter le geste comme un scroll

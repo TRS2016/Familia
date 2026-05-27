@@ -639,51 +639,6 @@ export type Database = {
           },
         ]
       }
-      shopping_sessions: {
-        Row: {
-          id: string
-          household_id: string
-          done_by: string | null
-          total: number | null
-          item_count: number
-          items: Json
-          created_at: string
-        }
-        Insert: {
-          id?: string
-          household_id: string
-          done_by?: string | null
-          total?: number | null
-          item_count?: number
-          items?: Json
-          created_at?: string
-        }
-        Update: {
-          id?: string
-          household_id?: string
-          done_by?: string | null
-          total?: number | null
-          item_count?: number
-          items?: Json
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "shopping_sessions_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "shopping_sessions_done_by_fkey"
-            columns: ["done_by"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -725,12 +680,103 @@ export type Database = {
           },
         ]
       }
+      shared_list_tokens: {
+        Row: {
+          id: string
+          token: string
+          household_id: string
+          created_by: string | null
+          expires_at: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          token?: string
+          household_id: string
+          created_by?: string | null
+          expires_at?: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          token?: string
+          household_id?: string
+          created_by?: string | null
+          expires_at?: string
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shared_list_tokens_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_list_tokens_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      shopping_sessions: {
+        Row: {
+          created_at: string
+          done_by: string | null
+          household_id: string
+          id: string
+          item_count: number
+          items: Json
+          total: number | null
+        }
+        Insert: {
+          created_at?: string
+          done_by?: string | null
+          household_id: string
+          id?: string
+          item_count?: number
+          items?: Json
+          total?: number | null
+        }
+        Update: {
+          created_at?: string
+          done_by?: string | null
+          household_id?: string
+          id?: string
+          item_count?: number
+          items?: Json
+          total?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_sessions_done_by_fkey"
+            columns: ["done_by"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_sessions_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       get_my_household_id: { Args: never; Returns: string }
+      replace_groceries_with_list: {
+        Args: { p_household_id: string; p_member_id: string | null; p_items: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

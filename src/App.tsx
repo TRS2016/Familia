@@ -17,6 +17,7 @@ const KakeboPage     = lazy(() => import('./features/kakebo/KakeboPage'))
 const HabitsPage     = lazy(() => import('./features/habits/HabitsPage'))
 const MediaPage      = lazy(() => import('./features/media/MediaPage'))
 const MomentsPage    = lazy(() => import('./features/moments/MomentsPage'))
+const SharedListPage = lazy(() => import('./pages/SharedListPage'))
 
 function Lazy({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<LoadingPage />}>{children}</Suspense>
@@ -25,6 +26,7 @@ function Lazy({ children }: { children: React.ReactNode }) {
 const router = createBrowserRouter([
   { path: '/login', element: <LoginPage /> },
   { path: '/auth/callback', element: <AuthCallback /> },
+  { path: '/share/:token', element: <Lazy><SharedListPage /></Lazy> },
   {
     element: <RequireAuth />,
     children: [

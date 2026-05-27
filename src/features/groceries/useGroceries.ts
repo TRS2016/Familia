@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Json } from '../../lib/database.types'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
@@ -100,11 +101,14 @@ export function useGroceries() {
       queryClient.setQueryData(GROCERIES_KEY, context?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible d\'ajouter l\'article. Réessaie.' })
     },
-    onSuccess: (newItem, _vars, context) => {
+    onSuccess: (newItem, vars, context) => {
       if (!context) return
       queryClient.setQueryData<Grocery[]>(GROCERIES_KEY, (old = []) =>
         old.map(g => g.id === context.optimisticId ? newItem : g)
       )
+      void supabase.functions.invoke('notify-household', {
+        body: { title: 'Courses mises à jour', body: `${vars.name} ajouté à la liste`, module: 'groceries' },
+      })
     },
   })
 
@@ -239,7 +243,7 @@ export function useGroceries() {
     onError: () => showToast({ type: 'error', message: 'Impossible de charger la liste.' }),
   })
 
-  // ── Replace with saved list (clear all + insert) ──────────────────────────
+  // ── Replace with saved list (atomic via RPC) ─────────────────────────────
   const replaceWithList = useMutation({
     mutationFn: async (items: Array<{
       name: string
@@ -248,25 +252,12 @@ export function useGroceries() {
       category?: string | null
       store?: string | null
     }>) => {
-      const { error: deleteErr } = await supabase
-        .from('groceries')
-        .delete()
-        .eq('household_id', HOUSEHOLD_ID)
-      if (deleteErr) throw deleteErr
-      if (items.length > 0) {
-        const { error: insertErr } = await supabase
-          .from('groceries')
-          .insert(items.map(item => ({
-            household_id: HOUSEHOLD_ID,
-            created_by: member?.id ?? null,
-            name: item.name,
-            quantity: item.quantity || null,
-            price: item.price ?? null,
-            category: item.category || null,
-            store: item.store || null,
-          })))
-        if (insertErr) throw insertErr
-      }
+      const { error } = await supabase.rpc('replace_groceries_with_list', {
+        p_household_id: HOUSEHOLD_ID,
+        p_member_id: member?.id ?? null,
+        p_items: items as unknown as Json,
+      })
+      if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: GROCERIES_KEY }),
     onError: () => showToast({ type: 'error', message: 'Impossible de charger la liste.' }),
