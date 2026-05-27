@@ -199,16 +199,18 @@ export default function KakeboPage() {
   }
 
   async function saveBudget() {
-    await updateObjectif.mutateAsync(budgetDraft)
-    for (const [id, val] of Object.entries(budgetDrafts)) {
-      const num = parseFloat(val)
-      const monthly_budget = val.trim() === '' ? null : isNaN(num) || num <= 0 ? null : num
-      const cat = categories.find(c => c.id === id)
-      if (cat && cat.monthly_budget !== monthly_budget) {
-        updateCategoryBudget.mutate({ id, monthly_budget })
+    try {
+      await updateObjectif.mutateAsync(budgetDraft)
+      for (const [id, val] of Object.entries(budgetDrafts)) {
+        const num = parseFloat(val)
+        const monthly_budget = val.trim() === '' ? null : isNaN(num) || num <= 0 ? null : num
+        const cat = categories.find(c => c.id === id)
+        if (cat && cat.monthly_budget !== monthly_budget) {
+          updateCategoryBudget.mutate({ id, monthly_budget })
+        }
       }
-    }
-    setShowBudget(false)
+      setShowBudget(false)
+    } catch { /* onError handles toast */ }
   }
 
   function openBudgetModal() {

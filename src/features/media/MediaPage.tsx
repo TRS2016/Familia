@@ -109,16 +109,18 @@ export default function MediaPage() {
     e.preventDefault()
     if (!draft.title.trim()) return
     const year = draft.release_year ? parseInt(draft.release_year, 10) : null
-    await addItem.mutateAsync({
-      title:           draft.title,
-      type:            draft.type,
-      member_id:       draft.member_id,
-      author_director: draft.author_director.trim() || null,
-      release_year:    year && !isNaN(year) ? year : null,
-      genre:           draft.genre.trim() || null,
-    })
-    setDraft({ title: '', type: 'film', member_id: null, author_director: '', release_year: '', genre: '' })
-    setShowAdd(false)
+    try {
+      await addItem.mutateAsync({
+        title:           draft.title,
+        type:            draft.type,
+        member_id:       draft.member_id,
+        author_director: draft.author_director.trim() || null,
+        release_year:    year && !isNaN(year) ? year : null,
+        genre:           draft.genre.trim() || null,
+      })
+      setDraft({ title: '', type: 'film', member_id: null, author_director: '', release_year: '', genre: '' })
+      setShowAdd(false)
+    } catch { /* onError handles toast */ }
   }
 
   function handleCycleStatus(item: MediaItem) {

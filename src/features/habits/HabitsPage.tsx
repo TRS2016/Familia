@@ -114,8 +114,10 @@ export default function HabitsPage() {
   async function handleEditSubmit(e: FormEvent) {
     e.preventDefault()
     if (!editTarget || !editDraft.name.trim()) return
-    await editHabit.mutateAsync({ id: editTarget.id, ...editDraft })
-    setEditTarget(null)
+    try {
+      await editHabit.mutateAsync({ id: editTarget.id, ...editDraft })
+      setEditTarget(null)
+    } catch { /* onError handles toast */ }
   }
 
   /**
@@ -129,15 +131,17 @@ export default function HabitsPage() {
       console.error('[HabitsPage] handleAddSubmit: currentMember est null, impossible de créer l\'habitude')
       return
     }
-    await addHabit.mutateAsync({
-      name: draft.name,
-      emoji: draft.emoji,
-      member_id: draft.member_id ?? currentMember?.id ?? null,
-      color: null,
-      frequency: draft.frequency,
-    })
-    setDraft({ name: '', emoji: '⭐', member_id: currentMember?.id ?? null, frequency: 'daily' })
-    setShowAdd(false)
+    try {
+      await addHabit.mutateAsync({
+        name: draft.name,
+        emoji: draft.emoji,
+        member_id: draft.member_id ?? currentMember?.id ?? null,
+        color: null,
+        frequency: draft.frequency,
+      })
+      setDraft({ name: '', emoji: '⭐', member_id: currentMember?.id ?? null, frequency: 'daily' })
+      setShowAdd(false)
+    } catch { /* onError handles toast */ }
   }
 
   const isLoading = habitsLoading || (habitIds.length > 0 && compLoading)
