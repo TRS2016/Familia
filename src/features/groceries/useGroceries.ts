@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/useToast'
 
 export const GROCERIES_KEY = ['groceries', HOUSEHOLD_ID] as const
 
@@ -288,6 +288,7 @@ export function useGroceries() {
       if (items.length > 0) {
         const { error: itemsErr } = await supabase
           .from('grocery_saved_items')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .insert(items.map(item => ({ ...item, list_id: (list as any).id })))
         if (itemsErr) throw itemsErr
       }

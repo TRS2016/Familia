@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, Copy, Check } from 'lucide-react'
@@ -10,7 +10,7 @@ import { QK } from '../lib/query-keys'
 import { useMember } from '../auth/useMember'
 import type { Member } from '../auth/useMember'
 import { useNotificationToggle } from '../auth/useNotificationToggle'
-import { useToast } from '../components/Toast'
+import { useToast } from '../components/useToast'
 import { MEMBER_PALETTE } from '../lib/constants'
 import { useTheme } from '../lib/useTheme'
 import type { Theme } from '../lib/useTheme'
@@ -27,10 +27,6 @@ export default function SettingsPage() {
   // ── Display name ──────────────────────────────────────────────────────────
   const [displayName, setDisplayName] = useState(member?.display_name ?? '')
   const [nameSaving, setNameSaving] = useState(false)
-
-  useEffect(() => {
-    if (member?.display_name) setDisplayName(member.display_name)
-  }, [member?.display_name])
 
   async function handleNameSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()

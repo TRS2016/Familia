@@ -7,7 +7,7 @@ import { ChevronLeft, ChevronRight, Plus, Settings, Download } from 'lucide-reac
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/useToast'
 import {
   useKakeboCategories,
   useKakeboEntries,
@@ -80,11 +80,13 @@ export default function KakeboPage() {
   })
 
   // Reset draft category when categories load
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (categories.length > 0 && !draft.category_id) {
       setDraft(d => ({ ...d, category_id: firstCatId }))
     }
   }, [categories, firstCatId, draft.category_id])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Computations ──────────────────────────────────────────────────────────
 
@@ -107,16 +109,19 @@ export default function KakeboPage() {
   // Donut math
   const donutR = 54
   const donutC = 2 * Math.PI * donutR
-  let cumPct = 0
   const spendCats = categories.filter(c => c.type !== 'income')
-  const arcs = spendCats.map(cat => {
+  const arcBases = spendCats.map(cat => {
     const v = totalByCategory[cat.id] ?? 0
     const pct = totalDepenses > 0 ? v / totalDepenses : 0
-    const dash = pct * donutC
-    const offset = -cumPct * donutC
-    cumPct += pct
-    return { cat, pct, dash, offset, value: v }
+    return { cat, pct, value: v }
   })
+  // Prefix sums: cumPcts[i] = sum of pcts before index i (no mutation needed)
+  const cumPcts = arcBases.reduce<number[]>((acc, a) => [...acc, acc[acc.length - 1] + a.pct], [0])
+  const arcs = arcBases.map((a, i) => ({
+    ...a,
+    dash: a.pct * donutC,
+    offset: -cumPcts[i] * donutC,
+  }))
 
   // Daily rhythm
   const daysCount = getDaysInMonth(refDate)

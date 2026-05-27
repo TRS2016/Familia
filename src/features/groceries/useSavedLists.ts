@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/useToast'
 
 export const SAVED_LISTS_KEY = ['grocery-saved-lists', HOUSEHOLD_ID] as const
 
@@ -43,6 +43,7 @@ export function useSavedLists() {
         .eq('household_id', HOUSEHOLD_ID)
         .order('created_at', { ascending: false })
       if (error) throw error
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return (data as any[]).map(d => ({
         id: d.id,
         household_id: d.household_id,
@@ -61,6 +62,7 @@ export function useSavedLists() {
         .select()
         .single()
       if (error) throw error
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return { ...(data as any), item_count: 0 }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SAVED_LISTS_KEY }),
@@ -109,10 +111,12 @@ export function useSavedLists() {
       if (items && items.length > 0) {
         const { error: insertErr } = await supabase
           .from('grocery_saved_items')
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
           .insert((items as any[]).map(item => ({ ...item, list_id: (newList as any).id })))
         if (insertErr) throw insertErr
       }
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return { ...(newList as any), item_count: items?.length ?? 0 }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SAVED_LISTS_KEY }),

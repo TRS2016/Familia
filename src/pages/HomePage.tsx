@@ -8,7 +8,7 @@ import { supabase } from '../lib/supabase'
 import { HOUSEHOLD_ID } from '../lib/config'
 import { useMember } from '../auth/useMember'
 import { QK } from '../lib/query-keys'
-import { useToast } from '../components/Toast'
+import { useToast } from '../components/useToast'
 import LoadingPage from '../components/LoadingPage'
 import { MEMBER_PALETTE } from '../lib/constants'
 import { capitalize } from '../lib/utils'
@@ -191,10 +191,12 @@ export default function HomePage() {
     enabled: !!member,
   })
 
-  // Sync note text when household loads
+  // Sync note text when household loads (async — must stay in effect)
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (householdDetails?.note != null) setNoteText(householdDetails.note)
   }, [householdDetails?.note])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const saveNote = useMutation({
     mutationFn: async (note: string) => {

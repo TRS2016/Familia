@@ -29,7 +29,7 @@ type View = 'week' | '3day' | 'month' | 'agenda'
 const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const HOUR_HEIGHT = 48 // px per hour in the week grid
 
-export function getMemberColor(
+function getMemberColor(
   memberId: string | null,
   allMembers: { id: string }[],
 ): string {

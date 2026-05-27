@@ -48,6 +48,7 @@ export function EventFormModal({
   const [formDescription, setFormDescription] = useState('')
   const [formRecurrence, setFormRecurrence] = useState<RecurrenceType>('none')
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!isOpen) return
     if (editingEvent) {
@@ -74,6 +75,7 @@ export function EventFormModal({
       setFormRecurrence('none')
     }
   }, [isOpen, editingEvent, addDefaults, currentMemberId])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()

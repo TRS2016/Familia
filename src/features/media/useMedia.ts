@@ -3,7 +3,7 @@ import { format } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/useToast'
 
 export type MediaType   = 'film' | 'série' | 'livre' | 'jeu'
 export type MediaStatus = 'à voir' | 'en cours' | 'terminé'

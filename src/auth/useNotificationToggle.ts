@@ -5,7 +5,7 @@ import { QK } from '../lib/query-keys'
 import { useMember } from './useMember'
 import type { Member } from './useMember'
 import { useAuth } from './useAuth'
-import { useToast } from '../components/Toast'
+import { useToast } from '../components/useToast'
 import { subscribeToPush, unsubscribeFromPush, PushError } from '../lib/push'
 
 function errorMessage(err: unknown): { message: string; persistent: boolean } {

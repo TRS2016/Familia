@@ -1,11 +1,11 @@
-import { createContext, useContext, useState, useCallback } from 'react'
+import { useState, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import { X } from 'lucide-react'
 import styles from './Toast.module.css'
+import { ToastContext } from './useToast'
+import type { ToastType } from './useToast'
 
 // ── Types ─────────────────────────────────────────────────────────────────
-
-export type ToastType = 'error' | 'success' | 'info'
 
 interface ToastItem {
   id: string
@@ -13,20 +13,6 @@ interface ToastItem {
   message: string
   leaving: boolean
   persistent?: boolean
-}
-
-interface ToastContextValue {
-  showToast: (opts: { type: ToastType; message: string; persistent?: boolean }) => void
-}
-
-// ── Context ───────────────────────────────────────────────────────────────
-
-const ToastContext = createContext<ToastContextValue | null>(null)
-
-export function useToast(): ToastContextValue {
-  const ctx = useContext(ToastContext)
-  if (!ctx) throw new Error('useToast must be used inside <ToastProvider>')
-  return ctx
 }
 
 // ── Provider ──────────────────────────────────────────────────────────────

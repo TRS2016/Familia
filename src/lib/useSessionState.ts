@@ -17,7 +17,7 @@ export function useSessionState<T>(key: string, initialValue: T): [T, SetValue<T
       const next = typeof value === 'function' ? (value as (p: T) => T)(prev) : value
       try {
         sessionStorage.setItem(key, JSON.stringify(next))
-      } catch {}
+      } catch { /* ignore */ }
       return next
     })
   }

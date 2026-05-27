@@ -81,6 +81,7 @@ export default function HabitsPage() {
   const today          = format(new Date(), 'yyyy-MM-dd')
   const currentWeekStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
   const isCurrentWeek  = format(weekCursor, 'yyyy-MM-dd') === currentWeekStr
+  // eslint-disable-next-line react-hooks/purity
   const MIN_WEEK_STR   = format(startOfWeek(new Date(Date.now() - 56 * 24 * 60 * 60 * 1000), { weekStartsOn: 1 }), 'yyyy-MM-dd')
   const weekNavLabel   = `${format(weekCursor, 'd MMM', { locale: fr })} – ${format(addDays(weekCursor, 6), 'd MMM', { locale: fr })}`
 

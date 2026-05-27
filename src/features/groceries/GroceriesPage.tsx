@@ -19,7 +19,7 @@ import { useCatalog } from './useCatalog'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/useToast'
 import styles from './GroceriesPage.module.css'
 
 const STORES_STORAGE_KEY = 'familia-grocery-stores'
@@ -172,7 +172,10 @@ export default function GroceriesPage() {
 
   // ── Données dérivées ────────────────────────────────────────────────────────
   // En mode shopping : liste locale éphémère. En mode édition : données Supabase.
-  const allItems       = shoppingMode ? shoppingItems : (query.data ?? [])
+  const allItems = useMemo(
+    () => shoppingMode ? shoppingItems : (query.data ?? []),
+    [shoppingMode, shoppingItems, query.data],
+  )
   const checked        = sortChecked(allItems)
   const checkedItems   = allItems.filter(g => g.checked)
   const uncheckedItems = allItems.filter(g => !g.checked)
@@ -229,6 +232,7 @@ export default function GroceriesPage() {
   }, [allItems])
 
   // ── Sync ordre avec les données serveur ──────────────────────────────────────
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     const data = query.data
     if (!data) return
@@ -239,10 +243,11 @@ export default function GroceriesPage() {
       const newIds = uncheckedIds.filter(id => !prevSet.has(id))  // nouveaux → devant
       const filtered = prev.filter(id => currentSet.has(id))       // retirer les supprimés
       const next = [...newIds, ...filtered]
-      try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch {}
+      try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch { /* ignore */ }
       return next
     })
   }, [query.data])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // ── Drag & drop (pointer events, mobile + desktop) ───────────────────────────
   const startDrag = useCallback((itemId: string, e: React.PointerEvent<HTMLLIElement>) => {
@@ -315,7 +320,7 @@ export default function GroceriesPage() {
                 next.splice(from, 1)
                 next.splice(to, 0, dId)
               }
-              try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch {}
+              try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch { /* ignore */ }
               return next
             })
           }

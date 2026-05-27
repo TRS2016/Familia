@@ -3,7 +3,7 @@ import imageCompression from 'browser-image-compression'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
-import { useToast } from '../../components/Toast'
+import { useToast } from '../../components/useToast'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 

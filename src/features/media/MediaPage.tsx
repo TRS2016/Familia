@@ -481,8 +481,10 @@ function MediaDetailModal({ item, members, onClose, onCycleStatus, onUpdate, onD
   })
   const [commentText, setCommentText] = useState(item.comment ?? '')
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { setCommentText(item.comment ?? '') }, [item.comment])
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setEditDraft({
       title:           item.title,
@@ -492,6 +494,7 @@ function MediaDetailModal({ item, members, onClose, onCycleStatus, onUpdate, onD
       genre:           item.genre ?? '',
     })
   }, [item.id])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const statusStyle: Record<string, { background: string; color: string; borderColor: string }> = {
     'à voir':   { background: 'transparent', color: 'var(--text-muted)', borderColor: 'var(--border)' },
