@@ -5,6 +5,7 @@ import { Link } from 'react-router-dom'
 import {
   ChevronLeft, Plus, SlidersHorizontal, ShoppingCart,
   MapPin, Bookmark, FolderOpen, Share2, AlignJustify, LayoutList,
+  Search, X,
 } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
@@ -160,6 +161,7 @@ export default function GroceriesPage() {
   const [groupMode, setGroupMode]           = useState<GroupMode>('category')
   const [compactMode, setCompactMode]       = useState(false)
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
+  const [filterText, setFilterText]         = useState('')
 
   // ── Ordre drag & drop ────────────────────────────────────────────────────────
   const [orderedIds, setOrderedIds] = useState<string[]>(() => {
@@ -176,9 +178,13 @@ export default function GroceriesPage() {
     () => shoppingMode ? shoppingItems : (query.data ?? []),
     [shoppingMode, shoppingItems, query.data],
   )
-  const checked        = sortChecked(allItems)
   const checkedItems   = allItems.filter(g => g.checked)
   const uncheckedItems = allItems.filter(g => !g.checked)
+  const checkedDisplay = useMemo(() => {
+    const all = sortChecked(allItems)
+    const q = filterText.trim().toLowerCase()
+    return q ? all.filter(g => g.name.toLowerCase().includes(q)) : all
+  }, [allItems, filterText])
 
   // En mode shopping : tri auto par enseigne + filtre membre désactivé
   const effectiveGroupMode: GroupMode = shoppingMode ? 'store' : groupMode
@@ -186,12 +192,14 @@ export default function GroceriesPage() {
   // En mode édition : ordre drag & drop. En shopping : ordre de shoppingItems (modifiable par DnD).
   const uncheckedFiltered = useMemo(() => {
     const unchecked = allItems.filter(g => !g.checked)
-    const filtered = !shoppingMode && filterMemberId
+    const memberFiltered = !shoppingMode && filterMemberId
       ? unchecked.filter(g => g.created_by === filterMemberId)
       : unchecked
-    if (shoppingMode) return filtered
-    return applyOrder(filtered, orderedIds)
-  }, [allItems, orderedIds, filterMemberId, shoppingMode])
+    const q = filterText.trim().toLowerCase()
+    const textFiltered = q ? memberFiltered.filter(g => g.name.toLowerCase().includes(q)) : memberFiltered
+    if (shoppingMode) return textFiltered
+    return applyOrder(textFiltered, orderedIds)
+  }, [allItems, orderedIds, filterMemberId, shoppingMode, filterText])
 
   const uncheckedGroups = useMemo(
     () => effectiveGroupMode === 'category' ? groupByCategory(uncheckedFiltered) : groupByStore(uncheckedFiltered),
@@ -459,6 +467,7 @@ export default function GroceriesPage() {
   }
 
   function handleShoppingToggle() {
+    setFilterText('')
     if (!shoppingMode) {
       setShoppingMode(true)
       setShowLoadModal(shoppingItems.length === 0)
@@ -736,6 +745,30 @@ export default function GroceriesPage() {
         </div>
       )}
 
+      {/* Barre de recherche — visible dans les deux modes dès qu'il y a des articles */}
+      {allItems.length > 0 && (
+        <div className={styles.searchBar}>
+          <Search size={14} strokeWidth={2.5} className={styles.searchIcon} />
+          <input
+            type="search"
+            value={filterText}
+            onChange={e => setFilterText(e.target.value)}
+            placeholder={shoppingMode ? 'Rechercher…' : 'Filtrer la liste…'}
+            className={styles.searchInput}
+          />
+          {filterText && (
+            <button
+              type="button"
+              className={styles.searchClear}
+              onClick={() => setFilterText('')}
+              aria-label="Effacer la recherche"
+            >
+              <X size={14} strokeWidth={2.5} />
+            </button>
+          )}
+        </div>
+      )}
+
       {query.isLoading && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
           <Spinner size={32} />
@@ -793,7 +826,7 @@ export default function GroceriesPage() {
       ))}
 
       {/* Articles cochés */}
-      {checked.length > 0 && (
+      {checkedDisplay.length > 0 && (
         <>
           <div className={styles.separator}>
             <span className={styles.separatorLine} />
@@ -810,7 +843,7 @@ export default function GroceriesPage() {
             )}
           </div>
           <ul className={styles.list}>
-            {checked.map(item => (
+            {checkedDisplay.map(item => (
               <GroceryItem
                 key={item.id}
                 item={item}
