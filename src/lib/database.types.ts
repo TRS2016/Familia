@@ -639,6 +639,51 @@ export type Database = {
           },
         ]
       }
+      shopping_sessions: {
+        Row: {
+          id: string
+          household_id: string
+          done_by: string | null
+          total: number | null
+          item_count: number
+          items: Json
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          household_id: string
+          done_by?: string | null
+          total?: number | null
+          item_count?: number
+          items?: Json
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          household_id?: string
+          done_by?: string | null
+          total?: number | null
+          item_count?: number
+          items?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "shopping_sessions_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shopping_sessions_done_by_fkey"
+            columns: ["done_by"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           auth: string

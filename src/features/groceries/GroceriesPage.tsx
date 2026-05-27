@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import {
   ChevronLeft, Plus, SlidersHorizontal, ShoppingCart,
   MapPin, Bookmark, FolderOpen, Share2, AlignJustify, LayoutList,
-  Search, X,
+  Search, X, Clock,
 } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
@@ -17,6 +17,8 @@ import { GroceryItem } from './GroceryItem'
 import { CatalogPickerModal } from './CatalogPickerModal'
 import { LoadListModal } from './LoadListModal'
 import { useCatalog } from './useCatalog'
+import { useShoppingHistory, useSaveSession } from './useShoppingHistory'
+import type { SessionItem } from './useShoppingHistory'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -81,6 +83,16 @@ function sortChecked(items: Grocery[]): Grocery[] {
     )
 }
 
+function formatSessionDate(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000)
+  if (diffDays === 0) return "Aujourd'hui"
+  if (diffDays === 1) return 'Hier'
+  if (diffDays < 7) return `Il y a ${diffDays}j`
+  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
+}
+
 // ── Groupage ──────────────────────────────────────────────────────────────────
 
 type Group = { label: string | null; items: Grocery[] }
@@ -127,6 +139,7 @@ export default function GroceriesPage() {
   useGroceriesRealtime()
   const catalog = useCatalog()
   const { showToast } = useToast()
+  const saveSession = useSaveSession()
 
   const [showCatalogPicker, setShowCatalogPicker] = useState(false)
 
@@ -160,8 +173,12 @@ export default function GroceriesPage() {
   // ── Affichage ────────────────────────────────────────────────────────────────
   const [groupMode, setGroupMode]           = useState<GroupMode>('category')
   const [compactMode, setCompactMode]       = useState(false)
-  const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
-  const [filterText, setFilterText]         = useState('')
+  const [filterMemberId, setFilterMemberId]     = useState<string | null>(null)
+  const [filterText, setFilterText]             = useState('')
+  const [showArchivePrompt, setShowArchivePrompt] = useState(false)
+  const [showHistory, setShowHistory]             = useState(false)
+
+  const { data: sessions = [], isLoading: sessionsLoading } = useShoppingHistory({ enabled: showHistory })
 
   // ── Ordre drag & drop ────────────────────────────────────────────────────────
   const [orderedIds, setOrderedIds] = useState<string[]>(() => {
@@ -473,9 +490,31 @@ export default function GroceriesPage() {
       setShowLoadModal(shoppingItems.length === 0)
       setEditingBudget(false)
     } else {
-      setShoppingMode(false)
-      setShoppingItems([])
+      const hadChecked = shoppingItems.some(g => g.checked)
+      if (hadChecked) {
+        setShowArchivePrompt(true)
+      } else {
+        setShoppingMode(false)
+        setShoppingItems([])
+      }
     }
+  }
+
+  async function handleArchiveDecision(save: boolean) {
+    if (save) {
+      const done = shoppingItems.filter(g => g.checked)
+      const items: SessionItem[] = done.map(g => ({
+        name: g.name, qty: g.quantity, price: g.price, store: g.store,
+      }))
+      const total = computeTotal(done)
+      try {
+        await saveSession.mutateAsync({ items, total: total > 0 ? total : null })
+        showToast({ type: 'success', message: 'Session de courses archivée !' })
+      } catch { /* onError handles toast */ }
+    }
+    setShowArchivePrompt(false)
+    setShoppingMode(false)
+    setShoppingItems([])
   }
 
   function handleShare() {
@@ -535,6 +574,13 @@ export default function GroceriesPage() {
                   ? <LayoutList size={15} strokeWidth={2.5} />
                   : <AlignJustify size={15} strokeWidth={2.5} />
                 }
+              </button>
+              <button
+                className={styles.headerIconBtn}
+                onClick={() => setShowHistory(true)}
+                aria-label="Historique des courses"
+              >
+                <Clock size={15} strokeWidth={2.5} />
               </button>
               <Link to="/groceries/saved" className={styles.savedListsLink} aria-label="Mes listes">
                 <Bookmark size={14} strokeWidth={2.5} />
@@ -971,6 +1017,66 @@ export default function GroceriesPage() {
             onClose={() => setShowLoadModal(false)}
             onLoad={loadShoppingList}
           />
+        </SlideUpModal>
+      )}
+
+      {/* Modal — Archiver la session de courses */}
+      {showArchivePrompt && (
+        <SlideUpModal title="Courses terminées ?" onClose={() => handleArchiveDecision(false)}>
+          <div className={styles.archivePromptBody}>
+            <p className={styles.archivePromptSummary}>
+              🛒 <strong>{shoppingItems.filter(g => g.checked).length}</strong> article{shoppingItems.filter(g => g.checked).length > 1 ? 's' : ''} cochés
+              {computeTotal(shoppingItems.filter(g => g.checked)) > 0 && (
+                <> · <strong>{formatPrice(computeTotal(shoppingItems.filter(g => g.checked)))}</strong></>
+              )}
+            </p>
+            <button
+              className={styles.archiveBtn}
+              onClick={() => handleArchiveDecision(true)}
+              disabled={saveSession.isPending}
+            >
+              {saveSession.isPending ? 'Archivage…' : 'Archiver cette session'}
+            </button>
+            <button
+              className={styles.archiveSkipBtn}
+              onClick={() => handleArchiveDecision(false)}
+              disabled={saveSession.isPending}
+            >
+              Quitter sans archiver
+            </button>
+          </div>
+        </SlideUpModal>
+      )}
+
+      {/* Modal — Historique des courses */}
+      {showHistory && (
+        <SlideUpModal title="Historique des courses" onClose={() => setShowHistory(false)}>
+          <div className={styles.historyBody}>
+            {sessionsLoading ? (
+              <p className={styles.historyEmpty}>Chargement…</p>
+            ) : sessions.length === 0 ? (
+              <p className={styles.historyEmpty}>Aucune session archivée pour l'instant.</p>
+            ) : (
+              <ul className={styles.historyList}>
+                {sessions.map(s => (
+                  <li key={s.id} className={styles.historyItem}>
+                    <div className={styles.historyItemLeft}>
+                      <span className={styles.historyDate}>{formatSessionDate(s.created_at)}</span>
+                      {s.done_by_member && (
+                        <span className={styles.historyMember}>{s.done_by_member.display_name}</span>
+                      )}
+                    </div>
+                    <div className={styles.historyItemRight}>
+                      <span className={styles.historyCount}>{s.item_count} art.</span>
+                      {s.total !== null && (
+                        <span className={styles.historyTotal}>{formatPrice(s.total)}</span>
+                      )}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </SlideUpModal>
       )}
 

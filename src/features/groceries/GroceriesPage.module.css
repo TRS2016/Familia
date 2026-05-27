@@ -1425,6 +1425,128 @@
   text-decoration: none;
 }
 
+/* ── Archive prompt ──────────────────────────────────────────────────────── */
+
+.archivePromptBody {
+  padding: 0 20px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.archivePromptSummary {
+  font-size: 15px;
+  color: var(--text);
+  font-weight: 600;
+  margin: 0 0 4px;
+  text-align: center;
+}
+
+.archiveBtn {
+  width: 100%;
+  padding: 13px;
+  background: #5B9E8F;
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: 15px;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.archiveBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.archiveSkipBtn {
+  width: 100%;
+  padding: 12px;
+  background: none;
+  border: 1.5px solid var(--border);
+  color: var(--text-muted);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+  margin-bottom: 4px;
+}
+
+.archiveSkipBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Historique des courses ───────────────────────────────────────────────── */
+
+.historyBody {
+  padding-bottom: 8px;
+}
+
+.historyEmpty {
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: center;
+  padding: 24px 20px;
+  margin: 0;
+}
+
+.historyList {
+  list-style: none;
+  margin: 0;
+  padding: 0 16px;
+}
+
+.historyItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--border-subtle);
+  gap: 12px;
+}
+
+.historyItem:last-child { border-bottom: none; }
+
+.historyItemLeft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.historyDate {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.historyMember {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.historyItemRight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.historyCount {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.historyTotal {
+  font-size: 15px;
+  font-weight: 900;
+  color: #5B9E8F;
+  letter-spacing: -0.3px;
+}
+
 /* ── Barre de recherche ──────────────────────────────────────────────────── */
 
 .searchBar {
