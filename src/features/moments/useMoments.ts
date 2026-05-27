@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import imageCompression from 'browser-image-compression'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
@@ -74,6 +73,7 @@ export function useAddMoment() {
       if (input.photo) {
         let file: File = input.photo
         if (file.size > 1_048_576) {
+          const { default: imageCompression } = await import('browser-image-compression')
           file = await imageCompression(file, {
             maxSizeMB: 1,
             maxWidthOrHeight: 1920,
