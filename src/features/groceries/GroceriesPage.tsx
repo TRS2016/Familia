@@ -17,7 +17,7 @@ import { GroceryItem } from './GroceryItem'
 import { CatalogPickerModal } from './CatalogPickerModal'
 import { LoadListModal } from './LoadListModal'
 import { useCatalog } from './useCatalog'
-import { useShoppingHistory, useSaveSession } from './useShoppingHistory'
+import { useShoppingHistory, useSaveSession, useSessionSuggestions } from './useShoppingHistory'
 import type { SessionItem } from './useShoppingHistory'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
@@ -101,15 +101,18 @@ function groupByCategory(items: Grocery[]): Group[] {
   const hasAny = items.some(g => g.category)
   if (!hasAny) return [{ label: null, items }]
 
-  // Preserve items insertion order — groups appear in the order their first item was encountered
-  const groupOrder: (string | null)[] = []
   const map = new Map<string | null, Grocery[]>()
   for (const item of items) {
     const k = item.category && CATEGORY_ORDER.includes(item.category as CategoryKey) ? item.category : null
-    if (!map.has(k)) { map.set(k, []); groupOrder.push(k) }
+    if (!map.has(k)) map.set(k, [])
     map.get(k)!.push(item)
   }
-  return groupOrder.map(k => ({ label: k, items: map.get(k)! }))
+  const ordered: Group[] = []
+  for (const key of CATEGORY_ORDER) {
+    if (map.has(key)) ordered.push({ label: key, items: map.get(key)! })
+  }
+  if (map.has(null)) ordered.push({ label: null, items: map.get(null)! })
+  return ordered
 }
 
 function groupByStore(items: Grocery[]): Group[] {
@@ -160,8 +163,9 @@ export default function GroceriesPage() {
   const [editCategory, setEditCategory] = useState<string | null>(null)
 
   // ── Mode shopping (persisté en sessionStorage — survit aux reloads, pas aux fermetures d'onglet)
-  const [shoppingMode, setShoppingMode]   = useSessionState<boolean>(`familia-shopping-mode-${HOUSEHOLD_ID}`, false)
-  const [shoppingItems, setShoppingItems] = useSessionState<Grocery[]>(`familia-shopping-${HOUSEHOLD_ID}`, [])
+  const [shoppingMode, setShoppingMode]       = useSessionState<boolean>(`familia-shopping-mode-${HOUSEHOLD_ID}`, false)
+  const [shoppingItems, setShoppingItems]     = useSessionState<Grocery[]>(`familia-shopping-${HOUSEHOLD_ID}`, [])
+  const [shoppingGroupMode, setShoppingGroupMode] = useSessionState<GroupMode>(`familia-shopping-group-${HOUSEHOLD_ID}`, 'category')
   const [budget, setBudget]               = useState(() => localStorage.getItem('familia-grocery-budget') ?? '')
   const [editingBudget, setEditingBudget] = useState(false)
   const [showLoadModal, setShowLoadModal] = useState(false)
@@ -179,6 +183,7 @@ export default function GroceriesPage() {
   const [showHistory, setShowHistory]             = useState(false)
 
   const { data: sessions = [], isLoading: sessionsLoading } = useShoppingHistory({ enabled: showHistory })
+  const { data: sessionSuggestions = [] } = useSessionSuggestions()
 
   // ── Ordre drag & drop ────────────────────────────────────────────────────────
   const [orderedIds, setOrderedIds] = useState<string[]>(() => {
@@ -203,8 +208,8 @@ export default function GroceriesPage() {
     return q ? all.filter(g => g.name.toLowerCase().includes(q)) : all
   }, [allItems, filterText])
 
-  // En mode shopping : tri auto par enseigne + filtre membre désactivé
-  const effectiveGroupMode: GroupMode = shoppingMode ? 'store' : groupMode
+  // En mode shopping : groupMode propre (défaut catégorie). En édition : groupMode normal.
+  const effectiveGroupMode: GroupMode = shoppingMode ? shoppingGroupMode : groupMode
 
   // En mode édition : ordre drag & drop. En shopping : ordre de shoppingItems (modifiable par DnD).
   const uncheckedFiltered = useMemo(() => {
@@ -243,11 +248,12 @@ export default function GroceriesPage() {
     return [...map.entries()].map(([id, name]) => ({ id, name }))
   }, [allItems])
 
-  // Suggestions noms : catalogue + localStorage
+  // Suggestions noms : catalogue → historique sessions → localStorage
   const nameOptions = useMemo(() => {
-    const fromCatalog = catalog.query.data?.map(c => c.name) ?? []
-    return [...new Set([...fromCatalog, ...getStoredNames()])]
-  }, [catalog.query.data])
+    const fromCatalog  = catalog.query.data?.map(c => c.name) ?? []
+    const fromSessions = sessionSuggestions.map(s => s.name)
+    return [...new Set([...fromCatalog, ...fromSessions, ...getStoredNames()])]
+  }, [catalog.query.data, sessionSuggestions])
 
   // Suggestions enseignes : articles courants + localStorage
   const storeOptions = useMemo(() => {
@@ -367,11 +373,19 @@ export default function GroceriesPage() {
   // ── Handlers ────────────────────────────────────────────────────────────────
   function handleNameChange(val: string) {
     setNewName(val)
-    const match = catalog.query.data?.find(c => c.name.toLowerCase() === val.toLowerCase())
-    if (match) {
-      if (match.price !== null) setNewPrice(String(match.price).replace('.', ','))
-      if (match.category) setFormCategory(match.category)
-      if (match.store) setNewStore(match.store)
+    const lower = val.toLowerCase()
+    const catalogMatch = catalog.query.data?.find(c => c.name.toLowerCase() === lower)
+    if (catalogMatch) {
+      if (catalogMatch.price !== null) setNewPrice(String(catalogMatch.price).replace('.', ','))
+      if (catalogMatch.category) setFormCategory(catalogMatch.category)
+      if (catalogMatch.store) setNewStore(catalogMatch.store)
+      setFormExpanded(true)
+      return
+    }
+    const historyMatch = sessionSuggestions.find(s => s.name.toLowerCase() === lower)
+    if (historyMatch) {
+      if (historyMatch.price !== null) setNewPrice(String(historyMatch.price).replace('.', ','))
+      if (historyMatch.store) setNewStore(historyMatch.store)
       setFormExpanded(true)
     }
   }
@@ -772,18 +786,18 @@ export default function GroceriesPage() {
         </div>
       )}
 
-      {/* Toggle Rayon / Enseigne — mode édition, seulement si des enseignes existent */}
-      {hasAnyStore && !shoppingMode && (
+      {/* Toggle Rayon / Enseigne — les deux modes dès qu'il existe des enseignes */}
+      {hasAnyStore && (
         <div className={styles.groupToggle}>
           <button
-            className={[styles.groupBtn, groupMode === 'category' ? styles.groupBtnActive : ''].join(' ')}
-            onClick={() => setGroupMode('category')}
+            className={[styles.groupBtn, effectiveGroupMode === 'category' ? styles.groupBtnActive : ''].join(' ')}
+            onClick={() => shoppingMode ? setShoppingGroupMode('category') : setGroupMode('category')}
           >
             Par rayon
           </button>
           <button
-            className={[styles.groupBtn, groupMode === 'store' ? styles.groupBtnActive : ''].join(' ')}
-            onClick={() => setGroupMode('store')}
+            className={[styles.groupBtn, effectiveGroupMode === 'store' ? styles.groupBtnActive : ''].join(' ')}
+            onClick={() => shoppingMode ? setShoppingGroupMode('store') : setGroupMode('store')}
           >
             <MapPin size={11} strokeWidth={2.5} />
             Par enseigne

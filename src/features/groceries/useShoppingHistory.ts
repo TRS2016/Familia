@@ -24,6 +24,40 @@ export interface ShoppingSession {
 }
 
 const SESSIONS_KEY = ['shopping-sessions', HOUSEHOLD_ID] as const
+const SUGGESTIONS_KEY = ['session-suggestions', HOUSEHOLD_ID] as const
+
+export interface SessionSuggestion {
+  name: string
+  store: string | null
+  price: number | null
+}
+
+export function useSessionSuggestions() {
+  return useQuery({
+    queryKey: SUGGESTIONS_KEY,
+    queryFn: async (): Promise<SessionSuggestion[]> => {
+      const { data, error } = await supabase
+        .from('shopping_sessions')
+        .select('items')
+        .eq('household_id', HOUSEHOLD_ID)
+        .order('created_at', { ascending: false })
+        .limit(30)
+      if (error) throw error
+      // Déduplique par nom (insensible à la casse), conserve l'occurrence la plus récente
+      const seen = new Map<string, SessionSuggestion>()
+      for (const row of (data ?? [])) {
+        for (const item of ((row.items as unknown as SessionItem[]) ?? [])) {
+          const key = item.name.trim().toLowerCase()
+          if (key && !seen.has(key)) {
+            seen.set(key, { name: item.name.trim(), store: item.store, price: item.price })
+          }
+        }
+      }
+      return [...seen.values()]
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
 
 export function useShoppingHistory(opts?: { enabled?: boolean }) {
   return useQuery({
