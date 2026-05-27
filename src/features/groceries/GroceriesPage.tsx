@@ -337,7 +337,7 @@ export default function GroceriesPage() {
     window.addEventListener('pointermove', onMove, { passive: false })
     window.addEventListener('pointerup', endDrag)
     window.addEventListener('pointercancel', endDrag)
-  }, [shoppingMode])
+  }, [shoppingMode, setShoppingItems])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   function handleNameChange(val: string) {

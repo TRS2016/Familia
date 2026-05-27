@@ -484,7 +484,6 @@ function MediaDetailModal({ item, members, onClose, onCycleStatus, onUpdate, onD
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => { setCommentText(item.comment ?? '') }, [item.comment])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => {
     setEditDraft({
       title:           item.title,
@@ -493,6 +492,7 @@ function MediaDetailModal({ item, members, onClose, onCycleStatus, onUpdate, onD
       release_year:    item.release_year != null ? String(item.release_year) : '',
       genre:           item.genre ?? '',
     })
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [item.id])
   /* eslint-enable react-hooks/set-state-in-effect */
 
