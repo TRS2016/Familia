@@ -114,15 +114,19 @@ export default function MomentsPage() {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!text.trim() && !photo) return
-    await addMoment.mutateAsync({ text, photo })
-    resetCompose()
-    setShowCompose(false)
+    try {
+      await addMoment.mutateAsync({ text, photo })
+      resetCompose()
+      setShowCompose(false)
+    } catch { /* onError handles toast */ }
   }
 
   async function handleConfirmDelete() {
     if (!confirmDelete) return
-    await deleteMoment.mutateAsync({ id: confirmDelete.id, photo_path: confirmDelete.photo_path })
-    setConfirmDelete(null)
+    try {
+      await deleteMoment.mutateAsync({ id: confirmDelete.id, photo_path: confirmDelete.photo_path })
+      setConfirmDelete(null)
+    } catch { /* onError handles toast */ }
   }
 
   const canPublish = (text.trim().length > 0 || !!photo) && !addMoment.isPending
@@ -132,7 +136,7 @@ export default function MomentsPage() {
 
       {/* Header */}
       <header className={styles.header}>
-        <Link to="/" className={styles.backLink}>
+        <Link to="/" className={styles.backLink} aria-label="Retour">
           <ChevronLeft size={22} strokeWidth={2.5} />
         </Link>
         <h1 className={styles.pageTitle}>Moments</h1>

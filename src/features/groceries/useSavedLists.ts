@@ -28,6 +28,18 @@ export interface SavedItem {
   created_at: string
 }
 
+// Supabase returns count aggregates as an array — not reflected in generated types
+interface RawListWithCount {
+  id: string
+  household_id: string
+  name: string
+  created_at: string
+  grocery_saved_items: Array<{ count: number }>
+}
+
+type RawListRow = Omit<SavedList, 'item_count'>
+type SavedItemPartial = Pick<SavedItem, 'name' | 'quantity' | 'price' | 'category' | 'store'>
+
 // ── Listes ────────────────────────────────────────────────────────────────────
 
 export function useSavedLists() {
@@ -43,8 +55,7 @@ export function useSavedLists() {
         .eq('household_id', HOUSEHOLD_ID)
         .order('created_at', { ascending: false })
       if (error) throw error
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return (data as any[]).map(d => ({
+      return (data as unknown as RawListWithCount[]).map(d => ({
         id: d.id,
         household_id: d.household_id,
         name: d.name,
@@ -62,8 +73,7 @@ export function useSavedLists() {
         .select()
         .single()
       if (error) throw error
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return { ...(data as any), item_count: 0 }
+      return { ...(data as unknown as RawListRow), item_count: 0 }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SAVED_LISTS_KEY }),
     onError: () => showToast({ type: 'error', message: 'Impossible de créer la liste.' }),
@@ -111,13 +121,11 @@ export function useSavedLists() {
       if (items && items.length > 0) {
         const { error: insertErr } = await supabase
           .from('grocery_saved_items')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .insert((items as any[]).map(item => ({ ...item, list_id: (newList as any).id })))
+          .insert((items as unknown as SavedItemPartial[]).map(item => ({ ...item, list_id: (newList as unknown as RawListRow).id })))
         if (insertErr) throw insertErr
       }
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      return { ...(newList as any), item_count: items?.length ?? 0 }
+      return { ...(newList as unknown as RawListRow), item_count: items?.length ?? 0 }
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: SAVED_LISTS_KEY }),
     onError: () => showToast({ type: 'error', message: 'Impossible de dupliquer la liste.' }),

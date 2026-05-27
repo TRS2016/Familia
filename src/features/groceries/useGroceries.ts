@@ -283,13 +283,12 @@ export function useGroceries() {
         .insert({ household_id: HOUSEHOLD_ID, name })
         .select()
         .single()
-      if (listErr) throw listErr
+      if (listErr || !list) throw listErr ?? new Error('No list created')
 
       if (items.length > 0) {
         const { error: itemsErr } = await supabase
           .from('grocery_saved_items')
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          .insert(items.map(item => ({ ...item, list_id: (list as any).id })))
+          .insert(items.map(item => ({ ...item, list_id: list.id })))
         if (itemsErr) throw itemsErr
       }
       return list
