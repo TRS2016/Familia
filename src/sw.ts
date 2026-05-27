@@ -37,6 +37,7 @@ const MODULE_ROUTES: Record<string, string> = {
   kakebo:    '/kakebo',
   habits:    '/habits',
   media:     '/media',
+  moments:   '/moments',
 }
 
 // ── Push listener ─────────────────────────────────────────────────────────
