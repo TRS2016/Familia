@@ -144,12 +144,10 @@ Deno.serve(async (req: Request) => {
       await supabase.from('push_subscriptions').delete().in('endpoint', deadEndpoints)
     }
 
-    // Mark event as reminded
+    // Mark event as reminded (upsert + ignoreDuplicates = no error si déjà présent)
     await supabase
       .from('event_reminders_sent')
-      .insert({ event_id: ev.id })
-      .onConflict('event_id')
-      .ignore()
+      .upsert({ event_id: ev.id }, { onConflict: 'event_id', ignoreDuplicates: true })
 
     console.log(`[remind-events] Reminded "${ev.title}" → ${totalSent} push(es) sent.`)
   }

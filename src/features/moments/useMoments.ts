@@ -129,10 +129,16 @@ export function useAddMoment() {
       queryClient.setQueryData<Moment[]>(MOMENTS_KEY, [optimistic, ...previous])
       return { previous, optimisticId: optimistic.id }
     },
-    onSuccess: (newMoment, _input, context) => {
+    onSuccess: (newMoment, input, context) => {
       queryClient.setQueryData<Moment[]>(MOMENTS_KEY, old =>
         (old ?? []).map(m => m.id === context?.optimisticId ? newMoment : m)
       )
+      const body = input.text?.trim()
+        ? (input.text.trim().length > 60 ? input.text.trim().slice(0, 57) + '…' : input.text.trim())
+        : '📸 Nouvelle photo'
+      void supabase.functions.invoke('notify-household', {
+        body: { title: `Nouveau moment de ${member?.display_name ?? 'quelqu\'un'}`, body, module: 'moments' },
+      })
     },
     onError: (_err, _input, ctx) => {
       queryClient.setQueryData(MOMENTS_KEY, ctx?.previous ?? [])
