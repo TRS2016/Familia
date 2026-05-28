@@ -20,6 +20,7 @@ const CATEGORY_ORDER = CATEGORIES.map(c => c.key)
 export default function SharedListPage() {
   const { token } = useParams<{ token: string }>()
   const [items, setItems] = useState<SharedItem[] | null>(null)
+  const [listName, setListName] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -28,10 +29,10 @@ export default function SharedListPage() {
     fetch(`${SUPABASE_URL}/functions/v1/share-list-read?token=${token}`, {
       headers: { apikey: SUPABASE_KEY },
     })
-      .then(r => r.json() as Promise<{ items?: SharedItem[]; error?: string }>)
+      .then(r => r.json() as Promise<{ items?: SharedItem[]; list_name?: string | null; error?: string }>)
       .then(data => {
         if (data.error) setError(data.error)
-        else setItems(data.items ?? [])
+        else { setItems(data.items ?? []); setListName(data.list_name ?? null) }
       })
       .catch(() => setError('Impossible de charger la liste'))
       .finally(() => setLoading(false))
@@ -65,7 +66,7 @@ export default function SharedListPage() {
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.title}>🛒 Liste de courses</h1>
+      <h1 className={styles.title}>🛒 {listName ?? 'Liste de courses'}</h1>
 
       {items?.length === 0 ? (
         <p className={styles.empty}>La liste est vide pour l'instant.</p>

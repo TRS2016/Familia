@@ -29,7 +29,7 @@ Deno.serve(async (req: Request) => {
 
   const { data: tokenRow } = await supabase
     .from('shared_list_tokens')
-    .select('household_id, expires_at')
+    .select('household_id, expires_at, list_id')
     .eq('token', token)
     .maybeSingle()
 
@@ -37,6 +37,27 @@ Deno.serve(async (req: Request) => {
     return json({ error: 'Lien invalide ou expiré' }, 404)
   }
 
+  const listId = tokenRow.list_id as string | null
+
+  if (listId) {
+    // Partage d'une liste sauvegardée
+    const [listRes, itemsRes] = await Promise.all([
+      supabase.from('grocery_saved_lists').select('name').eq('id', listId).single(),
+      supabase
+        .from('grocery_saved_items')
+        .select('name, quantity, price, category, store')
+        .eq('list_id', listId)
+        .order('created_at', { ascending: true }),
+    ])
+    if (itemsRes.error) return json({ error: 'Erreur serveur' }, 500)
+    return json({
+      items: itemsRes.data ?? [],
+      list_name: (listRes.data as { name: string } | null)?.name ?? null,
+      expires_at: tokenRow.expires_at,
+    })
+  }
+
+  // Compat. ascendante : liste courante non-cochée
   const { data: items, error } = await supabase
     .from('groceries')
     .select('name, quantity, price, category, store')
@@ -45,6 +66,5 @@ Deno.serve(async (req: Request) => {
     .order('created_at', { ascending: false })
 
   if (error) return json({ error: 'Erreur serveur' }, 500)
-
-  return json({ items: items ?? [], expires_at: tokenRow.expires_at })
+  return json({ items: items ?? [], list_name: null, expires_at: tokenRow.expires_at })
 })

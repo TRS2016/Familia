@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus, Trash2, Check, Copy, ChevronRight, Pencil, X } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, Check, Copy, ChevronRight, Pencil, X, Share2, Link as LinkIcon } from 'lucide-react'
 import { useSavedLists, useSavedListDetail } from './useSavedLists'
 import type { SavedItem } from './useSavedLists'
 import { useGroceries } from './useGroceries'
+import { useShareToken } from './useShareToken'
+import { useToast } from '../../components/useToast'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -153,10 +155,13 @@ function ListDetailView({
   const { query, addItem, updateItem, deleteItem, moveItem } = useSavedListDetail(listId)
   const otherLists = (listsQuery.data ?? []).filter(l => l.id !== listId)
   const { loadSavedList } = useGroceries()
+  const shareToken = useShareToken(listId)
+  const { showToast } = useToast()
   const navigate = useNavigate()
 
   const [name, setName] = useState(listName)
   const [editingName, setEditingName] = useState(false)
+  const [showShareModal, setShowShareModal] = useState(false)
 
   const [newItemName, setNewItemName] = useState('')
   const [editingItem, setEditingItem] = useState<SavedItem | null>(null)
@@ -213,6 +218,20 @@ function ListDetailView({
     })
   }
 
+  async function handleCreateShareLink() {
+    const result = await shareToken.create.mutateAsync()
+    const url = `${window.location.origin}/share/${result.token}`
+    if (navigator.share) {
+      navigator.share({ url, title: name }).catch(() => {
+        navigator.clipboard.writeText(url)
+        showToast({ type: 'success', message: 'Lien copié !' })
+      })
+    } else {
+      navigator.clipboard.writeText(url)
+      showToast({ type: 'success', message: 'Lien copié !' })
+    }
+  }
+
   function handleDuplicate() {
     duplicateList.mutate(
       { id: listId, name: `${name} (copie)` },
@@ -248,7 +267,13 @@ function ListDetailView({
           </button>
         )}
 
-        <div style={{ width: 32 }} />
+        <button
+          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+          onClick={() => setShowShareModal(true)}
+          aria-label="Partager la liste"
+        >
+          <Share2 size={18} strokeWidth={2.5} />
+        </button>
       </header>
 
       {/* Formulaire ajout rapide */}
@@ -329,6 +354,60 @@ function ListDetailView({
           Dupliquer cette liste
         </button>
       </div>
+
+      {/* Modal partage */}
+      {showShareModal && (() => {
+        const shareUrl = shareToken.query.data
+          ? `${window.location.origin}/share/${shareToken.query.data.token}`
+          : null
+        return (
+          <SlideUpModal title="Partager la liste" onClose={() => setShowShareModal(false)}>
+            <div style={{ padding: '0 20px 8px', display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <p style={{ fontSize: 13, color: 'var(--text-muted)', margin: 0 }}>
+                Génère un lien valable 7 jours pour partager « {name} » en lecture seule, sans compte requis.
+              </p>
+              {shareUrl ? (
+                <>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: 'var(--bg-card)', borderRadius: 'var(--radius-sm)', padding: '10px 12px', border: '1px solid var(--border)' }}>
+                    <LinkIcon size={13} strokeWidth={2.5} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+                    <span style={{ fontSize: 12, color: 'var(--text)', wordBreak: 'break-all', flex: 1 }}>{shareUrl}</span>
+                  </div>
+                  <button
+                    className={styles.saveBtn}
+                    onClick={() => { navigator.clipboard.writeText(shareUrl); showToast({ type: 'success', message: 'Lien copié !' }) }}
+                  >
+                    Copier le lien
+                  </button>
+                  <button
+                    className={styles.actionDuplicate}
+                    onClick={() => handleCreateShareLink()}
+                    disabled={shareToken.create.isPending}
+                  >
+                    Regénérer le lien
+                  </button>
+                  <button
+                    className={styles.deleteItemBtn}
+                    onClick={() => { shareToken.revoke.mutate(); setShowShareModal(false) }}
+                    disabled={shareToken.revoke.isPending}
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                  >
+                    <Trash2 size={13} strokeWidth={2.5} />
+                    Révoquer l'accès
+                  </button>
+                </>
+              ) : (
+                <button
+                  className={styles.saveBtn}
+                  onClick={() => handleCreateShareLink()}
+                  disabled={shareToken.create.isPending}
+                >
+                  {shareToken.create.isPending ? 'Création…' : 'Créer le lien'}
+                </button>
+              )}
+            </div>
+          </SlideUpModal>
+        )
+      })()}
 
       {/* Modal édition article */}
       {editingItem && (

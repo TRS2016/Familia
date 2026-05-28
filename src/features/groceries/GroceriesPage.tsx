@@ -4,8 +4,8 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft, Plus, SlidersHorizontal, ShoppingCart,
-  MapPin, Bookmark, FolderOpen, Share2, AlignJustify, LayoutList,
-  Search, X, Clock, Link as LinkIcon, Trash2,
+  MapPin, Bookmark, FolderOpen, AlignJustify, LayoutList,
+  Search, X, Clock,
 } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
@@ -19,7 +19,6 @@ import { LoadListModal } from './LoadListModal'
 import { useCatalog } from './useCatalog'
 import { useShoppingHistory, useSaveSession, useSessionSuggestions } from './useShoppingHistory'
 import type { SessionItem } from './useShoppingHistory'
-import { useShareToken } from './useShareToken'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -183,11 +182,9 @@ export default function GroceriesPage() {
   const [showArchivePrompt, setShowArchivePrompt] = useState(false)
   const [showHistory, setShowHistory]             = useState(false)
   const [showClearConfirm, setShowClearConfirm]   = useState(false)
-  const [showShareModal, setShowShareModal]       = useState(false)
 
   const { data: sessions = [], isLoading: sessionsLoading } = useShoppingHistory({ enabled: showHistory })
   const { data: sessionSuggestions = [] } = useSessionSuggestions()
-  const shareToken = useShareToken()
 
   // ── Ordre drag & drop ────────────────────────────────────────────────────────
   const [orderedIds, setOrderedIds] = useState<string[]>(() => {
@@ -394,25 +391,6 @@ export default function GroceriesPage() {
     return { thisMonthCount: thisMonth.length, totalThisMonth, avg, top3 }
   }, [sessions])
 
-  // ── Partage liste (Lot 7) ────────────────────────────────────────────────
-  const shareUrl = shareToken.query.data
-    ? `${window.location.origin}/share/${shareToken.query.data.token}`
-    : null
-
-  async function handleCreateShareLink() {
-    const result = await shareToken.create.mutateAsync()
-    const url = `${window.location.origin}/share/${result.token}`
-    if (navigator.share) {
-      navigator.share({ url, title: 'Liste de courses Familia' }).catch(() => {
-        navigator.clipboard.writeText(url)
-        showToast({ type: 'success', message: 'Lien copié !' })
-      })
-    } else {
-      navigator.clipboard.writeText(url)
-      showToast({ type: 'success', message: 'Lien copié !' })
-    }
-  }
-
   function handleNameChange(val: string) {
     setNewName(val)
     const lower = val.toLowerCase()
@@ -595,15 +573,6 @@ export default function GroceriesPage() {
         <div className={styles.headerActions}>
           {!shoppingMode && (
             <>
-              {(query.data?.length ?? 0) > 0 && (
-                <button
-                  className={styles.headerIconBtn}
-                  onClick={() => setShowShareModal(true)}
-                  aria-label="Partager la liste"
-                >
-                  <Share2 size={15} strokeWidth={2.5} />
-                </button>
-              )}
               <button
                 className={[styles.headerIconBtn, compactMode ? styles.headerIconBtnActive : ''].join(' ')}
                 onClick={() => setCompactMode(m => !m)}
@@ -1168,57 +1137,6 @@ export default function GroceriesPage() {
             >
               Annuler
             </button>
-          </div>
-        </SlideUpModal>
-      )}
-
-      {/* Modal — Partager la liste en lecture seule (Lot 7) */}
-      {showShareModal && (
-        <SlideUpModal title="Partager la liste" onClose={() => setShowShareModal(false)}>
-          <div className={styles.shareModalBody}>
-            <p className={styles.shareModalHint}>
-              Génère un lien valable 7 jours pour partager la liste en lecture seule, sans compte requis.
-            </p>
-            {shareUrl ? (
-              <>
-                <div className={styles.shareUrlBox}>
-                  <LinkIcon size={13} strokeWidth={2.5} className={styles.shareUrlIcon} />
-                  <span className={styles.shareUrlText}>{shareUrl}</span>
-                </div>
-                <button
-                  className={styles.archiveBtn}
-                  onClick={() => {
-                    navigator.clipboard.writeText(shareUrl)
-                    showToast({ type: 'success', message: 'Lien copié !' })
-                  }}
-                >
-                  Copier le lien
-                </button>
-                <button
-                  className={styles.archiveSkipBtn}
-                  onClick={() => handleCreateShareLink()}
-                  disabled={shareToken.create.isPending}
-                >
-                  Regénérer le lien
-                </button>
-                <button
-                  className={[styles.archiveSkipBtn, styles.shareDangerBtn].join(' ')}
-                  onClick={() => { shareToken.revoke.mutate(); setShowShareModal(false) }}
-                  disabled={shareToken.revoke.isPending}
-                >
-                  <Trash2 size={13} strokeWidth={2.5} />
-                  Révoquer l'accès
-                </button>
-              </>
-            ) : (
-              <button
-                className={styles.archiveBtn}
-                onClick={() => handleCreateShareLink()}
-                disabled={shareToken.create.isPending}
-              >
-                {shareToken.create.isPending ? 'Création…' : 'Créer le lien'}
-              </button>
-            )}
           </div>
         </SlideUpModal>
       )}
