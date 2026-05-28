@@ -24,15 +24,6 @@ function parisTime(d: Date): string {
 }
 
 Deno.serve(async (req: Request) => {
-  // ── Auth via shared secret ─────────────────────────────────────────────────
-  const remindSecret = Deno.env.get('REMIND_SECRET')
-  if (remindSecret) {
-    const incoming = req.headers.get('X-Remind-Secret')
-    if (incoming !== remindSecret) {
-      return json({ error: 'Unauthorized' }, 401)
-    }
-  }
-
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,

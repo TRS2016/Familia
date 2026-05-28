@@ -10,20 +10,14 @@ CREATE TABLE event_reminders_sent (
 CREATE EXTENSION IF NOT EXISTS pg_net;
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
--- Stocke le secret de cron dans la config DB (remplacer xxx par la vraie valeur)
--- ALTER DATABASE postgres SET app.remind_secret = 'xxx';
-
--- Une fois le secret configuré, activer le job :
+-- Activer le cron job (exécuter après avoir créé la table et les extensions) :
 -- SELECT cron.schedule(
 --   'remind-events-every-5min',
 --   '*/5 * * * *',
 --   $$
 --   SELECT net.http_post(
 --     url     := 'https://cpspnmxetubjtshsgcby.supabase.co/functions/v1/remind-events',
---     headers := jsonb_build_object(
---       'Content-Type',    'application/json',
---       'X-Remind-Secret', current_setting('app.remind_secret')
---     ),
+--     headers := '{"Content-Type": "application/json"}'::jsonb,
 --     body    := '{}'::jsonb
 --   ) AS request_id;
 --   $$
