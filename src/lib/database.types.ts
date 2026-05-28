@@ -687,6 +687,7 @@ export type Database = {
           expires_at: string
           household_id: string
           id: string
+          list_id: string | null
           token: string
         }
         Insert: {
@@ -695,6 +696,7 @@ export type Database = {
           expires_at?: string
           household_id: string
           id?: string
+          list_id?: string | null
           token?: string
         }
         Update: {
@@ -703,6 +705,7 @@ export type Database = {
           expires_at?: string
           household_id?: string
           id?: string
+          list_id?: string | null
           token?: string
         }
         Relationships: [
@@ -718,6 +721,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_list_tokens_list_id_fkey"
+            columns: ["list_id"]
+            isOneToOne: false
+            referencedRelation: "grocery_saved_lists"
             referencedColumns: ["id"]
           },
         ]
