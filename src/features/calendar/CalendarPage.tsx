@@ -8,7 +8,7 @@ import {
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus, X, Clock, MapPin, RotateCw } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, Clock, MapPin, RotateCw, Bell } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import { supabase } from '../../lib/supabase'
@@ -28,6 +28,12 @@ type View = 'week' | '3day' | 'month' | 'agenda'
 
 const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const HOUR_HEIGHT = 48 // px per hour in the week grid
+
+function reminderLabel(minutes: number | null | undefined): string | null {
+  if (minutes == null) return null
+  if (minutes >= 60) return `${minutes / 60}h avant`
+  return `${minutes} min avant`
+}
 
 function getMemberColor(
   memberId: string | null,
@@ -395,6 +401,9 @@ export default function CalendarPage() {
                                 {event.recurrence_group_id && (
                                   <span><RotateCw size={10} /></span>
                                 )}
+                                {reminderLabel(event.reminder_minutes) && (
+                                  <span><Bell size={10} /> {reminderLabel(event.reminder_minutes)}</span>
+                                )}
                               </div>
                               {event.description && (
                                 <p className={styles.agendaDesc}>{event.description}</p>
@@ -736,6 +745,9 @@ export default function CalendarPage() {
                           {ev.location && <span><MapPin size={10} /> {ev.location}</span>}
                           {ev.member && <span style={{ color }}>{ev.member.display_name}</span>}
                           {ev.recurrence_group_id && <span><RotateCw size={10} /></span>}
+                          {reminderLabel(ev.reminder_minutes) && (
+                            <span><Bell size={10} /> {reminderLabel(ev.reminder_minutes)}</span>
+                          )}
                         </div>
                       </div>
                       <button

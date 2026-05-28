@@ -23,6 +23,9 @@ const queryClient = new QueryClient({
       gcTime: 1000 * 60 * 60 * 24, // 24h — données lisibles hors-ligne
       staleTime: 1000 * 60 * 2,     // 2min — revalidation silencieuse en fond
     },
+    mutations: {
+      networkMode: 'offlineFirst', // mutations mises en pause si hors-ligne, rejouées à la reconnexion
+    },
   },
 })
 
@@ -34,7 +37,7 @@ const persister = createSyncStoragePersister({
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <PersistQueryClientProvider client={queryClient} persistOptions={{ persister }}>
+      <PersistQueryClientProvider client={queryClient} persistOptions={{ persister, buster: 'v1', maxAge: 1000 * 60 * 60 * 24 }}>
         <ToastProvider>
           <AuthProvider>
             <App />

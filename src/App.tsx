@@ -5,6 +5,7 @@ import AuthCallback from './auth/AuthCallback'
 import RequireAuth from './auth/RequireAuth'
 import RequireMember from './auth/RequireMember'
 import LoadingPage from './components/LoadingPage'
+import { OfflineBanner } from './components/OfflineBanner'
 
 const OnboardingPage = lazy(() => import('./pages/OnboardingPage'))
 const HomePage       = lazy(() => import('./pages/HomePage'))
@@ -51,5 +52,10 @@ const router = createBrowserRouter([
 ])
 
 export default function App() {
-  return <RouterProvider router={router} />
+  return (
+    <>
+      <OfflineBanner />
+      <RouterProvider router={router} />
+    </>
+  )
 }
