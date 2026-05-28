@@ -253,6 +253,30 @@ function ListDetailView({
     }
   }
 
+  function handleExportList() {
+    const lines = [
+      `📋 ${name} (${items.length} article${items.length > 1 ? 's' : ''})`,
+      '',
+      ...items.map(item => {
+        let line = `□ ${item.name}`
+        if (item.quantity) line += ` (${item.quantity})`
+        if (item.price !== null) line += ` — ${item.price.toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`
+        if (item.store) line += ` 📍 ${item.store}`
+        return line
+      }),
+    ]
+    const text = lines.join('\n')
+    if (navigator.share) {
+      navigator.share({ text, title: name }).catch(() => {
+        navigator.clipboard.writeText(text)
+        showToast({ type: 'success', message: 'Liste copiée !' })
+      })
+    } else {
+      navigator.clipboard.writeText(text)
+      showToast({ type: 'success', message: 'Liste copiée !' })
+    }
+  }
+
   function handleDuplicate() {
     duplicateList.mutate(
       { id: listId, name: `${name} (copie)` },
@@ -383,6 +407,10 @@ function ListDetailView({
         <button className={styles.actionDuplicate} onClick={handleDuplicate} disabled={duplicateList.isPending}>
           <Copy size={14} strokeWidth={2.5} />
           Dupliquer cette liste
+        </button>
+        <button className={styles.actionDuplicate} onClick={handleExportList} disabled={items.length === 0}>
+          <Send size={14} strokeWidth={2.5} />
+          Partager en texte
         </button>
       </div>
 

@@ -392,18 +392,18 @@ export default function HomePage() {
             <span className={styles.widgetLabel}>Courses</span>
             <Link to="/groceries" className={styles.widgetLink}>Voir tout</Link>
           </div>
-          <div className={styles.card}>
+          <Link to="/groceries" className={[styles.card, styles.cardLink].join(' ')}>
             <div className={styles.groceryRow}>
               <ShoppingCart size={15} color="#5B9E8F" strokeWidth={2.5} />
               <span className={styles.groceryCount}>
-                {groceryPreview.length} article{groceryPreview.length > 1 ? 's' : ''}
+                {groceryPreview.length} article{groceryPreview.length > 1 ? 's' : ''} à faire
               </span>
             </div>
             <p className={styles.groceryNames}>
               {groceryPreview.slice(0, 5).map(g => g.name).join(' · ')}
               {groceryPreview.length > 5 ? ' · …' : ''}
             </p>
-          </div>
+          </Link>
         </div>
       )}
 
