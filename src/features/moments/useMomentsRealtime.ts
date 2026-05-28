@@ -12,6 +12,9 @@ export function useMomentsRealtime() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'moments' }, () => {
         queryClient.invalidateQueries({ queryKey: MOMENTS_KEY })
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'moment_reactions' }, () => {
+        queryClient.invalidateQueries({ queryKey: MOMENTS_KEY })
+      })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }
