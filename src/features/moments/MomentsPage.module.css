@@ -423,3 +423,216 @@
   from { opacity: 0; }
   to   { opacity: 1; }
 }
+
+/* ── Date separator ──────────────────────────────────────────────────────── */
+
+.dateSeparator {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  padding: 6px 2px 4px;
+}
+
+/* ── Card actions (edit + delete) ────────────────────────────────────────── */
+
+.cardActions {
+  display: flex;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.actionBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 5px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  transition: color 0.15s, background 0.15s;
+}
+
+.actionBtn:hover { background: var(--border-subtle); color: var(--text-sub); }
+
+/* ── Comment toggle button (inline in reactions bar) ─────────────────────── */
+
+.commentToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  margin-left: auto;
+  transition: all 0.12s;
+}
+
+.commentToggleBtn:hover { border-color: #D4778A; color: #D4778A; }
+.commentToggleBtnActive { border-color: #D4778A; background: rgba(212,119,138,0.1); color: #D4778A; }
+
+/* ── Comments section ────────────────────────────────────────────────────── */
+
+.commentsSection {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.commentsSkeleton {
+  height: 24px;
+  border-radius: 6px;
+  background: var(--border);
+  animation: pulse 1.4s ease-in-out infinite;
+}
+
+.commentRow {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.commentAuthor {
+  font-weight: 800;
+  color: var(--text);
+  flex-shrink: 0;
+  font-size: 12px;
+}
+
+.commentText {
+  color: var(--text-sub);
+  flex: 1;
+  word-break: break-word;
+}
+
+.commentDeleteBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 2px;
+  opacity: 0;
+  transition: opacity 0.15s;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.commentRow:hover .commentDeleteBtn { opacity: 1; }
+
+.commentForm {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.commentInput {
+  flex: 1;
+  padding: 7px 12px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: 13px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.commentInput:focus { border-color: #D4778A; }
+.commentInput::placeholder { color: var(--text-muted); }
+
+.commentSendBtn {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: #D4778A;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  flex-shrink: 0;
+  transition: opacity 0.15s;
+}
+
+.commentSendBtn:disabled { opacity: 0.4; cursor: not-allowed; }
+.commentSendBtn:not(:disabled):hover { opacity: 0.85; }
+
+/* ── "Ce jour-là" banner ─────────────────────────────────────────────────── */
+
+.lastYearBanner {
+  margin: 0 16px 4px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.lastYearToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+  text-align: left;
+}
+
+.lastYearIcon { font-size: 16px; }
+
+.lastYearTitle {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.lastYearCount {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border-radius: 99px;
+  padding: 2px 7px;
+}
+
+.feedLastYear {
+  padding: 0 12px 12px;
+  gap: 8px;
+}
+
+/* ── Load more button ────────────────────────────────────────────────────── */
+
+.loadMoreBtn {
+  display: block;
+  margin: 4px 16px 0;
+  width: calc(100% - 32px);
+  padding: 12px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 13px;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: all 0.15s;
+  text-align: center;
+}
+
+.loadMoreBtn:hover { background: var(--bg-card); color: var(--text); }

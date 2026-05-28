@@ -15,6 +15,13 @@ export function useMomentsRealtime() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'moment_reactions' }, () => {
         queryClient.invalidateQueries({ queryKey: MOMENTS_KEY })
       })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'moment_comments' }, (payload) => {
+        const momentId = (payload.new as { moment_id?: string })?.moment_id
+          ?? (payload.old as { moment_id?: string })?.moment_id
+        if (momentId) {
+          queryClient.invalidateQueries({ queryKey: ['moment-comments', momentId] })
+        }
+      })
       .subscribe()
 
     return () => { supabase.removeChannel(channel) }

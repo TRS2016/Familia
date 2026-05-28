@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { format, subYears } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
@@ -9,6 +10,15 @@ import { useToast } from '../../components/useToast'
 export interface MomentReaction {
   emoji: string
   member_id: string
+}
+
+export interface MomentComment {
+  id: string
+  moment_id: string
+  member_id: string
+  text: string
+  created_at: string
+  member: { id: string; display_name: string } | null
 }
 
 export interface Moment {
@@ -36,21 +46,65 @@ export type Emoji = typeof EMOJIS[number]
 
 export const MOMENTS_KEY = ['moments', HOUSEHOLD_ID] as const
 
+export function commentsKey(momentId: string) {
+  return ['moment-comments', momentId] as const
+}
+
 // ── Hooks ─────────────────────────────────────────────────────────────────────
 
-export function useMoments() {
+export function useMoments(limit = 20) {
   return useQuery({
-    queryKey: MOMENTS_KEY,
+    queryKey: [...MOMENTS_KEY, limit],
     queryFn: async (): Promise<Moment[]> => {
       const { data, error } = await supabase
         .from('moments')
         .select('*, member:members(id, display_name), reactions:moment_reactions(emoji, member_id)')
         .eq('household_id', HOUSEHOLD_ID)
         .order('created_at', { ascending: false })
-        .limit(60)
+        .limit(limit)
       if (error) throw error
       return data as unknown as Moment[]
     },
+  })
+}
+
+/** Moments de ce même jour l'année dernière */
+export function useTodayLastYear() {
+  const d = subYears(new Date(), 1)
+  const from = format(d, 'yyyy-MM-dd') + 'T00:00:00'
+  const to   = format(d, 'yyyy-MM-dd') + 'T23:59:59'
+  return useQuery({
+    queryKey: ['moments-today-last-year', HOUSEHOLD_ID, format(d, 'yyyy-MM-dd')],
+    queryFn: async (): Promise<Moment[]> => {
+      const { data, error } = await supabase
+        .from('moments')
+        .select('*, member:members(id, display_name), reactions:moment_reactions(emoji, member_id)')
+        .eq('household_id', HOUSEHOLD_ID)
+        .gte('created_at', from)
+        .lte('created_at', to)
+        .order('created_at', { ascending: false })
+      if (error) throw error
+      return data as unknown as Moment[]
+    },
+    staleTime: 10 * 60 * 1000,
+  })
+}
+
+/** Comments for a single moment — fetched on demand (when section is expanded) */
+export function useComments(momentId: string | null) {
+  return useQuery({
+    queryKey: momentId ? commentsKey(momentId) : ['moment-comments-none'],
+    queryFn: async (): Promise<MomentComment[]> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('moment_comments')
+        .select('id, moment_id, member_id, text, created_at, member:members(id, display_name)')
+        .eq('moment_id', momentId!)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return data as MomentComment[]
+    },
+    enabled: !!momentId,
   })
 }
 
@@ -113,7 +167,8 @@ export function useAddMoment() {
     },
     onMutate: async (input: NewMomentInput) => {
       await queryClient.cancelQueries({ queryKey: MOMENTS_KEY })
-      const previous = queryClient.getQueryData<Moment[]>(MOMENTS_KEY) ?? []
+      const keys = queryClient.getQueryCache().findAll({ queryKey: MOMENTS_KEY })
+      const snapshots = keys.map(q => ({ key: q.queryKey, data: q.state.data }))
       const optimistic: Moment = {
         id: `optimistic-${Date.now()}`,
         household_id: HOUSEHOLD_ID,
@@ -126,13 +181,19 @@ export function useAddMoment() {
         member: member ? { id: member.id, display_name: member.display_name } : null,
         reactions: [],
       }
-      queryClient.setQueryData<Moment[]>(MOMENTS_KEY, [optimistic, ...previous])
-      return { previous, optimisticId: optimistic.id }
+      keys.forEach(q => {
+        const old = (q.state.data as Moment[] | undefined) ?? []
+        queryClient.setQueryData(q.queryKey, [optimistic, ...old])
+      })
+      return { snapshots, optimisticId: optimistic.id }
     },
     onSuccess: (newMoment, input, context) => {
-      queryClient.setQueryData<Moment[]>(MOMENTS_KEY, old =>
-        (old ?? []).map(m => m.id === context?.optimisticId ? newMoment : m)
-      )
+      const keys = queryClient.getQueryCache().findAll({ queryKey: MOMENTS_KEY })
+      keys.forEach(q => {
+        queryClient.setQueryData(q.queryKey, (old: Moment[] | undefined) =>
+          (old ?? []).map(m => m.id === context?.optimisticId ? newMoment : m)
+        )
+      })
       const body = input.text?.trim()
         ? (input.text.trim().length > 60 ? input.text.trim().slice(0, 57) + '…' : input.text.trim())
         : '📸 Nouvelle photo'
@@ -141,7 +202,7 @@ export function useAddMoment() {
       })
     },
     onError: (_err, _input, ctx) => {
-      queryClient.setQueryData(MOMENTS_KEY, ctx?.previous ?? [])
+      ctx?.snapshots?.forEach(({ key, data }) => queryClient.setQueryData(key, data))
       showToast({ type: 'error', message: 'Impossible de publier le moment.' })
     },
   })
@@ -161,13 +222,127 @@ export function useDeleteMoment() {
     },
     onMutate: async ({ id }) => {
       await queryClient.cancelQueries({ queryKey: MOMENTS_KEY })
-      const previous = queryClient.getQueryData<Moment[]>(MOMENTS_KEY) ?? []
-      queryClient.setQueryData<Moment[]>(MOMENTS_KEY, previous.filter(m => m.id !== id))
-      return { previous }
+      const keys = queryClient.getQueryCache().findAll({ queryKey: MOMENTS_KEY })
+      const snapshots = keys.map(q => ({ key: q.queryKey, data: q.state.data }))
+      keys.forEach(q => {
+        queryClient.setQueryData(q.queryKey, (old: Moment[] | undefined) =>
+          (old ?? []).filter(m => m.id !== id)
+        )
+      })
+      return { snapshots }
     },
     onError: (_err, _vars, ctx) => {
-      queryClient.setQueryData(MOMENTS_KEY, ctx?.previous ?? [])
+      ctx?.snapshots?.forEach(({ key, data }) => queryClient.setQueryData(key, data))
       showToast({ type: 'error', message: 'Impossible de supprimer le moment.' })
+    },
+  })
+}
+
+export function useEditMomentText() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ id, text }: { id: string; text: string }): Promise<Moment> => {
+      const { data, error } = await supabase
+        .from('moments')
+        .update({ text: text.trim() || null })
+        .eq('id', id)
+        .select('*, member:members(id, display_name), reactions:moment_reactions(emoji, member_id)')
+        .single()
+      if (error) throw error
+      return data as unknown as Moment
+    },
+    onMutate: async ({ id, text }) => {
+      await queryClient.cancelQueries({ queryKey: MOMENTS_KEY })
+      const keys = queryClient.getQueryCache().findAll({ queryKey: MOMENTS_KEY })
+      const snapshots = keys.map(q => ({ key: q.queryKey, data: q.state.data }))
+      keys.forEach(q => {
+        queryClient.setQueryData(q.queryKey, (old: Moment[] | undefined) =>
+          (old ?? []).map(m => m.id === id ? { ...m, text: text.trim() || null } : m)
+        )
+      })
+      return { snapshots }
+    },
+    onSuccess: (updated) => {
+      const keys = queryClient.getQueryCache().findAll({ queryKey: MOMENTS_KEY })
+      keys.forEach(q => {
+        queryClient.setQueryData(q.queryKey, (old: Moment[] | undefined) =>
+          (old ?? []).map(m => m.id === updated.id ? updated : m)
+        )
+      })
+    },
+    onError: (_err, _vars, ctx) => {
+      ctx?.snapshots?.forEach(({ key, data }) => queryClient.setQueryData(key, data))
+      showToast({ type: 'error', message: 'Impossible de modifier le moment.' })
+    },
+  })
+}
+
+export function useAddComment() {
+  const queryClient = useQueryClient()
+  const { data: member } = useMember()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ momentId, text }: { momentId: string; text: string }): Promise<MomentComment> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('moment_comments')
+        .insert({ moment_id: momentId, member_id: member!.id, text: text.trim() })
+        .select('id, moment_id, member_id, text, created_at, member:members(id, display_name)')
+        .single()
+      if (error) throw error
+      return data as MomentComment
+    },
+    onMutate: async ({ momentId, text }) => {
+      const key = commentsKey(momentId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<MomentComment[]>(key) ?? []
+      const optimistic: MomentComment = {
+        id: `opt-comment-${Date.now()}`,
+        moment_id: momentId,
+        member_id: member?.id ?? '',
+        text: text.trim(),
+        created_at: new Date().toISOString(),
+        member: member ? { id: member.id, display_name: member.display_name } : null,
+      }
+      queryClient.setQueryData<MomentComment[]>(key, [...previous, optimistic])
+      return { previous, optimisticId: optimistic.id, key }
+    },
+    onSuccess: (newComment, { momentId }, context) => {
+      const key = commentsKey(momentId)
+      queryClient.setQueryData<MomentComment[]>(key, old =>
+        (old ?? []).map(c => c.id === context?.optimisticId ? newComment : c)
+      )
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.key) queryClient.setQueryData(ctx.key, ctx.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible d\'ajouter le commentaire.' })
+    },
+  })
+}
+
+export function useDeleteComment() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ id }: { id: string; momentId: string }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('moment_comments').delete().eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, momentId }) => {
+      const key = commentsKey(momentId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<MomentComment[]>(key) ?? []
+      queryClient.setQueryData<MomentComment[]>(key, previous.filter(c => c.id !== id))
+      return { previous, key }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.key) queryClient.setQueryData(ctx.key, ctx.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de supprimer le commentaire.' })
     },
   })
 }
@@ -179,8 +354,10 @@ export function useToggleReaction() {
   return useMutation({
     mutationFn: async ({ momentId, emoji }: { momentId: string; emoji: Emoji }) => {
       const memberId = member!.id
-      const existing = queryClient.getQueryData<Moment[]>(MOMENTS_KEY)
-        ?.find(m => m.id === momentId)
+      const keys = queryClient.getQueryCache().findAll({ queryKey: MOMENTS_KEY })
+      const existing = keys
+        .flatMap(q => (q.state.data as Moment[] | undefined) ?? [])
+        .find(m => m.id === momentId)
         ?.reactions.find(r => r.emoji === emoji && r.member_id === memberId)
 
       if (existing) {
@@ -198,22 +375,27 @@ export function useToggleReaction() {
     },
     onMutate: async ({ momentId, emoji }) => {
       await queryClient.cancelQueries({ queryKey: MOMENTS_KEY })
-      const previous = queryClient.getQueryData<Moment[]>(MOMENTS_KEY) ?? []
+      const keys = queryClient.getQueryCache().findAll({ queryKey: MOMENTS_KEY })
+      const snapshots = keys.map(q => ({ key: q.queryKey, data: q.state.data }))
       const memberId = member?.id ?? ''
-      queryClient.setQueryData<Moment[]>(MOMENTS_KEY, previous.map(m => {
-        if (m.id !== momentId) return m
-        const has = m.reactions.some(r => r.emoji === emoji && r.member_id === memberId)
-        return {
-          ...m,
-          reactions: has
-            ? m.reactions.filter(r => !(r.emoji === emoji && r.member_id === memberId))
-            : [...m.reactions, { emoji, member_id: memberId }],
-        }
-      }))
-      return { previous }
+      keys.forEach(q => {
+        queryClient.setQueryData(q.queryKey, (old: Moment[] | undefined) =>
+          (old ?? []).map(m => {
+            if (m.id !== momentId) return m
+            const has = m.reactions.some(r => r.emoji === emoji && r.member_id === memberId)
+            return {
+              ...m,
+              reactions: has
+                ? m.reactions.filter(r => !(r.emoji === emoji && r.member_id === memberId))
+                : [...m.reactions, { emoji, member_id: memberId }],
+            }
+          })
+        )
+      })
+      return { snapshots }
     },
     onError: (_err, _vars, ctx) => {
-      queryClient.setQueryData(MOMENTS_KEY, ctx?.previous ?? [])
+      ctx?.snapshots?.forEach(({ key, data }) => queryClient.setQueryData(key, data))
     },
   })
 }
