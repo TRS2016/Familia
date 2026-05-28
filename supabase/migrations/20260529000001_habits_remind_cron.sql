@@ -1,0 +1,15 @@
+-- Cron job : rappels push pour les habitudes (toutes les 5 min)
+-- pg_cron + pg_net sont déjà activés (voir migration event_reminders)
+
+-- À exécuter manuellement dans le SQL editor Supabase après déploiement de la function :
+-- SELECT cron.schedule(
+--   'remind-habits-every-5min',
+--   '*/5 * * * *',
+--   $$
+--   SELECT net.http_post(
+--     url     := 'https://cpspnmxetubjtshsgcby.supabase.co/functions/v1/remind-habits',
+--     headers := '{"Content-Type": "application/json"}'::jsonb,
+--     body    := '{}'::jsonb
+--   ) AS request_id;
+--   $$
+-- );

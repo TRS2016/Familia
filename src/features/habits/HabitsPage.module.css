@@ -834,3 +834,154 @@
   color: #5B9E8F;
   background: rgba(91, 158, 143, 0.12);
 }
+
+/* ── Not-applicable day cell (frequency_days) ────────────────────────────── */
+
+.dayCellNA {
+  opacity: 0.18;
+  cursor: default;
+  pointer-events: none;
+  background: transparent !important;
+  border-color: var(--border) !important;
+}
+
+/* ── Archived section ────────────────────────────────────────────────────── */
+
+.archivedSection {
+  margin: 16px 16px 0;
+}
+
+.archivedToggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  padding: 8px 0;
+}
+
+.archivedToggle:hover { color: var(--text-sub); }
+
+.chevronOpen {
+  transform: rotate(90deg);
+  transition: transform 0.2s;
+}
+
+.archivedList {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 4px 0 8px;
+}
+
+.archivedRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.archivedName {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.unarchiveBtn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 99px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  font-family: var(--font-family);
+  font-weight: 700;
+  font-size: 11px;
+  color: var(--text-sub);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.unarchiveBtn:hover { background: var(--bg-input); }
+.unarchiveBtn:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Day picker (jours précis) ───────────────────────────────────────────── */
+
+.dayPicker {
+  display: flex;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.dayPickerBtn {
+  flex: 1;
+  height: 36px;
+  border-radius: 9px;
+  border: 2px solid var(--border);
+  background: transparent;
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: 12px;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dayPickerBtnActive {
+  border-color: var(--accent);
+  background: rgba(224, 123, 84, 0.12);
+  color: var(--accent);
+}
+
+/* ── Reminder row ────────────────────────────────────────────────────────── */
+
+.reminderRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeInput {
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  font-family: var(--font-family);
+  font-size: 14px;
+  background: var(--bg-input);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  flex: 1;
+}
+
+.timeInput:focus { border-color: var(--accent); }
+
+/* ── Note textarea ───────────────────────────────────────────────────────── */
+
+.noteArea {
+  padding: 11px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  font-family: var(--font-family);
+  font-size: 14px;
+  background: var(--bg-input);
+  color: var(--text);
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.noteArea:focus { border-color: var(--accent); }

@@ -8,6 +8,7 @@ import { supabase } from '../lib/supabase'
 import { HOUSEHOLD_ID } from '../lib/config'
 import { useMember } from '../auth/useMember'
 import { GROCERIES_KEY } from '../features/groceries/useGroceries'
+import { useToggleCompletion, completionsKey } from '../features/habits/useHabits'
 import { QK } from '../lib/query-keys'
 import { useToast } from '../components/useToast'
 import LoadingPage from '../components/LoadingPage'
@@ -200,6 +201,8 @@ export default function HomePage() {
   }, [householdDetails?.note])
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  const toggleHabit = useToggleCompletion()
+
   const saveNote = useMutation({
     mutationFn: async (note: string) => {
       const { error } = await supabase.from('households').update({ note: note || null }).eq('id', member!.household_id)
@@ -376,7 +379,19 @@ export default function HomePage() {
             {habitsToday.pending.length > 0 && (
               <div className={styles.habitsPending}>
                 {habitsToday.pending.slice(0, 4).map(h => (
-                  <span key={h.id} className={styles.habitPendingChip}>{h.emoji} {h.name}</span>
+                  <button
+                    key={h.id}
+                    className={styles.habitPendingChip}
+                    onClick={e => {
+                      e.preventDefault()
+                      const today = format(new Date(), 'yyyy-MM-dd')
+                      toggleHabit.mutate({ habitId: h.id, date: today, done: true })
+                      queryClient.invalidateQueries({ queryKey: ['home-habits', HOUSEHOLD_ID] })
+                      queryClient.invalidateQueries({ queryKey: completionsKey('recent') })
+                    }}
+                  >
+                    {h.emoji} {h.name}
+                  </button>
                 ))}
                 {habitsToday.pending.length > 4 && (
                   <span className={styles.habitPendingMore}>+{habitsToday.pending.length - 4}</span>
