@@ -6,6 +6,11 @@ import { useToast } from '../../components/useToast'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+export interface MomentReaction {
+  emoji: string
+  member_id: string
+}
+
 export interface Moment {
   id: string
   household_id: string
@@ -16,12 +21,16 @@ export interface Moment {
   archived_at: string | null
   created_at: string
   member: { id: string; display_name: string } | null
+  reactions: MomentReaction[]
 }
 
 export interface NewMomentInput {
   text: string
   photo: File | null
 }
+
+export const EMOJIS = ['❤️', '😄', '👍', '😮'] as const
+export type Emoji = typeof EMOJIS[number]
 
 // ── Query keys ────────────────────────────────────────────────────────────────
 
@@ -35,7 +44,7 @@ export function useMoments() {
     queryFn: async (): Promise<Moment[]> => {
       const { data, error } = await supabase
         .from('moments')
-        .select('*, member:members(id, display_name)')
+        .select('*, member:members(id, display_name), reactions:moment_reactions(emoji, member_id)')
         .eq('household_id', HOUSEHOLD_ID)
         .order('created_at', { ascending: false })
         .limit(60)
@@ -97,7 +106,7 @@ export function useAddMoment() {
           text: input.text.trim() || null,
           photo_path,
         })
-        .select('*, member:members(id, display_name)')
+        .select('*, member:members(id, display_name), reactions:moment_reactions(emoji, member_id)')
         .single()
       if (error) throw error
       return data as unknown as Moment
@@ -115,6 +124,7 @@ export function useAddMoment() {
         archived_at: null,
         created_at: new Date().toISOString(),
         member: member ? { id: member.id, display_name: member.display_name } : null,
+        reactions: [],
       }
       queryClient.setQueryData<Moment[]>(MOMENTS_KEY, [optimistic, ...previous])
       return { previous, optimisticId: optimistic.id }
@@ -152,6 +162,54 @@ export function useDeleteMoment() {
     onError: (_err, _vars, ctx) => {
       queryClient.setQueryData(MOMENTS_KEY, ctx?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de supprimer le moment.' })
+    },
+  })
+}
+
+export function useToggleReaction() {
+  const queryClient = useQueryClient()
+  const { data: member } = useMember()
+
+  // moment_reactions added in migration 20260528 — not yet in generated types.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const reactionsTable = () => (supabase as any).from('moment_reactions')
+
+  return useMutation({
+    mutationFn: async ({ momentId, emoji }: { momentId: string; emoji: Emoji }) => {
+      const memberId = member!.id
+      const existing = queryClient.getQueryData<Moment[]>(MOMENTS_KEY)
+        ?.find(m => m.id === momentId)
+        ?.reactions.find(r => r.emoji === emoji && r.member_id === memberId)
+
+      if (existing) {
+        await reactionsTable()
+          .delete()
+          .eq('moment_id', momentId)
+          .eq('member_id', memberId)
+          .eq('emoji', emoji)
+      } else {
+        await reactionsTable()
+          .insert({ moment_id: momentId, member_id: memberId, emoji })
+      }
+    },
+    onMutate: async ({ momentId, emoji }) => {
+      await queryClient.cancelQueries({ queryKey: MOMENTS_KEY })
+      const previous = queryClient.getQueryData<Moment[]>(MOMENTS_KEY) ?? []
+      const memberId = member?.id ?? ''
+      queryClient.setQueryData<Moment[]>(MOMENTS_KEY, previous.map(m => {
+        if (m.id !== momentId) return m
+        const has = m.reactions.some(r => r.emoji === emoji && r.member_id === memberId)
+        return {
+          ...m,
+          reactions: has
+            ? m.reactions.filter(r => !(r.emoji === emoji && r.member_id === memberId))
+            : [...m.reactions, { emoji, member_id: memberId }],
+        }
+      }))
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      queryClient.setQueryData(MOMENTS_KEY, ctx?.previous ?? [])
     },
   })
 }

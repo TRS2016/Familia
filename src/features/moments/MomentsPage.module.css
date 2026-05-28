@@ -331,3 +331,95 @@
   border-color: var(--text-muted);
   color: var(--text);
 }
+
+/* ── Reactions ───────────────────────────────────────────────────────────── */
+
+.reactionsBar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 2px;
+}
+
+.reactionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  font-size: 13px;
+  font-family: var(--font-family);
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+  line-height: 1;
+}
+
+.reactionBtn:hover {
+  border-color: #D4778A;
+  background: rgba(212, 119, 138, 0.08);
+}
+
+.reactionBtnActive {
+  border-color: #D4778A;
+  background: rgba(212, 119, 138, 0.12);
+  color: #D4778A;
+}
+
+.reactionCount {
+  font-size: 11px;
+  font-weight: 800;
+}
+
+/* ── Photo lightbox ──────────────────────────────────────────────────────── */
+
+.photoClickable {
+  cursor: zoom-in;
+}
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.15s ease;
+}
+
+.lightboxImg {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--radius-md);
+  object-fit: contain;
+}
+
+.lightboxClose {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: background 0.15s;
+}
+
+.lightboxClose:hover { background: rgba(255,255,255,0.28); }
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}

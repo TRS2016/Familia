@@ -8,9 +8,9 @@ import { useMember } from '../../auth/useMember'
 import { memberColor } from '../../lib/constants'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
-import { useMoments, useAddMoment, useDeleteMoment, useSignedPhotoUrl } from './useMoments'
-import { useMomentsRealtime } from './useMomentsRealtime'
+import { useMoments, useAddMoment, useDeleteMoment, useSignedPhotoUrl, useToggleReaction, EMOJIS } from './useMoments'
 import type { Moment } from './useMoments'
+import { useMomentsRealtime } from './useMomentsRealtime'
 import styles from './MomentsPage.module.css'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -27,24 +27,61 @@ function relativeTime(isoString: string): string {
   return format(parseISO(isoString), 'd MMM', { locale: fr })
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
+// ── Lightbox ──────────────────────────────────────────────────────────────────
 
-function MomentPhoto({ path }: { path: string }) {
+function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
+  return (
+    <div className={styles.lightbox} onClick={onClose}>
+      <img
+        src={url}
+        className={styles.lightboxImg}
+        alt=""
+        onClick={e => e.stopPropagation()}
+      />
+      <button className={styles.lightboxClose} onClick={onClose} aria-label="Fermer">
+        <X size={18} strokeWidth={2.5} />
+      </button>
+    </div>
+  )
+}
+
+// ── MomentPhoto ───────────────────────────────────────────────────────────────
+
+function MomentPhoto({ path, onOpen }: { path: string; onOpen: (url: string) => void }) {
   const { data: url, isLoading } = useSignedPhotoUrl(path)
   if (isLoading) return <div className={styles.photoSkeleton} />
   if (!url)      return null
-  return <img src={url} className={styles.photo} alt="" loading="lazy" />
+  return (
+    <img
+      src={url}
+      className={[styles.photo, styles.photoClickable].join(' ')}
+      alt=""
+      loading="lazy"
+      onClick={() => onOpen(url)}
+    />
+  )
 }
 
-function MomentCard({ moment, currentMemberId, onDelete }: {
+// ── MomentCard ────────────────────────────────────────────────────────────────
+
+function MomentCard({ moment, currentMemberId, onDelete, onOpenPhoto }: {
   moment: Moment
   currentMemberId: string
   onDelete: (m: Moment) => void
+  onOpenPhoto: (url: string) => void
 }) {
+  const toggleReaction = useToggleReaction()
   const isOwn        = moment.member_id === currentMemberId
   const isOptimistic = moment.id.startsWith('optimistic-')
   const name         = moment.member?.display_name ?? '?'
   const colorIndex   = name.charCodeAt(0) % 4
+
+  // Group reactions by emoji
+  const reactionGroups = EMOJIS.map(emoji => ({
+    emoji,
+    count: moment.reactions.filter(r => r.emoji === emoji).length,
+    active: moment.reactions.some(r => r.emoji === emoji && r.member_id === currentMemberId),
+  })).filter(g => g.count > 0 || !isOptimistic)
 
   return (
     <article className={[styles.card, isOptimistic ? styles.cardOptimistic : ''].join(' ')}>
@@ -72,7 +109,30 @@ function MomentCard({ moment, currentMemberId, onDelete }: {
       )}
 
       {moment.photo_path && !moment.photo_archived && (
-        <MomentPhoto path={moment.photo_path} />
+        <MomentPhoto path={moment.photo_path} onOpen={onOpenPhoto} />
+      )}
+
+      {/* Reactions bar */}
+      {!isOptimistic && (
+        <div className={styles.reactionsBar}>
+          {EMOJIS.map(emoji => {
+            const group = reactionGroups.find(g => g.emoji === emoji)
+            const count = group?.count ?? 0
+            const active = group?.active ?? false
+            if (count === 0 && isOwn) return null
+            return (
+              <button
+                key={emoji}
+                className={[styles.reactionBtn, active ? styles.reactionBtnActive : ''].join(' ')}
+                onClick={() => toggleReaction.mutate({ momentId: moment.id, emoji })}
+                aria-label={`Réagir avec ${emoji}`}
+              >
+                <span>{emoji}</span>
+                {count > 0 && <span className={styles.reactionCount}>{count}</span>}
+              </button>
+            )
+          })}
+        </div>
       )}
     </article>
   )
@@ -93,6 +153,7 @@ export default function MomentsPage() {
   const [photo, setPhoto]                   = useState<File | null>(null)
   const [photoPreview, setPhotoPreview]     = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete]   = useState<Moment | null>(null)
+  const [lightboxUrl, setLightboxUrl]       = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
@@ -166,10 +227,14 @@ export default function MomentsPage() {
               moment={m}
               currentMemberId={member?.id ?? ''}
               onDelete={setConfirmDelete}
+              onOpenPhoto={setLightboxUrl}
             />
           ))}
         </div>
       )}
+
+      {/* Lightbox */}
+      {lightboxUrl && <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
 
       {/* Compose modal */}
       {showCompose && (
