@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import {
   ChevronLeft, Plus, SlidersHorizontal, ShoppingCart,
   MapPin, Bookmark, FolderOpen, AlignJustify, LayoutList,
-  Search, X, Clock,
+  Search, X, Clock, Send,
 } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
@@ -24,6 +24,7 @@ import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useToast } from '../../components/useToast'
 import styles from './GroceriesPage.module.css'
+import { supabase } from '../../lib/supabase'
 
 const STORES_STORAGE_KEY = 'familia-grocery-stores'
 const NAMES_STORAGE_KEY  = 'familia-grocery-names'
@@ -182,6 +183,7 @@ export default function GroceriesPage() {
   const [showArchivePrompt, setShowArchivePrompt] = useState(false)
   const [showHistory, setShowHistory]             = useState(false)
   const [showClearConfirm, setShowClearConfirm]   = useState(false)
+  const [notifying, setNotifying]                 = useState(false)
 
   const { data: sessions = [], isLoading: sessionsLoading } = useShoppingHistory({ enabled: showHistory })
   const { data: sessionSuggestions = [] } = useSessionSuggestions()
@@ -551,6 +553,21 @@ export default function GroceriesPage() {
     setShoppingItems([])
   }
 
+  async function handleNotifyList() {
+    if (uncheckedItems.length === 0 || notifying) return
+    setNotifying(true)
+    try {
+      const names = uncheckedItems.slice(0, 3).map(g => g.name)
+      const extra = uncheckedItems.length > 3 ? ` +${uncheckedItems.length - 3}` : ''
+      await supabase.functions.invoke('notify-household', {
+        body: { title: 'Liste de courses', body: names.join(', ') + extra, module: 'groceries' },
+      })
+      showToast({ type: 'success', message: 'Notification envoyée.' })
+    } finally {
+      setNotifying(false)
+    }
+  }
+
   // ── Rendu ────────────────────────────────────────────────────────────────────
   return (
     <div className={styles.page}>
@@ -573,6 +590,14 @@ export default function GroceriesPage() {
         <div className={styles.headerActions}>
           {!shoppingMode && (
             <>
+              <button
+                className={styles.headerIconBtn}
+                onClick={handleNotifyList}
+                disabled={uncheckedItems.length === 0 || notifying}
+                aria-label="Envoyer la liste par notification"
+              >
+                <Send size={15} strokeWidth={2.5} />
+              </button>
               <button
                 className={[styles.headerIconBtn, compactMode ? styles.headerIconBtnActive : ''].join(' ')}
                 onClick={() => setCompactMode(m => !m)}

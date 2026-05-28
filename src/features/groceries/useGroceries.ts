@@ -101,14 +101,11 @@ export function useGroceries() {
       queryClient.setQueryData(GROCERIES_KEY, context?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible d\'ajouter l\'article. Réessaie.' })
     },
-    onSuccess: (newItem, vars, context) => {
+    onSuccess: (newItem, _vars, context) => {
       if (!context) return
       queryClient.setQueryData<Grocery[]>(GROCERIES_KEY, (old = []) =>
         old.map(g => g.id === context.optimisticId ? newItem : g)
       )
-      void supabase.functions.invoke('notify-household', {
-        body: { title: 'Courses mises à jour', body: `${vars.name} ajouté à la liste`, module: 'groceries' },
-      })
     },
   })
 
