@@ -81,7 +81,7 @@ function buildOccurrences(
     member_id: input.member_id,
     location: input.location?.trim() || null,
     description: input.description?.trim() || null,
-    reminder_minutes: input.reminder_minutes !== undefined ? input.reminder_minutes : 30,
+    reminder_minutes: input.reminder_minutes ?? 30,
   }))
 }
 
@@ -125,8 +125,8 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
             all_day: input.all_day,
             location: input.location?.trim() || null,
             description: input.description?.trim() || null,
-            reminder_minutes: input.reminder_minutes !== undefined ? input.reminder_minutes : 30,
-          } as any)
+            reminder_minutes: input.reminder_minutes ?? 30,
+          })
           .select(EVENT_SELECT)
           .single()
         if (error) throw error
@@ -135,7 +135,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
 
       const groupId = crypto.randomUUID()
       const occurrences = buildOccurrences(input, groupId, member?.id ?? null)
-      const { error } = await supabase.from('events').insert(occurrences as any)
+      const { error } = await supabase.from('events').insert(occurrences)
       if (error) throw error
       return null
     },
@@ -158,7 +158,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
         all_day: input.all_day,
         location: input.location?.trim() || null,
         description: input.description?.trim() || null,
-        reminder_minutes: input.reminder_minutes !== undefined ? input.reminder_minutes : 30,
+        reminder_minutes: input.reminder_minutes ?? 30,
         recurrence_group_id: null,
         recurrence_type: null,
         created_at: new Date().toISOString(),
@@ -208,8 +208,8 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
             location: input.location?.trim() || null,
             description: input.description?.trim() || null,
             ...(input.recurrence ? { recurrence_type: input.recurrence } : {}),
-            ...(input.reminder_minutes !== undefined ? { reminder_minutes: input.reminder_minutes } : {}),
-          } as any)
+            reminder_minutes: input.reminder_minutes,
+          })
           .eq('recurrence_group_id', recurrenceGroupId)
         if (error) throw error
         return null
@@ -226,8 +226,8 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
           all_day: input.all_day,
           location: input.location?.trim() || null,
           description: input.description?.trim() || null,
-          ...(input.reminder_minutes !== undefined ? { reminder_minutes: input.reminder_minutes } : {}),
-        } as any)
+          reminder_minutes: input.reminder_minutes,
+        })
         .eq('id', id)
         .select(EVENT_SELECT)
         .single()

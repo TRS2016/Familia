@@ -39,6 +39,32 @@ export type Database = {
   }
   public: {
     Tables: {
+      event_reminders_sent: {
+        Row: {
+          event_id: string
+          id: string
+          reminded_at: string | null
+        }
+        Insert: {
+          event_id: string
+          id?: string
+          reminded_at?: string | null
+        }
+        Update: {
+          event_id?: string
+          id?: string
+          reminded_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_reminders_sent_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       events: {
         Row: {
           all_day: boolean
@@ -53,6 +79,7 @@ export type Database = {
           member_id: string | null
           recurrence_group_id: string | null
           recurrence_type: string | null
+          reminder_minutes: number | null
           start_time: string | null
           title: string
         }
@@ -69,6 +96,7 @@ export type Database = {
           member_id?: string | null
           recurrence_group_id?: string | null
           recurrence_type?: string | null
+          reminder_minutes?: number | null
           start_time?: string | null
           title: string
         }
@@ -85,6 +113,7 @@ export type Database = {
           member_id?: string | null
           recurrence_group_id?: string | null
           recurrence_type?: string | null
+          reminder_minutes?: number | null
           start_time?: string | null
           title?: string
         }
