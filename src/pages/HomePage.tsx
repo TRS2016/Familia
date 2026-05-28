@@ -7,6 +7,7 @@ import { fr } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
 import { HOUSEHOLD_ID } from '../lib/config'
 import { useMember } from '../auth/useMember'
+import { GROCERIES_KEY } from '../features/groceries/useGroceries'
 import { QK } from '../lib/query-keys'
 import { useToast } from '../components/useToast'
 import LoadingPage from '../components/LoadingPage'
@@ -135,7 +136,7 @@ export default function HomePage() {
   })
 
   const { data: groceryPreview } = useQuery({
-    queryKey: ['home-groceries', HOUSEHOLD_ID],
+    queryKey: [...GROCERIES_KEY, 'preview'],
     queryFn: async (): Promise<GroceryPreview[]> => {
       const { data, error } = await supabase
         .from('groceries')
@@ -148,6 +149,7 @@ export default function HomePage() {
       return data as GroceryPreview[]
     },
     enabled: !!member,
+    staleTime: 0,
   })
 
   const { data: recentMoments } = useQuery({
