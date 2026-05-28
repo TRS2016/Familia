@@ -595,7 +595,7 @@ export default function GroceriesPage() {
         <div className={styles.headerActions}>
           {!shoppingMode && (
             <>
-              {uncheckedItems.length > 0 && (
+              {groceries.length > 0 && (
                 <button
                   className={styles.headerIconBtn}
                   onClick={() => setShowShareModal(true)}
