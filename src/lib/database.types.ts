@@ -682,42 +682,42 @@ export type Database = {
       }
       shared_list_tokens: {
         Row: {
-          id: string
-          token: string
-          household_id: string
+          created_at: string
           created_by: string | null
           expires_at: string
-          created_at: string
+          household_id: string
+          id: string
+          token: string
         }
         Insert: {
-          id?: string
-          token?: string
-          household_id: string
+          created_at?: string
           created_by?: string | null
           expires_at?: string
-          created_at?: string
+          household_id: string
+          id?: string
+          token?: string
         }
         Update: {
-          id?: string
-          token?: string
-          household_id?: string
+          created_at?: string
           created_by?: string | null
           expires_at?: string
-          created_at?: string
+          household_id?: string
+          id?: string
+          token?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "shared_list_tokens_household_id_fkey"
-            columns: ["household_id"]
-            isOneToOne: false
-            referencedRelation: "households"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "shared_list_tokens_created_by_fkey"
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "shared_list_tokens_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
             referencedColumns: ["id"]
           },
         ]
@@ -774,7 +774,7 @@ export type Database = {
     Functions: {
       get_my_household_id: { Args: never; Returns: string }
       replace_groceries_with_list: {
-        Args: { p_household_id: string; p_member_id: string | null; p_items: Json }
+        Args: { p_household_id: string; p_items: Json; p_member_id: string }
         Returns: undefined
       }
     }

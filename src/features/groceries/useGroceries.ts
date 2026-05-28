@@ -254,7 +254,7 @@ export function useGroceries() {
     }>) => {
       const { error } = await supabase.rpc('replace_groceries_with_list', {
         p_household_id: HOUSEHOLD_ID,
-        p_member_id: member?.id ?? null,
+        p_member_id: (member?.id ?? null) as unknown as string,
         p_items: items as unknown as Json,
       })
       if (error) throw error
