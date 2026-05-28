@@ -591,6 +591,45 @@ export type Database = {
           },
         ]
       }
+      moment_reactions: {
+        Row: {
+          created_at: string | null
+          emoji: string
+          id: string
+          member_id: string
+          moment_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          emoji: string
+          id?: string
+          member_id: string
+          moment_id: string
+        }
+        Update: {
+          created_at?: string | null
+          emoji?: string
+          id?: string
+          member_id?: string
+          moment_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moment_reactions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moment_reactions_moment_id_fkey"
+            columns: ["moment_id"]
+            isOneToOne: false
+            referencedRelation: "moments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       moments: {
         Row: {
           archived_at: string | null

@@ -170,10 +170,6 @@ export function useToggleReaction() {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
 
-  // moment_reactions added in migration 20260528 — not yet in generated types.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const reactionsTable = () => (supabase as any).from('moment_reactions')
-
   return useMutation({
     mutationFn: async ({ momentId, emoji }: { momentId: string; emoji: Emoji }) => {
       const memberId = member!.id
@@ -182,13 +178,15 @@ export function useToggleReaction() {
         ?.reactions.find(r => r.emoji === emoji && r.member_id === memberId)
 
       if (existing) {
-        await reactionsTable()
+        await supabase
+          .from('moment_reactions')
           .delete()
           .eq('moment_id', momentId)
           .eq('member_id', memberId)
           .eq('emoji', emoji)
       } else {
-        await reactionsTable()
+        await supabase
+          .from('moment_reactions')
           .insert({ moment_id: momentId, member_id: memberId, emoji })
       }
     },
