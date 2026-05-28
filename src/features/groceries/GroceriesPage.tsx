@@ -184,6 +184,8 @@ export default function GroceriesPage() {
   const [showHistory, setShowHistory]             = useState(false)
   const [showClearConfirm, setShowClearConfirm]   = useState(false)
   const [notifying, setNotifying]                 = useState(false)
+  const [showNotifyModal, setShowNotifyModal]     = useState(false)
+  const [notifyMessage, setNotifyMessage]         = useState('')
 
   const { data: sessions = [], isLoading: sessionsLoading } = useShoppingHistory({ enabled: showHistory })
   const { data: sessionSuggestions = [] } = useSessionSuggestions()
@@ -553,14 +555,16 @@ export default function GroceriesPage() {
     setShoppingItems([])
   }
 
-  async function handleNotifyList() {
+  async function handleNotifyList(message: string) {
     if (uncheckedItems.length === 0 || notifying) return
     setNotifying(true)
     try {
       const names = uncheckedItems.slice(0, 3).map(g => g.name)
       const extra = uncheckedItems.length > 3 ? ` +${uncheckedItems.length - 3}` : ''
+      const articleStr = names.join(', ') + extra
+      const body = message.trim() ? `${message.trim()} — ${articleStr}` : articleStr
       await supabase.functions.invoke('notify-household', {
-        body: { title: 'Liste de courses', body: names.join(', ') + extra, module: 'groceries' },
+        body: { title: 'Liste de courses', body, module: 'groceries' },
       })
       showToast({ type: 'success', message: 'Notification envoyée.' })
     } finally {
@@ -592,8 +596,8 @@ export default function GroceriesPage() {
             <>
               <button
                 className={styles.headerIconBtn}
-                onClick={handleNotifyList}
-                disabled={uncheckedItems.length === 0 || notifying}
+                onClick={() => setShowNotifyModal(true)}
+                disabled={uncheckedItems.length === 0}
                 aria-label="Envoyer la liste par notification"
               >
                 <Send size={15} strokeWidth={2.5} />
@@ -1137,6 +1141,40 @@ export default function GroceriesPage() {
                 </ul>
               </>
             )}
+          </div>
+        </SlideUpModal>
+      )}
+
+      {/* Modal — Envoyer la liste par notification */}
+      {showNotifyModal && (
+        <SlideUpModal
+          title="Envoyer la liste"
+          onClose={() => { setShowNotifyModal(false); setNotifyMessage('') }}
+        >
+          <div className={styles.notifyForm}>
+            <p className={styles.notifyArticles}>
+              {uncheckedItems.slice(0, 3).map(g => g.name).join(', ')}
+              {uncheckedItems.length > 3 && ` +${uncheckedItems.length - 3} article${uncheckedItems.length - 3 > 1 ? 's' : ''}`}
+            </p>
+            <textarea
+              className={styles.notifyTextarea}
+              value={notifyMessage}
+              onChange={e => setNotifyMessage(e.target.value)}
+              placeholder="Ajouter un message… ex : tu peux t'occuper de ça ?"
+              rows={3}
+              autoFocus
+            />
+            <button
+              className={styles.notifySendBtn}
+              disabled={notifying}
+              onClick={async () => {
+                await handleNotifyList(notifyMessage)
+                setShowNotifyModal(false)
+                setNotifyMessage('')
+              }}
+            >
+              {notifying ? 'Envoi…' : 'Envoyer la notification'}
+            </button>
           </div>
         </SlideUpModal>
       )}

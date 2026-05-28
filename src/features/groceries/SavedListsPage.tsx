@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { ChevronLeft, Plus, Trash2, Check, Copy, ChevronRight, Pencil, X, Share2, Link as LinkIcon } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, Check, Copy, ChevronRight, Pencil, X, Share2, Link as LinkIcon, Send } from 'lucide-react'
 import { useSavedLists, useSavedListDetail } from './useSavedLists'
 import type { SavedItem } from './useSavedLists'
 import { useGroceries } from './useGroceries'
@@ -11,6 +11,7 @@ import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import styles from './SavedListsPage.module.css'
+import { supabase } from '../../lib/supabase'
 
 // ── Page index ────────────────────────────────────────────────────────────────
 
@@ -162,6 +163,9 @@ function ListDetailView({
   const [name, setName] = useState(listName)
   const [editingName, setEditingName] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
+  const [showNotifyModal, setShowNotifyModal] = useState(false)
+  const [notifyMessage, setNotifyMessage] = useState('')
+  const [notifying, setNotifying] = useState(false)
 
   const [newItemName, setNewItemName] = useState('')
   const [editingItem, setEditingItem] = useState<SavedItem | null>(null)
@@ -232,6 +236,23 @@ function ListDetailView({
     }
   }
 
+  async function handleNotifyList(message: string) {
+    if (items.length === 0 || notifying) return
+    setNotifying(true)
+    try {
+      const names = items.slice(0, 3).map(i => i.name)
+      const extra = items.length > 3 ? ` +${items.length - 3}` : ''
+      const articleStr = names.join(', ') + extra
+      const body = message.trim() ? `${message.trim()} — ${articleStr}` : articleStr
+      await supabase.functions.invoke('notify-household', {
+        body: { title: name, body, module: 'groceries' },
+      })
+      showToast({ type: 'success', message: 'Notification envoyée.' })
+    } finally {
+      setNotifying(false)
+    }
+  }
+
   function handleDuplicate() {
     duplicateList.mutate(
       { id: listId, name: `${name} (copie)` },
@@ -267,13 +288,23 @@ function ListDetailView({
           </button>
         )}
 
-        <button
-          style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
-          onClick={() => setShowShareModal(true)}
-          aria-label="Partager la liste"
-        >
-          <Share2 size={18} strokeWidth={2.5} />
-        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+          <button
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: items.length === 0 ? 'var(--text-disabled, #ccc)' : 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+            onClick={() => setShowNotifyModal(true)}
+            disabled={items.length === 0}
+            aria-label="Envoyer la liste par notification"
+          >
+            <Send size={17} strokeWidth={2.5} />
+          </button>
+          <button
+            style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: 'var(--text-muted)', display: 'flex', alignItems: 'center' }}
+            onClick={() => setShowShareModal(true)}
+            aria-label="Partager la liste"
+          >
+            <Share2 size={18} strokeWidth={2.5} />
+          </button>
+        </div>
       </header>
 
       {/* Formulaire ajout rapide */}
@@ -354,6 +385,40 @@ function ListDetailView({
           Dupliquer cette liste
         </button>
       </div>
+
+      {/* Modal — Envoyer la liste par notification */}
+      {showNotifyModal && (
+        <SlideUpModal
+          title="Envoyer la liste"
+          onClose={() => { setShowNotifyModal(false); setNotifyMessage('') }}
+        >
+          <div className={styles.notifyForm}>
+            <p className={styles.notifyArticles}>
+              {items.slice(0, 3).map(i => i.name).join(', ')}
+              {items.length > 3 && ` +${items.length - 3} article${items.length - 3 > 1 ? 's' : ''}`}
+            </p>
+            <textarea
+              className={styles.notifyTextarea}
+              value={notifyMessage}
+              onChange={e => setNotifyMessage(e.target.value)}
+              placeholder="Ajouter un message… ex : tu peux t'occuper de ça ?"
+              rows={3}
+              autoFocus
+            />
+            <button
+              className={styles.notifySendBtn}
+              disabled={notifying}
+              onClick={async () => {
+                await handleNotifyList(notifyMessage)
+                setShowNotifyModal(false)
+                setNotifyMessage('')
+              }}
+            >
+              {notifying ? 'Envoi…' : 'Envoyer la notification'}
+            </button>
+          </div>
+        </SlideUpModal>
+      )}
 
       {/* Modal partage */}
       {showShareModal && (() => {
