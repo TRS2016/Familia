@@ -8,19 +8,19 @@ function json(data: unknown, status = 200): Response {
   })
 }
 
-// Format a Date as "YYYY-MM-DD" in Europe/Paris timezone
 function parisDate(d: Date): string {
   return d.toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' })
 }
 
-// Format a Date as "HH:MM" in Europe/Paris timezone
-function parisTime(d: Date): string {
-  return d.toLocaleTimeString('fr-FR', {
+function parisMinutesSinceMidnight(d: Date): number {
+  const str = d.toLocaleTimeString('fr-FR', {
     timeZone: 'Europe/Paris',
     hour: '2-digit',
     minute: '2-digit',
     hour12: false,
   })
+  const [h, m] = str.split(':').map(Number)
+  return h * 60 + m
 }
 
 Deno.serve(async (req: Request) => {
@@ -29,51 +29,58 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  // ── Compute 25–35 min window in Paris local time ───────────────────────────
-  const now = Date.now()
-  const winStart = new Date(now + 25 * 60 * 1000)
-  const winEnd   = new Date(now + 35 * 60 * 1000)
+  const now = new Date()
+  const todayStr = parisDate(now)
+  const nowMinutes = parisMinutesSinceMidnight(now)
 
-  const dateStr      = parisDate(winStart)
-  const timeStartStr = parisTime(winStart)
-  const timeEndStr   = parisTime(winEnd)
+  console.log(`[remind-events] Now: ${todayStr} ${nowMinutes}min since midnight (Paris)`)
 
-  console.log(`[remind-events] Window: ${dateStr} ${timeStartStr}–${timeEndStr}`)
-
-  // ── Fetch upcoming events not yet reminded ─────────────────────────────────
+  // ── Fetch today's timed events that have a reminder set ────────────────────
   const { data: events, error: eventsErr } = await supabase
     .from('events')
-    .select('id, title, date, start_time, household_id, location')
+    .select('id, title, date, start_time, household_id, location, reminder_minutes')
     .eq('all_day', false)
-    .eq('date', dateStr)
-    .gte('start_time', timeStartStr)
-    .lte('start_time', timeEndStr)
+    .eq('date', todayStr)
     .not('start_time', 'is', null)
+    .not('reminder_minutes', 'is', null)
 
   if (eventsErr) {
-    console.error('[remind-events] DB error fetching events:', eventsErr.message)
+    console.error('[remind-events] DB error:', eventsErr.message)
     return json({ error: 'DB error' }, 500)
   }
 
   if (!events || events.length === 0) {
-    console.log('[remind-events] No upcoming events.')
+    console.log('[remind-events] No timed events with reminder today.')
     return json({ reminders_sent: 0 })
   }
 
-  console.log(`[remind-events] Found ${events.length} event(s) to remind.`)
+  // ── Filter events whose reminder window matches now (±5 min) ───────────────
+  const candidates = events.filter((e) => {
+    const ev = e as { start_time: string; reminder_minutes: number }
+    const [h, m] = ev.start_time.split(':').map(Number)
+    const triggerMins = h * 60 + m - ev.reminder_minutes
+    return Math.abs(nowMinutes - triggerMins) <= 5
+  })
+
+  if (candidates.length === 0) {
+    console.log('[remind-events] No reminders due now.')
+    return json({ reminders_sent: 0 })
+  }
+
+  console.log(`[remind-events] ${candidates.length} reminder(s) due.`)
 
   // ── Filter out already-reminded events ────────────────────────────────────
-  const eventIds = events.map((e: { id: string }) => e.id)
+  const candidateIds = candidates.map((e: { id: string }) => e.id)
   const { data: alreadySent } = await supabase
     .from('event_reminders_sent')
     .select('event_id')
-    .in('event_id', eventIds)
+    .in('event_id', candidateIds)
 
   const sentIds = new Set((alreadySent ?? []).map((r: { event_id: string }) => r.event_id))
-  const toRemind = events.filter((e: { id: string }) => !sentIds.has(e.id))
+  const toRemind = candidates.filter((e: { id: string }) => !sentIds.has(e.id))
 
   if (toRemind.length === 0) {
-    console.log('[remind-events] All events already reminded.')
+    console.log('[remind-events] All due reminders already sent.')
     return json({ reminders_sent: 0 })
   }
 
@@ -94,11 +101,10 @@ Deno.serve(async (req: Request) => {
 
   for (const event of toRemind) {
     const ev = event as {
-      id: string; title: string; start_time: string
+      id: string; title: string; start_time: string; reminder_minutes: number
       household_id: string; location: string | null
     }
 
-    // Get all members with notifications enabled for this household
     const { data: members } = await supabase
       .from('members')
       .select('id')
@@ -115,9 +121,13 @@ Deno.serve(async (req: Request) => {
 
     if (!subscriptions || subscriptions.length === 0) continue
 
+    const reminderLabel = ev.reminder_minutes >= 60
+      ? `${ev.reminder_minutes / 60}h`
+      : `${ev.reminder_minutes} min`
+
     const payload = JSON.stringify({
       title: `⏰ Rappel : ${ev.title}`,
-      body: `Dans ~30 min${ev.location ? ` · ${ev.location}` : ''} à ${ev.start_time}`,
+      body: `Dans ${reminderLabel}${ev.location ? ` · ${ev.location}` : ''} à ${ev.start_time}`,
       module: 'calendar',
     })
 
@@ -139,17 +149,15 @@ Deno.serve(async (req: Request) => {
       )
     )
 
-    // Clean up dead subscriptions
     if (deadEndpoints.length > 0) {
       await supabase.from('push_subscriptions').delete().in('endpoint', deadEndpoints)
     }
 
-    // Mark event as reminded (upsert + ignoreDuplicates = no error si déjà présent)
     await supabase
       .from('event_reminders_sent')
       .upsert({ event_id: ev.id }, { onConflict: 'event_id', ignoreDuplicates: true })
 
-    console.log(`[remind-events] Reminded "${ev.title}" → ${totalSent} push(es) sent.`)
+    console.log(`[remind-events] Reminded "${ev.title}" (${reminderLabel} before) → ${totalSent} push(es) sent.`)
   }
 
   return json({ reminders_sent: totalSent, events_processed: toRemind.length })

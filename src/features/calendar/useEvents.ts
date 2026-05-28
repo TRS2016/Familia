@@ -19,6 +19,7 @@ export interface CalendarEvent {
   all_day: boolean
   location: string | null
   description: string | null
+  reminder_minutes: number | null
   recurrence_group_id: string | null
   recurrence_type: string | null
   created_at: string
@@ -36,6 +37,7 @@ export interface NewEventInput {
   location: string | null
   description?: string | null
   recurrence?: RecurrenceType
+  reminder_minutes?: number | null
 }
 
 const EVENT_SELECT = `
@@ -79,6 +81,7 @@ function buildOccurrences(
     member_id: input.member_id,
     location: input.location?.trim() || null,
     description: input.description?.trim() || null,
+    reminder_minutes: input.reminder_minutes !== undefined ? input.reminder_minutes : 30,
   }))
 }
 
@@ -122,7 +125,8 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
             all_day: input.all_day,
             location: input.location?.trim() || null,
             description: input.description?.trim() || null,
-          })
+            reminder_minutes: input.reminder_minutes !== undefined ? input.reminder_minutes : 30,
+          } as any)
           .select(EVENT_SELECT)
           .single()
         if (error) throw error
@@ -131,7 +135,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
 
       const groupId = crypto.randomUUID()
       const occurrences = buildOccurrences(input, groupId, member?.id ?? null)
-      const { error } = await supabase.from('events').insert(occurrences)
+      const { error } = await supabase.from('events').insert(occurrences as any)
       if (error) throw error
       return null
     },
@@ -154,6 +158,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
         all_day: input.all_day,
         location: input.location?.trim() || null,
         description: input.description?.trim() || null,
+        reminder_minutes: input.reminder_minutes !== undefined ? input.reminder_minutes : 30,
         recurrence_group_id: null,
         recurrence_type: null,
         created_at: new Date().toISOString(),
@@ -203,7 +208,8 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
             location: input.location?.trim() || null,
             description: input.description?.trim() || null,
             ...(input.recurrence ? { recurrence_type: input.recurrence } : {}),
-          })
+            ...(input.reminder_minutes !== undefined ? { reminder_minutes: input.reminder_minutes } : {}),
+          } as any)
           .eq('recurrence_group_id', recurrenceGroupId)
         if (error) throw error
         return null
@@ -220,7 +226,8 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
           all_day: input.all_day,
           location: input.location?.trim() || null,
           description: input.description?.trim() || null,
-        })
+          ...(input.reminder_minutes !== undefined ? { reminder_minutes: input.reminder_minutes } : {}),
+        } as any)
         .eq('id', id)
         .select(EVENT_SELECT)
         .single()
@@ -245,6 +252,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
               location: input.location?.trim() || null,
               description: input.description?.trim() || null,
               member_id: input.member_id,
+              ...(input.reminder_minutes !== undefined ? { reminder_minutes: input.reminder_minutes } : {}),
             }
           : e
       ))

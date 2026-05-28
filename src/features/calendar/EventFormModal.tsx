@@ -14,6 +14,15 @@ const RECURRENCE_OPTIONS: { key: RecurrenceType; label: string }[] = [
   { key: 'yearly',  label: 'Annuel'  },
 ]
 
+const REMINDER_OPTIONS: { value: number | null; label: string }[] = [
+  { value: null, label: 'Pas de rappel' },
+  { value: 10,   label: '10 min avant' },
+  { value: 15,   label: '15 min avant' },
+  { value: 30,   label: '30 min avant' },
+  { value: 60,   label: '1h avant'     },
+  { value: 120,  label: '2h avant'     },
+]
+
 interface EventFormModalProps {
   isOpen: boolean
   editingEvent: CalendarEvent | null
@@ -47,6 +56,7 @@ export function EventFormModal({
   const [formLocation, setFormLocation] = useState('')
   const [formDescription, setFormDescription] = useState('')
   const [formRecurrence, setFormRecurrence] = useState<RecurrenceType>('none')
+  const [formReminderMinutes, setFormReminderMinutes] = useState<number | null>(30)
 
   /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
@@ -62,6 +72,7 @@ export function EventFormModal({
       setFormLocation(editingEvent.location ?? '')
       setFormDescription(editingEvent.description ?? '')
       setFormRecurrence((editingEvent.recurrence_type as RecurrenceType | null) ?? 'none')
+      setFormReminderMinutes(editingEvent.reminder_minutes !== undefined ? editingEvent.reminder_minutes : 30)
     } else {
       setEditScope('one')
       setFormTitle('')
@@ -73,6 +84,7 @@ export function EventFormModal({
       setFormLocation('')
       setFormDescription('')
       setFormRecurrence('none')
+      setFormReminderMinutes(30)
     }
   }, [isOpen, editingEvent, addDefaults, currentMemberId])
   /* eslint-enable react-hooks/set-state-in-effect */
@@ -89,6 +101,7 @@ export function EventFormModal({
       location: formLocation || null,
       description: formDescription || null,
       recurrence: formRecurrence,
+      reminder_minutes: formAllDay ? null : formReminderMinutes,
     }
     onSubmit(input, editScope)
   }
@@ -237,6 +250,24 @@ export function EventFormModal({
               rows={2}
             />
           </div>
+
+          {!formAllDay && (
+            <div className={styles.formField}>
+              <label htmlFor="ev-reminder" className={styles.formLabel}>Rappel</label>
+              <select
+                id="ev-reminder"
+                className={styles.formInput}
+                value={formReminderMinutes ?? ''}
+                onChange={e => setFormReminderMinutes(e.target.value === '' ? null : Number(e.target.value))}
+              >
+                {REMINDER_OPTIONS.map(opt => (
+                  <option key={String(opt.value)} value={opt.value ?? ''}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {!editingId && (
             <div className={styles.formField}>
