@@ -119,7 +119,6 @@ function MomentCard({ moment, currentMemberId, onDelete, onOpenPhoto }: {
             const group = reactionGroups.find(g => g.emoji === emoji)
             const count = group?.count ?? 0
             const active = group?.active ?? false
-            if (count === 0 && isOwn) return null
             return (
               <button
                 key={emoji}
