@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send, Download } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send, Download, Share2 } from 'lucide-react'
 import { format, parseISO, subDays, subYears } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useMember } from '../../auth/useMember'
@@ -52,58 +52,121 @@ function momentDateStr(m: Moment) {
 
 // ── Lightbox ──────────────────────────────────────────────────────────────────
 
-function Lightbox({ urls, initialIndex, onClose }: {
+const canWebShare = typeof navigator !== 'undefined' && 'share' in navigator
+
+async function fetchAsFile(url: string, name: string): Promise<File> {
+  const blob = await fetch(url).then(r => r.blob())
+  const ext  = blob.type.split('/')[1] || 'jpg'
+  return new File([blob], `${name}.${ext}`, { type: blob.type })
+}
+
+async function downloadBlob(blob: Blob, name: string) {
+  const blobUrl = URL.createObjectURL(blob)
+  const a       = document.createElement('a')
+  a.href        = blobUrl
+  a.download    = name
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(blobUrl)
+}
+
+function Lightbox({ urls, initialIndex, onClose, onOpenAlbumShare }: {
   urls: string[]
   initialIndex: number
   onClose: () => void
+  onOpenAlbumShare: (urls: string[]) => void
 }) {
-  const [index, setIndex] = useState(initialIndex)
+  const [index, setIndex]             = useState(initialIndex)
+  const [downloadingAll, setDownloadingAll] = useState(false)
   const url = urls[index]
 
-  async function handleDownload() {
+  async function handleDownloadOne() {
     try {
-      const blob    = await fetch(url).then(r => r.blob())
-      const blobUrl = URL.createObjectURL(blob)
-      const a       = document.createElement('a')
-      a.href        = blobUrl
-      a.download    = `photo-${index + 1}.jpg`
-      document.body.appendChild(a)
-      a.click()
-      document.body.removeChild(a)
-      URL.revokeObjectURL(blobUrl)
+      const blob = await fetch(url).then(r => r.blob())
+      await downloadBlob(blob, `photo-${index + 1}.jpg`)
     } catch { /* silent */ }
+  }
+
+  async function handleShareOne() {
+    if (!canWebShare) return
+    try {
+      const file = await fetchAsFile(url, `photo-${index + 1}`)
+      await navigator.share({ files: [file] })
+    } catch { /* user cancelled or not supported */ }
+  }
+
+  async function handleDownloadAll() {
+    setDownloadingAll(true)
+    try {
+      const { default: JSZip } = await import('jszip')
+      const zip = new JSZip()
+      await Promise.all(urls.map(async (u, i) => {
+        const blob = await fetch(u).then(r => r.blob())
+        const ext  = blob.type.split('/')[1] || 'jpg'
+        zip.file(`photo-${i + 1}.${ext}`, blob)
+      }))
+      const content = await zip.generateAsync({ type: 'blob' })
+      await downloadBlob(content, `album-${Date.now()}.zip`)
+    } catch { /* silent */ }
+    setDownloadingAll(false)
   }
 
   return (
     <div className={styles.lightbox} onClick={onClose}>
       <img src={url} className={styles.lightboxImg} alt="" onClick={e => e.stopPropagation()} />
+
+      {/* Top-right: close */}
       <button className={styles.lightboxClose} onClick={onClose} aria-label="Fermer">
         <X size={18} strokeWidth={2.5} />
       </button>
-      <button className={styles.lightboxDownload} onClick={e => { e.stopPropagation(); handleDownload() }} aria-label="Télécharger">
-        <Download size={16} strokeWidth={2.5} />
-      </button>
+
+      {/* Top-left: download + share current photo */}
+      <div className={styles.lightboxTopLeft} onClick={e => e.stopPropagation()}>
+        <button className={styles.lightboxIconBtn} onClick={handleDownloadOne} aria-label="Télécharger">
+          <Download size={16} strokeWidth={2.5} />
+        </button>
+        {canWebShare && (
+          <button className={styles.lightboxIconBtn} onClick={handleShareOne} aria-label="Partager">
+            <Share2 size={16} strokeWidth={2.5} />
+          </button>
+        )}
+      </div>
+
+      {/* Navigation prev/next */}
       {urls.length > 1 && (
         <>
           {index > 0 && (
-            <button
-              className={styles.lightboxNavPrev}
+            <button className={styles.lightboxNavPrev}
               onClick={e => { e.stopPropagation(); setIndex(i => i - 1) }}
-              aria-label="Photo précédente"
-            >
+              aria-label="Photo précédente">
               <ChevronLeft size={22} strokeWidth={2.5} />
             </button>
           )}
           {index < urls.length - 1 && (
-            <button
-              className={styles.lightboxNavNext}
+            <button className={styles.lightboxNavNext}
               onClick={e => { e.stopPropagation(); setIndex(i => i + 1) }}
-              aria-label="Photo suivante"
-            >
+              aria-label="Photo suivante">
               <ChevronRight size={22} strokeWidth={2.5} />
             </button>
           )}
-          <div className={styles.lightboxCounter}>{index + 1} / {urls.length}</div>
+
+          {/* Bottom bar: album actions + counter */}
+          <div className={styles.lightboxAlbumBar} onClick={e => e.stopPropagation()}>
+            {canWebShare && (
+              <button className={styles.lightboxAlbumBtn}
+                onClick={() => { onClose(); onOpenAlbumShare(urls) }}>
+                <Share2 size={13} strokeWidth={2} /> Partager l'album
+              </button>
+            )}
+            <span className={styles.lightboxBarCounter}>{index + 1} / {urls.length}</span>
+            <button className={styles.lightboxAlbumBtn}
+              onClick={handleDownloadAll}
+              disabled={downloadingAll}>
+              <Download size={13} strokeWidth={2} />
+              {downloadingAll ? '…' : 'Télécharger'}
+            </button>
+          </div>
         </>
       )}
     </div>
@@ -258,6 +321,76 @@ function CommentRow({ comment, isOwn, onDelete }: {
         </button>
       )}
     </div>
+  )
+}
+
+// ── AlbumShareModal ───────────────────────────────────────────────────────────
+
+function AlbumShareModal({ urls, onClose }: { urls: string[]; onClose: () => void }) {
+  const [selected, setSelected] = useState(() => new Set(urls.map((_, i) => i)))
+  const [sharing, setSharing]   = useState(false)
+
+  function toggle(i: number) {
+    setSelected(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n })
+  }
+
+  const allSelected = selected.size === urls.length
+  const count       = selected.size
+
+  async function handleShare() {
+    if (count === 0) return
+    setSharing(true)
+    try {
+      const files = await Promise.all(
+        urls
+          .filter((_, i) => selected.has(i))
+          .map((url, i) => fetchAsFile(url, `photo-${i + 1}`))
+      )
+      await navigator.share({ files })
+    } catch { /* user cancelled */ }
+    setSharing(false)
+  }
+
+  return (
+    <SlideUpModal title="Partager l'album" onClose={onClose}>
+      <div className={styles.albumShareBody}>
+        <div className={styles.albumGrid}>
+          {urls.map((url, i) => (
+            <button
+              key={i}
+              type="button"
+              className={[styles.albumThumb, !selected.has(i) ? styles.albumThumbOff : ''].join(' ')}
+              onClick={() => toggle(i)}
+              aria-label={selected.has(i) ? 'Désélectionner' : 'Sélectionner'}
+            >
+              <img src={url} className={styles.albumThumbImg} alt="" loading="lazy" />
+              <div className={styles.albumThumbOverlay}>
+                {selected.has(i)
+                  ? <span className={styles.albumThumbCheck}>✓</span>
+                  : <X size={14} strokeWidth={2.5} className={styles.albumThumbX} />}
+              </div>
+            </button>
+          ))}
+        </div>
+
+        <button
+          type="button"
+          className={styles.albumSelectAllBtn}
+          onClick={() => setSelected(allSelected ? new Set() : new Set(urls.map((_, i) => i)))}
+        >
+          {allSelected ? 'Tout désélectionner' : 'Tout sélectionner'}
+        </button>
+
+        <button
+          type="button"
+          className={styles.publishBtn}
+          disabled={count === 0 || sharing}
+          onClick={handleShare}
+        >
+          {sharing ? 'Préparation…' : `Partager ${count} photo${count > 1 ? 's' : ''}`}
+        </button>
+      </div>
+    </SlideUpModal>
   )
 }
 
@@ -477,6 +610,7 @@ export default function MomentsPage() {
   const [confirmDelete, setConfirmDelete]   = useState<Moment | null>(null)
   const [editTargetId, setEditTargetId]     = useState<string | null>(null)
   const [lightbox, setLightbox]             = useState<{ urls: string[]; index: number } | null>(null)
+  const [albumShare, setAlbumShare]         = useState<string[] | null>(null)
 
   // live version derived from cache — updates as photos are added/removed
   const editTarget = editTargetId
@@ -637,7 +771,13 @@ export default function MomentsPage() {
           urls={lightbox.urls}
           initialIndex={lightbox.index}
           onClose={() => setLightbox(null)}
+          onOpenAlbumShare={urls => setAlbumShare(urls)}
         />
+      )}
+
+      {/* Album share */}
+      {albumShare && (
+        <AlbumShareModal urls={albumShare} onClose={() => setAlbumShare(null)} />
       )}
 
       {/* Compose modal */}
