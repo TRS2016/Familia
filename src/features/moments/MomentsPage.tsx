@@ -1,7 +1,7 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useMemo } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Plus, Trash2, Camera, X, Pencil, MessageCircle, Send } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, X, Pencil, MessageCircle, Send } from 'lucide-react'
 import { format, parseISO, subDays, subYears } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useMember } from '../../auth/useMember'
@@ -10,7 +10,7 @@ import { capitalize } from '../../lib/utils'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import {
-  useMoments, useTodayLastYear, useSignedPhotoUrl, useToggleReaction,
+  useMoments, useTodayLastYear, useSignedPhotoUrls, useToggleReaction,
   useAddMoment, useDeleteMoment, useEditMomentText,
   useComments, useAddComment, useDeleteComment,
   EMOJIS,
@@ -51,31 +51,123 @@ function momentDateStr(m: Moment) {
 
 // ── Lightbox ──────────────────────────────────────────────────────────────────
 
-function Lightbox({ url, onClose }: { url: string; onClose: () => void }) {
+function Lightbox({ urls, initialIndex, onClose }: {
+  urls: string[]
+  initialIndex: number
+  onClose: () => void
+}) {
+  const [index, setIndex] = useState(initialIndex)
+  const url = urls[index]
+
   return (
     <div className={styles.lightbox} onClick={onClose}>
       <img src={url} className={styles.lightboxImg} alt="" onClick={e => e.stopPropagation()} />
       <button className={styles.lightboxClose} onClick={onClose} aria-label="Fermer">
         <X size={18} strokeWidth={2.5} />
       </button>
+      {urls.length > 1 && (
+        <>
+          {index > 0 && (
+            <button
+              className={styles.lightboxNavPrev}
+              onClick={e => { e.stopPropagation(); setIndex(i => i - 1) }}
+              aria-label="Photo précédente"
+            >
+              <ChevronLeft size={22} strokeWidth={2.5} />
+            </button>
+          )}
+          {index < urls.length - 1 && (
+            <button
+              className={styles.lightboxNavNext}
+              onClick={e => { e.stopPropagation(); setIndex(i => i + 1) }}
+              aria-label="Photo suivante"
+            >
+              <ChevronRight size={22} strokeWidth={2.5} />
+            </button>
+          )}
+          <div className={styles.lightboxCounter}>{index + 1} / {urls.length}</div>
+        </>
+      )}
     </div>
   )
 }
 
-// ── MomentPhoto ───────────────────────────────────────────────────────────────
+// ── PhotoGrid ─────────────────────────────────────────────────────────────────
 
-function MomentPhoto({ path, onOpen }: { path: string; onOpen: (url: string) => void }) {
-  const { data: url, isLoading } = useSignedPhotoUrl(path)
-  if (isLoading) return <div className={styles.photoSkeleton} />
-  if (!url)      return null
+function PhotoGrid({
+  photoPaths,
+  urlMap,
+  onOpen,
+}: {
+  photoPaths: string[]
+  urlMap: Record<string, string>
+  onOpen: (index: number) => void
+}) {
+  const count = photoPaths.length
+  if (count === 0) return null
+
+  const urls = photoPaths.map(p => urlMap[p])
+
+  if (count === 1) {
+    if (!urls[0]) return <div className={styles.photoSkeleton} />
+    return (
+      <img
+        src={urls[0]}
+        className={[styles.photo, styles.photoClickable].join(' ')}
+        alt=""
+        loading="lazy"
+        onClick={() => onOpen(0)}
+      />
+    )
+  }
+
+  if (count === 2) {
+    return (
+      <div className={[styles.photoGrid, styles.photoGrid2].join(' ')}>
+        {[0, 1].map(i => (
+          <div key={i} className={styles.photoThumbWrap} onClick={() => onOpen(i)}>
+            {!urls[i] ? (
+              <div className={styles.photoThumbSkeleton} />
+            ) : (
+              <img src={urls[i]} className={styles.photoThumb} alt="" loading="lazy" />
+            )}
+          </div>
+        ))}
+      </div>
+    )
+  }
+
+  // 3+ photos: main (index 0) left + up to 2 thumbs (right), "+N" on last if more hidden
+  const thumbIndices = [1, 2].filter(i => i < count)
+  const extraCount   = count - 1 - thumbIndices.length
+
   return (
-    <img
-      src={url}
-      className={[styles.photo, styles.photoClickable].join(' ')}
-      alt=""
-      loading="lazy"
-      onClick={() => onOpen(url)}
-    />
+    <div className={[styles.photoGrid, styles.photoGrid3Plus].join(' ')}>
+      <div className={styles.photoGridMain} onClick={() => onOpen(0)}>
+        {!urls[0] ? (
+          <div className={styles.photoGridMainSkeleton} />
+        ) : (
+          <img src={urls[0]} className={styles.photoGridMainImg} alt="" loading="lazy" />
+        )}
+      </div>
+      <div className={styles.photoGridThumbs}>
+        {thumbIndices.map((photoIdx, ti) => {
+          const isLast = ti === thumbIndices.length - 1 && extraCount > 0
+          return (
+            <div key={photoIdx} className={styles.photoThumbWrap} onClick={() => onOpen(photoIdx)}>
+              {!urls[photoIdx] ? (
+                <div className={styles.photoThumbSkeleton} />
+              ) : (
+                <img src={urls[photoIdx]} className={styles.photoThumb} alt="" loading="lazy" />
+              )}
+              {isLast && (
+                <div className={styles.photoMoreOverlay}>+{extraCount}</div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
   )
 }
 
@@ -158,7 +250,7 @@ function MomentCard({ moment, currentMemberId, onDelete, onEdit, onOpenPhoto }: 
   currentMemberId: string
   onDelete: (m: Moment) => void
   onEdit: (m: Moment) => void
-  onOpenPhoto: (url: string) => void
+  onOpenPhoto: (urls: string[], index: number) => void
 }) {
   const toggleReaction = useToggleReaction()
   const [showComments, setShowComments] = useState(false)
@@ -166,6 +258,19 @@ function MomentCard({ moment, currentMemberId, onDelete, onEdit, onOpenPhoto }: 
   const isOptimistic = moment.id.startsWith('optimistic-')
   const name         = moment.member?.display_name ?? '?'
   const colorIndex   = name.charCodeAt(0) % 4
+
+  const photoPaths = useMemo(() => {
+    if (moment.photos.length > 0) return moment.photos.map(p => p.photo_path)
+    if (moment.photo_path && !moment.photo_archived) return [moment.photo_path]
+    return []
+  }, [moment.photos, moment.photo_path, moment.photo_archived])
+
+  const { data: urlMap = {} } = useSignedPhotoUrls(photoPaths)
+
+  function handlePhotoOpen(index: number) {
+    const urls = photoPaths.map(p => urlMap[p]).filter(Boolean)
+    if (urls.length > 0) onOpenPhoto(urls, index)
+  }
 
   return (
     <article className={[styles.card, isOptimistic ? styles.cardOptimistic : ''].join(' ')}>
@@ -191,8 +296,8 @@ function MomentCard({ moment, currentMemberId, onDelete, onEdit, onOpenPhoto }: 
 
       {moment.text && <p className={styles.text}>{moment.text}</p>}
 
-      {moment.photo_path && !moment.photo_archived && (
-        <MomentPhoto path={moment.photo_path} onOpen={onOpenPhoto} />
+      {photoPaths.length > 0 && (
+        <PhotoGrid photoPaths={photoPaths} urlMap={urlMap} onOpen={handlePhotoOpen} />
       )}
 
       {!isOptimistic && (
@@ -234,6 +339,7 @@ function MomentCard({ moment, currentMemberId, onDelete, onEdit, onOpenPhoto }: 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20
+const MAX_PHOTOS = 5
 
 export default function MomentsPage() {
   useMomentsRealtime()
@@ -248,36 +354,46 @@ export default function MomentsPage() {
 
   const [showCompose, setShowCompose]       = useState(false)
   const [text, setText]                     = useState('')
-  const [photo, setPhoto]                   = useState<File | null>(null)
-  const [photoPreview, setPhotoPreview]     = useState<string | null>(null)
+  const [photos, setPhotos]                 = useState<File[]>([])
+  const [previews, setPreviews]             = useState<string[]>([])
   const [confirmDelete, setConfirmDelete]   = useState<Moment | null>(null)
   const [editTarget, setEditTarget]         = useState<Moment | null>(null)
   const [editDraft, setEditDraft]           = useState('')
-  const [lightboxUrl, setLightboxUrl]       = useState<string | null>(null)
+  const [lightbox, setLightbox]             = useState<{ urls: string[]; index: number } | null>(null)
   const [showLastYear, setShowLastYear]     = useState(true)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0] ?? null
-    if (!file) return
-    setPhoto(file)
-    const reader = new FileReader()
-    reader.onload = ev => setPhotoPreview(ev.target?.result as string)
-    reader.readAsDataURL(file)
+    const files = Array.from(e.target.files ?? [])
+    if (!files.length) return
+    const remaining = MAX_PHOTOS - photos.length
+    const toAdd = files.slice(0, remaining)
+    setPhotos(prev => [...prev, ...toAdd])
+    toAdd.forEach(file => {
+      const reader = new FileReader()
+      reader.onload = ev => setPreviews(prev => [...prev, ev.target?.result as string])
+      reader.readAsDataURL(file)
+    })
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function removePhoto(idx: number) {
+    setPhotos(prev => prev.filter((_, i) => i !== idx))
+    setPreviews(prev => prev.filter((_, i) => i !== idx))
   }
 
   function resetCompose() {
     setText('')
-    setPhoto(null)
-    setPhotoPreview(null)
+    setPhotos([])
+    setPreviews([])
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!text.trim() && !photo) return
+    if (!text.trim() && photos.length === 0) return
     try {
-      await addMoment.mutateAsync({ text, photo })
+      await addMoment.mutateAsync({ text, photos })
       resetCompose()
       setShowCompose(false)
     } catch { /* onError handles toast */ }
@@ -286,7 +402,11 @@ export default function MomentsPage() {
   async function handleConfirmDelete() {
     if (!confirmDelete) return
     try {
-      await deleteMoment.mutateAsync({ id: confirmDelete.id, photo_path: confirmDelete.photo_path })
+      await deleteMoment.mutateAsync({
+        id: confirmDelete.id,
+        photo_path: confirmDelete.photo_path,
+        photos: confirmDelete.photos ?? [],
+      })
       setConfirmDelete(null)
     } catch { /* onError handles toast */ }
   }
@@ -300,9 +420,11 @@ export default function MomentsPage() {
     } catch { /* onError handles toast */ }
   }
 
-  const canPublish = (text.trim().length > 0 || !!photo) && !addMoment.isPending
+  const canPublish = (text.trim().length > 0 || photos.length > 0) && !addMoment.isPending
 
   const lastYearDate = format(subYears(new Date(), 1), 'd MMMM yyyy', { locale: fr })
+
+  const deleteHasPhotos = (confirmDelete?.photos?.length ?? 0) > 0 || !!confirmDelete?.photo_path
 
   return (
     <div className={styles.page}>
@@ -339,7 +461,7 @@ export default function MomentsPage() {
                   currentMemberId={member?.id ?? ''}
                   onDelete={setConfirmDelete}
                   onEdit={m => { setEditDraft(m.text ?? ''); setEditTarget(m) }}
-                  onOpenPhoto={setLightboxUrl}
+                  onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
                 />
               ))}
             </div>
@@ -376,7 +498,7 @@ export default function MomentsPage() {
                     currentMemberId={member?.id ?? ''}
                     onDelete={setConfirmDelete}
                     onEdit={m => { setEditDraft(m.text ?? ''); setEditTarget(m) }}
-                    onOpenPhoto={setLightboxUrl}
+                    onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
                   />
                 </div>
               )
@@ -395,7 +517,13 @@ export default function MomentsPage() {
       )}
 
       {/* Lightbox */}
-      {lightboxUrl && <Lightbox url={lightboxUrl} onClose={() => setLightboxUrl(null)} />}
+      {lightbox && (
+        <Lightbox
+          urls={lightbox.urls}
+          initialIndex={lightbox.index}
+          onClose={() => setLightbox(null)}
+        />
+      )}
 
       {/* Compose modal */}
       {showCompose && (
@@ -409,25 +537,46 @@ export default function MomentsPage() {
               rows={4}
               autoFocus
             />
-            {photoPreview ? (
-              <div className={styles.photoPreviewWrap}>
-                <img src={photoPreview} className={styles.photoPreview} alt="Aperçu" />
-                <button
-                  type="button"
-                  className={styles.removePhotoBtn}
-                  onClick={() => { setPhoto(null); setPhotoPreview(null); if (fileInputRef.current) fileInputRef.current.value = '' }}
-                  aria-label="Supprimer la photo"
-                >
-                  <X size={14} strokeWidth={2.5} />
-                </button>
-              </div>
-            ) : (
+            {previews.length === 0 ? (
               <button type="button" className={styles.photoPickerBtn} onClick={() => fileInputRef.current?.click()}>
                 <Camera size={16} strokeWidth={2} />
-                Ajouter une photo
+                Ajouter des photos
               </button>
+            ) : (
+              <div className={styles.previewGrid}>
+                {previews.map((preview, idx) => (
+                  <div key={idx} className={styles.previewThumbWrap}>
+                    <img src={preview} className={styles.previewThumb} alt="" />
+                    <button
+                      type="button"
+                      className={styles.removePhotoBtn}
+                      onClick={() => removePhoto(idx)}
+                      aria-label="Retirer la photo"
+                    >
+                      <X size={12} strokeWidth={2.5} />
+                    </button>
+                  </div>
+                ))}
+                {photos.length < MAX_PHOTOS && (
+                  <button
+                    type="button"
+                    className={styles.addMoreBtn}
+                    onClick={() => fileInputRef.current?.click()}
+                    aria-label="Ajouter une photo"
+                  >
+                    <Camera size={18} strokeWidth={2} />
+                  </button>
+                )}
+              </div>
             )}
-            <input ref={fileInputRef} type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoChange} />
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              style={{ display: 'none' }}
+              onChange={handlePhotoChange}
+            />
             <button type="submit" className={styles.publishBtn} disabled={!canPublish}>
               {addMoment.isPending ? 'Publication…' : 'Publier'}
             </button>
@@ -459,8 +608,8 @@ export default function MomentsPage() {
         <SlideUpModal onClose={() => setConfirmDelete(null)} title="Supprimer ce moment ?">
           <div className={styles.confirmBody}>
             <p className={styles.confirmText}>
-              {confirmDelete.photo_path
-                ? 'Ce moment et sa photo seront supprimés définitivement.'
+              {deleteHasPhotos
+                ? 'Ce moment et ses photos seront supprimés définitivement.'
                 : 'Ce moment sera supprimé définitivement.'}
             </p>
             <button className={styles.confirmDeleteBtn} onClick={handleConfirmDelete} disabled={deleteMoment.isPending}>
@@ -476,3 +625,4 @@ export default function MomentsPage() {
     </div>
   )
 }
+

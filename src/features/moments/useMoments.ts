@@ -12,6 +12,14 @@ export interface MomentReaction {
   member_id: string
 }
 
+export interface MomentPhoto {
+  id: string
+  moment_id: string
+  photo_path: string
+  position: number
+  created_at: string
+}
+
 export interface MomentComment {
   id: string
   moment_id: string
@@ -32,11 +40,12 @@ export interface Moment {
   created_at: string
   member: { id: string; display_name: string } | null
   reactions: MomentReaction[]
+  photos: MomentPhoto[]
 }
 
 export interface NewMomentInput {
   text: string
-  photo: File | null
+  photos: File[]
 }
 
 export const EMOJIS = ['❤️', '😄', '👍', '😮'] as const
@@ -50,20 +59,29 @@ export function commentsKey(momentId: string) {
   return ['moment-comments', momentId] as const
 }
 
+// ── Shared select ─────────────────────────────────────────────────────────────
+
+const MOMENTS_SELECT = '*, member:members(id, display_name), reactions:moment_reactions(emoji, member_id), photos:moment_photos(id, photo_path, position)'
+
+function sortPhotos(m: Moment): Moment {
+  return { ...m, photos: (m.photos ?? []).sort((a, b) => a.position - b.position) }
+}
+
 // ── Hooks ─────────────────────────────────────────────────────────────────────
 
 export function useMoments(limit = 20) {
   return useQuery({
     queryKey: [...MOMENTS_KEY, limit],
     queryFn: async (): Promise<Moment[]> => {
-      const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from('moments')
-        .select('*, member:members(id, display_name), reactions:moment_reactions(emoji, member_id)')
+        .select(MOMENTS_SELECT)
         .eq('household_id', HOUSEHOLD_ID)
         .order('created_at', { ascending: false })
         .limit(limit)
       if (error) throw error
-      return data as unknown as Moment[]
+      return (data as Moment[]).map(sortPhotos)
     },
   })
 }
@@ -76,15 +94,16 @@ export function useTodayLastYear() {
   return useQuery({
     queryKey: ['moments-today-last-year', HOUSEHOLD_ID, format(d, 'yyyy-MM-dd')],
     queryFn: async (): Promise<Moment[]> => {
-      const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from('moments')
-        .select('*, member:members(id, display_name), reactions:moment_reactions(emoji, member_id)')
+        .select(MOMENTS_SELECT)
         .eq('household_id', HOUSEHOLD_ID)
         .gte('created_at', from)
         .lte('created_at', to)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data as unknown as Moment[]
+      return ((data as Moment[]) ?? []).map(sortPhotos)
     },
     staleTime: 10 * 60 * 1000,
   })
@@ -108,6 +127,7 @@ export function useComments(momentId: string | null) {
   })
 }
 
+/** Signed URL for a single photo (legacy / backward compat) */
 export function useSignedPhotoUrl(path: string | null) {
   return useQuery({
     queryKey: ['moment-photo-url', path],
@@ -124,6 +144,25 @@ export function useSignedPhotoUrl(path: string | null) {
   })
 }
 
+/** Signed URLs for multiple photos in one batch call */
+export function useSignedPhotoUrls(paths: string[]) {
+  return useQuery({
+    queryKey: ['moment-photo-urls', paths.join(',')],
+    queryFn: async (): Promise<Record<string, string>> => {
+      const { data, error } = await supabase.storage
+        .from('family-moments')
+        .createSignedUrls(paths, 1800)
+      if (error) throw error
+      return Object.fromEntries(
+        (data ?? []).filter(d => d.signedUrl).map(d => [d.path, d.signedUrl])
+      )
+    },
+    enabled: paths.length > 0,
+    staleTime: 25 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  })
+}
+
 export function useAddMoment() {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
@@ -131,10 +170,10 @@ export function useAddMoment() {
 
   return useMutation({
     mutationFn: async (input: NewMomentInput): Promise<Moment> => {
-      let photo_path: string | null = null
+      const uploadedPaths: string[] = []
 
-      if (input.photo) {
-        let file: File = input.photo
+      for (const rawFile of input.photos) {
+        let file: File = rawFile
         if (file.size > 1_048_576) {
           const { default: imageCompression } = await import('browser-image-compression')
           file = await imageCompression(file, {
@@ -149,21 +188,42 @@ export function useAddMoment() {
           .from('family-moments')
           .upload(path, file, { contentType: file.type })
         if (uploadErr) throw uploadErr
-        photo_path = path
+        uploadedPaths.push(path)
       }
 
-      const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from('moments')
         .insert({
           household_id: HOUSEHOLD_ID,
           member_id: member!.id,
           text: input.text.trim() || null,
-          photo_path,
+          photo_path: uploadedPaths[0] ?? null,
         })
-        .select('*, member:members(id, display_name), reactions:moment_reactions(emoji, member_id)')
+        .select(MOMENTS_SELECT)
         .single()
       if (error) throw error
-      return data as unknown as Moment
+
+      if (uploadedPaths.length > 0) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { error: photoErr } = await (supabase as any)
+          .from('moment_photos')
+          .insert(uploadedPaths.map((path, i) => ({
+            moment_id: data.id,
+            photo_path: path,
+            position: i,
+          })))
+        if (photoErr) throw photoErr
+        const photos: MomentPhoto[] = uploadedPaths.map((path, i) => ({
+          id: `local-${i}`,
+          moment_id: data.id,
+          photo_path: path,
+          position: i,
+          created_at: new Date().toISOString(),
+        }))
+        return { ...(data as unknown as Moment), photos }
+      }
+      return { ...(data as unknown as Moment), photos: [] }
     },
     onMutate: async (input: NewMomentInput) => {
       await queryClient.cancelQueries({ queryKey: MOMENTS_KEY })
@@ -180,6 +240,7 @@ export function useAddMoment() {
         created_at: new Date().toISOString(),
         member: member ? { id: member.id, display_name: member.display_name } : null,
         reactions: [],
+        photos: [],
       }
       keys.forEach(q => {
         const old = (q.state.data as Moment[] | undefined) ?? []
@@ -213,9 +274,13 @@ export function useDeleteMoment() {
   const { showToast } = useToast()
 
   return useMutation({
-    mutationFn: async ({ id, photo_path }: { id: string; photo_path: string | null }) => {
-      if (photo_path) {
-        await supabase.storage.from('family-moments').remove([photo_path])
+    mutationFn: async ({ id, photo_path, photos = [] }: { id: string; photo_path: string | null; photos?: MomentPhoto[] }) => {
+      const pathsToDelete = photos.map(p => p.photo_path)
+      if (photo_path && !pathsToDelete.includes(photo_path)) {
+        pathsToDelete.push(photo_path)
+      }
+      if (pathsToDelete.length > 0) {
+        await supabase.storage.from('family-moments').remove(pathsToDelete)
       }
       const { error } = await supabase.from('moments').delete().eq('id', id)
       if (error) throw error
@@ -244,14 +309,15 @@ export function useEditMomentText() {
 
   return useMutation({
     mutationFn: async ({ id, text }: { id: string; text: string }): Promise<Moment> => {
-      const { data, error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
         .from('moments')
         .update({ text: text.trim() || null })
         .eq('id', id)
-        .select('*, member:members(id, display_name), reactions:moment_reactions(emoji, member_id)')
+        .select(MOMENTS_SELECT)
         .single()
       if (error) throw error
-      return data as unknown as Moment
+      return sortPhotos(data as unknown as Moment)
     },
     onMutate: async ({ id, text }) => {
       await queryClient.cancelQueries({ queryKey: MOMENTS_KEY })
