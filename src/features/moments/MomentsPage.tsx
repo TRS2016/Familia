@@ -260,7 +260,8 @@ function MomentCard({ moment, currentMemberId, onDelete, onEdit, onOpenPhoto }: 
   const colorIndex   = name.charCodeAt(0) % 4
 
   const photoPaths = useMemo(() => {
-    if (moment.photos.length > 0) return moment.photos.map(p => p.photo_path)
+    const photos = moment.photos ?? []
+    if (photos.length > 0) return photos.map(p => p.photo_path)
     if (moment.photo_path && !moment.photo_archived) return [moment.photo_path]
     return []
   }, [moment.photos, moment.photo_path, moment.photo_archived])
