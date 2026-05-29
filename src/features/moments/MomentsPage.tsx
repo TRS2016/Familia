@@ -591,7 +591,7 @@ function MomentCard({ moment, currentMemberId, onDelete, onEdit, onOpenPhoto }: 
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 const PAGE_SIZE = 20
-const MAX_PHOTOS = 5
+const MAX_PHOTOS = 10
 
 export default function MomentsPage() {
   useMomentsRealtime()
