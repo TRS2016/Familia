@@ -601,3 +601,502 @@
 }
 
 .cancelEditBtn:hover { background: var(--border-subtle); }
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+
+.tabRow {
+  display: flex;
+  padding: 0 16px 10px;
+  gap: 4px;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 4px;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 14px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.tab:hover { background: var(--border-subtle); color: var(--text-sub); }
+
+.tabActive {
+  background: rgba(224, 123, 84, 0.1);
+  color: var(--accent);
+}
+
+.tabBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  border-radius: 99px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 10px;
+  font-weight: 800;
+  padding: 0 4px;
+  margin-left: 4px;
+}
+
+/* ── Media file / play in row ────────────────────────────────────────────── */
+
+.itemTitleRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.itemPlayIcon {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ── Detail — media section ──────────────────────────────────────────────── */
+
+.mediaSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  margin: 4px 0;
+}
+
+.playBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  transition: opacity 0.15s;
+  align-self: flex-start;
+}
+
+.playBtn:hover { opacity: 0.87; }
+
+.attachRow {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.attachBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px dashed var(--border);
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: all 0.15s;
+  flex: 1;
+  justify-content: center;
+}
+
+.attachBtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.attachBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.attachBtnSmall {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: color 0.15s;
+  align-self: flex-start;
+}
+
+.attachBtnSmall:hover { color: var(--accent); }
+
+.urlInput {
+  width: 100%;
+  padding: 9px 12px;
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--accent);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: 13px;
+  outline: none;
+  box-sizing: border-box;
+}
+
+/* ── Playlists (add to list) ─────────────────────────────────────────────── */
+
+.addToListBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.addToListBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Playlists pane ──────────────────────────────────────────────────────── */
+
+.playlistsPane {
+  padding: 4px 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.playlistActions {
+  display: flex;
+  gap: 8px;
+}
+
+.newListBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  transition: opacity 0.15s;
+}
+
+.newListBtn:hover { opacity: 0.87; }
+
+.newSmartBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 8px 14px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-sub);
+  transition: all 0.15s;
+}
+
+.newSmartBtn:hover { border-color: #E8B84B; color: #E8B84B; }
+
+.playlistList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.playlistRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.playlistRow:hover { opacity: 0.85; }
+
+.playlistRowIcon { font-size: 18px; flex-shrink: 0; }
+
+.playlistRowBody { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.playlistName {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.playlistMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.playlistCount {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  padding: 2px 8px;
+  border-radius: 99px;
+  flex-shrink: 0;
+}
+
+.playlistChevron { color: var(--text-muted); flex-shrink: 0; }
+
+/* ── Playlist detail ─────────────────────────────────────────────────────── */
+
+.playlistDetail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 0 0;
+}
+
+.playlistDetailHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px 10px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+.playlistDetailMeta { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+
+.playlistDetailName {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--text);
+}
+
+.playlistDetailFilters {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.deleteListBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 6px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+  flex-shrink: 0;
+}
+
+.deleteListBtn:hover { color: #e05555; }
+
+.playlistItemRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.playlistItemRow:last-child { border-bottom: none; }
+
+.playlistPlayBtn {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: rgba(224, 123, 84, 0.12);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  flex-shrink: 0;
+  transition: background 0.15s;
+}
+
+.playlistPlayBtn:hover { background: rgba(224, 123, 84, 0.22); }
+
+.playlistItemPos {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  width: 18px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.removeFromListBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  transition: color 0.15s;
+}
+
+.removeFromListBtn:hover { color: #e05555; }
+
+.playlistPlayerWrap {
+  padding: 8px 16px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+/* ── Smart playlist builder ──────────────────────────────────────────────── */
+
+.smartSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px;
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+}
+
+.smartSectionLabel {
+  font-size: 11px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.smartRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.smartLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-sub);
+}
+
+.smartPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.smartPill {
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.smartPill:hover { border-color: var(--accent); color: var(--accent); }
+
+.smartPillActive {
+  border-color: var(--accent);
+  background: rgba(224, 123, 84, 0.1);
+  color: var(--accent);
+}
+
+.smartPreviewLabel {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-sub);
+  text-align: center;
+  padding: 8px 0 4px;
+}
+
+/* ── Add to playlist modal ───────────────────────────────────────────────── */
+
+.emptyListsMsg {
+  font-size: 13px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 12px 0;
+  margin: 0;
+}
+
+.playlistPickerList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.playlistPickerRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+  border: 1.5px solid var(--border);
+  cursor: pointer;
+  font-family: var(--font-family);
+  transition: all 0.15s;
+}
+
+.playlistPickerRow:hover:not(:disabled) { border-color: var(--accent); }
+.playlistPickerRow:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.playlistPickerIcon { font-size: 16px; flex-shrink: 0; }
+
+.playlistPickerName {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  text-align: left;
+}
+
