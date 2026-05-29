@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send, Download } from 'lucide-react'
 import { format, parseISO, subDays, subYears } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useMember } from '../../auth/useMember'
@@ -12,6 +12,7 @@ import SlideUpModal from '../../components/SlideUpModal'
 import {
   useMoments, useTodayLastYear, useSignedPhotoUrls, useToggleReaction,
   useAddMoment, useDeleteMoment, useEditMomentText,
+  useAddPhotoToMoment, useRemovePhotoFromMoment,
   useComments, useAddComment, useDeleteComment,
   EMOJIS,
 } from './useMoments'
@@ -59,11 +60,28 @@ function Lightbox({ urls, initialIndex, onClose }: {
   const [index, setIndex] = useState(initialIndex)
   const url = urls[index]
 
+  async function handleDownload() {
+    try {
+      const blob    = await fetch(url).then(r => r.blob())
+      const blobUrl = URL.createObjectURL(blob)
+      const a       = document.createElement('a')
+      a.href        = blobUrl
+      a.download    = `photo-${index + 1}.jpg`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(blobUrl)
+    } catch { /* silent */ }
+  }
+
   return (
     <div className={styles.lightbox} onClick={onClose}>
       <img src={url} className={styles.lightboxImg} alt="" onClick={e => e.stopPropagation()} />
       <button className={styles.lightboxClose} onClick={onClose} aria-label="Fermer">
         <X size={18} strokeWidth={2.5} />
+      </button>
+      <button className={styles.lightboxDownload} onClick={e => { e.stopPropagation(); handleDownload() }} aria-label="Télécharger">
+        <Download size={16} strokeWidth={2.5} />
       </button>
       {urls.length > 1 && (
         <>
@@ -243,6 +261,106 @@ function CommentRow({ comment, isOwn, onDelete }: {
   )
 }
 
+// ── EditMomentModal ───────────────────────────────────────────────────────────
+
+function EditMomentModal({ moment, onClose }: { moment: Moment; onClose: () => void }) {
+  const [caption, setCaption] = useState(moment.text ?? '')
+  const editText    = useEditMomentText()
+  const addPhoto    = useAddPhotoToMoment()
+  const removePhoto = useRemovePhotoFromMoment()
+  const cameraRef   = useRef<HTMLInputElement>(null)
+  const fileRef     = useRef<HTMLInputElement>(null)
+
+  const currentPhotos = useMemo(
+    () => (moment.photos ?? []).slice().sort((a, b) => a.position - b.position),
+    [moment.photos],
+  )
+  const photoPaths = useMemo(() => currentPhotos.map(p => p.photo_path), [currentPhotos])
+  const { data: urlMap = {} } = useSignedPhotoUrls(photoPaths)
+
+  const nextPosition = currentPhotos.length > 0 ? Math.max(...currentPhotos.map(p => p.position)) + 1 : 0
+  const canAddMore   = currentPhotos.length < MAX_PHOTOS
+
+  function handlePhotoSelect(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file) return
+    addPhoto.mutate({ momentId: moment.id, file, nextPosition })
+    if (e.target) e.target.value = ''
+  }
+
+  async function handleSave(e: FormEvent) {
+    e.preventDefault()
+    try {
+      await editText.mutateAsync({ id: moment.id, text: caption })
+      onClose()
+    } catch { /* onError handles toast */ }
+  }
+
+  return (
+    <SlideUpModal onClose={onClose} title="Modifier le moment">
+      <form onSubmit={handleSave} className={styles.composeForm}>
+        <textarea
+          className={styles.composeTextarea}
+          value={caption}
+          onChange={e => setCaption(e.target.value)}
+          placeholder="Légende du moment…"
+          rows={3}
+          autoFocus
+        />
+
+        {/* ── Photos ── */}
+        {(currentPhotos.length > 0 || addPhoto.isPending) ? (
+          <div className={styles.previewGrid}>
+            {currentPhotos.map(photo => (
+              <div key={photo.id} className={styles.previewThumbWrap}>
+                {urlMap[photo.photo_path]
+                  ? <img src={urlMap[photo.photo_path]} className={styles.previewThumb} alt="" />
+                  : <div className={styles.previewThumbSkeleton} />}
+                <button
+                  type="button"
+                  className={styles.removePhotoBtn}
+                  onClick={() => removePhoto.mutate({ photoId: photo.id, momentId: moment.id, photoPath: photo.photo_path })}
+                  disabled={removePhoto.isPending}
+                  aria-label="Retirer"
+                >
+                  <X size={12} strokeWidth={2.5} />
+                </button>
+              </div>
+            ))}
+            {addPhoto.isPending && <div className={[styles.previewThumbWrap, styles.previewThumbSkeleton].join(' ')} />}
+            {canAddMore && !addPhoto.isPending && (
+              <>
+                <button type="button" className={styles.addMoreBtn} onClick={() => cameraRef.current?.click()} aria-label="Photo">
+                  <Camera size={18} strokeWidth={2} />
+                </button>
+                <button type="button" className={styles.addMoreBtn} onClick={() => fileRef.current?.click()} aria-label="Galerie">
+                  <ImageIcon size={18} strokeWidth={2} />
+                </button>
+              </>
+            )}
+          </div>
+        ) : (
+          <div className={styles.photoPickerRow}>
+            <button type="button" className={styles.photoPickerBtn} onClick={() => cameraRef.current?.click()}>
+              <Camera size={16} strokeWidth={2} /> Appareil photo
+            </button>
+            <button type="button" className={styles.photoPickerBtn} onClick={() => fileRef.current?.click()}>
+              <ImageIcon size={16} strokeWidth={2} /> Galerie
+            </button>
+          </div>
+        )}
+
+        <input ref={cameraRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }} onChange={handlePhotoSelect} />
+        <input ref={fileRef}   type="file" accept="image/*" style={{ display: 'none' }} onChange={handlePhotoSelect} />
+
+        <button type="submit" className={styles.publishBtn} disabled={editText.isPending}>
+          {editText.isPending ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      </form>
+    </SlideUpModal>
+  )
+}
+
 // ── MomentCard ────────────────────────────────────────────────────────────────
 
 function MomentCard({ moment, currentMemberId, onDelete, onEdit, onOpenPhoto }: {
@@ -351,16 +469,19 @@ export default function MomentsPage() {
   const { data: lastYear = [] }  = useTodayLastYear()
   const addMoment    = useAddMoment()
   const deleteMoment = useDeleteMoment()
-  const editText     = useEditMomentText()
 
   const [showCompose, setShowCompose]       = useState(false)
   const [text, setText]                     = useState('')
   const [photos, setPhotos]                 = useState<File[]>([])
   const [previews, setPreviews]             = useState<string[]>([])
   const [confirmDelete, setConfirmDelete]   = useState<Moment | null>(null)
-  const [editTarget, setEditTarget]         = useState<Moment | null>(null)
-  const [editDraft, setEditDraft]           = useState('')
+  const [editTargetId, setEditTargetId]     = useState<string | null>(null)
   const [lightbox, setLightbox]             = useState<{ urls: string[]; index: number } | null>(null)
+
+  // live version derived from cache — updates as photos are added/removed
+  const editTarget = editTargetId
+    ? ([...moments, ...lastYear].find(m => m.id === editTargetId) ?? null)
+    : null
   const [showLastYear, setShowLastYear]     = useState(true)
   const fileInputRef   = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
@@ -414,15 +535,6 @@ export default function MomentsPage() {
     } catch { /* onError handles toast */ }
   }
 
-  async function handleEditSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!editTarget) return
-    try {
-      await editText.mutateAsync({ id: editTarget.id, text: editDraft })
-      setEditTarget(null)
-    } catch { /* onError handles toast */ }
-  }
-
   const canPublish = (text.trim().length > 0 || photos.length > 0) && !addMoment.isPending
 
   const lastYearDate = format(subYears(new Date(), 1), 'd MMMM yyyy', { locale: fr })
@@ -463,7 +575,7 @@ export default function MomentsPage() {
                   moment={m}
                   currentMemberId={member?.id ?? ''}
                   onDelete={setConfirmDelete}
-                  onEdit={m => { setEditDraft(m.text ?? ''); setEditTarget(m) }}
+                  onEdit={m => setEditTargetId(m.id)}
                   onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
                 />
               ))}
@@ -500,7 +612,7 @@ export default function MomentsPage() {
                     moment={m}
                     currentMemberId={member?.id ?? ''}
                     onDelete={setConfirmDelete}
-                    onEdit={m => { setEditDraft(m.text ?? ''); setEditTarget(m) }}
+                    onEdit={m => setEditTargetId(m.id)}
                     onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
                   />
                 </div>
@@ -611,23 +723,11 @@ export default function MomentsPage() {
         </SlideUpModal>
       )}
 
-      {/* Edit caption modal */}
       {editTarget && (
-        <SlideUpModal onClose={() => setEditTarget(null)} title="Modifier la légende">
-          <form onSubmit={handleEditSubmit} className={styles.composeForm}>
-            <textarea
-              className={styles.composeTextarea}
-              value={editDraft}
-              onChange={e => setEditDraft(e.target.value)}
-              placeholder="Légende du moment…"
-              rows={4}
-              autoFocus
-            />
-            <button type="submit" className={styles.publishBtn} disabled={editText.isPending}>
-              {editText.isPending ? 'Enregistrement…' : 'Enregistrer'}
-            </button>
-          </form>
-        </SlideUpModal>
+        <EditMomentModal
+          moment={editTarget}
+          onClose={() => setEditTargetId(null)}
+        />
       )}
 
       {/* Delete confirm modal */}

@@ -413,6 +413,98 @@ export function useDeleteComment() {
   })
 }
 
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function updateMomentInCaches(
+  queryClient: ReturnType<typeof useQueryClient>,
+  momentId: string,
+  updater: (m: Moment) => Moment,
+) {
+  queryClient.getQueryCache().findAll({ queryKey: MOMENTS_KEY }).forEach(q => {
+    queryClient.setQueryData(q.queryKey, (old: Moment[] | undefined) =>
+      old ? old.map(m => m.id === momentId ? updater(m) : m) : old
+    )
+  })
+  queryClient.getQueryCache().findAll({ queryKey: ['moments-today-last-year', HOUSEHOLD_ID] }).forEach(q => {
+    queryClient.setQueryData(q.queryKey, (old: Moment[] | undefined) =>
+      old ? old.map(m => m.id === momentId ? updater(m) : m) : old
+    )
+  })
+}
+
+// ── Photo album mutations ─────────────────────────────────────────────────────
+
+export function useAddPhotoToMoment() {
+  const queryClient = useQueryClient()
+  const { data: member } = useMember()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ momentId, file, nextPosition }: {
+      momentId: string
+      file: File
+      nextPosition: number
+    }): Promise<MomentPhoto> => {
+      let toUpload: File = file
+      if (file.size > 1_048_576) {
+        const { default: imageCompression } = await import('browser-image-compression')
+        toUpload = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1920, useWebWorker: true })
+      }
+      const ext  = toUpload.name.split('.').pop()?.toLowerCase() ?? 'jpg'
+      const path = `${HOUSEHOLD_ID}/${member!.id}/${crypto.randomUUID()}.${ext}`
+      const { error: uploadErr } = await supabase.storage
+        .from('family-moments')
+        .upload(path, toUpload, { contentType: toUpload.type })
+      if (uploadErr) throw uploadErr
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('moment_photos')
+        .insert({ moment_id: momentId, photo_path: path, position: nextPosition })
+        .select('id, moment_id, photo_path, position, created_at')
+        .single()
+      if (error) {
+        await supabase.storage.from('family-moments').remove([path])
+        throw error
+      }
+      return data as MomentPhoto
+    },
+    onSuccess: (newPhoto) => {
+      updateMomentInCaches(queryClient, newPhoto.moment_id, m =>
+        sortPhotos({ ...m, photos: [...(m.photos ?? []), newPhoto] })
+      )
+    },
+    onError: () => {
+      showToast({ type: 'error', message: 'Impossible d\'ajouter la photo.' })
+    },
+  })
+}
+
+export function useRemovePhotoFromMoment() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ photoId, photoPath }: { photoId: string; momentId: string; photoPath: string }) => {
+      await supabase.storage.from('family-moments').remove([photoPath])
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('moment_photos').delete().eq('id', photoId)
+      if (error) throw error
+    },
+    onMutate: async ({ photoId, momentId }) => {
+      await queryClient.cancelQueries({ queryKey: MOMENTS_KEY })
+      updateMomentInCaches(queryClient, momentId, m => ({
+        ...m,
+        photos: (m.photos ?? []).filter(p => p.id !== photoId),
+      }))
+    },
+    onError: () => {
+      showToast({ type: 'error', message: 'Impossible de supprimer la photo.' })
+      queryClient.invalidateQueries({ queryKey: MOMENTS_KEY })
+    },
+  })
+}
+
 export function useToggleReaction() {
   const queryClient = useQueryClient()
   const { data: member } = useMember()

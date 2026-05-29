@@ -808,3 +808,35 @@
   border-color: #D4778A;
   color: #D4778A;
 }
+
+/* ── Lightbox download button ────────────────────────────────────────────── */
+
+.lightboxDownload {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  z-index: 1001;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.45);
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  transition: background 0.15s;
+}
+
+.lightboxDownload:hover { background: rgba(255, 255, 255, 0.28); }
+
+/* ── Edit modal — photo skeleton ─────────────────────────────────────────── */
+
+.previewThumbSkeleton {
+  width: 100%;
+  height: 100%;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  animation: pulse 1.4s ease-in-out infinite;
+}
