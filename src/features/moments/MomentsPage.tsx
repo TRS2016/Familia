@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, X, Pencil, MessageCircle, Send } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send } from 'lucide-react'
 import { format, parseISO, subDays, subYears } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useMember } from '../../auth/useMember'
@@ -362,7 +362,8 @@ export default function MomentsPage() {
   const [editDraft, setEditDraft]           = useState('')
   const [lightbox, setLightbox]             = useState<{ urls: string[]; index: number } | null>(null)
   const [showLastYear, setShowLastYear]     = useState(true)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const fileInputRef   = useRef<HTMLInputElement>(null)
+  const cameraInputRef = useRef<HTMLInputElement>(null)
 
   function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -387,7 +388,8 @@ export default function MomentsPage() {
     setText('')
     setPhotos([])
     setPreviews([])
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    if (fileInputRef.current)   fileInputRef.current.value = ''
+    if (cameraInputRef.current) cameraInputRef.current.value = ''
   }
 
   async function handleSubmit(e: FormEvent) {
@@ -539,10 +541,16 @@ export default function MomentsPage() {
               autoFocus
             />
             {previews.length === 0 ? (
-              <button type="button" className={styles.photoPickerBtn} onClick={() => fileInputRef.current?.click()}>
-                <Camera size={16} strokeWidth={2} />
-                Ajouter des photos
-              </button>
+              <div className={styles.photoPickerRow}>
+                <button type="button" className={styles.photoPickerBtn} onClick={() => cameraInputRef.current?.click()}>
+                  <Camera size={16} strokeWidth={2} />
+                  Appareil photo
+                </button>
+                <button type="button" className={styles.photoPickerBtn} onClick={() => fileInputRef.current?.click()}>
+                  <ImageIcon size={16} strokeWidth={2} />
+                  Galerie
+                </button>
+              </div>
             ) : (
               <div className={styles.previewGrid}>
                 {previews.map((preview, idx) => (
@@ -559,17 +567,35 @@ export default function MomentsPage() {
                   </div>
                 ))}
                 {photos.length < MAX_PHOTOS && (
-                  <button
-                    type="button"
-                    className={styles.addMoreBtn}
-                    onClick={() => fileInputRef.current?.click()}
-                    aria-label="Ajouter une photo"
-                  >
-                    <Camera size={18} strokeWidth={2} />
-                  </button>
+                  <>
+                    <button
+                      type="button"
+                      className={styles.addMoreBtn}
+                      onClick={() => cameraInputRef.current?.click()}
+                      aria-label="Prendre une photo"
+                    >
+                      <Camera size={18} strokeWidth={2} />
+                    </button>
+                    <button
+                      type="button"
+                      className={styles.addMoreBtn}
+                      onClick={() => fileInputRef.current?.click()}
+                      aria-label="Ajouter depuis la galerie"
+                    >
+                      <ImageIcon size={18} strokeWidth={2} />
+                    </button>
+                  </>
                 )}
               </div>
             )}
+            <input
+              ref={cameraInputRef}
+              type="file"
+              accept="image/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={handlePhotoChange}
+            />
             <input
               ref={fileInputRef}
               type="file"
