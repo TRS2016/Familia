@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Plus, Search, Pencil, Trash2, Play, Link as LinkIcon, Paperclip, ListMusic, X, ChevronRight } from 'lucide-react'
+import { ChevronLeft, Plus, Search, Pencil, Trash2, Play, Link as LinkIcon, Upload, ListMusic, X, ChevronRight } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -535,6 +535,8 @@ function MediaDetailModal({ item, members, playlists, onClose, onCycleStatus, on
   const [showUrlInput, setShowUrlInput] = useState(false)
   const [urlDraft, setUrlDraft] = useState(item.external_url ?? '')
   const [commentText, setCommentText] = useState(item.comment ?? '')
+  const [localBlobUrl, setLocalBlobUrl] = useState<string | null>(null)
+  const [localMimeType, setLocalMimeType] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState<DetailDraft>({
     title:           item.title,
     type:            item.type,
@@ -543,10 +545,16 @@ function MediaDetailModal({ item, members, playlists, onClose, onCycleStatus, on
     genre:           item.genre ?? '',
     external_url:    item.external_url ?? '',
   })
-  const fileRef = useRef<HTMLInputElement>(null)
+  const fileRef      = useRef<HTMLInputElement>(null)
+  const localFileRef = useRef<HTMLInputElement>(null)
   const uploadFile = useUploadMediaFile()
 
   useEffect(() => { setCommentText(item.comment ?? '') }, [item.comment])
+
+  useEffect(() => {
+    return () => { if (localBlobUrl) URL.revokeObjectURL(localBlobUrl) }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localBlobUrl])
   useEffect(() => {
     setEditDraft({
       title:           item.title,
@@ -697,16 +705,38 @@ function MediaDetailModal({ item, members, playlists, onClose, onCycleStatus, on
                   <LinkIcon size={11} strokeWidth={2} /> Changer le lien
                 </button>
               </>
+            ) : localBlobUrl ? (
+              <>
+                <MediaPlayer externalUrl={localBlobUrl} mimeType={localMimeType} title={item.title} />
+                <div className={styles.attachRow} style={{ marginTop: 8 }}>
+                  <button className={styles.attachBtn} onClick={() => fileRef.current?.click()}
+                    disabled={uploadFile.isPending}>
+                    <Upload size={13} strokeWidth={2} />
+                    {uploadFile.isPending ? 'Upload…' : 'Partager avec la famille'}
+                  </button>
+                  <button className={styles.attachBtnSmall} onClick={() => {
+                    URL.revokeObjectURL(localBlobUrl)
+                    setLocalBlobUrl(null)
+                    setLocalMimeType(null)
+                  }}>
+                    <X size={11} strokeWidth={2} /> Fermer
+                  </button>
+                </div>
+              </>
             ) : (
               <div className={styles.attachRow}>
+                <button className={styles.attachBtn} onClick={() => localFileRef.current?.click()}>
+                  <Play size={13} strokeWidth={2} />
+                  Lire ici
+                </button>
                 <button className={styles.attachBtn} onClick={() => fileRef.current?.click()}
                   disabled={uploadFile.isPending}>
-                  <Paperclip size={13} strokeWidth={2} />
-                  {uploadFile.isPending ? 'Upload…' : 'Fichier local'}
+                  <Upload size={13} strokeWidth={2} />
+                  {uploadFile.isPending ? 'Upload…' : 'Uploader'}
                 </button>
                 <button className={styles.attachBtn} onClick={() => setShowUrlInput(v => !v)}>
                   <LinkIcon size={13} strokeWidth={2} />
-                  Lier une URL
+                  URL
                 </button>
               </div>
             )}
@@ -732,6 +762,15 @@ function MediaDetailModal({ item, members, playlists, onClose, onCycleStatus, on
               onChange={e => {
                 const file = e.target.files?.[0]
                 if (file) handleFileUpload(file)
+              }} />
+
+            <input ref={localFileRef} type="file" accept="video/*,audio/*" style={{ display: 'none' }}
+              onChange={e => {
+                const file = e.target.files?.[0]
+                if (!file) return
+                if (localBlobUrl) URL.revokeObjectURL(localBlobUrl)
+                setLocalBlobUrl(URL.createObjectURL(file))
+                setLocalMimeType(file.type || null)
               }} />
           </div>
 

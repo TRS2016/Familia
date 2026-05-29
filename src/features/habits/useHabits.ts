@@ -102,11 +102,12 @@ export function useRecentCompletions(habitIds: string[]) {
   return useQuery({
     queryKey: key,
     queryFn: async (): Promise<HabitCompletion[]> => {
-      if (habitIds.length === 0) return []
+      const validIds = habitIds.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id))
+      if (validIds.length === 0) return []
       const { data, error } = await supabase
         .from('habit_completions')
         .select('*')
-        .in('habit_id', habitIds)
+        .in('habit_id', validIds)
         .gte('date', from)
         .lte('date', to)
         .eq('completed', true)
