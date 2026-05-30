@@ -118,11 +118,13 @@ export default function HabitsPage() {
     reminder_time: null as string | null,
   })
 
-  const displayed = filterMemberId
-    ? habits.filter(h => h.member_id === filterMemberId)
-    : habits
-
   const dates = Array.from({ length: 7 }, (_, i) => format(addDays(weekCursor, i), 'yyyy-MM-dd'))
+  const weekEnd = dates[6]
+
+  const displayed = habits.filter(h =>
+    (!h.start_date || h.start_date <= weekEnd) &&
+    (!filterMemberId || h.member_id === filterMemberId)
+  )
   const doneSet = new Set(completions.map(c => `${c.habit_id}::${c.date}`))
   function isDone(habitId: string, date: string) { return doneSet.has(`${habitId}::${date}`) }
 
