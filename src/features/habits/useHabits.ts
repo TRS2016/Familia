@@ -16,6 +16,7 @@ export interface Habit {
   color: string | null
   frequency: string
   frequency_days: number[] | null  // 1=lun…7=dim — remplace frequency si défini
+  start_date: string | null        // date ISO yyyy-MM-dd, null = pas de restriction
   archived_at: string | null
   reminder_time: string | null     // HH:MM heure Paris
   created_at: string
@@ -38,6 +39,7 @@ export interface NewHabitInput {
   color: string | null
   frequency?: string
   frequency_days?: number[] | null
+  start_date?: string | null
   reminder_time?: string | null
 }
 
@@ -48,6 +50,7 @@ export interface EditHabitInput {
   member_id: string | null
   frequency?: string
   frequency_days?: number[] | null
+  start_date?: string | null
   reminder_time?: string | null
 }
 
@@ -200,6 +203,7 @@ export function useAddHabit() {
           color: input.color,
           frequency: input.frequency ?? 'daily',
           frequency_days: input.frequency_days ?? null,
+          start_date: input.start_date ?? null,
           reminder_time: input.reminder_time ?? null,
         } as never)
         .select('*, member:members(id, display_name)')
@@ -219,6 +223,7 @@ export function useAddHabit() {
         color: input.color,
         frequency: input.frequency ?? 'daily',
         frequency_days: input.frequency_days ?? null,
+        start_date: input.start_date ?? null,
         archived_at: null,
         reminder_time: input.reminder_time ?? null,
         created_at: new Date().toISOString(),
@@ -277,6 +282,7 @@ export function useEditHabit() {
           member_id: input.member_id,
           frequency: input.frequency,
           frequency_days: input.frequency_days,
+          start_date: input.start_date,
           reminder_time: input.reminder_time,
         } as never)
         .eq('id', input.id)
@@ -296,6 +302,7 @@ export function useEditHabit() {
           member_id: input.member_id,
           frequency: input.frequency ?? h.frequency,
           frequency_days: input.frequency_days !== undefined ? input.frequency_days : h.frequency_days,
+          start_date: input.start_date !== undefined ? input.start_date : h.start_date,
           reminder_time: input.reminder_time !== undefined ? input.reminder_time : h.reminder_time,
           member: h.member_id === input.member_id ? h.member : null,
         })

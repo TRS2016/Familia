@@ -52,6 +52,7 @@ function isoDow(dateStr: string): number {
 }
 
 function isApplicable(habit: Habit, dateStr: string): boolean {
+  if (habit.start_date && dateStr < habit.start_date) return false
   if (!habit.frequency_days || habit.frequency_days.length === 0) return true
   return habit.frequency_days.includes(isoDow(dateStr))
 }
@@ -89,7 +90,7 @@ export default function HabitsPage() {
   const [editTarget, setEditTarget] = useState<Habit | null>(null)
   const [editDraft,  setEditDraft]  = useState({
     name: '', emoji: '⭐', member_id: null as string | null,
-    frequency: 'daily', frequency_days: null as number[] | null, reminder_time: null as string | null,
+    frequency: 'daily', frequency_days: null as number[] | null, start_date: null as string | null, reminder_time: null as string | null,
   })
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
   const [showAdd,    setShowAdd]    = useState(false)
@@ -113,6 +114,7 @@ export default function HabitsPage() {
     member_id: currentMember?.id ?? null as string | null,
     frequency: 'daily',
     frequency_days: null as number[] | null,
+    start_date: null as string | null,
     reminder_time: null as string | null,
   })
 
@@ -147,6 +149,7 @@ export default function HabitsPage() {
       member_id: habit.member_id,
       frequency: habit.frequency ?? 'daily',
       frequency_days: habit.frequency_days ?? null,
+      start_date: habit.start_date ?? null,
       reminder_time: habit.reminder_time ?? null,
     })
     setEditTarget(habit)
@@ -165,6 +168,7 @@ export default function HabitsPage() {
         member_id: editDraft.member_id,
         frequency: editDraft.frequency,
         frequency_days: freqDays,
+        start_date: editDraft.start_date || null,
         reminder_time: editDraft.reminder_time || null,
       })
       setEditTarget(null)
@@ -185,9 +189,10 @@ export default function HabitsPage() {
         color: null,
         frequency: draft.frequency,
         frequency_days: freqDays,
+        start_date: draft.start_date || null,
         reminder_time: draft.reminder_time || null,
       })
-      setDraft({ name: '', emoji: '⭐', member_id: currentMember?.id ?? null, frequency: 'daily', frequency_days: null, reminder_time: null })
+      setDraft({ name: '', emoji: '⭐', member_id: currentMember?.id ?? null, frequency: 'daily', frequency_days: null, start_date: null, reminder_time: null })
       setShowAdd(false)
     } catch { /* onError handles toast */ }
   }
@@ -470,6 +475,7 @@ type HabitDraft = {
   member_id: string | null
   frequency: string
   frequency_days: number[] | null
+  start_date: string | null
   reminder_time: string | null
 }
 
@@ -575,6 +581,24 @@ function HabitForm({ draft, setDraft, members, isPending, submitLabel }: {
             })}
           </div>
         )}
+      </div>
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>Date de début</label>
+        <div className={styles.reminderRow}>
+          <button
+            type="button"
+            className={[styles.freqPill, !draft.start_date ? styles.freqPillActive : ''].join(' ')}
+            style={{ flexShrink: 0 }}
+            onClick={() => setDraft(d => ({ ...d, start_date: null }))}
+          >Depuis toujours</button>
+          <input
+            type="date"
+            className={styles.timeInput}
+            value={draft.start_date ?? ''}
+            onChange={e => setDraft(d => ({ ...d, start_date: e.target.value || null }))}
+          />
+        </div>
       </div>
 
       <div className={styles.fieldGroup}>
