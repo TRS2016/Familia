@@ -1,0 +1,262 @@
+import { useState, useEffect } from 'react'
+import type { FormEvent } from 'react'
+import { format, parseISO } from 'date-fns'
+import { fr } from 'date-fns/locale'
+import { Pencil, Trash2, ExternalLink } from 'lucide-react'
+import { memberColor } from '../../lib/constants'
+import SlideUpModal from '../../components/SlideUpModal'
+import { useUpdateMediaItem, useDeleteMediaItem } from './useMedia'
+import type { MediaItem, MediaType, UpdateMediaInput } from './useMedia'
+import { TYPE_META, STATUS_STYLE } from './MediaRow'
+import styles from './MediaPage.module.css'
+
+const TYPES: MediaType[] = ['film', 'série', 'livre', 'jeu']
+
+function formatDate(d: string | null) {
+  if (!d) return null
+  return format(parseISO(d), 'd MMM yyyy', { locale: fr })
+}
+
+type EditDraft = {
+  title: string; type: MediaType
+  author_director: string; release_year: string; genre: string; external_url: string
+}
+
+export default function MediaDetailModal({ item, members, onClose, onCycleStatus }: {
+  item: MediaItem
+  members: { id: string; display_name: string }[]
+  onClose: () => void
+  onCycleStatus: () => void
+}) {
+  const updateItem = useUpdateMediaItem()
+  const deleteItem = useDeleteMediaItem()
+
+  const [editMode, setEditMode]     = useState(false)
+  const [commentText, setCommentText] = useState(item.comment ?? '')
+  const [editDraft, setEditDraft]   = useState<EditDraft>({
+    title:           item.title,
+    type:            item.type,
+    author_director: item.author_director ?? '',
+    release_year:    item.release_year != null ? String(item.release_year) : '',
+    genre:           item.genre ?? '',
+    external_url:    item.external_url ?? '',
+  })
+
+  useEffect(() => { setCommentText(item.comment ?? '') }, [item.comment])
+  useEffect(() => {
+    setEditDraft({
+      title:           item.title,
+      type:            item.type,
+      author_director: item.author_director ?? '',
+      release_year:    item.release_year != null ? String(item.release_year) : '',
+      genre:           item.genre ?? '',
+      external_url:    item.external_url ?? '',
+    })
+  }, [item.id]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  function onUpdate(fields: Omit<UpdateMediaInput, 'id'>) {
+    updateItem.mutate({ id: item.id, ...fields })
+  }
+
+  function handleDelete() {
+    deleteItem.mutate(item.id)
+    onClose()
+  }
+
+  function handleSaveEdit(e: FormEvent) {
+    e.preventDefault()
+    const year = editDraft.release_year ? parseInt(editDraft.release_year, 10) : null
+    onUpdate({
+      title:           editDraft.title.trim() || item.title,
+      type:            editDraft.type,
+      author_director: editDraft.author_director.trim() || null,
+      release_year:    year && !isNaN(year) ? year : null,
+      genre:           editDraft.genre.trim() || null,
+      external_url:    editDraft.external_url.trim() || null,
+    })
+    setEditMode(false)
+  }
+
+  const memberIdx = members.findIndex(m => m.id === item.member_id)
+  const meta      = TYPE_META[item.type]
+
+  return (
+    <SlideUpModal
+      title={editMode ? 'Modifier' : `${meta.emoji} ${item.title}`}
+      onClose={onClose}
+    >
+      {editMode ? (
+        <form onSubmit={handleSaveEdit} className={styles.form}>
+          <div className={styles.fieldGroup}>
+            <label htmlFor="d-title" className={styles.fieldLabel}>Titre</label>
+            <input
+              id="d-title" type="text" value={editDraft.title} required autoFocus
+              onChange={e => setEditDraft(d => ({ ...d, title: e.target.value }))}
+              className={styles.input}
+            />
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <label className={styles.fieldLabel}>Type</label>
+            <div className={styles.typePills}>
+              {TYPES.map(t => (
+                <button
+                  key={t} type="button"
+                  className={[styles.typePill, editDraft.type === t ? styles.typePillActive : ''].join(' ')}
+                  style={editDraft.type === t ? { borderColor: 'var(--accent)', background: 'rgba(224,123,84,0.1)', color: 'var(--accent)' } : {}}
+                  onClick={() => setEditDraft(d => ({ ...d, type: t }))}
+                >
+                  {TYPE_META[t].emoji} {TYPE_META[t].label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <label htmlFor="d-author" className={styles.fieldLabel}>
+              Auteur / Réalisateur <span className={styles.optional}>optionnel</span>
+            </label>
+            <input
+              id="d-author" type="text" value={editDraft.author_director}
+              onChange={e => setEditDraft(d => ({ ...d, author_director: e.target.value }))}
+              className={styles.input}
+            />
+          </div>
+
+          <div className={styles.fieldRow}>
+            <div className={styles.fieldGroup}>
+              <label htmlFor="d-year" className={styles.fieldLabel}>
+                Année <span className={styles.optional}>optionnel</span>
+              </label>
+              <input
+                id="d-year" type="number" value={editDraft.release_year} min={1800} max={2100}
+                onChange={e => setEditDraft(d => ({ ...d, release_year: e.target.value }))}
+                className={styles.input}
+              />
+            </div>
+            <div className={styles.fieldGroup}>
+              <label htmlFor="d-genre" className={styles.fieldLabel}>
+                Genre <span className={styles.optional}>optionnel</span>
+              </label>
+              <input
+                id="d-genre" type="text" value={editDraft.genre}
+                onChange={e => setEditDraft(d => ({ ...d, genre: e.target.value }))}
+                className={styles.input}
+              />
+            </div>
+          </div>
+
+          <div className={styles.fieldGroup}>
+            <label htmlFor="d-url" className={styles.fieldLabel}>
+              Où regarder <span className={styles.optional}>Netflix, YouTube…</span>
+            </label>
+            <input
+              id="d-url" type="url" value={editDraft.external_url} placeholder="https://…"
+              onChange={e => setEditDraft(d => ({ ...d, external_url: e.target.value }))}
+              className={styles.input}
+            />
+          </div>
+
+          <div className={styles.editActions}>
+            <button type="submit" className={styles.submitBtn}>Sauvegarder</button>
+            <button type="button" className={styles.cancelEditBtn} onClick={() => setEditMode(false)}>
+              Annuler
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className={styles.detailView}>
+
+          {/* Status */}
+          <button
+            className={styles.statusBtn}
+            style={STATUS_STYLE[item.status]}
+            onClick={onCycleStatus}
+          >
+            {item.status}
+          </button>
+
+          {/* Metadata */}
+          {(item.author_director || item.release_year || item.genre) && (
+            <div className={styles.detailMeta}>
+              {item.author_director && <span className={styles.detailMetaItem}>{item.author_director}</span>}
+              {item.release_year    && <span className={styles.detailMetaItem}>{item.release_year}</span>}
+              {item.genre           && <span className={styles.detailMetaItem}>{item.genre}</span>}
+            </div>
+          )}
+
+          {/* Dates */}
+          {(item.started_at || item.finished_at) && (
+            <div className={styles.detailDates}>
+              {item.started_at  && <span className={styles.detailDateItem}>Commencé · {formatDate(item.started_at)}</span>}
+              {item.finished_at && <span className={styles.detailDateItem}>Terminé · {formatDate(item.finished_at)}</span>}
+            </div>
+          )}
+
+          {/* Member */}
+          {item.member && memberIdx >= 0 && (
+            <span className={styles.detailMemberTag} style={{ color: memberColor(memberIdx) }}>
+              {item.member.display_name}
+            </span>
+          )}
+
+          {/* Où regarder */}
+          {item.external_url && (
+            <div className={styles.detailSection}>
+              <a
+                href={item.external_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={styles.watchLink}
+              >
+                <ExternalLink size={13} strokeWidth={2} />
+                Où regarder
+              </a>
+            </div>
+          )}
+
+          {/* Rating */}
+          <div className={styles.detailSection}>
+            <span className={styles.detailSectionLabel}>Note</span>
+            <div className={styles.starRow}>
+              {[1, 2, 3, 4, 5].map(n => (
+                <button
+                  key={n}
+                  className={[styles.star, (item.rating ?? 0) >= n ? styles.starFilled : ''].join(' ')}
+                  onClick={() => onUpdate({ rating: item.rating === n ? null : n })}
+                  aria-label={`${n} étoile${n > 1 ? 's' : ''}`}
+                >★</button>
+              ))}
+            </div>
+          </div>
+
+          {/* Commentaire */}
+          <div className={styles.detailSection}>
+            <span className={styles.detailSectionLabel}>Note personnelle</span>
+            <textarea
+              className={styles.commentInput}
+              value={commentText}
+              onChange={e => setCommentText(e.target.value)}
+              onBlur={() => {
+                const trimmed = commentText.trim()
+                if (trimmed !== (item.comment ?? '')) onUpdate({ comment: trimmed || null })
+              }}
+              placeholder="Ajouter une note…"
+              rows={3}
+            />
+          </div>
+
+          {/* Actions */}
+          <div className={styles.detailActions}>
+            <button className={styles.editBtn} onClick={() => setEditMode(true)}>
+              <Pencil size={13} /> Modifier
+            </button>
+            <button className={styles.deleteActionBtn} onClick={handleDelete}>
+              <Trash2 size={13} /> Supprimer
+            </button>
+          </div>
+        </div>
+      )}
+    </SlideUpModal>
+  )
+}
