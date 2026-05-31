@@ -36,6 +36,7 @@ interface HouseholdDetails {
   name: string
   members: { id: string; display_name: string }[]
   note: string | null
+  kakebo_objectif_epargne: number | null
 }
 
 interface UpcomingEvent {
@@ -63,6 +64,20 @@ interface HabitPreview {
   id: string
   name: string
   emoji: string
+  frequency_days: number[] | null
+  start_date: string | null
+}
+
+interface MediaInProgress {
+  id: string
+  title: string
+  type: string
+  member_id: string | null
+  member: { display_name: string } | null
+}
+
+const MEDIA_EMOJI: Record<string, string> = {
+  film: '🎬', série: '📺', livre: '📚', jeu: '🎮',
 }
 
 function eventDateLabel(dateStr: string): string {
@@ -113,8 +128,9 @@ export default function HomePage() {
       if (error) throw error
       type Row = { amount: number; category: { type: string } | null }
       const rows = data as unknown as Row[]
+      const income   = rows.filter(r => r.category?.type === 'income').reduce((s, r) => s + Number(r.amount), 0)
       const expenses = rows.filter(r => r.category?.type !== 'income').reduce((s, r) => s + Number(r.amount), 0)
-      return { expenses }
+      return { income, expenses, epargne: income - expenses }
     },
     enabled: !!member,
   })
@@ -123,15 +139,26 @@ export default function HomePage() {
     queryKey: ['home-habits', HOUSEHOLD_ID],
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd')
+      const dow   = new Date().getDay() === 0 ? 7 : new Date().getDay() // 1=lun…7=dim
       const [habitsRes, completionsRes] = await Promise.all([
-        supabase.from('habits').select('id, name, emoji').eq('household_id', HOUSEHOLD_ID).order('created_at', { ascending: true }),
+        supabase.from('habits')
+          .select('id, name, emoji, frequency_days, start_date')
+          .eq('household_id', HOUSEHOLD_ID)
+          .is('archived_at', null)
+          .order('created_at', { ascending: true }),
         supabase.from('habit_completions').select('habit_id').eq('date', today).eq('completed', true),
       ])
       if (habitsRes.error) throw habitsRes.error
       const all = (habitsRes.data ?? []) as HabitPreview[]
+      // filter to habits applicable today
+      const applicable = all.filter(h => {
+        if (h.start_date && today < h.start_date) return false
+        if (h.frequency_days && h.frequency_days.length > 0) return h.frequency_days.includes(dow)
+        return true
+      })
       const doneIds = new Set((completionsRes.data ?? []).map((c: { habit_id: string }) => c.habit_id))
-      const pending = all.filter(h => !doneIds.has(h.id))
-      return { total: all.length, done: all.length - pending.length, pending }
+      const pending = applicable.filter(h => !doneIds.has(h.id))
+      return { total: applicable.length, done: applicable.length - pending.length, pending }
     },
     enabled: !!member,
   })
@@ -151,6 +178,22 @@ export default function HomePage() {
     },
     enabled: !!member,
     staleTime: 0,
+  })
+
+  const { data: mediaInProgress } = useQuery({
+    queryKey: ['home-media-in-progress', HOUSEHOLD_ID],
+    queryFn: async (): Promise<MediaInProgress[]> => {
+      const { data, error } = await supabase
+        .from('media_items')
+        .select('id, title, type, member_id, member:members(display_name)')
+        .eq('household_id', HOUSEHOLD_ID)
+        .eq('status', 'en cours')
+        .order('created_at', { ascending: false })
+        .limit(4)
+      if (error) throw error
+      return data as unknown as MediaInProgress[]
+    },
+    enabled: !!member,
   })
 
   const { data: recentMoments } = useQuery({
@@ -174,7 +217,7 @@ export default function HomePage() {
       const [householdRes, membersRes] = await Promise.all([
         supabase
           .from('households')
-          .select('name, note')
+          .select('name, note, kakebo_objectif_epargne')
           .eq('id', member!.household_id)
           .single(),
         supabase
@@ -184,10 +227,11 @@ export default function HomePage() {
       ])
       if (householdRes.error) throw householdRes.error
       if (membersRes.error) throw membersRes.error
-      const hd = householdRes.data as { name: string; note: string | null }
+      const hd = householdRes.data as { name: string; note: string | null; kakebo_objectif_epargne: number | null }
       return {
         name: hd.name,
         note: hd.note,
+        kakebo_objectif_epargne: hd.kakebo_objectif_epargne,
         members: membersRes.data as { id: string; display_name: string }[],
       }
     },
@@ -354,20 +398,75 @@ export default function HomePage() {
       )}
 
       {/* Widget — Budget du mois */}
-      {kakeboMonth && kakeboMonth.expenses > 0 && (
+      {kakeboMonth && (kakeboMonth.expenses > 0 || kakeboMonth.income > 0) && (
         <div className={styles.widget}>
           <div className={styles.widgetHead}>
             <span className={styles.widgetLabel}>Budget du mois</span>
             <Link to="/kakebo" className={styles.widgetLink}>Voir tout</Link>
           </div>
           <div className={styles.card}>
-            <div className={styles.summaryRow}>
-              <BookOpen size={15} color="#9B7AC4" strokeWidth={2.5} />
-              <span className={styles.summaryAmount}>
-                {kakeboMonth.expenses.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
-              </span>
-              <span className={styles.summarySub}>dépensé ce mois</span>
+            <div className={styles.budgetGrid}>
+              <div className={styles.budgetCell}>
+                <span className={styles.budgetCellLabel}>Revenus</span>
+                <span className={styles.budgetCellValue} style={{ color: '#5B9E8F' }}>
+                  +{kakeboMonth.income.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
+                </span>
+              </div>
+              <div className={styles.budgetCell}>
+                <span className={styles.budgetCellLabel}>Dépenses</span>
+                <span className={styles.budgetCellValue} style={{ color: 'var(--accent)' }}>
+                  -{kakeboMonth.expenses.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
+                </span>
+              </div>
+              <div className={styles.budgetCell}>
+                <span className={styles.budgetCellLabel}>Épargne</span>
+                <span className={styles.budgetCellValue} style={{ color: kakeboMonth.epargne >= 0 ? '#5B9E8F' : '#c0392b' }}>
+                  {kakeboMonth.epargne >= 0 ? '+' : ''}{kakeboMonth.epargne.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
+                </span>
+              </div>
             </div>
+            {(() => {
+              const objectif = householdDetails?.kakebo_objectif_epargne ?? 0
+              if (objectif <= 0) return null
+              const pct = Math.max(0, Math.min(1, kakeboMonth.epargne / objectif))
+              const ok  = kakeboMonth.epargne >= objectif
+              return (
+                <div className={styles.budgetBarWrap}>
+                  <div className={styles.budgetBarTrack}>
+                    <div className={styles.budgetBarFill} style={{ width: `${pct * 100}%`, background: ok ? '#5B9E8F' : 'var(--accent)' }} />
+                  </div>
+                  <span className={styles.budgetBarLabel}>
+                    Objectif {objectif.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
+                  </span>
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
+
+      {/* Widget — Médias en cours */}
+      {mediaInProgress && mediaInProgress.length > 0 && (
+        <div className={styles.widget}>
+          <div className={styles.widgetHead}>
+            <span className={styles.widgetLabel}>En cours</span>
+            <Link to="/media" className={styles.widgetLink}>Catalogue</Link>
+          </div>
+          <div className={styles.card}>
+            <ul className={styles.mediaList}>
+              {mediaInProgress.map((m, i) => {
+                const members   = householdDetails?.members ?? []
+                const memberIdx = members.findIndex(hm => hm.id === m.member_id)
+                const color     = memberIdx >= 0 ? MEMBER_PALETTE[memberIdx % MEMBER_PALETTE.length] : 'var(--text-muted)'
+                return (
+                  <li key={m.id} className={[styles.mediaRow, i > 0 ? styles.mediaRowBorder : ''].join(' ')}>
+                    <span className={styles.mediaEmoji}>{MEDIA_EMOJI[m.type] ?? '📺'}</span>
+                    <span className={styles.mediaTitle}>{m.title}</span>
+                    {m.member && <span className={styles.mediaMember} style={{ color }}>{m.member.display_name}</span>}
+                  </li>
+                )
+              })}
+            </ul>
           </div>
         </div>
       )}

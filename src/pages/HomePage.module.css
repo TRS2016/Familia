@@ -494,3 +494,100 @@
   padding: 3px 4px;
   align-self: center;
 }
+
+/* ── Budget widget ────────────────────────────────────────────────────────── */
+
+.budgetGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.budgetCell {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.budgetCellLabel {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.budgetCellValue {
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: -0.3px;
+}
+
+.budgetBarWrap {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.budgetBarTrack {
+  height: 5px;
+  border-radius: 99px;
+  background: var(--bg-input);
+  overflow: hidden;
+}
+
+.budgetBarFill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+
+.budgetBarLabel {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-align: right;
+}
+
+/* ── Médias en cours widget ───────────────────────────────────────────────── */
+
+.mediaList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.mediaRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+}
+
+.mediaRowBorder {
+  border-top: 1px solid var(--border-subtle, var(--border));
+}
+
+.mediaEmoji {
+  font-size: 16px;
+  flex-shrink: 0;
+}
+
+.mediaTitle {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mediaMember {
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
