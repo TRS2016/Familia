@@ -329,6 +329,106 @@ export function useUpdateCategoryBudget() {
   })
 }
 
+// ── Budgets par membre ────────────────────────────────────────────────────────
+
+export interface KakeboMemberBudget {
+  member_id: string
+  category_id: string
+  household_id: string
+  monthly_budget: number | null
+}
+
+export type KakeboMember = { id: string; display_name: string; kakebo_objectif_epargne: number | null }
+
+export function useKakeboMembers() {
+  return useQuery({
+    queryKey: ['kakebo-members', HOUSEHOLD_ID],
+    queryFn: async (): Promise<KakeboMember[]> => {
+      const { data, error } = await supabase
+        .from('members')
+        .select('id, display_name, kakebo_objectif_epargne')
+        .eq('household_id', HOUSEHOLD_ID)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return data as KakeboMember[]
+    },
+  })
+}
+
+export function useKakeboMemberBudgets(memberId: string | null) {
+  return useQuery({
+    queryKey: ['kakebo-member-budgets', HOUSEHOLD_ID, memberId],
+    queryFn: async (): Promise<KakeboMemberBudget[]> => {
+      const { data, error } = await supabase
+        .from('kakebo_member_budgets')
+        .select('*')
+        .eq('member_id', memberId!)
+        .eq('household_id', HOUSEHOLD_ID)
+      if (error) throw error
+      return data as KakeboMemberBudget[]
+    },
+    enabled: !!memberId,
+  })
+}
+
+export function useUpdateMemberBudget() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ memberId, categoryId, monthly_budget }: {
+      memberId: string; categoryId: string; monthly_budget: number | null
+    }) => {
+      if (monthly_budget === null) {
+        const { error } = await supabase.from('kakebo_member_budgets')
+          .delete().eq('member_id', memberId).eq('category_id', categoryId)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('kakebo_member_budgets')
+          .upsert({ member_id: memberId, category_id: categoryId, household_id: HOUSEHOLD_ID, monthly_budget }, { onConflict: 'member_id,category_id' })
+        if (error) throw error
+      }
+    },
+    onMutate: async ({ memberId, categoryId, monthly_budget }) => {
+      const key = ['kakebo-member-budgets', HOUSEHOLD_ID, memberId] as const
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<KakeboMemberBudget[]>(key) ?? []
+      if (monthly_budget === null) {
+        queryClient.setQueryData<KakeboMemberBudget[]>(key, previous.filter(b => b.category_id !== categoryId))
+      } else {
+        const exists = previous.some(b => b.category_id === categoryId)
+        queryClient.setQueryData<KakeboMemberBudget[]>(key, exists
+          ? previous.map(b => b.category_id === categoryId ? { ...b, monthly_budget } : b)
+          : [...previous, { member_id: memberId, category_id: categoryId, household_id: HOUSEHOLD_ID, monthly_budget }]
+        )
+      }
+      return { previous, key }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx) queryClient.setQueryData(ctx.key, ctx.previous)
+      showToast({ type: 'error', message: 'Impossible de sauvegarder le budget.' })
+    },
+  })
+}
+
+export function useUpdateMemberObjectif() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ memberId, objectif }: { memberId: string; objectif: number | null }) => {
+      const { error } = await supabase.from('members')
+        .update({ kakebo_objectif_epargne: objectif })
+        .eq('id', memberId)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kakebo-members', HOUSEHOLD_ID] })
+    },
+    onError: () => showToast({ type: 'error', message: 'Impossible de sauvegarder l\'objectif.' }),
+  })
+}
+
 export function useDeleteEntry(year: number, month: number) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()

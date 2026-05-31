@@ -17,9 +17,14 @@ import {
   useEditEntry,
   useDeleteEntry,
   useUpdateCategoryBudget,
+  useKakeboMembers,
+  useKakeboMemberBudgets,
+  useUpdateMemberBudget,
+  useUpdateMemberObjectif,
 } from './useKakebo'
 import { useKakeboRealtime } from './useKakeboRealtime'
 import type { KakeboEntry } from './useKakebo'
+import { memberColor } from '../../lib/constants'
 import styles from './KakeboPage.module.css'
 
 import { catGlyph, catColor } from './kakebo.utils'
@@ -43,6 +48,7 @@ export default function KakeboPage() {
   const { data: entries = [], isLoading: entriesLoading } = useKakeboEntries(year, month)
   const { objectif, update: updateObjectif } = useKakeboObjectif()
   const { data: trendEntries = [], isLoading: trendLoading } = useKakeboTrend(12)
+  const { data: members = [] } = useKakeboMembers()
   useKakeboRealtime()
 
   const { showToast } = useToast()
@@ -58,8 +64,14 @@ export default function KakeboPage() {
 
   const [view, setView]             = useState<View>('bilan')
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
+  const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
 
-  const updateCategoryBudget = useUpdateCategoryBudget()
+  const updateCategoryBudget  = useUpdateCategoryBudget()
+  const updateMemberBudget    = useUpdateMemberBudget()
+  const updateMemberObjectif  = useUpdateMemberObjectif()
+
+  const { data: memberBudgets = [] } = useKakeboMemberBudgets(selectedMemberId)
+  const selectedMember = members.find(m => m.id === selectedMemberId) ?? null
 
   const [showAdd, setShowAdd]       = useState(false)
   const [showBudget, setShowBudget] = useState(false)
@@ -88,20 +100,42 @@ export default function KakeboPage() {
   }, [categories, firstCatId, draft.category_id])
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  // ── Member-aware derived data ──────────────────────────────────────────────
+
+  const displayEntries = selectedMemberId
+    ? entries.filter(e => e.member_id === selectedMemberId)
+    : entries
+
+  const displayTrendEntries = selectedMemberId
+    ? trendEntries.filter(e => e.member_id === selectedMemberId)
+    : trendEntries
+
+  // Override monthly_budget per category with member-specific values when a member is selected
+  const displayCategories = categories.map(cat => ({
+    ...cat,
+    monthly_budget: selectedMemberId
+      ? (memberBudgets.find(b => b.category_id === cat.id)?.monthly_budget ?? null)
+      : cat.monthly_budget,
+  }))
+
+  const effectiveObjectif = selectedMemberId
+    ? (selectedMember?.kakebo_objectif_epargne ?? 0)
+    : objectif
+
   // ── Computations ──────────────────────────────────────────────────────────
 
-  const incomeEntries  = entries.filter(e => e.category?.type === 'income')
-  const expenseEntries = entries.filter(e => e.category?.type !== 'income')
+  const incomeEntries  = displayEntries.filter(e => e.category?.type === 'income')
+  const expenseEntries = displayEntries.filter(e => e.category?.type !== 'income')
   const totalRevenusMois = incomeEntries.reduce((s, e) => s + Number(e.amount), 0)
 
   const totalByCategory: Record<string, number> = {}
-  for (const cat of categories) totalByCategory[cat.id] = 0
+  for (const cat of displayCategories) totalByCategory[cat.id] = 0
   for (const e of expenseEntries) {
     if (e.category_id) totalByCategory[e.category_id] = (totalByCategory[e.category_id] ?? 0) + Number(e.amount)
   }
   const totalDepenses = Object.values(totalByCategory).reduce((s, v) => s + v, 0)
   const epargneReelle = totalRevenusMois - totalDepenses
-  const solde         = epargneReelle - objectif
+  const solde         = epargneReelle - effectiveObjectif
 
   const moodEmoji = solde >= 0 ? '🌱' : solde >= -50 ? '🌤' : '🌧'
   const moodLabel = solde >= 0 ? 'Mois équilibré' : solde >= -50 ? 'Légèrement au-dessus' : 'Au-delà de l\'objectif'
@@ -109,7 +143,7 @@ export default function KakeboPage() {
   // Donut math
   const donutR = 54
   const donutC = 2 * Math.PI * donutR
-  const spendCats = categories.filter(c => c.type !== 'income')
+  const spendCats = displayCategories.filter(c => c.type !== 'income')
   const arcBases = spendCats.map(cat => {
     const v = totalByCategory[cat.id] ?? 0
     const pct = totalDepenses > 0 ? v / totalDepenses : 0
@@ -179,7 +213,7 @@ export default function KakeboPage() {
 
   function exportCsv() {
     const header = 'Date,Catégorie,Type,Description,Montant\n'
-    const rows = entries
+    const rows = displayEntries
       .filter(e => e.category?.type !== 'income')
       .map(e => [
         e.date,
@@ -193,20 +227,33 @@ export default function KakeboPage() {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `kakebo-${year}-${String(month).padStart(2, '0')}.csv`
+    const suffix = selectedMember ? `-${selectedMember.display_name.toLowerCase()}` : ''
+    a.download = `kakebo-${year}-${String(month).padStart(2, '0')}${suffix}.csv`
     a.click()
     URL.revokeObjectURL(url)
   }
 
   async function saveBudget() {
     try {
-      await updateObjectif.mutateAsync(budgetDraft)
-      for (const [id, val] of Object.entries(budgetDrafts)) {
-        const num = parseFloat(val)
-        const monthly_budget = val.trim() === '' ? null : isNaN(num) || num <= 0 ? null : num
-        const cat = categories.find(c => c.id === id)
-        if (cat && cat.monthly_budget !== monthly_budget) {
-          updateCategoryBudget.mutate({ id, monthly_budget })
+      if (selectedMemberId) {
+        await updateMemberObjectif.mutateAsync({ memberId: selectedMemberId, objectif: budgetDraft || null })
+        for (const [categoryId, val] of Object.entries(budgetDrafts)) {
+          const num = parseFloat(val)
+          const monthly_budget = val.trim() === '' ? null : isNaN(num) || num <= 0 ? null : num
+          const current = memberBudgets.find(b => b.category_id === categoryId)?.monthly_budget ?? null
+          if (current !== monthly_budget) {
+            updateMemberBudget.mutate({ memberId: selectedMemberId, categoryId, monthly_budget })
+          }
+        }
+      } else {
+        await updateObjectif.mutateAsync(budgetDraft)
+        for (const [id, val] of Object.entries(budgetDrafts)) {
+          const num = parseFloat(val)
+          const monthly_budget = val.trim() === '' ? null : isNaN(num) || num <= 0 ? null : num
+          const cat = categories.find(c => c.id === id)
+          if (cat && cat.monthly_budget !== monthly_budget) {
+            updateCategoryBudget.mutate({ id, monthly_budget })
+          }
         }
       }
       setShowBudget(false)
@@ -214,9 +261,9 @@ export default function KakeboPage() {
   }
 
   function openBudgetModal() {
-    setBudgetDraft(objectif)
+    setBudgetDraft(effectiveObjectif)
     const drafts: Record<string, string> = {}
-    for (const cat of categories.filter(c => c.type !== 'income')) {
+    for (const cat of displayCategories.filter(c => c.type !== 'income')) {
       drafts[cat.id] = cat.monthly_budget != null ? String(cat.monthly_budget) : ''
     }
     setBudgetDrafts(drafts)
@@ -242,7 +289,7 @@ export default function KakeboPage() {
 
   const isLoading = catsLoading || entriesLoading
 
-  const selectedCat = selectedCatId ? categories.find(c => c.id === selectedCatId) : null
+  const selectedCat = selectedCatId ? displayCategories.find(c => c.id === selectedCatId) : null
 
   // ── Render ────────────────────────────────────────────────────────────────
 
@@ -271,7 +318,7 @@ export default function KakeboPage() {
           </div>
         </div>
         <div className={styles.headerActions}>
-          {entries.length > 0 && (
+          {displayEntries.length > 0 && (
             <button className={styles.iconBtn} onClick={exportCsv} aria-label="Exporter CSV" title="Exporter CSV">
               <Download size={15} strokeWidth={2} />
             </button>
@@ -297,6 +344,28 @@ export default function KakeboPage() {
           <button className={styles.navBtn} onClick={() => setRefDate(d => addMonths(d, 1))} aria-label="Mois suivant">
             <ChevronRight size={16} strokeWidth={2.5} />
           </button>
+        </div>
+      )}
+
+      {/* ── Member switcher ───────────────────────────────────────────── */}
+      {!selectedCatId && members.length > 1 && (
+        <div className={styles.memberFilter}>
+          <button
+            className={[styles.memberPill, !selectedMemberId ? styles.memberPillActive : ''].join(' ')}
+            onClick={() => setSelectedMemberId(null)}
+          >Foyer</button>
+          {members.map((m, i) => {
+            const active = selectedMemberId === m.id
+            const color  = memberColor(i)
+            return (
+              <button
+                key={m.id}
+                className={[styles.memberPill, active ? styles.memberPillActive : ''].join(' ')}
+                style={active ? { borderColor: color, background: `${color}1A`, color } : {}}
+                onClick={() => setSelectedMemberId(active ? null : m.id)}
+              >{m.display_name}</button>
+            )
+          })}
         </div>
       )}
 
@@ -328,7 +397,7 @@ export default function KakeboPage() {
           {selectedCatId && selectedCat && (
             <CategoryDetail
               cat={selectedCat}
-              entries={entries.filter(e => e.category_id === selectedCatId)}
+              entries={displayEntries.filter(e => e.category_id === selectedCatId)}
               revenus={totalRevenusMois}
               onEdit={openEdit}
               onDelete={id => deleteEntry.mutate(id)}
@@ -344,7 +413,7 @@ export default function KakeboPage() {
               donutC={donutC}
               totalDepenses={totalDepenses}
               revenus={totalRevenusMois}
-              objectifEpargne={objectif}
+              objectifEpargne={effectiveObjectif}
               epargneReelle={epargneReelle}
               solde={solde}
               moodEmoji={moodEmoji}
@@ -352,7 +421,7 @@ export default function KakeboPage() {
               dailyTotals={dailyTotals}
               maxDaily={maxDaily}
               todayDay={todayDay}
-              entries={entries}
+              entries={displayEntries}
               onSelectCat={setSelectedCatId}
               onShowDetail={() => setView('detail')}
               onEdit={openEdit}
@@ -363,8 +432,8 @@ export default function KakeboPage() {
           {/* ── Détail ──────────────────────────────────────────────── */}
           {!selectedCatId && view === 'detail' && (
             <DetailView
-              categories={categories}
-              entries={entries}
+              categories={displayCategories}
+              entries={displayEntries}
               onEdit={openEdit}
               onDelete={id => deleteEntry.mutate(id)}
               onReplay={handleReplay}
@@ -375,7 +444,7 @@ export default function KakeboPage() {
           {!selectedCatId && view === 'reflexion' && (
             <ReflexionView
               epargneReelle={epargneReelle}
-              objectifEpargne={objectif}
+              objectifEpargne={effectiveObjectif}
               solde={solde}
               categories={spendCats}
               totalByCategory={totalByCategory}
@@ -384,11 +453,11 @@ export default function KakeboPage() {
 
           {/* ── Tendance ────────────────────────────────────────────── */}
           {!selectedCatId && view === 'tendance' && (
-            <TrendView entries={trendEntries} isLoading={trendLoading} categories={categories} />
+            <TrendView entries={displayTrendEntries} isLoading={trendLoading} categories={displayCategories} />
           )}
 
           {/* Empty state only for bilan with no entries */}
-          {!selectedCatId && view === 'bilan' && entries.length === 0 && (
+          {!selectedCatId && view === 'bilan' && displayEntries.length === 0 && (
             <EmptyState
               emoji="📒"
               title="Aucune opération ce mois"
@@ -557,7 +626,10 @@ export default function KakeboPage() {
 
       {/* ── Budget settings modal ──────────────────────────────────────── */}
       {showBudget && (
-        <SlideUpModal title="Paramètres Kakebo" onClose={() => setShowBudget(false)}>
+        <SlideUpModal
+          title={selectedMember ? `Budget — ${selectedMember.display_name}` : 'Paramètres Kakebo'}
+          onClose={() => setShowBudget(false)}
+        >
             <div className={styles.form}>
               <div className={styles.fieldGroup}>
                 <label htmlFor="k-objectif" className={styles.fieldLabel}>Objectif d'épargne (€)</label>
@@ -574,7 +646,7 @@ export default function KakeboPage() {
               <div className={styles.budgetSeparator}>
                 <span className={styles.fieldLabel}>Budgets mensuels par catégorie</span>
               </div>
-              {categories.filter(c => c.type !== 'income').map(cat => (
+              {displayCategories.filter(c => c.type !== 'income').map(cat => (
                 <div key={cat.id} className={styles.fieldGroup}>
                   <label className={styles.fieldLabel}>
                     <span className={styles.catDot} style={{ background: catColor(cat) }} />
@@ -591,8 +663,8 @@ export default function KakeboPage() {
                   />
                 </div>
               ))}
-              <button className={styles.submitBtn} onClick={saveBudget} disabled={updateObjectif.isPending}>
-                {updateObjectif.isPending ? 'Enregistrement…' : 'Enregistrer'}
+              <button className={styles.submitBtn} onClick={saveBudget} disabled={updateObjectif.isPending || updateMemberObjectif.isPending}>
+                {updateObjectif.isPending || updateMemberObjectif.isPending ? 'Enregistrement…' : 'Enregistrer'}
               </button>
             </div>
         </SlideUpModal>

@@ -153,6 +153,34 @@
   text-align: center;
 }
 
+/* ── Member switcher ─────────────────────────────────────────────────────── */
+
+.memberFilter {
+  display: flex;
+  gap: 6px;
+  margin: 10px 16px 0;
+  flex-wrap: wrap;
+}
+
+.memberPill {
+  padding: 5px 14px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-sub);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.memberPillActive {
+  border-color: var(--accent);
+  background: rgba(224, 123, 84, 0.1);
+  color: var(--accent);
+}
+
 /* ── View pills ──────────────────────────────────────────────────────────── */
 
 .viewPills {
