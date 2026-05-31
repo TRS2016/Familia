@@ -1,0 +1,540 @@
+/* ── Layout ──────────────────────────────────────────────────────────────────── */
+
+.page {
+  min-height: 100dvh;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  padding-bottom: 32px;
+}
+
+/* ── Header ──────────────────────────────────────────────────────────────────── */
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 16px 16px 0;
+}
+
+.backLink {
+  color: var(--text);
+  display: flex;
+  align-items: center;
+}
+
+.pageTitle {
+  flex: 1;
+  font-size: 20px;
+  font-weight: 800;
+  margin: 0;
+  color: var(--text);
+}
+
+.headerActions {
+  display: flex;
+  gap: 8px;
+}
+
+.uploadBtn, .urlBtn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 12px;
+  border-radius: 10px;
+  border: none;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.uploadBtn {
+  background: var(--accent);
+  color: #fff;
+}
+
+.urlBtn {
+  background: var(--bg-input);
+  color: var(--text);
+  border: 1.5px solid var(--border);
+}
+
+.uploadBtn:hover, .urlBtn:hover { opacity: 0.85; }
+.uploadBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Tabs ────────────────────────────────────────────────────────────────────── */
+
+.tabRow {
+  display: flex;
+  gap: 4px;
+  margin: 14px 16px 0;
+  padding: 3px;
+  background: var(--bg-input);
+  border-radius: 11px;
+}
+
+.tab {
+  flex: 1;
+  padding: 7px 0;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-weight: 600;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.18s;
+}
+
+.tabActive {
+  background: var(--bg-card);
+  color: var(--text);
+  font-weight: 800;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+.tabBadge {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 8px;
+  padding: 1px 5px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* ── Filters ─────────────────────────────────────────────────────────────────── */
+
+.filterRow {
+  display: flex;
+  gap: 6px;
+  padding: 10px 16px 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.filterRow::-webkit-scrollbar { display: none; }
+
+.filterPill {
+  padding: 5px 12px;
+  border-radius: 20px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-sub);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.filterPillActive {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(224, 123, 84, 0.1);
+}
+
+/* ── Library list ────────────────────────────────────────────────────────────── */
+
+.list {
+  list-style: none;
+  padding: 10px 16px 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.fileRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.fileRow:last-child { border-bottom: none; }
+
+.kindIcon {
+  font-size: 20px;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-input);
+  border-radius: 10px;
+}
+
+.fileBody {
+  flex: 1;
+  min-width: 0;
+}
+
+.fileTitle {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fileMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.playingIndicator {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  flex-shrink: 0;
+}
+
+.deleteBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  transition: color 0.15s;
+}
+
+.deleteBtn:hover { color: #c0392b; }
+
+/* ── Player embed ────────────────────────────────────────────────────────────── */
+
+.playerWrap {
+  margin: 8px 16px 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1.5px solid var(--border);
+}
+
+/* ── URL input modal ─────────────────────────────────────────────────────────── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 0 16px 16px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.fieldLabel {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.input {
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.input:focus { border-color: var(--accent); }
+
+.submitBtn {
+  padding: 13px;
+  border-radius: 12px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Playlists ───────────────────────────────────────────────────────────────── */
+
+.playlistActions {
+  display: flex;
+  gap: 8px;
+  padding: 10px 16px 0;
+}
+
+.newListBtn, .newSmartBtn {
+  padding: 8px 14px;
+  border-radius: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  transition: border-color 0.15s;
+}
+
+.newListBtn:hover, .newSmartBtn:hover { border-color: var(--accent); }
+
+.playlistList {
+  list-style: none;
+  padding: 8px 16px 0;
+  margin: 0;
+}
+
+.playlistRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  background: none;
+  border-left: none;
+  border-right: none;
+  border-top: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--font-family);
+}
+
+.playlistRow:last-child { border-bottom: none; }
+
+.playlistIcon {
+  font-size: 20px;
+  width: 36px;
+  text-align: center;
+}
+
+.playlistName {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.playlistMeta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.playlistCount {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border-radius: 8px;
+  padding: 2px 7px;
+}
+
+.playlistDetailHeader {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 0;
+}
+
+.backBtn {
+  background: none;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+}
+
+.playlistDetailName {
+  flex: 1;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.playlistDetailFilters {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.deleteListBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.deleteListBtn:hover { color: #c0392b; }
+
+.playlistItemRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.playlistItemPos {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 700;
+  width: 20px;
+  text-align: center;
+}
+
+.removeFromListBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 6px;
+  display: flex;
+  align-items: center;
+}
+
+.removeFromListBtn:hover { color: #c0392b; }
+
+.addToListBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1.5px dashed var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.addToListBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.playlistPickerList {
+  list-style: none;
+  padding: 0 16px 16px;
+  margin: 0;
+}
+
+.playlistPickerRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 0;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  cursor: pointer;
+  font-family: var(--font-family);
+  color: var(--text);
+}
+
+.playlistPickerRow:last-child { border-bottom: none; }
+
+.playlistPickerName {
+  flex: 1;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* ── Smart filter builder ─────────────────────────────────────────────────────── */
+
+.smartSection {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: var(--bg-input);
+  border-radius: 12px;
+  padding: 12px;
+}
+
+.smartRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.smartLabel {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.smartPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.smartPill {
+  padding: 5px 11px;
+  border-radius: 16px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-sub);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.12s;
+}
+
+.smartPillActive {
+  border-color: var(--accent);
+  background: rgba(224, 123, 84, 0.12);
+  color: var(--accent);
+}
+
+.smartPreviewLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+  text-align: center;
+}
+
+/* ── Spinner ─────────────────────────────────────────────────────────────────── */
+
+.spinnerWrap {
+  display: flex;
+  justify-content: center;
+  padding: 48px 0;
+}

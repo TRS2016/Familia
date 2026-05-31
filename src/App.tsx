@@ -17,6 +17,7 @@ const SettingsPage   = lazy(() => import('./pages/SettingsPage'))
 const KakeboPage     = lazy(() => import('./features/kakebo/KakeboPage'))
 const HabitsPage     = lazy(() => import('./features/habits/HabitsPage'))
 const MediaPage      = lazy(() => import('./features/media/MediaPage'))
+const LecteurPage    = lazy(() => import('./features/lecteur/LecteurPage'))
 const MomentsPage    = lazy(() => import('./features/moments/MomentsPage'))
 const SharedListPage = lazy(() => import('./pages/SharedListPage'))
 
@@ -44,6 +45,7 @@ const router = createBrowserRouter([
           { path: '/kakebo',    element: <Lazy><KakeboPage /></Lazy> },
           { path: '/habits',    element: <Lazy><HabitsPage /></Lazy> },
           { path: '/media',     element: <Lazy><MediaPage /></Lazy> },
+          { path: '/lecteur',   element: <Lazy><LecteurPage /></Lazy> },
           { path: '/moments',   element: <Lazy><MomentsPage /></Lazy> },
         ],
       },

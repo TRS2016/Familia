@@ -600,6 +600,57 @@ export type Database = {
           },
         ]
       }
+      media_files: {
+        Row: {
+          created_at: string
+          description: string | null
+          external_url: string | null
+          file_path: string | null
+          household_id: string
+          id: string
+          member_id: string | null
+          mime_type: string | null
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          external_url?: string | null
+          file_path?: string | null
+          household_id: string
+          id?: string
+          member_id?: string | null
+          mime_type?: string | null
+          title: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          external_url?: string | null
+          file_path?: string | null
+          household_id?: string
+          id?: string
+          member_id?: string | null
+          mime_type?: string | null
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_files_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_files_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       media_items: {
         Row: {
           author_director: string | null
@@ -878,30 +929,30 @@ export type Database = {
         Row: {
           added_at: string | null
           id: string
-          media_item_id: string
+          media_file_id: string
           playlist_id: string
           position: number
         }
         Insert: {
           added_at?: string | null
           id?: string
-          media_item_id: string
+          media_file_id: string
           playlist_id: string
           position?: number
         }
         Update: {
           added_at?: string | null
           id?: string
-          media_item_id?: string
+          media_file_id?: string
           playlist_id?: string
           position?: number
         }
         Relationships: [
           {
-            foreignKeyName: "playlist_items_media_item_id_fkey"
-            columns: ["media_item_id"]
+            foreignKeyName: "playlist_items_media_file_id_fkey"
+            columns: ["media_file_id"]
             isOneToOne: false
-            referencedRelation: "media_items"
+            referencedRelation: "media_files"
             referencedColumns: ["id"]
           },
           {
