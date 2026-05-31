@@ -326,6 +326,7 @@ export type Database = {
           date: string
           habit_id: string
           id: string
+          note: string | null
         }
         Insert: {
           completed?: boolean
@@ -333,6 +334,7 @@ export type Database = {
           date: string
           habit_id: string
           id?: string
+          note?: string | null
         }
         Update: {
           completed?: boolean
@@ -340,6 +342,7 @@ export type Database = {
           date?: string
           habit_id?: string
           id?: string
+          note?: string | null
         }
         Relationships: [
           {
@@ -351,36 +354,74 @@ export type Database = {
           },
         ]
       }
+      habit_reminders_sent: {
+        Row: {
+          habit_id: string
+          id: string
+          sent_date: string
+        }
+        Insert: {
+          habit_id: string
+          id?: string
+          sent_date?: string
+        }
+        Update: {
+          habit_id?: string
+          id?: string
+          sent_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "habit_reminders_sent_habit_id_fkey"
+            columns: ["habit_id"]
+            isOneToOne: false
+            referencedRelation: "habits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       habits: {
         Row: {
+          archived_at: string | null
           color: string | null
           created_at: string
           emoji: string
           frequency: string
+          frequency_days: number[] | null
           household_id: string
           id: string
           member_id: string | null
           name: string
+          reminder_time: string | null
+          start_date: string | null
         }
         Insert: {
+          archived_at?: string | null
           color?: string | null
           created_at?: string
           emoji?: string
           frequency?: string
+          frequency_days?: number[] | null
           household_id: string
           id?: string
           member_id?: string | null
           name: string
+          reminder_time?: string | null
+          start_date?: string | null
         }
         Update: {
+          archived_at?: string | null
           color?: string | null
           created_at?: string
           emoji?: string
           frequency?: string
+          frequency_days?: number[] | null
           household_id?: string
           id?: string
           member_id?: string | null
           name?: string
+          reminder_time?: string | null
+          start_date?: string | null
         }
         Relationships: [
           {
@@ -516,16 +557,62 @@ export type Database = {
           },
         ]
       }
+      kakebo_member_budgets: {
+        Row: {
+          category_id: string
+          household_id: string
+          member_id: string
+          monthly_budget: number | null
+        }
+        Insert: {
+          category_id: string
+          household_id: string
+          member_id: string
+          monthly_budget?: number | null
+        }
+        Update: {
+          category_id?: string
+          household_id?: string
+          member_id?: string
+          monthly_budget?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kakebo_member_budgets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "kakebo_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kakebo_member_budgets_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kakebo_member_budgets_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       media_items: {
         Row: {
           author_director: string | null
           comment: string | null
           created_at: string
+          external_url: string | null
+          file_path: string | null
           finished_at: string | null
           genre: string | null
           household_id: string
           id: string
           member_id: string | null
+          mime_type: string | null
           rating: number | null
           release_year: number | null
           started_at: string | null
@@ -537,11 +624,14 @@ export type Database = {
           author_director?: string | null
           comment?: string | null
           created_at?: string
+          external_url?: string | null
+          file_path?: string | null
           finished_at?: string | null
           genre?: string | null
           household_id: string
           id?: string
           member_id?: string | null
+          mime_type?: string | null
           rating?: number | null
           release_year?: number | null
           started_at?: string | null
@@ -553,11 +643,14 @@ export type Database = {
           author_director?: string | null
           comment?: string | null
           created_at?: string
+          external_url?: string | null
+          file_path?: string | null
           finished_at?: string | null
           genre?: string | null
           household_id?: string
           id?: string
           member_id?: string | null
+          mime_type?: string | null
           rating?: number | null
           release_year?: number | null
           started_at?: string | null
@@ -589,6 +682,7 @@ export type Database = {
           email: string | null
           household_id: string
           id: string
+          kakebo_objectif_epargne: number | null
           notifications_enabled: boolean
           user_id: string
         }
@@ -598,6 +692,7 @@ export type Database = {
           email?: string | null
           household_id: string
           id?: string
+          kakebo_objectif_epargne?: number | null
           notifications_enabled?: boolean
           user_id: string
         }
@@ -607,6 +702,7 @@ export type Database = {
           email?: string | null
           household_id?: string
           id?: string
+          kakebo_objectif_epargne?: number | null
           notifications_enabled?: boolean
           user_id?: string
         }
@@ -616,6 +712,77 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      moment_comments: {
+        Row: {
+          created_at: string | null
+          id: string
+          member_id: string
+          moment_id: string
+          text: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          member_id: string
+          moment_id: string
+          text: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          member_id?: string
+          moment_id?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moment_comments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "moment_comments_moment_id_fkey"
+            columns: ["moment_id"]
+            isOneToOne: false
+            referencedRelation: "moments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      moment_photos: {
+        Row: {
+          created_at: string | null
+          id: string
+          moment_id: string
+          photo_path: string
+          position: number
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          moment_id: string
+          photo_path: string
+          position?: number
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          moment_id?: string
+          photo_path?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "moment_photos_moment_id_fkey"
+            columns: ["moment_id"]
+            isOneToOne: false
+            referencedRelation: "moments"
             referencedColumns: ["id"]
           },
         ]
@@ -700,6 +867,93 @@ export type Database = {
           },
           {
             foreignKeyName: "moments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playlist_items: {
+        Row: {
+          added_at: string | null
+          id: string
+          media_item_id: string
+          playlist_id: string
+          position: number
+        }
+        Insert: {
+          added_at?: string | null
+          id?: string
+          media_item_id: string
+          playlist_id: string
+          position?: number
+        }
+        Update: {
+          added_at?: string | null
+          id?: string
+          media_item_id?: string
+          playlist_id?: string
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlist_items_media_item_id_fkey"
+            columns: ["media_item_id"]
+            isOneToOne: false
+            referencedRelation: "media_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlist_items_playlist_id_fkey"
+            columns: ["playlist_id"]
+            isOneToOne: false
+            referencedRelation: "playlists"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      playlists: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          household_id: string
+          id: string
+          member_id: string | null
+          name: string
+          smart_filters: Json | null
+          type: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          household_id: string
+          id?: string
+          member_id?: string | null
+          name: string
+          smart_filters?: Json | null
+          type?: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          household_id?: string
+          id?: string
+          member_id?: string | null
+          name?: string
+          smart_filters?: Json | null
+          type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "playlists_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "playlists_member_id_fkey"
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "members"
