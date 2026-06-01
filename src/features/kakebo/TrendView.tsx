@@ -14,32 +14,59 @@ export default function TrendView({ entries, isLoading, categories }: {
 
   const now = new Date()
   const months = Array.from({ length: 12 }, (_, i) => {
-    const d = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1)
+    const d   = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1)
     const pad = (n: number) => String(n).padStart(2, '0')
     return {
-      prefix: `${d.getFullYear()}-${pad(d.getMonth() + 1)}`,
-      label: MONTH_LABELS_FR[d.getMonth()],
+      prefix:    `${d.getFullYear()}-${pad(d.getMonth() + 1)}`,
+      label:     MONTH_LABELS_FR[d.getMonth()],
       isCurrent: i === 11,
     }
   })
 
   const byMonth = months.map(m => {
-    const mes = entries.filter(e => e.date.startsWith(m.prefix))
+    const mes      = entries.filter(e => e.date.startsWith(m.prefix))
     const depenses = mes.filter(e => e.category?.type !== 'income').reduce((s, e) => s + Number(e.amount), 0)
     const revenus  = mes.filter(e => e.category?.type === 'income').reduce((s, e) => s + Number(e.amount), 0)
-    return { ...m, depenses, revenus }
+    return { ...m, depenses, revenus, savings: revenus - depenses }
   })
 
   const maxVal = Math.max(1, ...byMonth.flatMap(m => [m.depenses, m.revenus]))
   const BAR_H  = 100
 
-  // Annual summary
-  const year = now.getFullYear()
+  // Month-over-month delta
+  const prevM      = byMonth[byMonth.length - 2]
+  const currM      = byMonth[byMonth.length - 1]
+  const monthDelta = prevM?.depenses > 0
+    ? ((currM.depenses - prevM.depenses) / prevM.depenses) * 100
+    : null
+
+  // ── Savings SVG line chart ─────────────────────────────────────────────────
+
+  const SL_W = 300, SL_H = 48
+  const activeMonths = byMonth.filter(m => m.revenus > 0 || m.depenses > 0)
+  const minSav  = Math.min(0, ...byMonth.map(m => m.savings))
+  const maxSav  = Math.max(1, ...byMonth.map(m => m.savings))
+  const savRange = maxSav - minSav || 1
+  const zeroY    = +(SL_H - ((0 - minSav) / savRange) * SL_H).toFixed(1)
+
+  const savPts = byMonth.map((m, i) => ({
+    x: +((i / (byMonth.length - 1)) * SL_W).toFixed(1),
+    y: +(SL_H - ((m.savings - minSav) / savRange) * SL_H).toFixed(1),
+    savings:   m.savings,
+    isCurrent: m.isCurrent,
+    label:     m.label,
+  }))
+  const savPath = savPts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ')
+
+  // ── Annual summary ─────────────────────────────────────────────────────────
+
+  const year         = now.getFullYear()
   const yearEntries  = entries.filter(e => e.date.startsWith(`${year}-`))
   const yearExpenses = yearEntries.filter(e => e.category?.type !== 'income').reduce((s, e) => s + Number(e.amount), 0)
   const yearIncome   = yearEntries.filter(e => e.category?.type === 'income').reduce((s, e) => s + Number(e.amount), 0)
   const yearBalance  = yearIncome - yearExpenses
-  const spendCats    = categories.filter(c => c.type !== 'income')
+
+  const spendCats = categories.filter(c => c.type !== 'income')
   const byCat = spendCats
     .map(cat => ({
       cat,
@@ -47,11 +74,28 @@ export default function TrendView({ entries, isLoading, categories }: {
     }))
     .filter(x => x.total > 0)
     .sort((a, b) => b.total - a.total)
+  const catTotal = byCat.reduce((s, x) => s + x.total, 0)
 
   return (
     <div className={styles.scrollArea}>
+
+      {/* ── Bar chart ─────────────────────────────────────────────────── */}
       <div className={styles.trendCard}>
-        <p className={styles.trendTitle}>Dépenses sur 12 mois</p>
+        <div className={styles.trendCardHead}>
+          <p className={styles.trendTitle}>Dépenses sur 12 mois</p>
+          {monthDelta !== null && (
+            <span
+              className={styles.trendDeltaBadge}
+              style={{
+                color:      monthDelta <= 0 ? '#5B9E8F' : '#E07B54',
+                background: monthDelta <= 0 ? 'rgba(91,158,143,0.12)' : 'rgba(224,123,84,0.12)',
+              }}
+            >
+              {monthDelta >= 0 ? '+' : ''}{monthDelta.toFixed(0)}% vs mois préc.
+            </span>
+          )}
+        </div>
+
         <div className={styles.trendBars}>
           {byMonth.map(m => {
             const depH = Math.max(2, (m.depenses / maxVal) * BAR_H)
@@ -66,11 +110,14 @@ export default function TrendView({ entries, isLoading, categories }: {
                   />
                 </div>
                 <span className={styles.trendMonthLabel}>{m.label}</span>
-                {m.depenses > 0 && <span className={styles.trendAmountLabel}>{fmtEur(m.depenses)}</span>}
+                {m.isCurrent && m.depenses > 0 && (
+                  <span className={styles.trendAmountLabel}>{fmtEur(m.depenses)}</span>
+                )}
               </div>
             )
           })}
         </div>
+
         <div className={styles.trendLegend}>
           <span className={styles.trendLegendItem}>
             <span className={styles.trendDotDep} /> Dépenses
@@ -81,9 +128,87 @@ export default function TrendView({ entries, isLoading, categories }: {
         </div>
       </div>
 
-      {/* Annual summary */}
+      {/* ── Savings line chart ────────────────────────────────────────── */}
+      {activeMonths.length > 2 && (
+        <div className={styles.savingsCard}>
+          <p className={styles.trendTitle}>Épargne mensuelle</p>
+
+          <svg
+            viewBox={`0 0 ${SL_W} ${SL_H}`}
+            className={styles.savingsLineSvg}
+            preserveAspectRatio="none"
+          >
+            {/* Zero baseline */}
+            <line
+              x1="0" y1={zeroY} x2={SL_W} y2={zeroY}
+              stroke="var(--border)" strokeWidth="1" strokeDasharray="3,2"
+            />
+            {/* Positive fill area */}
+            <path
+              d={`${savPath} L${SL_W},${zeroY} L0,${zeroY} Z`}
+              fill="rgba(91,158,143,0.10)"
+              clipPath="url(#aboveZero)"
+            />
+            <clipPath id="aboveZero">
+              <rect x="0" y="0" width={SL_W} height={zeroY} />
+            </clipPath>
+            {/* Negative fill area */}
+            <path
+              d={`${savPath} L${SL_W},${zeroY} L0,${zeroY} Z`}
+              fill="rgba(224,123,84,0.08)"
+              clipPath="url(#belowZero)"
+            />
+            <clipPath id="belowZero">
+              <rect x="0" y={zeroY} width={SL_W} height={SL_H - zeroY} />
+            </clipPath>
+            {/* Line */}
+            <path
+              d={savPath}
+              fill="none"
+              stroke="#5B9E8F"
+              strokeWidth="2"
+              strokeLinejoin="round"
+              strokeLinecap="round"
+            />
+            {/* Points */}
+            {savPts.map((p, i) => (
+              <circle
+                key={i}
+                cx={p.x} cy={p.y}
+                r={p.isCurrent ? 4 : 2.5}
+                fill={p.savings >= 0 ? '#5B9E8F' : '#E07B54'}
+                stroke="var(--bg-card)" strokeWidth="1.5"
+              />
+            ))}
+          </svg>
+
+          <div className={styles.savingsLineLabels}>
+            {byMonth.map(m => (
+              <span
+                key={m.prefix}
+                className={[styles.savingsLineLabel, m.isCurrent ? styles.savingsLineLabelCurrent : ''].join(' ')}
+              >
+                {m.label}
+              </span>
+            ))}
+          </div>
+
+          <div className={styles.savingsCallout}>
+            <span className={styles.savingsCalloutLabel}>Ce mois :</span>
+            <span
+              className={styles.savingsCalloutVal}
+              style={{ color: currM.savings >= 0 ? '#5B9E8F' : '#E07B54' }}
+            >
+              {currM.savings >= 0 ? '+' : ''}{fmtEur(currM.savings)} €
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* ── Annual summary ────────────────────────────────────────────── */}
       <div className={styles.annualCard}>
         <p className={styles.trendTitle}>Bilan {year}</p>
+
         <div className={styles.annualRow}>
           <span className={styles.annualLabel}>Revenus</span>
           <span className={styles.annualVal} style={{ color: '#5B9E8F' }}>{fmtEur(yearIncome)} €</span>
@@ -99,19 +224,38 @@ export default function TrendView({ entries, isLoading, categories }: {
             {yearBalance >= 0 ? '+' : ''}{fmtEur(yearBalance)} €
           </span>
         </div>
+
         {byCat.length > 0 && (
           <>
             <p className={styles.annualCatTitle}>Répartition des dépenses</p>
+
+            {/* Stacked bar */}
+            <div className={styles.catStackBar}>
+              {byCat.map(({ cat, total }) => (
+                <div
+                  key={cat.id}
+                  className={styles.catStackSegment}
+                  style={{ width: `${(total / catTotal) * 100}%`, background: catColor(cat) }}
+                  title={`${cat.name} : ${fmtEur(total)} €`}
+                />
+              ))}
+            </div>
+
+            {/* Legend rows with % */}
             {byCat.map(({ cat, total }) => (
               <div key={cat.id} className={styles.annualCatRow}>
                 <span className={styles.catDot} style={{ background: catColor(cat) }} />
                 <span className={styles.annualCatName}>{cat.name}</span>
+                <span className={styles.annualCatPct}>
+                  {catTotal > 0 ? ((total / catTotal) * 100).toFixed(0) : 0}%
+                </span>
                 <span className={styles.annualCatVal}>{fmtEur(total)} €</span>
               </div>
             ))}
           </>
         )}
       </div>
+
     </div>
   )
 }

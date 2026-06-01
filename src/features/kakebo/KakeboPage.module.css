@@ -1394,6 +1394,189 @@
   color: var(--text-sub);
 }
 
+/* ── TrendView additions ─────────────────────────────────────────────────── */
+
+.trendCardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.trendDeltaBadge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 99px;
+  font-family: var(--font-family);
+}
+
+/* Annual category stacked bar */
+
+.catStackBar {
+  display: flex;
+  height: 10px;
+  border-radius: 99px;
+  overflow: hidden;
+  gap: 1px;
+  margin: 6px 0 10px;
+}
+
+.catStackSegment {
+  min-width: 3px;
+}
+
+.annualCatPct {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  min-width: 28px;
+  text-align: right;
+  margin-right: 6px;
+}
+
+/* Savings line chart card */
+
+.savingsCard {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 14px 16px 10px;
+  box-shadow: var(--shadow-card);
+}
+
+.savingsLineSvg {
+  width: 100%;
+  height: 48px;
+  margin: 8px 0 2px;
+  display: block;
+  overflow: visible;
+}
+
+.savingsLineLabels {
+  display: flex;
+  justify-content: space-between;
+}
+
+.savingsLineLabel {
+  font-size: 9px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.savingsLineLabelCurrent {
+  color: var(--accent);
+  font-weight: 800;
+}
+
+.savingsCallout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.savingsCalloutLabel {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.savingsCalloutVal {
+  font-size: 15px;
+  font-weight: 900;
+  font-family: var(--font-family);
+}
+
+/* ── BilanView additions ─────────────────────────────────────────────────── */
+
+/* Delta badge inside donut center */
+
+.heroMvmt {
+  font-size: 10px;
+  font-weight: 700;
+  border-radius: 99px;
+  padding: 2px 6px;
+  margin-top: 2px;
+  font-family: var(--font-family);
+  display: inline-block;
+}
+
+/* Projection in rhythm card */
+
+.rhythmProjection {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.rhythmProjectionVal {
+  font-size: 13px;
+  font-weight: 900;
+  color: var(--text);
+}
+
+/* Top 3 expenses card */
+
+.topCard {
+  background: var(--bg-card);
+  border-radius: 16px;
+  padding: 14px 16px 10px;
+  box-shadow: var(--shadow-card);
+}
+
+.topTitle {
+  font-size: 10.5px;
+  font-weight: 800;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0 0 10px;
+}
+
+.topRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.topRow:last-child { border-bottom: none; }
+
+.topRank {
+  font-size: 10px;
+  font-weight: 800;
+  color: var(--text-muted);
+  width: 18px;
+  flex-shrink: 0;
+}
+
+.topDesc {
+  flex: 1;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+}
+
+.topAmount {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
 /* ── Category budget ─────────────────────────────────────────────────────── */
 
 .catCardBudgetOf {

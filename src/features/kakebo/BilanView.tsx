@@ -8,7 +8,8 @@ export default function BilanView({
   arcs, donutR, donutC, totalDepenses, revenus, objectifEpargne,
   epargneReelle, solde, moodEmoji, moodLabel,
   dailyTotals, maxDaily, todayDay,
-  entries, onSelectCat, onShowDetail, onEdit, onReplay,
+  entries, prevMonthExpenses,
+  onSelectCat, onShowDetail, onEdit, onReplay,
 }: {
   arcs: { cat: KakeboCategory; pct: number; dash: number; offset: number; value: number }[]
   donutR: number; donutC: number
@@ -17,6 +18,7 @@ export default function BilanView({
   moodEmoji: string; moodLabel: string
   dailyTotals: number[]; maxDaily: number; todayDay: number
   entries: KakeboEntry[]
+  prevMonthExpenses?: number
   onSelectCat: (id: string) => void
   onShowDetail: () => void
   onEdit: (entry: KakeboEntry) => void
@@ -25,6 +27,20 @@ export default function BilanView({
   const epargnePct  = revenus > 0 ? Math.max(0, Math.min(1, epargneReelle / revenus)) : 0
   const objectifPct = revenus > 0 ? Math.max(0, Math.min(1, objectifEpargne / revenus)) : 0
   const positif = solde >= 0
+
+  const daysCount  = dailyTotals.length
+  const projection = todayDay > 0 && todayDay < daysCount
+    ? Math.round((totalDepenses / todayDay) * daysCount)
+    : null
+
+  const prevDelta = (prevMonthExpenses && prevMonthExpenses > 0 && totalDepenses > 0)
+    ? ((totalDepenses - prevMonthExpenses) / prevMonthExpenses) * 100
+    : null
+
+  const top3 = [...entries]
+    .filter(e => e.category?.type !== 'income' && Number(e.amount) > 0)
+    .sort((a, b) => Number(b.amount) - Number(a.amount))
+    .slice(0, 3)
 
   const recentEntries = entries.slice(0, 5)
   if (totalDepenses === 0 && entries.length === 0) return null
@@ -50,6 +66,17 @@ export default function BilanView({
               <span className={styles.donutLabel}>Dépensé</span>
               <span className={styles.donutAmount}>{fmtEur(totalDepenses)}<span className={styles.donutEur}>€</span></span>
               <span className={styles.donutSub}>/ {fmtEur(revenus)} €</span>
+              {prevDelta !== null && (
+                <span
+                  className={styles.heroMvmt}
+                  style={{
+                    color:      prevDelta <= 0 ? '#5B9E8F' : '#E07B54',
+                    background: prevDelta <= 0 ? 'rgba(91,158,143,0.12)' : 'rgba(224,123,84,0.12)',
+                  }}
+                >
+                  {prevDelta >= 0 ? '+' : ''}{prevDelta.toFixed(0)}%
+                </span>
+              )}
             </div>
           </div>
 
@@ -117,7 +144,28 @@ export default function BilanView({
             <span key={d}>{d}</span>
           ))}
         </div>
+        {projection !== null && (
+          <div className={styles.rhythmProjection}>
+            <span>Projection fin de mois</span>
+            <span className={styles.rhythmProjectionVal}>{fmtEur(projection)} €</span>
+          </div>
+        )}
       </div>
+
+      {/* Top 3 dépenses */}
+      {top3.length > 0 && (
+        <div className={styles.topCard}>
+          <p className={styles.topTitle}>Plus grosses dépenses</p>
+          {top3.map((e, i) => (
+            <div key={e.id} className={styles.topRow}>
+              <span className={styles.topRank}>#{i + 1}</span>
+              <span className={styles.catDot} style={{ background: catColor(e.category ?? null) }} />
+              <span className={styles.topDesc}>{e.description || e.category?.name || '—'}</span>
+              <span className={styles.topAmount}>{fmtEur(Number(e.amount))} €</span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Category cards 2×2 */}
       <div className={styles.catGrid}>

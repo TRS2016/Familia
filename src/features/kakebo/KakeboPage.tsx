@@ -122,6 +122,13 @@ export default function KakeboPage() {
     ? (selectedMember?.kakebo_objectif_epargne ?? 0)
     : objectif
 
+  // ── Previous month expenses (for delta badge in BilanView) ────────────────
+
+  const prevMonthPrefix    = format(subMonths(refDate, 1), 'yyyy-MM')
+  const prevMonthExpenses  = displayTrendEntries
+    .filter(e => e.date.startsWith(prevMonthPrefix) && e.category?.type !== 'income')
+    .reduce((s, e) => s + Number(e.amount), 0)
+
   // ── Computations ──────────────────────────────────────────────────────────
 
   const incomeEntries  = displayEntries.filter(e => e.category?.type === 'income')
@@ -422,6 +429,7 @@ export default function KakeboPage() {
               maxDaily={maxDaily}
               todayDay={todayDay}
               entries={displayEntries}
+              prevMonthExpenses={prevMonthExpenses}
               onSelectCat={setSelectedCatId}
               onShowDetail={() => setView('detail')}
               onEdit={openEdit}
