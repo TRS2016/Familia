@@ -158,11 +158,18 @@ export default function LecteurPage() {
       {playingFile && (
         <div className={styles.playerDock}>
           <div className={styles.nowPlaying}>
-            <EqBars />
-            <span className={styles.nowPlayingTitle}>{playingFile.title}</span>
-            {queue.length > 1 && (
-              <span className={styles.queueBadge}>{queueIndex + 1}/{queue.length}</span>
-            )}
+            <div className={styles.nowPlayingArt}>
+              <span className={styles.nowPlayingArtEmoji}>{KIND_META[detectKind(playingFile)].emoji}</span>
+              <span className={styles.nowPlayingArtEq}><EqBars small /></span>
+            </div>
+            <div className={styles.nowPlayingInfo}>
+              <span className={styles.nowPlayingTitle}>{playingFile.title}</span>
+              <span className={styles.nowPlayingSub}>
+                {KIND_META[detectKind(playingFile)].label}
+                {playingFile.member && ` · ${playingFile.member.display_name}`}
+                {queue.length > 1 && ` · ${queueIndex + 1}/${queue.length}`}
+              </span>
+            </div>
             <div className={styles.nowPlayingNav}>
               <button
                 className={styles.nowPlayingNavBtn}

@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import styles from './MediaPlayer.module.css'
@@ -49,6 +50,17 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
     gcTime:   120 * 60 * 1000,
   })
 
+  // Forcer la lecture dès que la piste est prête — l'attribut autoPlay seul
+  // échoue souvent quand l'URL signée se charge en asynchrone (perte du
+  // contexte d'activation lors du remount entre deux pistes).
+  const handleCanPlay = useCallback((e: React.SyntheticEvent<HTMLMediaElement>) => {
+    if (autoPlay) {
+      const el = e.currentTarget
+      const p = el.play()
+      if (p && typeof p.catch === 'function') p.catch(() => { /* autoplay bloqué */ })
+    }
+  }, [autoPlay])
+
   if (filePath && isLoading) {
     return <div className={styles.skeleton}>Chargement du média…</div>
   }
@@ -96,6 +108,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
         preload="metadata"
         playsInline
         autoPlay={autoPlay}
+        onCanPlay={handleCanPlay}
         onEnded={onEnded}
       />
     )
@@ -110,6 +123,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
         className={styles.audio}
         preload="metadata"
         autoPlay={autoPlay}
+        onCanPlay={handleCanPlay}
         onEnded={onEnded}
       />
     )
