@@ -85,7 +85,7 @@ function Lightbox({ urls, initialIndex, onClose, onOpenAlbumShare }: {
     try {
       const blob = await fetch(url).then(r => r.blob())
       await downloadBlob(blob, `photo-${index + 1}.jpg`)
-    } catch { /* silent */ }
+    } catch (err) { console.error('Download photo failed:', err) }
   }
 
   async function handleShareOne() {
@@ -108,7 +108,7 @@ function Lightbox({ urls, initialIndex, onClose, onOpenAlbumShare }: {
       }))
       const content = await zip.generateAsync({ type: 'blob' })
       await downloadBlob(content, `album-${Date.now()}.zip`)
-    } catch { /* silent */ }
+    } catch (err) { console.error('ZIP download failed:', err) }
     setDownloadingAll(false)
   }
 

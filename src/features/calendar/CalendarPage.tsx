@@ -83,9 +83,10 @@ export default function CalendarPage() {
   // ── Current time ─────────────────────────────────────────────────────────
   const [currentTime, setCurrentTime] = useState(new Date())
   useEffect(() => {
+    if (view !== 'week' && view !== '3day') return
     const timer = setInterval(() => setCurrentTime(new Date()), 60_000)
     return () => clearInterval(timer)
-  }, [])
+  }, [view])
 
   // ── Auto-scroll week grid to current time ────────────────────────────────
   useEffect(() => {
@@ -204,6 +205,7 @@ export default function CalendarPage() {
       if (error) throw error
       return data as { id: string; display_name: string }[]
     },
+    staleTime: 60 * 60 * 1000,
   })
 
   // ── Form state ───────────────────────────────────────────────────────────

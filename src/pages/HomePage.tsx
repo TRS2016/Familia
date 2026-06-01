@@ -96,7 +96,7 @@ export default function HomePage() {
   const [noteText, setNoteText] = useState('')
 
   const { data: upcomingEvents } = useQuery({
-    queryKey: ['home-events-upcoming', HOUSEHOLD_ID],
+    queryKey: QK.homeEvents,
     queryFn: async (): Promise<UpcomingEvent[]> => {
       const today = format(new Date(), 'yyyy-MM-dd')
       const { data, error } = await supabase
@@ -114,7 +114,7 @@ export default function HomePage() {
   })
 
   const { data: kakeboMonth } = useQuery({
-    queryKey: ['home-kakebo', HOUSEHOLD_ID],
+    queryKey: QK.homeKakebo,
     queryFn: async () => {
       const now  = new Date()
       const from = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd')
@@ -136,7 +136,7 @@ export default function HomePage() {
   })
 
   const { data: habitsToday } = useQuery({
-    queryKey: ['home-habits', HOUSEHOLD_ID],
+    queryKey: QK.homeHabits,
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd')
       const dow   = new Date().getDay() === 0 ? 7 : new Date().getDay() // 1=lun…7=dim
@@ -181,7 +181,7 @@ export default function HomePage() {
   })
 
   const { data: mediaInProgress } = useQuery({
-    queryKey: ['home-media-in-progress', HOUSEHOLD_ID],
+    queryKey: QK.homeMedia,
     queryFn: async (): Promise<MediaInProgress[]> => {
       const { data, error } = await supabase
         .from('media_items')
@@ -197,7 +197,7 @@ export default function HomePage() {
   })
 
   const { data: recentMoments } = useQuery({
-    queryKey: ['home-moments', HOUSEHOLD_ID],
+    queryKey: QK.homeMoments,
     queryFn: async (): Promise<MomentPreview[]> => {
       const { data, error } = await supabase
         .from('moments')
@@ -494,7 +494,7 @@ export default function HomePage() {
                       e.preventDefault()
                       const today = format(new Date(), 'yyyy-MM-dd')
                       toggleHabit.mutate({ habitId: h.id, date: today, done: true })
-                      queryClient.invalidateQueries({ queryKey: ['home-habits', HOUSEHOLD_ID] })
+                      queryClient.invalidateQueries({ queryKey: QK.homeHabits })
                       queryClient.invalidateQueries({ queryKey: completionsKey('recent') })
                     }}
                   >

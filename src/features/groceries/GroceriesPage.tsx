@@ -156,12 +156,7 @@ export default function GroceriesPage() {
   const [formExpanded, setFormExpanded] = useState(false)
 
   // ── Edit modal ──────────────────────────────────────────────────────────────
-  const [editingItem, setEditingItem]   = useState<Grocery | null>(null)
-  const [editName, setEditName]         = useState('')
-  const [editQty, setEditQty]           = useState('')
-  const [editPrice, setEditPrice]       = useState('')
-  const [editStore, setEditStore]       = useState('')
-  const [editCategory, setEditCategory] = useState<string | null>(null)
+  const [editingItem, setEditingItem] = useState<Grocery | null>(null)
 
   // ── Mode shopping (persisté en sessionStorage — survit aux reloads, pas aux fermetures d'onglet)
   const [shoppingMode, setShoppingMode]       = useSessionState<boolean>(`familia-shopping-mode-${HOUSEHOLD_ID}`, false)
@@ -173,7 +168,6 @@ export default function GroceriesPage() {
 
   // ── Sauvegarder liste actuelle ───────────────────────────────────────────────
   const [showSaveModal, setShowSaveModal] = useState(false)
-  const [saveListName, setSaveListName]   = useState('')
 
   // ── Affichage ────────────────────────────────────────────────────────────────
   const [groupMode, setGroupMode]           = useState<GroupMode>('category')
@@ -198,6 +192,7 @@ export default function GroceriesPage() {
   const [draggingId, setDraggingId] = useState<string | null>(null)
   const [dragOverId, setDragOverId] = useState<string | null>(null)
   const dragStateRef = useRef<{ draggingId: string; dragOverId: string | null } | null>(null)
+  const pendingDragCleanupRef = useRef<(() => void) | null>(null)
 
   // ── Données dérivées ────────────────────────────────────────────────────────
   // En mode shopping : liste locale éphémère. En mode édition : données Supabase.
@@ -368,12 +363,20 @@ export default function GroceriesPage() {
       window.removeEventListener('pointermove', onMove)
       window.removeEventListener('pointerup', endDrag)
       window.removeEventListener('pointercancel', endDrag)
+      pendingDragCleanupRef.current = null
     }
 
+    pendingDragCleanupRef.current = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', endDrag)
+      window.removeEventListener('pointercancel', endDrag)
+    }
     window.addEventListener('pointermove', onMove, { passive: false })
     window.addEventListener('pointerup', endDrag)
     window.addEventListener('pointercancel', endDrag)
   }, [shoppingMode, setShoppingItems])
+
+  useEffect(() => () => { pendingDragCleanupRef.current?.() }, [])
 
   // ── Handlers ────────────────────────────────────────────────────────────────
   // ── Stats sessions (Lot 6) ───────────────────────────────────────────────
@@ -437,36 +440,12 @@ export default function GroceriesPage() {
 
   function openEdit(item: Grocery) {
     setEditingItem(item)
-    setEditName(item.name)
-    setEditQty(item.quantity ?? '')
-    setEditPrice(item.price !== null ? String(item.price).replace('.', ',') : '')
-    setEditStore(item.store ?? '')
-    setEditCategory(item.category)
   }
 
-  function handleSaveEdit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!editingItem || !editName.trim()) return
-    const parsedPrice = editPrice.trim() ? parseFloat(editPrice.replace(',', '.')) : null
-    const storeName = editStore.trim()
-    updateGrocery.mutate({
-      id: editingItem.id,
-      name: editName,
-      quantity: editQty || undefined,
-      price: parsedPrice && parsedPrice > 0 ? parsedPrice : null,
-      category: editCategory,
-      store: storeName || null,
-    })
-    if (storeName) persistStore(storeName)
-    setEditingItem(null)
-  }
-
-  function handleSaveCurrentList(e: FormEvent) {
-    e.preventDefault()
-    const name = saveListName.trim()
-    if (!name) return
+  function handleSaveCurrentList(name: string) {
+    if (!name.trim()) return
     saveCurrentList.mutate({
-      name,
+      name: name.trim(),
       items: uncheckedItems.map(g => ({
         name: g.name,
         quantity: g.quantity,
@@ -475,7 +454,7 @@ export default function GroceriesPage() {
         store: g.store,
       })),
     }, {
-      onSuccess: () => { setShowSaveModal(false); setSaveListName('') },
+      onSuccess: () => setShowSaveModal(false),
     })
   }
 
@@ -1021,29 +1000,12 @@ export default function GroceriesPage() {
 
       {/* Modal — Sauvegarder la liste actuelle */}
       {showSaveModal && (
-        <SlideUpModal title="Sauvegarder comme modèle" onClose={() => { setShowSaveModal(false); setSaveListName('') }}>
-          <form onSubmit={handleSaveCurrentList} className={styles.saveModalForm}>
-            <p className={styles.saveModalHint}>
-              {uncheckedItems.length} article{uncheckedItems.length > 1 ? 's' : ''} non coché{uncheckedItems.length > 1 ? 's' : ''} seront sauvegardés.
-            </p>
-            <input
-              type="text"
-              value={saveListName}
-              onChange={e => setSaveListName(e.target.value)}
-              placeholder="Nom de la liste (ex : Courses hebdo)"
-              className={styles.saveModalInput}
-              autoFocus
-              autoComplete="off"
-            />
-            <button
-              type="submit"
-              disabled={!saveListName.trim() || saveCurrentList.isPending}
-              className={styles.saveModalBtn}
-            >
-              {saveCurrentList.isPending ? 'Sauvegarde…' : 'Sauvegarder'}
-            </button>
-          </form>
-        </SlideUpModal>
+        <SaveListModal
+          uncheckedCount={uncheckedItems.length}
+          isPending={saveCurrentList.isPending}
+          onClose={() => setShowSaveModal(false)}
+          onSave={name => handleSaveCurrentList(name)}
+        />
       )}
 
       {/* Modal — Choisir une liste (shopping) */}
@@ -1059,231 +1021,352 @@ export default function GroceriesPage() {
 
       {/* Modal — Archiver la session de courses */}
       {showArchivePrompt && (
-        <SlideUpModal title="Courses terminées ?" onClose={() => handleArchiveDecision(false)}>
-          <div className={styles.archivePromptBody}>
-            <p className={styles.archivePromptSummary}>
-              🛒 <strong>{shoppingItems.filter(g => g.checked).length}</strong> article{shoppingItems.filter(g => g.checked).length > 1 ? 's' : ''} cochés
-              {computeTotal(shoppingItems.filter(g => g.checked)) > 0 && (
-                <> · <strong>{formatPrice(computeTotal(shoppingItems.filter(g => g.checked)))}</strong></>
-              )}
-            </p>
-            <button
-              className={styles.archiveBtn}
-              onClick={() => handleArchiveDecision(true)}
-              disabled={saveSession.isPending}
-            >
-              {saveSession.isPending ? 'Archivage…' : 'Archiver cette session'}
-            </button>
-            <button
-              className={styles.archiveSkipBtn}
-              onClick={() => handleArchiveDecision(false)}
-              disabled={saveSession.isPending}
-            >
-              Quitter sans archiver
-            </button>
-          </div>
-        </SlideUpModal>
+        <ArchivePromptModal
+          checkedCount={shoppingItems.filter(g => g.checked).length}
+          total={computeTotal(shoppingItems.filter(g => g.checked))}
+          isPending={saveSession.isPending}
+          onSave={() => handleArchiveDecision(true)}
+          onSkip={() => handleArchiveDecision(false)}
+        />
       )}
 
       {/* Modal — Historique des courses + stats budget (Lot 6) */}
       {showHistory && (
-        <SlideUpModal title="Historique des courses" onClose={() => setShowHistory(false)}>
-          <div className={styles.historyBody}>
-            {sessionsLoading ? (
-              <p className={styles.historyEmpty}>Chargement…</p>
-            ) : sessions.length === 0 ? (
-              <p className={styles.historyEmpty}>Aucune session archivée pour l'instant.</p>
-            ) : (
-              <>
-                {sessionStats && (
-                  <div className={styles.statsGrid}>
-                    <div className={styles.statCard}>
-                      <span className={styles.statValue}>{sessionStats.thisMonthCount}</span>
-                      <span className={styles.statLabel}>sessions ce mois</span>
-                    </div>
-                    {sessionStats.totalThisMonth > 0 && (
-                      <div className={styles.statCard}>
-                        <span className={styles.statValue}>{formatPrice(sessionStats.totalThisMonth)}</span>
-                        <span className={styles.statLabel}>dépensés ce mois</span>
-                      </div>
-                    )}
-                    {sessionStats.avg !== null && (
-                      <div className={styles.statCard}>
-                        <span className={styles.statValue}>{formatPrice(sessionStats.avg)}</span>
-                        <span className={styles.statLabel}>moy. / session</span>
-                      </div>
-                    )}
-                    {sessionStats.top3.length > 0 && (
-                      <div className={[styles.statCard, styles.statCardWide].join(' ')}>
-                        <span className={styles.statLabel}>Articles fréquents</span>
-                        <span className={styles.statTopItems}>{sessionStats.top3.join(' · ')}</span>
-                      </div>
-                    )}
-                  </div>
-                )}
-                <ul className={styles.historyList}>
-                  {sessions.map(s => (
-                    <li key={s.id} className={styles.historyItem}>
-                      <div className={styles.historyItemLeft}>
-                        <span className={styles.historyDate}>{formatSessionDate(s.created_at)}</span>
-                        {s.done_by_member && (
-                          <span className={styles.historyMember}>{s.done_by_member.display_name}</span>
-                        )}
-                      </div>
-                      <div className={styles.historyItemRight}>
-                        <span className={styles.historyCount}>{s.item_count} art.</span>
-                        {s.total !== null && (
-                          <span className={styles.historyTotal}>{formatPrice(s.total)}</span>
-                        )}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </div>
-        </SlideUpModal>
+        <HistoryModal
+          sessions={sessions}
+          isLoading={sessionsLoading}
+          stats={sessionStats}
+          onClose={() => setShowHistory(false)}
+        />
       )}
 
       {/* Modal — Envoyer la liste par notification */}
       {showNotifyModal && (
-        <SlideUpModal
-          title="Envoyer la liste"
+        <NotifyModal
+          uncheckedItems={uncheckedItems}
           onClose={() => { setShowNotifyModal(false); setNotifyMessage('') }}
-        >
-          <div className={styles.notifyForm}>
-            <p className={styles.notifyArticles}>
-              {uncheckedItems.slice(0, 3).map(g => g.name).join(', ')}
-              {uncheckedItems.length > 3 && ` +${uncheckedItems.length - 3} article${uncheckedItems.length - 3 > 1 ? 's' : ''}`}
-            </p>
-            <textarea
-              className={styles.notifyTextarea}
-              value={notifyMessage}
-              onChange={e => setNotifyMessage(e.target.value)}
-              placeholder="Ajouter un message… ex : tu peux t'occuper de ça ?"
-              rows={3}
-              autoFocus
-            />
-            <button
-              className={styles.notifySendBtn}
-              disabled={notifying}
-              onClick={async () => {
-                await handleNotifyList(notifyMessage)
-                setShowNotifyModal(false)
-                setNotifyMessage('')
-              }}
-            >
-              {notifying ? 'Envoi…' : 'Envoyer la notification'}
-            </button>
-          </div>
-        </SlideUpModal>
+          message={notifyMessage}
+          onMessageChange={setNotifyMessage}
+          notifying={notifying}
+          onSend={async () => {
+            await handleNotifyList(notifyMessage)
+            setShowNotifyModal(false)
+            setNotifyMessage('')
+          }}
+        />
       )}
 
       {/* Modal — Confirmer la suppression des articles cochés (Lot 3) */}
       {showClearConfirm && (
-        <SlideUpModal title="Effacer les articles cochés ?" onClose={() => setShowClearConfirm(false)}>
-          <div className={styles.archivePromptBody}>
-            <p className={styles.archivePromptSummary}>
-              🗑 <strong>{checkedItems.length}</strong> article{checkedItems.length > 1 ? 's' : ''} coché{checkedItems.length > 1 ? 's' : ''} seront supprimés définitivement.
-            </p>
-            <button
-              className={styles.archiveBtn}
-              style={{ background: '#c0392b' }}
-              onClick={() => { clearChecked.mutate(); setShowClearConfirm(false) }}
-              disabled={clearChecked.isPending}
-            >
-              Supprimer
-            </button>
-            <button
-              className={styles.archiveSkipBtn}
-              onClick={() => setShowClearConfirm(false)}
-            >
-              Annuler
-            </button>
-          </div>
-        </SlideUpModal>
+        <ClearConfirmModal
+          count={checkedItems.length}
+          isPending={clearChecked.isPending}
+          onClose={() => setShowClearConfirm(false)}
+          onConfirm={() => { clearChecked.mutate(); setShowClearConfirm(false) }}
+        />
       )}
 
       {/* Modal d'édition */}
       {editingItem && (
-        <SlideUpModal title="Modifier l'article" onClose={() => setEditingItem(null)}>
-          <form onSubmit={handleSaveEdit} className={styles.editForm}>
-
-            <div className={styles.editField}>
-              <label className={styles.editLabel}>Nom</label>
-              <input
-                type="text" value={editName} onChange={e => setEditName(e.target.value)}
-                className={styles.editInput} placeholder="Ex : Pommes" autoFocus autoComplete="off" required
-              />
-            </div>
-
-            <div className={styles.editRow}>
-              <div className={styles.editField} style={{ flex: 1 }}>
-                <label className={styles.editLabel}>Quantité</label>
-                <input
-                  type="text" value={editQty} onChange={e => setEditQty(e.target.value)}
-                  className={styles.editInput} placeholder="Ex : 1 kg, 3…" autoComplete="off"
-                />
-              </div>
-              <div className={styles.editField} style={{ flex: 1 }}>
-                <label className={styles.editLabel}>Prix unitaire (€)</label>
-                <input
-                  type="text" inputMode="decimal" value={editPrice}
-                  onChange={e => setEditPrice(e.target.value)}
-                  className={styles.editInput} placeholder="Ex : 1,99" autoComplete="off"
-                />
-              </div>
-            </div>
-
-            <div className={styles.editField}>
-              <label className={styles.editLabel}>Enseigne</label>
-              <input
-                type="text" value={editStore} onChange={e => setEditStore(e.target.value)}
-                className={styles.editInput} placeholder="Ex : Carrefour, Bio c'bon…" autoComplete="off"
-              />
-              {storeOptions.length > 0 && (
-                <div className={styles.storeChips} style={{ padding: 0, marginTop: 4 }}>
-                  {storeOptions.map(s => (
-                    <button
-                      key={s} type="button"
-                      className={[styles.storeChip, editStore === s ? styles.storeChipActive : ''].join(' ')}
-                      onClick={() => setEditStore(x => x === s ? '' : s)}
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <div className={styles.editField}>
-              <span className={styles.editLabel}>Rayon</span>
-              <div className={styles.categoryChips} style={{ padding: 0 }}>
-                {CATEGORIES.map(c => (
-                  <button
-                    key={c.key} type="button"
-                    className={[styles.categoryChip, editCategory === c.key ? styles.categoryChipActive : ''].join(' ')}
-                    onClick={() => setEditCategory(f => f === c.key ? null : c.key)}
-                  >
-                    {c.emoji} {c.key}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <button
-              type="submit" disabled={!editName.trim() || updateGrocery.isPending}
-              className={styles.saveBtn}
-            >
-              {updateGrocery.isPending ? 'Enregistrement…' : 'Enregistrer'}
-            </button>
-
-          </form>
-        </SlideUpModal>
+        <EditGroceryModal
+          item={editingItem}
+          storeOptions={storeOptions}
+          isPending={updateGrocery.isPending}
+          onClose={() => setEditingItem(null)}
+          onSave={data => {
+            updateGrocery.mutate({ id: editingItem.id, ...data })
+            if (data.store) persistStore(data.store)
+            setEditingItem(null)
+          }}
+        />
       )}
 
     </div>
   )
 }
 
+// ── Sub-modals ────────────────────────────────────────────────────────────────
 
+interface EditSaveData {
+  name: string
+  quantity?: string
+  price: number | null
+  category: string | null
+  store: string | null
+}
+
+function EditGroceryModal({ item, storeOptions, isPending, onClose, onSave }: {
+  item: Grocery
+  storeOptions: string[]
+  isPending: boolean
+  onClose: () => void
+  onSave: (data: EditSaveData) => void
+}) {
+  const [name, setName]         = useState(item.name)
+  const [qty, setQty]           = useState(item.quantity ?? '')
+  const [price, setPrice]       = useState(item.price !== null ? String(item.price).replace('.', ',') : '')
+  const [store, setStore]       = useState(item.store ?? '')
+  const [category, setCategory] = useState<string | null>(item.category)
+
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
+    e.preventDefault()
+    if (!name.trim()) return
+    const parsedPrice = price.trim() ? parseFloat(price.replace(',', '.')) : null
+    onSave({
+      name: name.trim(),
+      quantity: qty.trim() || undefined,
+      price: parsedPrice && parsedPrice > 0 ? parsedPrice : null,
+      category,
+      store: store.trim() || null,
+    })
+  }
+
+  return (
+    <SlideUpModal title="Modifier l'article" onClose={onClose}>
+      <form onSubmit={handleSubmit} className={styles.editForm}>
+        <div className={styles.editField}>
+          <label className={styles.editLabel}>Nom</label>
+          <input
+            type="text" value={name} onChange={e => setName(e.target.value)}
+            className={styles.editInput} placeholder="Ex : Pommes" autoFocus autoComplete="off" required
+          />
+        </div>
+        <div className={styles.editRow}>
+          <div className={styles.editField} style={{ flex: 1 }}>
+            <label className={styles.editLabel}>Quantité</label>
+            <input
+              type="text" value={qty} onChange={e => setQty(e.target.value)}
+              className={styles.editInput} placeholder="Ex : 1 kg, 3…" autoComplete="off"
+            />
+          </div>
+          <div className={styles.editField} style={{ flex: 1 }}>
+            <label className={styles.editLabel}>Prix unitaire (€)</label>
+            <input
+              type="text" inputMode="decimal" value={price}
+              onChange={e => setPrice(e.target.value)}
+              className={styles.editInput} placeholder="Ex : 1,99" autoComplete="off"
+            />
+          </div>
+        </div>
+        <div className={styles.editField}>
+          <label className={styles.editLabel}>Enseigne</label>
+          <input
+            type="text" value={store} onChange={e => setStore(e.target.value)}
+            className={styles.editInput} placeholder="Ex : Carrefour, Bio c'bon…" autoComplete="off"
+          />
+          {storeOptions.length > 0 && (
+            <div className={styles.storeChips} style={{ padding: 0, marginTop: 4 }}>
+              {storeOptions.map(s => (
+                <button key={s} type="button"
+                  className={[styles.storeChip, store === s ? styles.storeChipActive : ''].join(' ')}
+                  onClick={() => setStore(x => x === s ? '' : s)}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className={styles.editField}>
+          <span className={styles.editLabel}>Rayon</span>
+          <div className={styles.categoryChips} style={{ padding: 0 }}>
+            {CATEGORIES.map(c => (
+              <button key={c.key} type="button"
+                className={[styles.categoryChip, category === c.key ? styles.categoryChipActive : ''].join(' ')}
+                onClick={() => setCategory(f => f === c.key ? null : c.key)}
+              >
+                {c.emoji} {c.key}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button type="submit" disabled={!name.trim() || isPending} className={styles.saveBtn}>
+          {isPending ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      </form>
+    </SlideUpModal>
+  )
+}
+
+function SaveListModal({ uncheckedCount, isPending, onClose, onSave }: {
+  uncheckedCount: number
+  isPending: boolean
+  onClose: () => void
+  onSave: (name: string) => void
+}) {
+  const [name, setName] = useState('')
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!name.trim()) return
+    onSave(name.trim())
+  }
+
+  return (
+    <SlideUpModal title="Sauvegarder comme modèle" onClose={onClose}>
+      <form onSubmit={handleSubmit} className={styles.saveModalForm}>
+        <p className={styles.saveModalHint}>
+          {uncheckedCount} article{uncheckedCount > 1 ? 's' : ''} non coché{uncheckedCount > 1 ? 's' : ''} seront sauvegardés.
+        </p>
+        <input
+          type="text" value={name} onChange={e => setName(e.target.value)}
+          placeholder="Nom de la liste (ex : Courses hebdo)"
+          className={styles.saveModalInput} autoFocus autoComplete="off"
+        />
+        <button type="submit" disabled={!name.trim() || isPending} className={styles.saveModalBtn}>
+          {isPending ? 'Sauvegarde…' : 'Sauvegarder'}
+        </button>
+      </form>
+    </SlideUpModal>
+  )
+}
+
+function ArchivePromptModal({ checkedCount, total, isPending, onSave, onSkip }: {
+  checkedCount: number
+  total: number
+  isPending: boolean
+  onSave: () => void
+  onSkip: () => void
+}) {
+  return (
+    <SlideUpModal title="Courses terminées ?" onClose={onSkip}>
+      <div className={styles.archivePromptBody}>
+        <p className={styles.archivePromptSummary}>
+          🛒 <strong>{checkedCount}</strong> article{checkedCount > 1 ? 's' : ''} cochés
+          {total > 0 && <> · <strong>{formatPrice(total)}</strong></>}
+        </p>
+        <button className={styles.archiveBtn} onClick={onSave} disabled={isPending}>
+          {isPending ? 'Archivage…' : 'Archiver cette session'}
+        </button>
+        <button className={styles.archiveSkipBtn} onClick={onSkip} disabled={isPending}>
+          Quitter sans archiver
+        </button>
+      </div>
+    </SlideUpModal>
+  )
+}
+
+function ClearConfirmModal({ count, isPending, onClose, onConfirm }: {
+  count: number
+  isPending: boolean
+  onClose: () => void
+  onConfirm: () => void
+}) {
+  return (
+    <SlideUpModal title="Effacer les articles cochés ?" onClose={onClose}>
+      <div className={styles.archivePromptBody}>
+        <p className={styles.archivePromptSummary}>
+          🗑 <strong>{count}</strong> article{count > 1 ? 's' : ''} coché{count > 1 ? 's' : ''} seront supprimés définitivement.
+        </p>
+        <button className={styles.archiveBtn} style={{ background: '#c0392b' }} onClick={onConfirm} disabled={isPending}>
+          Supprimer
+        </button>
+        <button className={styles.archiveSkipBtn} onClick={onClose}>Annuler</button>
+      </div>
+    </SlideUpModal>
+  )
+}
+
+function NotifyModal({ uncheckedItems, message, onMessageChange, notifying, onClose, onSend }: {
+  uncheckedItems: Grocery[]
+  message: string
+  onMessageChange: (v: string) => void
+  notifying: boolean
+  onClose: () => void
+  onSend: () => void
+}) {
+  return (
+    <SlideUpModal title="Envoyer la liste" onClose={onClose}>
+      <div className={styles.notifyForm}>
+        <p className={styles.notifyArticles}>
+          {uncheckedItems.slice(0, 3).map(g => g.name).join(', ')}
+          {uncheckedItems.length > 3 && ` +${uncheckedItems.length - 3} article${uncheckedItems.length - 3 > 1 ? 's' : ''}`}
+        </p>
+        <textarea
+          className={styles.notifyTextarea}
+          value={message}
+          onChange={e => onMessageChange(e.target.value)}
+          placeholder="Ajouter un message… ex : tu peux t'occuper de ça ?"
+          rows={3}
+          autoFocus
+        />
+        <button className={styles.notifySendBtn} disabled={notifying} onClick={onSend}>
+          {notifying ? 'Envoi…' : 'Envoyer la notification'}
+        </button>
+      </div>
+    </SlideUpModal>
+  )
+}
+
+type SessionStats = {
+  thisMonthCount: number
+  totalThisMonth: number
+  avg: number | null
+  top3: string[]
+}
+
+function HistoryModal({ sessions, isLoading, stats, onClose }: {
+  sessions: { id: string; created_at: string; total: number | null; item_count: number; done_by_member: { display_name: string } | null }[]
+  isLoading: boolean
+  stats: SessionStats | null
+  onClose: () => void
+}) {
+  return (
+    <SlideUpModal title="Historique des courses" onClose={onClose}>
+      <div className={styles.historyBody}>
+        {isLoading ? (
+          <p className={styles.historyEmpty}>Chargement…</p>
+        ) : sessions.length === 0 ? (
+          <p className={styles.historyEmpty}>Aucune session archivée pour l'instant.</p>
+        ) : (
+          <>
+            {stats && (
+              <div className={styles.statsGrid}>
+                <div className={styles.statCard}>
+                  <span className={styles.statValue}>{stats.thisMonthCount}</span>
+                  <span className={styles.statLabel}>sessions ce mois</span>
+                </div>
+                {stats.totalThisMonth > 0 && (
+                  <div className={styles.statCard}>
+                    <span className={styles.statValue}>{formatPrice(stats.totalThisMonth)}</span>
+                    <span className={styles.statLabel}>dépensés ce mois</span>
+                  </div>
+                )}
+                {stats.avg !== null && (
+                  <div className={styles.statCard}>
+                    <span className={styles.statValue}>{formatPrice(stats.avg)}</span>
+                    <span className={styles.statLabel}>moy. / session</span>
+                  </div>
+                )}
+                {stats.top3.length > 0 && (
+                  <div className={[styles.statCard, styles.statCardWide].join(' ')}>
+                    <span className={styles.statLabel}>Articles fréquents</span>
+                    <span className={styles.statTopItems}>{stats.top3.join(' · ')}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            <ul className={styles.historyList}>
+              {sessions.map(s => (
+                <li key={s.id} className={styles.historyItem}>
+                  <div className={styles.historyItemLeft}>
+                    <span className={styles.historyDate}>{formatSessionDate(s.created_at)}</span>
+                    {s.done_by_member && (
+                      <span className={styles.historyMember}>{s.done_by_member.display_name}</span>
+                    )}
+                  </div>
+                  <div className={styles.historyItemRight}>
+                    <span className={styles.historyCount}>{s.item_count} art.</span>
+                    {s.total !== null && (
+                      <span className={styles.historyTotal}>{formatPrice(s.total)}</span>
+                    )}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </div>
+    </SlideUpModal>
+  )
+}
