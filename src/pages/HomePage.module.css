@@ -93,9 +93,16 @@
 /* ── Nav cards ───────────────────────────────────────────────────────────── */
 
 .navGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+/* Chaque carte grandit pour remplir sa ligne → pas d'orphelin mal aligné.
+   flex-basis ~150px : 2 cartes/ligne sur mobile, 4-5 sur desktop, la
+   dernière ligne s'étire pour occuper toute la largeur. */
+.navGrid > .navCard {
+  flex: 1 1 150px;
 }
 
 /* ── Dashboard widgets ───────────────────────────────────────────────────── */
