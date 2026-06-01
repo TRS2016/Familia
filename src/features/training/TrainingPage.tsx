@@ -268,10 +268,10 @@ function ConfigScreen({ mode, initialConfig, presetName, onBack, onStart, onSave
 // ── Run screen ──────────────────────────────────────────────────────────────────
 
 const KIND_BG: Record<string, string> = {
-  prepare: '#A89F97',
-  work:    '#E07B54',
-  rest:    '#5B9E8F',
-  done:    '#9B7AC4',
+  prepare: '#4F5D75', // bleu ardoise — "prépare-toi"
+  work:    '#E0633C', // orange vif — effort
+  rest:    '#2E9E8F', // turquoise — récupération
+  done:    '#5DA271', // vert — séance réussie
 }
 const KIND_LABEL: Record<string, string> = {
   prepare: 'Prêt ?', work: 'EFFORT', rest: 'REPOS', done: 'Terminé',

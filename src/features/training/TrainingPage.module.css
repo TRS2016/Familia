@@ -385,8 +385,20 @@
   color: #fff;
   font-family: var(--font-family);
   padding: env(safe-area-inset-top, 0px) 20px env(safe-area-inset-bottom, 0px);
-  transition: background 0.4s ease;
+  transition: background 0.45s ease;
+  overflow: hidden;
 }
+
+/* halo de profondeur */
+.runRoot::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 50% 32%, rgba(255, 255, 255, 0.16), rgba(0, 0, 0, 0.12) 70%);
+  pointer-events: none;
+}
+
+.runRoot > * { position: relative; z-index: 1; }
 
 .runClose {
   position: absolute;

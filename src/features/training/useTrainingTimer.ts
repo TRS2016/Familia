@@ -31,24 +31,34 @@ function useBeeper() {
     return ctxRef.current
   }, [])
 
-  const beep = useCallback((freq: number, dur: number, vol = 0.3) => {
+  const beep = useCallback((freq: number, dur: number, vol = 0.3, when = 0, type: OscillatorType = 'sine') => {
     try {
       const ctx = ctxRef.current
       if (!ctx) return
       const osc  = ctx.createOscillator()
       const gain = ctx.createGain()
-      osc.type = 'sine'
+      osc.type = type
       osc.frequency.value = freq
       osc.connect(gain); gain.connect(ctx.destination)
-      const t = ctx.currentTime
-      gain.gain.setValueAtTime(vol, t)
+      const t = ctx.currentTime + when
+      gain.gain.setValueAtTime(0.0001, t)
+      gain.gain.exponentialRampToValueAtTime(vol, t + 0.012)
       gain.gain.exponentialRampToValueAtTime(0.0001, t + dur)
       osc.start(t)
-      osc.stop(t + dur)
+      osc.stop(t + dur + 0.02)
     } catch { /* audio indisponible */ }
   }, [])
 
-  return { ensure, beep }
+  // Joue une séquence de notes ({ f: fréquence, d: durée, v?: volume })
+  const motif = useCallback((notes: { f: number; d: number; v?: number }[], type: OscillatorType = 'sine') => {
+    let t = 0
+    for (const n of notes) {
+      beep(n.f, n.d, n.v ?? 0.35, t, type)
+      t += n.d
+    }
+  }, [beep])
+
+  return { ensure, beep, motif }
 }
 
 function vibrate(ms: number | number[]) {
@@ -58,7 +68,14 @@ function vibrate(ms: number | number[]) {
 // ── Hook minuteur ───────────────────────────────────────────────────────────────
 
 export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
-  const { ensure, beep } = useBeeper()
+  const { ensure, beep, motif } = useBeeper()
+
+  // Motifs sémantiques
+  const sndGo    = useCallback(() => motif([{ f: 660, d: 0.12 }, { f: 990, d: 0.28 }]), [motif])
+  const sndBreak = useCallback(() => motif([{ f: 523, d: 0.16, v: 0.3 }, { f: 392, d: 0.28, v: 0.3 }]), [motif])
+  const sndStop  = useCallback(() => motif([{ f: 784, d: 0.16 }, { f: 587, d: 0.16 }, { f: 392, d: 0.5 }]), [motif])
+  const sndTick  = useCallback((rest: boolean) => beep(rest ? 620 : 880, 0.09, 0.22), [beep])
+
   const countUp = isCountUp(mode)
   const cap = config.cap ?? 0
 
@@ -124,12 +141,10 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
   const finish = useCallback(() => {
     statusRef.current = 'done'
     if (intervalRef.current) clearInterval(intervalRef.current)
-    beep(1200, 0.18, 0.4)
-    setTimeout(() => beep(1200, 0.18, 0.4), 200)
-    setTimeout(() => beep(1600, 0.3, 0.4), 400)
-    vibrate([120, 80, 120, 80, 200])
+    sndStop()
+    vibrate([150, 90, 150, 90, 280])
     setView(v => ({ ...v, status: 'done', kind: 'done', label: 'Terminé', value: 0, elapsedTotal: Math.round(elapsedRef.current) }))
-  }, [beep])
+  }, [sndStop])
 
   const tick = useCallback(() => {
     const now = performance.now()
@@ -153,7 +168,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
       const ceil = Math.ceil(remainingRef.current)
       if (ceil !== prevCeilRef.current) {
         prevCeilRef.current = ceil
-        if (ceil >= 1 && ceil <= 3) { beep(ph.kind === 'rest' ? 660 : 880, 0.1, 0.22); vibrate(40) }
+        if (ceil >= 1 && ceil <= 3) { sndTick(ph.kind === 'rest'); vibrate(40) }
       }
       if (remainingRef.current <= 0) {
         const carry = remainingRef.current
@@ -163,12 +178,12 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
         remainingRef.current = phases[next].seconds + carry
         prevCeilRef.current = -1
         const isWork = phases[next].kind === 'work'
-        beep(isWork ? 1000 : 600, 0.26, 0.38)
-        vibrate(isWork ? [80, 40, 80] : 120)
+        if (isWork) { sndGo(); vibrate([90, 50, 120]) }
+        else        { sndBreak(); vibrate(200) }
       }
       emitCountdown()
     }
-  }, [countUp, cap, phases, emitCountUp, emitCountdown, finish, beep])
+  }, [countUp, cap, phases, emitCountUp, emitCountdown, finish, sndTick, sndGo, sndBreak])
 
   const start = useCallback(() => {
     ensure()
@@ -178,12 +193,12 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     prevCeilRef.current  = -1
     statusRef.current    = 'running'
     lastRef.current      = performance.now()
-    // bip de départ
-    beep(900, 0.2, 0.3)
+    // son de départ
+    sndGo()
     if (intervalRef.current) clearInterval(intervalRef.current)
     intervalRef.current = window.setInterval(tick, 100)
     if (countUp) emitCountUp(); else emitCountdown()
-  }, [ensure, beep, phases, countUp, emitCountUp, emitCountdown, tick])
+  }, [ensure, sndGo, phases, countUp, emitCountUp, emitCountdown, tick])
 
   const pause = useCallback(() => {
     if (statusRef.current !== 'running') return
