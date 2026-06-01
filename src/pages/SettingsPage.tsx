@@ -142,6 +142,8 @@ export default function SettingsPage() {
         <div style={{ width: 22 }} />
       </header>
 
+      <div className={styles.sections}>
+
       {/* ── Profil ───────────────────────────────────────────────────────── */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}>Mon profil</h2>
@@ -338,6 +340,8 @@ export default function SettingsPage() {
           </>
         )}
       </section>
+
+      </div>{/* /sections */}
 
     </div>
   )

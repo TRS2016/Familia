@@ -32,12 +32,36 @@
 
 .pageTitle {
   flex: 1;
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 900;
   color: var(--text);
   letter-spacing: -0.2px;
   margin: 0;
   text-align: center;
+}
+
+@media (min-width: 768px) {
+  .header { padding: 28px 28px 16px; }
+}
+
+/* ── Sections wrapper ────────────────────────────────────────────────────── */
+
+.sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 16px;
+}
+
+/* Desktop/tablette : grille 2 colonnes + plus d'air */
+@media (min-width: 768px) {
+  .sections {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
+    padding: 0 28px;
+  }
 }
 
 /* ── Section cards ───────────────────────────────────────────────────────── */
@@ -47,7 +71,6 @@
   border-radius: var(--radius-lg);
   padding: 20px;
   box-shadow: var(--shadow-card);
-  margin: 0 16px;
   display: flex;
   flex-direction: column;
   gap: 14px;
@@ -336,7 +359,7 @@
 .toggleLabel {
   font-size: 14px;
   font-weight: 600;
-  color: var(--color-text);
+  color: var(--text);
 }
 
 .toggle {
