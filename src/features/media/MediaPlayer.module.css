@@ -24,7 +24,8 @@
   overflow: hidden;
 }
 
-.iframe {
+.iframe,
+.iframeWrap iframe {
   position: absolute;
   inset: 0;
   width: 100%;

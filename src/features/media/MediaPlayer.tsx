@@ -1,7 +1,75 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useRef } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import styles from './MediaPlayer.module.css'
+
+// ── YouTube IFrame API loader (chargé une seule fois) ─────────────────────────
+
+let ytApiPromise: Promise<void> | null = null
+
+function loadYouTubeApi(): Promise<void> {
+  if (ytApiPromise) return ytApiPromise
+  ytApiPromise = new Promise<void>(resolve => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const w = window as any
+    if (w.YT && w.YT.Player) { resolve(); return }
+    const prev = w.onYouTubeIframeAPIReady
+    w.onYouTubeIframeAPIReady = () => { prev?.(); resolve() }
+    if (!document.getElementById('yt-iframe-api')) {
+      const tag = document.createElement('script')
+      tag.id  = 'yt-iframe-api'
+      tag.src = 'https://www.youtube.com/iframe_api'
+      document.head.appendChild(tag)
+    }
+  })
+  return ytApiPromise
+}
+
+function YouTubePlayer({ videoId, autoPlay, onEnded }: {
+  videoId: string
+  autoPlay?: boolean
+  onEnded?: () => void
+}) {
+  const hostRef    = useRef<HTMLDivElement>(null)
+  const onEndedRef = useRef(onEnded)
+
+  useEffect(() => { onEndedRef.current = onEnded }, [onEnded])
+
+  useEffect(() => {
+    let cancelled = false
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let player: any = null
+
+    loadYouTubeApi().then(() => {
+      if (cancelled || !hostRef.current) return
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const w = window as any
+      player = new w.YT.Player(hostRef.current, {
+        videoId,
+        playerVars: { autoplay: autoPlay ? 1 : 0, rel: 0, playsinline: 1 },
+        events: {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          onReady: (e: any) => { if (autoPlay) e.target.playVideo() },
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          onStateChange: (e: any) => {
+            if (e.data === w.YT.PlayerState.ENDED) onEndedRef.current?.()
+          },
+        },
+      })
+    })
+
+    return () => {
+      cancelled = true
+      try { player?.destroy?.() } catch { /* déjà détruit */ }
+    }
+  }, [videoId, autoPlay])
+
+  return (
+    <div className={styles.iframeWrap}>
+      <div ref={hostRef} />
+    </div>
+  )
+}
 
 // ── URL detection ─────────────────────────────────────────────────────────────
 
@@ -15,9 +83,9 @@ function detectType(url: string, mimeType?: string | null): PlayerType {
   return 'link'
 }
 
-function youtubeEmbedUrl(url: string): string {
+function youtubeId(url: string): string {
   const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
-  return `https://www.youtube.com/embed/${m?.[1] ?? ''}?autoplay=1&rel=0`
+  return m?.[1] ?? ''
 }
 
 function spotifyEmbedUrl(url: string): string {
@@ -71,17 +139,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
   const type = detectType(url, mimeType)
 
   if (type === 'youtube') {
-    return (
-      <div className={styles.iframeWrap}>
-        <iframe
-          src={youtubeEmbedUrl(url)}
-          title={title}
-          allow="accelerometer; autoplay; clipboard-write; encrypted-media; picture-in-picture"
-          allowFullScreen
-          className={styles.iframe}
-        />
-      </div>
-    )
+    return <YouTubePlayer videoId={youtubeId(url)} autoPlay={autoPlay} onEnded={onEnded} />
   }
 
   if (type === 'spotify') {
