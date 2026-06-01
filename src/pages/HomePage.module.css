@@ -115,15 +115,34 @@
 }
 
 @media (min-width: 768px) {
+  /* Plus d'air sur tablette/desktop */
+  .page {
+    gap: 28px;
+    padding: 40px 32px calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 40px);
+  }
+
+  /* Widgets en grille alignée par lignes (top-aligné) plutôt qu'en masonry
+     décalé → Habitudes / Mémo et voisins s'alignent horizontalement. */
   .dashboard {
-    display: block;
-    columns: 2;
-    column-gap: 16px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    align-items: start;
   }
-  .dashboard > .widget {
-    break-inside: avoid;
-    margin-bottom: 16px;
-  }
+
+  /* Logos des cartes d'accès rapide agrandis */
+  .navGrid { gap: 16px; }
+  .navCard { padding: 24px 20px; gap: 16px; }
+  .navIconWrap { width: 56px; height: 56px; }
+  .navIconWrap svg { width: 28px; height: 28px; }
+  .navLabel { font-size: 16px; }
+  .navSub { font-size: 12px; }
+}
+
+/* Très grand écran : logos encore un peu plus grands */
+@media (min-width: 1100px) {
+  .navIconWrap { width: 60px; height: 60px; }
+  .navIconWrap svg { width: 30px; height: 30px; }
 }
 
 .navCard {
