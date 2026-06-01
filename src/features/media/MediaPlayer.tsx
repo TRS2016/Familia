@@ -30,9 +30,10 @@ interface Props {
   externalUrl?: string | null
   mimeType?: string | null
   title: string
+  onEnded?: () => void
 }
 
-export default function MediaPlayer({ filePath, externalUrl, mimeType, title }: Props) {
+export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded }: Props) {
   const { data: signedUrl, isLoading } = useQuery({
     queryKey: ['media-file-url', filePath],
     queryFn: async () => {
@@ -92,6 +93,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title }: 
         className={styles.video}
         preload="metadata"
         playsInline
+        onEnded={onEnded}
       />
     )
   }
@@ -103,6 +105,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title }: 
         controls
         className={styles.audio}
         preload="metadata"
+        onEnded={onEnded}
       />
     )
   }

@@ -1,7 +1,10 @@
 import { useState, useRef } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Upload, Link as LinkIcon, Trash2, Plus, X, ListMusic } from 'lucide-react'
+import {
+  ChevronLeft, ChevronRight, Upload, Link as LinkIcon, Trash2, Plus, X,
+  ListMusic, Search, Pencil, MoreHorizontal, Play,
+} from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
@@ -13,6 +16,7 @@ import SlideUpModal from '../../components/SlideUpModal'
 import MediaPlayer from '../media/MediaPlayer'
 import {
   useMediaFiles, useAddMediaFile, useDeleteMediaFile, useUploadMediaFile,
+  useEditMediaFile,
   useLecteurPlaylists, useAddLecteurPlaylist, useDeleteLecteurPlaylist,
   useLecteurPlaylistItems, useAddToLecteurPlaylist, useRemoveFromLecteurPlaylist,
   detectKind, applyLecteurFilters,
@@ -26,6 +30,18 @@ const KIND_META: Record<MediaFileKind, { emoji: string; label: string }> = {
   audio:  { emoji: '🎵', label: 'Audio'  },
   vidéo:  { emoji: '🎬', label: 'Vidéo'  },
   lien:   { emoji: '🔗', label: 'Lien'   },
+}
+
+// ── Equalizer bars animation ──────────────────────────────────────────────────
+
+function EqBars({ small = false }: { small?: boolean }) {
+  return (
+    <div className={[styles.eqBars, small ? styles.eqBarsSmall : ''].join(' ')}>
+      <span className={styles.eqBar} />
+      <span className={styles.eqBar} />
+      <span className={styles.eqBar} />
+    </div>
+  )
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -45,6 +61,7 @@ export default function LecteurPage() {
       if (error) throw error
       return data as { id: string; display_name: string }[]
     },
+    staleTime: 60 * 60 * 1000,
   })
 
   const fileRef = useRef<HTMLInputElement>(null)
@@ -53,37 +70,48 @@ export default function LecteurPage() {
   const [activeTab, setActiveTab] = useState<'bibliothèque' | 'listes'>('bibliothèque')
 
   // ── Filters ──
-  const [filterKind, setFilterKind]           = useState<MediaFileKind | null>(null)
-  const [filterMemberId, setFilterMemberId]   = useState<string | null>(null)
+  const [filterKind,     setFilterKind]     = useState<MediaFileKind | null>(null)
+  const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
+  const [filterTitle,    setFilterTitle]    = useState('')
 
-  // ── Modals ──
-  const [showUrlModal, setShowUrlModal]         = useState(false)
-  const [selectedPlaylistId, setSelectedPlaylistId] = useState<string | null>(null)
-  const [showAddPlaylist, setShowAddPlaylist]   = useState(false)
-  const [showAddSmart, setShowAddSmart]         = useState(false)
-  const [addToPlaylistFileId, setAddToPlaylistFileId] = useState<string | null>(null)
+  // ── Queue + player ──
+  const [queue,      setQueue]      = useState<MediaFile[]>([])
+  const [queueIndex, setQueueIndex] = useState(0)
+  const playingFile = queue[queueIndex] ?? null
+  const hasPrev = queueIndex > 0
+  const hasNext = queueIndex < queue.length - 1
 
-  // ── Player ──
-  const [playingFileId, setPlayingFileId] = useState<string | null>(null)
+  function playFiles(fileList: MediaFile[], startIndex = 0) {
+    setQueue(fileList)
+    setQueueIndex(Math.max(0, Math.min(startIndex, fileList.length - 1)))
+  }
+
+  function stop() {
+    setQueue([])
+    setQueueIndex(0)
+  }
+
+  // ── Modal state ──
+  const [editingFile,          setEditingFile]          = useState<MediaFile | null>(null)
+  const [showUrlModal,         setShowUrlModal]         = useState(false)
+  const [selectedPlaylistId,   setSelectedPlaylistId]   = useState<string | null>(null)
+  const [showAddPlaylist,      setShowAddPlaylist]      = useState(false)
+  const [showAddSmart,         setShowAddSmart]         = useState(false)
+  const [addToPlaylistFileId,  setAddToPlaylistFileId]  = useState<string | null>(null)
 
   // ── Derived ──
   const filtered = files.filter(f => {
-    if (filterKind     && detectKind(f) !== filterKind)     return false
-    if (filterMemberId && f.member_id   !== filterMemberId) return false
+    if (filterKind     && detectKind(f) !== filterKind)                              return false
+    if (filterMemberId && f.member_id   !== filterMemberId)                          return false
+    if (filterTitle    && !f.title.toLowerCase().includes(filterTitle.toLowerCase())) return false
     return true
   })
-
-  const playingFile = playingFileId ? files.find(f => f.id === playingFileId) ?? null : null
 
   // ── Handlers ──
   async function handleUpload(file: File) {
     const result = await uploadFile.mutateAsync(file)
     const name   = file.name.replace(/\.[^.]+$/, '')
-    await addFile.mutateAsync({
-      title:     name,
-      file_path: result.path,
-      mime_type: result.mimeType,
-    })
+    await addFile.mutateAsync({ title: name, file_path: result.path, mime_type: result.mimeType })
   }
 
   return (
@@ -97,12 +125,8 @@ export default function LecteurPage() {
         <h1 className={styles.pageTitle}>Lecteur</h1>
         {activeTab === 'bibliothèque' && (
           <div className={styles.headerActions}>
-            <button
-              className={styles.urlBtn}
-              onClick={() => setShowUrlModal(true)}
-            >
-              <LinkIcon size={13} strokeWidth={2} />
-              URL
+            <button className={styles.urlBtn} onClick={() => setShowUrlModal(true)}>
+              <LinkIcon size={13} strokeWidth={2} /> URL
             </button>
             <button
               className={styles.uploadBtn}
@@ -128,7 +152,39 @@ export default function LecteurPage() {
         }}
       />
 
-      {/* ── Player actif ─────────────────────────────────────────── */}
+      {/* ── Now-playing bar ──────────────────────────────────────── */}
+      {playingFile && (
+        <div className={styles.nowPlaying}>
+          <EqBars />
+          <span className={styles.nowPlayingTitle}>{playingFile.title}</span>
+          {queue.length > 1 && (
+            <span className={styles.queueBadge}>{queueIndex + 1}/{queue.length}</span>
+          )}
+          <div className={styles.nowPlayingNav}>
+            <button
+              className={styles.nowPlayingNavBtn}
+              onClick={() => setQueueIndex(i => i - 1)}
+              disabled={!hasPrev}
+              aria-label="Précédent"
+            >
+              <ChevronLeft size={16} strokeWidth={2.5} />
+            </button>
+            <button
+              className={styles.nowPlayingNavBtn}
+              onClick={() => setQueueIndex(i => i + 1)}
+              disabled={!hasNext}
+              aria-label="Suivant"
+            >
+              <ChevronRight size={16} strokeWidth={2.5} />
+            </button>
+            <button className={styles.nowPlayingStopBtn} onClick={stop} aria-label="Fermer">
+              <X size={14} strokeWidth={2.5} />
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Player embed ─────────────────────────────────────────── */}
       {playingFile && (
         <div className={styles.playerWrap}>
           <MediaPlayer
@@ -136,6 +192,7 @@ export default function LecteurPage() {
             externalUrl={playingFile.external_url}
             mimeType={playingFile.mime_type}
             title={playingFile.title}
+            onEnded={hasNext ? () => setQueueIndex(i => i + 1) : undefined}
           />
         </div>
       )}
@@ -145,7 +202,9 @@ export default function LecteurPage() {
         <button
           className={[styles.tab, activeTab === 'bibliothèque' ? styles.tabActive : ''].join(' ')}
           onClick={() => setActiveTab('bibliothèque')}
-        >Bibliothèque</button>
+        >
+          Bibliothèque
+        </button>
         <button
           className={[styles.tab, activeTab === 'listes' ? styles.tabActive : ''].join(' ')}
           onClick={() => setActiveTab('listes')}
@@ -159,28 +218,38 @@ export default function LecteurPage() {
       {/* ── Bibliothèque tab ─────────────────────────────────────── */}
       {activeTab === 'bibliothèque' && (
         <>
+          {/* Type filters */}
           <div className={styles.filterRow}>
             <button
               className={[styles.filterPill, !filterKind ? styles.filterPillActive : ''].join(' ')}
               onClick={() => setFilterKind(null)}
-            >Tous · {files.length}</button>
-            {(['audio', 'vidéo', 'lien'] as MediaFileKind[]).map(k => (
-              <button
-                key={k}
-                className={[styles.filterPill, filterKind === k ? styles.filterPillActive : ''].join(' ')}
-                onClick={() => setFilterKind(fk => fk === k ? null : k)}
-              >
-                {KIND_META[k].emoji} {KIND_META[k].label}s
-              </button>
-            ))}
+            >
+              Tous · {files.length}
+            </button>
+            {(['audio', 'vidéo', 'lien'] as MediaFileKind[]).map(k => {
+              const count = files.filter(f => detectKind(f) === k).length
+              if (count === 0) return null
+              return (
+                <button
+                  key={k}
+                  className={[styles.filterPill, filterKind === k ? styles.filterPillActive : ''].join(' ')}
+                  onClick={() => setFilterKind(fk => fk === k ? null : k)}
+                >
+                  {KIND_META[k].emoji} {KIND_META[k].label}s · {count}
+                </button>
+              )
+            })}
           </div>
 
+          {/* Member filters */}
           {members.length > 1 && (
             <div className={styles.filterRow}>
               <button
                 className={[styles.filterPill, !filterMemberId ? styles.filterPillActive : ''].join(' ')}
                 onClick={() => setFilterMemberId(null)}
-              >Tous</button>
+              >
+                Tous
+              </button>
               {members.map((m, i) => {
                 const active = filterMemberId === m.id
                 const color  = memberColor(i)
@@ -190,12 +259,34 @@ export default function LecteurPage() {
                     className={[styles.filterPill, active ? styles.filterPillActive : ''].join(' ')}
                     style={active ? { borderColor: color, background: `${color}1A`, color } : {}}
                     onClick={() => setFilterMemberId(id => id === m.id ? null : m.id)}
-                  >{m.display_name}</button>
+                  >
+                    {m.display_name}
+                  </button>
                 )
               })}
             </div>
           )}
 
+          {/* Search */}
+          {files.length > 3 && (
+            <div className={styles.searchWrap}>
+              <Search size={14} strokeWidth={2} className={styles.searchIcon} />
+              <input
+                type="search"
+                className={styles.searchInput}
+                value={filterTitle}
+                onChange={e => setFilterTitle(e.target.value)}
+                placeholder="Rechercher dans la bibliothèque…"
+              />
+              {filterTitle && (
+                <button className={styles.searchClear} onClick={() => setFilterTitle('')} aria-label="Effacer">
+                  <X size={13} strokeWidth={2.5} />
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* List */}
           {isLoading ? (
             <div className={styles.spinnerWrap}><Spinner size={32} /></div>
           ) : files.length === 0 ? (
@@ -204,22 +295,25 @@ export default function LecteurPage() {
               title="Bibliothèque vide"
               description="Uploadez un fichier audio/vidéo ou ajoutez un lien YouTube/Spotify."
             />
+          ) : filtered.length === 0 ? (
+            <EmptyState emoji="🔍" title="Aucun résultat" description="Modifiez les filtres ou la recherche." />
           ) : (
             <ul className={styles.list}>
-              {filtered.map(file => (
+              {filtered.map((file, i) => (
                 <FileRow
                   key={file.id}
                   file={file}
-                  isPlaying={playingFileId === file.id}
-                  onPlay={() => setPlayingFileId(id => id === file.id ? null : file.id)}
-                  onDelete={() => deleteFile.mutate(file.id)}
+                  isPlaying={playingFile?.id === file.id}
+                  onPlay={() => playFiles(filtered, i)}
+                  onDelete={() => {
+                    if (playingFile?.id === file.id) stop()
+                    deleteFile.mutate(file.id)
+                  }}
+                  onEdit={() => setEditingFile(file)}
                   onAddToPlaylist={() => setAddToPlaylistFileId(file.id)}
                   manualPlaylists={playlists.filter(p => p.type === 'manual')}
                 />
               ))}
-              {filtered.length === 0 && filterKind && (
-                <EmptyState emoji="🔍" title="Aucun résultat." description="Modifiez le filtre." />
-              )}
             </ul>
           )}
         </>
@@ -235,26 +329,18 @@ export default function LecteurPage() {
           onBack={() => setSelectedPlaylistId(null)}
           onNewManual={() => setShowAddPlaylist(true)}
           onNewSmart={() => setShowAddSmart(true)}
-          onPlay={setPlayingFileId}
-          playingFileId={playingFileId}
+          onPlay={playFiles}
+          playingFileId={playingFile?.id ?? null}
         />
       )}
 
       {/* ── Modals ───────────────────────────────────────────────── */}
-      {showUrlModal && (
-        <AddUrlModal onClose={() => setShowUrlModal(false)} />
-      )}
+      {showUrlModal && <AddUrlModal onClose={() => setShowUrlModal(false)} />}
 
-      {showAddPlaylist && (
-        <AddPlaylistModal onClose={() => setShowAddPlaylist(false)} />
-      )}
+      {showAddPlaylist && <AddPlaylistModal onClose={() => setShowAddPlaylist(false)} />}
 
       {showAddSmart && (
-        <AddSmartPlaylistModal
-          files={files}
-          members={members}
-          onClose={() => setShowAddSmart(false)}
-        />
+        <AddSmartPlaylistModal files={files} members={members} onClose={() => setShowAddSmart(false)} />
       )}
 
       {addToPlaylistFileId && (
@@ -265,32 +351,40 @@ export default function LecteurPage() {
         />
       )}
 
+      {editingFile && (
+        <EditFileModal file={editingFile} onClose={() => setEditingFile(null)} />
+      )}
+
     </div>
   )
 }
 
 // ── FileRow ───────────────────────────────────────────────────────────────────
 
-function FileRow({ file, isPlaying, onPlay, onDelete, onAddToPlaylist, manualPlaylists }: {
+function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, manualPlaylists }: {
   file: MediaFile
   isPlaying: boolean
   onPlay: () => void
   onDelete: () => void
+  onEdit: () => void
   onAddToPlaylist: () => void
   manualPlaylists: LecteurPlaylist[]
 }) {
+  const [showActions, setShowActions] = useState(false)
   const kind = detectKind(file)
   const meta = KIND_META[kind]
 
   return (
     <li>
       <div
-        className={styles.fileRow}
-        onClick={onPlay}
+        className={[styles.fileRow, isPlaying ? styles.fileRowPlaying : ''].join(' ')}
+        onClick={!showActions ? onPlay : undefined}
         role="button"
         tabIndex={0}
       >
-        <div className={styles.kindIcon}>{meta.emoji}</div>
+        <div className={[styles.kindIcon, isPlaying ? styles.kindIconPlaying : ''].join(' ')}>
+          {isPlaying ? <EqBars small /> : meta.emoji}
+        </div>
         <div className={styles.fileBody}>
           <div className={styles.fileTitle}>{file.title}</div>
           <div className={styles.fileMeta}>
@@ -298,23 +392,52 @@ function FileRow({ file, isPlaying, onPlay, onDelete, onAddToPlaylist, manualPla
             {file.member && ` · ${file.member.display_name}`}
           </div>
         </div>
-        {isPlaying && <div className={styles.playingIndicator} />}
-        {manualPlaylists.length > 0 && (
+
+        {showActions ? (
+          <div className={styles.fileActions} onClick={e => e.stopPropagation()}>
+            <button
+              className={styles.fileActionBtn}
+              onClick={() => { onEdit(); setShowActions(false) }}
+              aria-label="Modifier le titre"
+              title="Modifier"
+            >
+              <Pencil size={15} strokeWidth={2} />
+            </button>
+            {manualPlaylists.length > 0 && (
+              <button
+                className={styles.fileActionBtn}
+                onClick={() => { onAddToPlaylist(); setShowActions(false) }}
+                aria-label="Ajouter à une liste"
+                title="Ajouter à une liste"
+              >
+                <ListMusic size={15} strokeWidth={2} />
+              </button>
+            )}
+            <button
+              className={[styles.fileActionBtn, styles.fileActionDelete].join(' ')}
+              onClick={() => { onDelete(); setShowActions(false) }}
+              aria-label="Supprimer"
+              title="Supprimer"
+            >
+              <Trash2 size={15} strokeWidth={2} />
+            </button>
+            <button
+              className={styles.fileMoreBtn}
+              onClick={() => setShowActions(false)}
+              aria-label="Fermer"
+            >
+              <X size={15} strokeWidth={2.5} />
+            </button>
+          </div>
+        ) : (
           <button
-            className={styles.addToListBtn}
-            onClick={e => { e.stopPropagation(); onAddToPlaylist() }}
-            title="Ajouter à une liste"
+            className={styles.fileMoreBtn}
+            onClick={e => { e.stopPropagation(); setShowActions(true) }}
+            aria-label="Actions"
           >
-            <Plus size={11} strokeWidth={2.5} />
+            <MoreHorizontal size={16} strokeWidth={2} />
           </button>
         )}
-        <button
-          className={styles.deleteBtn}
-          onClick={e => { e.stopPropagation(); onDelete() }}
-          aria-label="Supprimer"
-        >
-          <Trash2 size={14} strokeWidth={2} />
-        </button>
       </div>
     </li>
   )
@@ -330,7 +453,7 @@ function PlaylistsPane({ playlists, allFiles, selectedId, onSelect, onBack, onNe
   onBack: () => void
   onNewManual: () => void
   onNewSmart: () => void
-  onPlay: (id: string) => void
+  onPlay: (files: MediaFile[], index: number) => void
   playingFileId: string | null
 }) {
   const selected = selectedId ? playlists.find(p => p.id === selectedId) ?? null : null
@@ -363,13 +486,18 @@ function PlaylistsPane({ playlists, allFiles, selectedId, onSelect, onBack, onNe
       ) : (
         <ul className={styles.playlistList}>
           {playlists.map(pl => {
-            const count = pl.type === 'smart' && pl.smart_filters
-              ? applyLecteurFilters(allFiles, pl.smart_filters).length
+            const displayFiles = pl.type === 'smart' && pl.smart_filters
+              ? applyLecteurFilters(allFiles, pl.smart_filters)
               : null
+            const count = displayFiles?.length ?? null
+            const isCurrentContext = playingFileId && displayFiles?.some(f => f.id === playingFileId)
+
             return (
               <li key={pl.id}>
                 <button className={styles.playlistRow} onClick={() => onSelect(pl.id)}>
-                  <span className={styles.playlistIcon}>{pl.type === 'smart' ? '✨' : '🎵'}</span>
+                  <span className={styles.playlistIcon}>
+                    {isCurrentContext ? <EqBars small /> : (pl.type === 'smart' ? '✨' : '🎵')}
+                  </span>
                   <div style={{ flex: 1, textAlign: 'left' }}>
                     <div className={styles.playlistName}>{pl.name}</div>
                     {pl.smart_filters && (
@@ -390,7 +518,9 @@ function PlaylistsPane({ playlists, allFiles, selectedId, onSelect, onBack, onNe
 
 function smartFilterLabel(f: LecteurSmartFilters): string {
   const parts: string[] = []
-  if (f.kind) parts.push(KIND_META[f.kind].emoji + ' ' + f.kind)
+  if (f.kind)   parts.push(KIND_META[f.kind].emoji + ' ' + f.kind)
+  if (f.sort === 'az')     parts.push('A→Z')
+  if (f.sort === 'oldest') parts.push('Plus anciens')
   return parts.length > 0 ? parts.join(' · ') : 'Tous les médias'
 }
 
@@ -400,10 +530,10 @@ function PlaylistDetailPane({ playlist, allFiles, onBack, onPlay, playingFileId 
   playlist: LecteurPlaylist
   allFiles: MediaFile[]
   onBack: () => void
-  onPlay: (id: string) => void
+  onPlay: (files: MediaFile[], index: number) => void
   playingFileId: string | null
 }) {
-  const deletePlaylist    = useDeleteLecteurPlaylist()
+  const deletePlaylist     = useDeleteLecteurPlaylist()
   const removeFromPlaylist = useRemoveFromLecteurPlaylist()
   const { data: rawItems = [] } = useLecteurPlaylistItems(playlist.type === 'manual' ? playlist.id : null)
 
@@ -425,31 +555,59 @@ function PlaylistDetailPane({ playlist, allFiles, onBack, onPlay, playingFileId 
             <div className={styles.playlistDetailFilters}>{smartFilterLabel(playlist.smart_filters)}</div>
           )}
         </div>
-        <button className={styles.deleteListBtn} onClick={() => { deletePlaylist.mutate(playlist.id); onBack() }}>
+        {displayFiles.length > 0 && (
+          <button
+            className={styles.playAllBtn}
+            onClick={() => onPlay(displayFiles, 0)}
+            aria-label="Lire tout"
+          >
+            <Play size={13} strokeWidth={2.5} />
+            Lire tout
+          </button>
+        )}
+        <button
+          className={styles.deleteListBtn}
+          onClick={() => { deletePlaylist.mutate(playlist.id); onBack() }}
+          aria-label="Supprimer la liste"
+        >
           <Trash2 size={14} strokeWidth={2} />
         </button>
       </div>
 
       {displayFiles.length === 0 ? (
-        <EmptyState emoji="🎵" title="Liste vide"
-          description={playlist.type === 'smart' ? 'Aucun fichier ne correspond.' : 'Ajoutez des fichiers depuis la bibliothèque.'} />
+        <EmptyState
+          emoji="🎵"
+          title="Liste vide"
+          description={playlist.type === 'smart' ? 'Aucun fichier ne correspond.' : 'Ajoutez des fichiers depuis la bibliothèque.'}
+        />
       ) : (
         <ul className={styles.list}>
           {displayFiles.map((file, i) => (
             <li key={file.id}>
-              <div className={styles.playlistItemRow} onClick={() => onPlay(file.id)} role="button" tabIndex={0}>
-                <span className={styles.playlistItemPos}>{i + 1}</span>
+              <div
+                className={[styles.playlistItemRow, playingFileId === file.id ? styles.playlistItemPlaying : ''].join(' ')}
+                onClick={() => onPlay(displayFiles, i)}
+                role="button"
+                tabIndex={0}
+              >
+                <span className={styles.playlistItemPos}>
+                  {playingFileId === file.id ? <EqBars small /> : i + 1}
+                </span>
                 <span style={{ fontSize: 18 }}>{KIND_META[detectKind(file)].emoji}</span>
                 <div className={styles.fileBody} style={{ flex: 1 }}>
                   <div className={styles.fileTitle}>{file.title}</div>
+                  {file.member && <div className={styles.fileMeta}>{file.member.display_name}</div>}
                 </div>
-                {playingFileId === file.id && <div className={styles.playingIndicator} />}
                 {playlist.type === 'manual' && (
-                  <button className={styles.removeFromListBtn} onClick={e => {
-                    e.stopPropagation()
-                    const ri = rawItems.find(r => r.media_file_id === file.id)
-                    if (ri) removeFromPlaylist.mutate({ itemId: ri.id, playlistId: playlist.id })
-                  }}>
+                  <button
+                    className={styles.removeFromListBtn}
+                    onClick={e => {
+                      e.stopPropagation()
+                      const ri = rawItems.find(r => r.media_file_id === file.id)
+                      if (ri) removeFromPlaylist.mutate({ itemId: ri.id, playlistId: playlist.id })
+                    }}
+                    aria-label="Retirer de la liste"
+                  >
                     <X size={12} strokeWidth={2.5} />
                   </button>
                 )}
@@ -466,8 +624,8 @@ function PlaylistDetailPane({ playlist, allFiles, onBack, onPlay, playingFileId 
 
 function AddUrlModal({ onClose }: { onClose: () => void }) {
   const addFile = useAddMediaFile()
-  const [title, setTitle]   = useState('')
-  const [url, setUrl]       = useState('')
+  const [title, setTitle] = useState('')
+  const [url,   setUrl]   = useState('')
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -537,7 +695,7 @@ function AddSmartPlaylistModal({ files, members, onClose }: {
   onClose: () => void
 }) {
   const addPlaylist = useAddLecteurPlaylist()
-  const [name, setName]       = useState('')
+  const [name,    setName]    = useState('')
   const [filters, setFilters] = useState<LecteurSmartFilters>({})
 
   const preview = applyLecteurFilters(files, filters)
@@ -594,6 +752,23 @@ function AddSmartPlaylistModal({ files, members, onClose }: {
               </div>
             </div>
           )}
+
+          <div className={styles.smartRow}>
+            <span className={styles.smartLabel}>Ordre</span>
+            <div className={styles.smartPills}>
+              {([
+                { value: undefined,   label: 'Récent'       },
+                { value: 'az',        label: 'A → Z'        },
+                { value: 'oldest',    label: 'Plus anciens' },
+              ] as { value: LecteurSmartFilters['sort']; label: string }[]).map(opt => (
+                <button key={opt.label} type="button"
+                  className={[styles.smartPill, filters.sort === opt.value ? styles.smartPillActive : ''].join(' ')}
+                  onClick={() => setFilters(f => ({ ...f, sort: opt.value }))}>
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
 
         <div className={styles.smartPreviewLabel}>
@@ -644,6 +819,48 @@ function AddToPlaylistModal({ mediaFileId, playlists, onClose }: {
           </ul>
         )}
       </div>
+    </SlideUpModal>
+  )
+}
+
+// ── EditFileModal ─────────────────────────────────────────────────────────────
+
+function EditFileModal({ file, onClose }: { file: MediaFile; onClose: () => void }) {
+  const editFile = useEditMediaFile()
+  const [title, setTitle] = useState(file.title)
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    if (!title.trim()) return
+    try {
+      await editFile.mutateAsync({ id: file.id, title })
+      onClose()
+    } catch { /* onError handles toast */ }
+  }
+
+  return (
+    <SlideUpModal title="Modifier le titre" onClose={onClose}>
+      <form onSubmit={handleSubmit} className={styles.form}>
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel}>Titre</label>
+          <input
+            type="text"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            className={styles.input}
+            autoFocus
+            required
+            placeholder="Titre du fichier…"
+          />
+        </div>
+        <button
+          type="submit"
+          className={styles.submitBtn}
+          disabled={editFile.isPending || !title.trim() || title.trim() === file.title}
+        >
+          {editFile.isPending ? 'Enregistrement…' : 'Enregistrer'}
+        </button>
+      </form>
     </SlideUpModal>
   )
 }

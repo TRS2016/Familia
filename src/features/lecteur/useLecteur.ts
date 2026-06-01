@@ -42,8 +42,9 @@ export interface LecteurPlaylistItem {
 }
 
 export interface LecteurSmartFilters {
-  kind?: MediaFileKind
+  kind?:      MediaFileKind
   member_id?: string
+  sort?:      'recent' | 'az' | 'oldest'
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -55,11 +56,14 @@ export function detectKind(file: MediaFile): MediaFileKind {
 }
 
 export function applyLecteurFilters(files: MediaFile[], filters: LecteurSmartFilters): MediaFile[] {
-  return files.filter(f => {
-    if (filters.kind && detectKind(f) !== filters.kind) return false
-    if (filters.member_id && f.member_id !== filters.member_id) return false
+  const result = files.filter(f => {
+    if (filters.kind      && detectKind(f) !== filters.kind)     return false
+    if (filters.member_id && f.member_id   !== filters.member_id) return false
     return true
   })
+  if (filters.sort === 'az')     return [...result].sort((a, b) => a.title.localeCompare(b.title))
+  if (filters.sort === 'oldest') return [...result].sort((a, b) => a.created_at.localeCompare(b.created_at))
+  return result
 }
 
 // ── Query keys ────────────────────────────────────────────────────────────────
@@ -142,6 +146,33 @@ export function useDeleteMediaFile() {
     onError: (_err, _id, ctx) => {
       queryClient.setQueryData(MEDIA_FILES_KEY, ctx?.previous ?? [])
       showToast({ type: 'error', message: "Impossible de supprimer le fichier." })
+    },
+  })
+}
+
+export function useEditMediaFile() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+      const { error } = await supabase
+        .from('media_files')
+        .update({ title: title.trim() } as never)
+        .eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, title }) => {
+      await queryClient.cancelQueries({ queryKey: MEDIA_FILES_KEY })
+      const previous = queryClient.getQueryData<MediaFile[]>(MEDIA_FILES_KEY) ?? []
+      queryClient.setQueryData<MediaFile[]>(MEDIA_FILES_KEY,
+        previous.map(f => f.id === id ? { ...f, title: title.trim() } : f)
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      queryClient.setQueryData(MEDIA_FILES_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de modifier le titre.' })
     },
   })
 }
