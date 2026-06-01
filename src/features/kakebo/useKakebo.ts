@@ -34,6 +34,7 @@ export interface NewEntryInput {
   amount: number
   date: string
   description: string
+  member_id: string | null // null = dépense commune (foyer)
 }
 
 export interface EditEntryInput {
@@ -42,6 +43,7 @@ export interface EditEntryInput {
   amount: number
   date: string
   description: string
+  member_id: string | null
 }
 
 // ── Query keys ────────────────────────────────────────────────────────────────
@@ -151,7 +153,7 @@ export function useAddEntry(year: number, month: number) {
         .insert({
           household_id: HOUSEHOLD_ID,
           category_id: input.category_id,
-          member_id: member?.id ?? null,
+          member_id: input.member_id,
           amount: input.amount,
           date: input.date,
           description: input.description.trim() || null,
@@ -169,13 +171,15 @@ export function useAddEntry(year: number, month: number) {
         id: `optimistic-${Date.now()}`,
         household_id: HOUSEHOLD_ID,
         category_id: input.category_id,
-        member_id: member?.id ?? null,
+        member_id: input.member_id,
         amount: input.amount,
         date: input.date,
         description: input.description.trim() || null,
         created_at: new Date().toISOString(),
         category: categories.find(c => c.id === input.category_id) ?? null,
-        member: member ? { display_name: member.display_name } : null,
+        member: (input.member_id && member && input.member_id === member.id)
+          ? { display_name: member.display_name }
+          : null,
       }
       queryClient.setQueryData<KakeboEntry[]>(key, [optimistic, ...previous])
       return { previous, optimisticId: optimistic.id }
@@ -206,6 +210,7 @@ export function useEditEntry(year: number, month: number) {
           amount: input.amount,
           date: input.date,
           description: input.description.trim() || null,
+          member_id: input.member_id,
         })
         .eq('id', input.id)
         .select(`*, category:kakebo_categories(*), member:members(display_name)`)
@@ -224,6 +229,7 @@ export function useEditEntry(year: number, month: number) {
           amount: input.amount,
           date: input.date,
           description: input.description.trim() || null,
+          member_id: input.member_id,
           category: categories.find(c => c.id === input.category_id) ?? e.category,
         })
       )

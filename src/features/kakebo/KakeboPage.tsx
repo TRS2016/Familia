@@ -80,7 +80,7 @@ export default function KakeboPage() {
 
   // Edit entry state
   const [editTarget, setEditTarget] = useState<KakeboEntry | null>(null)
-  const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '' })
+  const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '', member_id: null as string | null })
 
   // Add form state
   const firstCatId = categories.find(c => c.type !== 'income')?.id ?? ''
@@ -89,7 +89,14 @@ export default function KakeboPage() {
     amount: '',
     description: '',
     date: format(new Date(), 'yyyy-MM-dd'),
+    member_id: null as string | null,
   })
+
+  // Ouvre le modal d'ajout en pré-affectant à la vue courante (Foyer ou membre)
+  function openAddModal() {
+    setDraft(d => ({ ...d, member_id: selectedMemberId }))
+    setShowAdd(true)
+  }
 
   // Reset draft category when categories load
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -102,13 +109,15 @@ export default function KakeboPage() {
 
   // ── Member-aware derived data ──────────────────────────────────────────────
 
+  // Buckets séparés : Foyer = dépenses communes (member_id null),
+  // membre = ses dépenses perso uniquement. Pas de chevauchement.
   const displayEntries = selectedMemberId
     ? entries.filter(e => e.member_id === selectedMemberId)
-    : entries
+    : entries.filter(e => e.member_id === null)
 
   const displayTrendEntries = selectedMemberId
     ? trendEntries.filter(e => e.member_id === selectedMemberId)
-    : trendEntries
+    : trendEntries.filter(e => e.member_id === null)
 
   // Override monthly_budget per category with member-specific values when a member is selected
   const displayCategories = categories.map(cat => ({
@@ -186,6 +195,7 @@ export default function KakeboPage() {
       amount: String(entry.amount),
       description: entry.description ?? '',
       date: entry.date,
+      member_id: entry.member_id,
     })
     setEditTarget(entry)
   }
@@ -201,6 +211,7 @@ export default function KakeboPage() {
       amount,
       date: editDraft.date,
       description: editDraft.description,
+      member_id: editDraft.member_id,
     })
     setEditTarget(null)
   }
@@ -213,6 +224,7 @@ export default function KakeboPage() {
         amount: Number(entry.amount),
         date: format(new Date(), 'yyyy-MM-dd'),
         description: entry.description ?? '',
+        member_id: entry.member_id,
       },
       { onSuccess: () => showToast({ type: 'success', message: 'Opération dupliquée pour aujourd\'hui.' }) }
     )
@@ -286,8 +298,9 @@ export default function KakeboPage() {
       amount,
       date: draft.date,
       description: draft.description,
+      member_id: draft.member_id,
     })
-    setDraft({ category_id: draft.category_id, amount: '', description: '', date: draft.date })
+    setDraft({ category_id: draft.category_id, amount: '', description: '', date: draft.date, member_id: draft.member_id })
     setShowAdd(false)
   }
 
@@ -333,7 +346,7 @@ export default function KakeboPage() {
           <button className={styles.iconBtn} onClick={openBudgetModal} aria-label="Paramètres">
             <Settings size={15} strokeWidth={2} />
           </button>
-          <button className={styles.fabSmall} onClick={() => setShowAdd(true)} aria-label="Ajouter">
+          <button className={styles.fabSmall} onClick={openAddModal} aria-label="Ajouter">
             <Plus size={16} strokeWidth={2.5} />
           </button>
         </div>
@@ -470,7 +483,7 @@ export default function KakeboPage() {
               emoji="📒"
               title="Aucune opération ce mois"
               description="Commence par ajouter une dépense avec le bouton +."
-              action={{ label: 'Ajouter une opération', onClick: () => setShowAdd(true) }}
+              action={{ label: 'Ajouter une opération', onClick: openAddModal }}
             />
           )}
         </>
@@ -480,6 +493,38 @@ export default function KakeboPage() {
       {showAdd && (
         <SlideUpModal title="Nouvelle opération" onClose={() => setShowAdd(false)}>
             <form onSubmit={handleAddSubmit} className={styles.form}>
+              {/* Affectation : foyer (commun) ou membre (perso) */}
+              {members.length > 0 && (
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Affecté à</label>
+                  <div className={styles.catPills}>
+                    <button
+                      type="button"
+                      className={[styles.catPill, draft.member_id === null ? styles.catPillActive : ''].join(' ')}
+                      style={draft.member_id === null ? { background: 'rgba(224,123,84,0.13)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}}
+                      onClick={() => setDraft(d => ({ ...d, member_id: null }))}
+                    >
+                      🏠 Foyer
+                    </button>
+                    {members.map((m, i) => {
+                      const active = draft.member_id === m.id
+                      const color  = memberColor(i)
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          className={[styles.catPill, active ? styles.catPillActive : ''].join(' ')}
+                          style={active ? { background: `${color}22`, borderColor: color, color } : {}}
+                          onClick={() => setDraft(d => ({ ...d, member_id: m.id }))}
+                        >
+                          {m.display_name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Category picker */}
               <div className={styles.fieldGroup}>
                 <label className={styles.fieldLabel}>Catégorie</label>
@@ -562,6 +607,36 @@ export default function KakeboPage() {
       {editTarget && (
         <SlideUpModal title="Modifier l'opération" onClose={() => setEditTarget(null)}>
             <form onSubmit={handleEditSubmit} className={styles.form}>
+              {members.length > 0 && (
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Affecté à</label>
+                  <div className={styles.catPills}>
+                    <button
+                      type="button"
+                      className={[styles.catPill, editDraft.member_id === null ? styles.catPillActive : ''].join(' ')}
+                      style={editDraft.member_id === null ? { background: 'rgba(224,123,84,0.13)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}}
+                      onClick={() => setEditDraft(d => ({ ...d, member_id: null }))}
+                    >
+                      🏠 Foyer
+                    </button>
+                    {members.map((m, i) => {
+                      const active = editDraft.member_id === m.id
+                      const color  = memberColor(i)
+                      return (
+                        <button
+                          key={m.id}
+                          type="button"
+                          className={[styles.catPill, active ? styles.catPillActive : ''].join(' ')}
+                          style={active ? { background: `${color}22`, borderColor: color, color } : {}}
+                          onClick={() => setEditDraft(d => ({ ...d, member_id: m.id }))}
+                        >
+                          {m.display_name}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
               <div className={styles.fieldGroup}>
                 <label className={styles.fieldLabel}>Catégorie</label>
                 <div className={styles.catPills}>
