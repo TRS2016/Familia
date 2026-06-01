@@ -226,29 +226,6 @@ export default function LecteurPage() {
       {/* ── Bibliothèque tab ─────────────────────────────────────── */}
       {activeTab === 'bibliothèque' && (
         <>
-          {/* Type filters */}
-          <div className={styles.filterRow}>
-            <button
-              className={[styles.filterPill, !filterKind ? styles.filterPillActive : ''].join(' ')}
-              onClick={() => setFilterKind(null)}
-            >
-              Tous · {files.length}
-            </button>
-            {(['audio', 'vidéo', 'lien'] as MediaFileKind[]).map(k => {
-              const count = files.filter(f => detectKind(f) === k).length
-              if (count === 0) return null
-              return (
-                <button
-                  key={k}
-                  className={[styles.filterPill, filterKind === k ? styles.filterPillActive : ''].join(' ')}
-                  onClick={() => setFilterKind(fk => fk === k ? null : k)}
-                >
-                  {KIND_META[k].emoji} {KIND_META[k].label}s · {count}
-                </button>
-              )
-            })}
-          </div>
-
           {/* Member filters */}
           {members.length > 1 && (
             <div className={styles.filterRow}>
@@ -274,6 +251,29 @@ export default function LecteurPage() {
               })}
             </div>
           )}
+
+          {/* Type filters */}
+          <div className={styles.filterRow}>
+            <button
+              className={[styles.filterPill, !filterKind ? styles.filterPillActive : ''].join(' ')}
+              onClick={() => setFilterKind(null)}
+            >
+              Tous · {files.length}
+            </button>
+            {(['audio', 'vidéo', 'lien'] as MediaFileKind[]).map(k => {
+              const count = files.filter(f => detectKind(f) === k).length
+              if (count === 0) return null
+              return (
+                <button
+                  key={k}
+                  className={[styles.filterPill, filterKind === k ? styles.filterPillActive : ''].join(' ')}
+                  onClick={() => setFilterKind(fk => fk === k ? null : k)}
+                >
+                  {KIND_META[k].emoji} {KIND_META[k].label}s · {count}
+                </button>
+              )
+            })}
+          </div>
 
           {/* Search */}
           {files.length > 3 && (
