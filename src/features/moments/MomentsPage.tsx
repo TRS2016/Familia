@@ -77,9 +77,38 @@ function Lightbox({ urls, initialIndex, onClose, onOpenAlbumShare }: {
   onClose: () => void
   onOpenAlbumShare: (urls: string[]) => void
 }) {
-  const [index, setIndex]             = useState(initialIndex)
+  const [index, setIndex]                   = useState(initialIndex)
   const [downloadingAll, setDownloadingAll] = useState(false)
+  const [zoomed, setZoomed]                 = useState(false)
+  const touchStartXRef = useRef<number | null>(null)
+  const lastTapRef     = useRef(0)
   const url = urls[index]
+
+  function navigate(newIndex: number) {
+    setIndex(newIndex)
+    setZoomed(false)
+  }
+
+  function handleTouchStart(e: React.TouchEvent) {
+    if (zoomed) return
+    touchStartXRef.current = e.touches[0].clientX
+  }
+
+  function handleTouchEnd(e: React.TouchEvent) {
+    if (zoomed || touchStartXRef.current === null) return
+    const dx = touchStartXRef.current - e.changedTouches[0].clientX
+    touchStartXRef.current = null
+    if (Math.abs(dx) < 50) return
+    if (dx > 0 && index < urls.length - 1) navigate(index + 1)
+    if (dx < 0 && index > 0) navigate(index - 1)
+  }
+
+  function handleImgClick(e: React.MouseEvent) {
+    e.stopPropagation()
+    const now = Date.now()
+    if (now - lastTapRef.current < 300) setZoomed(z => !z)
+    lastTapRef.current = now
+  }
 
   async function handleDownloadOne() {
     try {
@@ -113,45 +142,56 @@ function Lightbox({ urls, initialIndex, onClose, onOpenAlbumShare }: {
   }
 
   return (
-    <div className={styles.lightbox} onClick={onClose}>
-      <img src={url} className={styles.lightboxImg} alt="" onClick={e => e.stopPropagation()} />
+    <div
+      className={styles.lightbox}
+      onClick={zoomed ? undefined : onClose}
+      onTouchStart={handleTouchStart}
+      onTouchEnd={handleTouchEnd}
+    >
+      <img
+        src={url}
+        className={[styles.lightboxImg, zoomed ? styles.lightboxImgZoomed : ''].join(' ')}
+        alt=""
+        onClick={handleImgClick}
+      />
 
       {/* Top-right: close */}
       <button className={styles.lightboxClose} onClick={onClose} aria-label="Fermer">
         <X size={18} strokeWidth={2.5} />
       </button>
 
-      {/* Top-left: download + share current photo */}
-      <div className={styles.lightboxTopLeft} onClick={e => e.stopPropagation()}>
-        <button className={styles.lightboxIconBtn} onClick={handleDownloadOne} aria-label="Télécharger">
-          <Download size={16} strokeWidth={2.5} />
-        </button>
-        {canWebShare && (
-          <button className={styles.lightboxIconBtn} onClick={handleShareOne} aria-label="Partager">
-            <Share2 size={16} strokeWidth={2.5} />
+      {/* Top-left: download + share — masqué quand zoomé */}
+      {!zoomed && (
+        <div className={styles.lightboxTopLeft} onClick={e => e.stopPropagation()}>
+          <button className={styles.lightboxIconBtn} onClick={handleDownloadOne} aria-label="Télécharger">
+            <Download size={16} strokeWidth={2.5} />
           </button>
-        )}
-      </div>
+          {canWebShare && (
+            <button className={styles.lightboxIconBtn} onClick={handleShareOne} aria-label="Partager">
+              <Share2 size={16} strokeWidth={2.5} />
+            </button>
+          )}
+        </div>
+      )}
 
-      {/* Navigation prev/next */}
-      {urls.length > 1 && (
+      {/* Navigation prev/next + barre album — masqués quand zoomé */}
+      {!zoomed && urls.length > 1 && (
         <>
           {index > 0 && (
             <button className={styles.lightboxNavPrev}
-              onClick={e => { e.stopPropagation(); setIndex(i => i - 1) }}
+              onClick={e => { e.stopPropagation(); navigate(index - 1) }}
               aria-label="Photo précédente">
               <ChevronLeft size={22} strokeWidth={2.5} />
             </button>
           )}
           {index < urls.length - 1 && (
             <button className={styles.lightboxNavNext}
-              onClick={e => { e.stopPropagation(); setIndex(i => i + 1) }}
+              onClick={e => { e.stopPropagation(); navigate(index + 1) }}
               aria-label="Photo suivante">
               <ChevronRight size={22} strokeWidth={2.5} />
             </button>
           )}
 
-          {/* Bottom bar: album actions + counter */}
           <div className={styles.lightboxAlbumBar} onClick={e => e.stopPropagation()}>
             {canWebShare && (
               <button className={styles.lightboxAlbumBtn}
@@ -168,6 +208,11 @@ function Lightbox({ urls, initialIndex, onClose, onOpenAlbumShare }: {
             </button>
           </div>
         </>
+      )}
+
+      {/* Indication zoom — disparaît après le premier zoom */}
+      {!zoomed && (
+        <span className={styles.lightboxZoomHint}>Double-tap pour zoomer</span>
       )}
     </div>
   )
@@ -496,9 +541,10 @@ function EditMomentModal({ moment, onClose }: { moment: Moment; onClose: () => v
 
 // ── MomentCard ────────────────────────────────────────────────────────────────
 
-function MomentCard({ moment, currentMemberId, onDelete, onEdit, onOpenPhoto }: {
+function MomentCard({ moment, currentMemberId, memberMap, onDelete, onEdit, onOpenPhoto }: {
   moment: Moment
   currentMemberId: string
+  memberMap: Record<string, string>
   onDelete: (m: Moment) => void
   onEdit: (m: Moment) => void
   onOpenPhoto: (urls: string[], index: number) => void
@@ -579,6 +625,19 @@ function MomentCard({ moment, currentMemberId, onDelete, onEdit, onOpenPhoto }: 
             </button>
           </div>
 
+          {/* Noms des personnes qui ont réagi */}
+          {moment.reactions.length > 0 && (() => {
+            const parts = EMOJIS
+              .filter(e => moment.reactions.some(r => r.emoji === e))
+              .map(e => {
+                const names = moment.reactions
+                  .filter(r => r.emoji === e)
+                  .map(r => r.member_id === currentMemberId ? 'Vous' : (memberMap[r.member_id] ?? '?'))
+                return `${e} ${names.join(', ')}`
+              })
+            return <p className={styles.reactorLine}>{parts.join('  ·  ')}</p>
+          })()}
+
           {showComments && (
             <CommentsSection momentId={moment.id} currentMemberId={currentMemberId} />
           )}
@@ -617,8 +676,30 @@ export default function MomentsPage() {
     ? ([...moments, ...lastYear].find(m => m.id === editTargetId) ?? null)
     : null
   const [showLastYear, setShowLastYear]     = useState(true)
+  const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
   const fileInputRef   = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+
+  const feedAuthors = useMemo(() => {
+    const seen = new Map<string, string>()
+    for (const m of moments) {
+      if (m.member) seen.set(m.member.id, m.member.display_name)
+    }
+    return [...seen.entries()].map(([id, name]) => ({ id, name }))
+  }, [moments])
+
+  const memberMap = useMemo<Record<string, string>>(() => {
+    const map: Record<string, string> = {}
+    for (const m of [...moments, ...lastYear]) {
+      if (m.member) map[m.member.id] = m.member.display_name
+    }
+    return map
+  }, [moments, lastYear])
+
+  const displayMoments = useMemo(
+    () => filterMemberId ? moments.filter(m => m.member_id === filterMemberId) : moments,
+    [moments, filterMemberId],
+  )
 
   function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
@@ -654,6 +735,7 @@ export default function MomentsPage() {
       await addMoment.mutateAsync({ text, photos })
       resetCompose()
       setShowCompose(false)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } catch { /* onError handles toast */ }
   }
 
@@ -690,6 +772,32 @@ export default function MomentsPage() {
         </button>
       </header>
 
+      {/* Filtre par membre */}
+      {feedAuthors.length > 1 && (
+        <div className={styles.memberFilter}>
+          <button
+            className={[styles.memberFilterChip, !filterMemberId ? styles.memberFilterChipActive : ''].join(' ')}
+            onClick={() => setFilterMemberId(null)}
+          >
+            Tous
+          </button>
+          {feedAuthors.map((a, i) => {
+            const active = filterMemberId === a.id
+            const color  = memberColor(i)
+            return (
+              <button
+                key={a.id}
+                className={[styles.memberFilterChip, active ? styles.memberFilterChipActive : ''].join(' ')}
+                style={active ? { borderColor: color, background: `${color}18`, color } : {}}
+                onClick={() => setFilterMemberId(id => id === a.id ? null : a.id)}
+              >
+                {a.name}
+              </button>
+            )
+          })}
+        </div>
+      )}
+
       {/* Ce jour-là — anniversaire */}
       {lastYear.length > 0 && (
         <div className={styles.lastYearBanner}>
@@ -708,6 +816,7 @@ export default function MomentsPage() {
                   key={m.id}
                   moment={m}
                   currentMemberId={member?.id ?? ''}
+                  memberMap={memberMap}
                   onDelete={setConfirmDelete}
                   onEdit={m => setEditTargetId(m.id)}
                   onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
@@ -733,8 +842,8 @@ export default function MomentsPage() {
       ) : (
         <>
           <div className={styles.feed}>
-            {moments.map((m, i) => {
-              const prevDate = i > 0 ? momentDateStr(moments[i - 1]) : null
+            {displayMoments.map((m, i) => {
+              const prevDate = i > 0 ? momentDateStr(displayMoments[i - 1]) : null
               const currDate = momentDateStr(m)
               const showSep  = prevDate !== currDate
               return (
@@ -745,6 +854,7 @@ export default function MomentsPage() {
                   <MomentCard
                     moment={m}
                     currentMemberId={member?.id ?? ''}
+                    memberMap={memberMap}
                     onDelete={setConfirmDelete}
                     onEdit={m => setEditTargetId(m.id)}
                     onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
@@ -861,6 +971,17 @@ export default function MomentsPage() {
             </button>
           </form>
         </SlideUpModal>
+      )}
+
+      {/* FAB */}
+      {!showCompose && (
+        <button
+          className={styles.fab}
+          onClick={() => setShowCompose(true)}
+          aria-label="Nouveau moment"
+        >
+          <Camera size={22} strokeWidth={2.5} />
+        </button>
       )}
 
       {editTarget && (
