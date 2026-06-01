@@ -22,12 +22,14 @@ function useBeeper() {
   const ctxRef = useRef<any>(null)
 
   const ensure = useCallback(() => {
-    if (!ctxRef.current) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const AC = window.AudioContext || (window as any).webkitAudioContext
-      if (AC) ctxRef.current = new AC()
-    }
-    if (ctxRef.current?.state === 'suspended') ctxRef.current.resume()
+    try {
+      if (!ctxRef.current) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const AC = window.AudioContext || (window as any).webkitAudioContext
+        if (AC) ctxRef.current = new AC()
+      }
+      if (ctxRef.current?.state === 'suspended') ctxRef.current.resume()
+    } catch { /* audio indisponible */ }
     return ctxRef.current
   }, [])
 
