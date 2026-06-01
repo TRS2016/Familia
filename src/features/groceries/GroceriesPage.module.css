@@ -30,6 +30,7 @@
   flex-direction: column;
   max-width: 480px;
   margin: 0 auto;
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
 }
 
 /* ── Header ──────────────────────────────────────────────────────────────── */
@@ -664,7 +665,7 @@
 
 .totalBar {
   position: fixed;
-  bottom: 0;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
   left: 0;
   right: 0;
   max-width: 480px;
@@ -675,7 +676,7 @@
   justify-content: space-between;
   background: var(--bg-card);
   border-top: 1px solid var(--border-subtle);
-  padding: 14px 20px max(14px, env(safe-area-inset-bottom));
+  padding: 14px 20px 14px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.07);
 }
 

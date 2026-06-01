@@ -1,3 +1,9 @@
+/* ── Design tokens ────────────────────────────────────────────────────────── */
+
+:root {
+  --nav-h: 56px; /* bottom navigation bar height (sans safe area) */
+}
+
 /* ── Reset minimal ────────────────────────────────────────────────────────── */
 
 *, *::before, *::after {
@@ -34,4 +40,27 @@ p { margin: 0; }
   select {
     font-size: 16px !important;
   }
+}
+
+/* ── Page enter animation ─────────────────────────────────────────────────── */
+
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: translateY(0);   }
+}
+
+.page-enter {
+  animation: pageEnter 0.2s ease forwards;
+}
+
+/* ── Touch feedback ───────────────────────────────────────────────────────── */
+
+button, a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:active:not(:disabled):not([data-no-feedback]) {
+  opacity: 0.75;
+  transform: scale(0.97);
+  transition: opacity 0.07s, transform 0.07s;
 }

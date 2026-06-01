@@ -5,7 +5,7 @@
   background: var(--bg);
   display: flex;
   flex-direction: column;
-  padding-bottom: 32px;
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
 }
 
 /* ── Header ──────────────────────────────────────────────────────────────────── */

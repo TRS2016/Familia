@@ -6,7 +6,7 @@
   flex-direction: column;
   max-width: 480px;
   margin: 0 auto;
-  padding-bottom: 40px;
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
 }
 
 /* ── Header ──────────────────────────────────────────────────────────────── */
@@ -1016,7 +1016,7 @@
 
 .fab {
   position: fixed;
-  bottom: 28px;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 16px);
   right: 20px;
   width: 54px;
   height: 54px;
