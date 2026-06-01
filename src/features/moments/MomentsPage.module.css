@@ -63,6 +63,20 @@
   padding: 4px 16px 0;
 }
 
+/* Desktop : feed en masonry 2 colonnes (chaque carte + son séparateur de
+   date forment un wrapper insécable). */
+@media (min-width: 768px) {
+  .feed {
+    display: block;
+    columns: 2;
+    column-gap: 16px;
+  }
+  .feed > * {
+    break-inside: avoid;
+    margin-bottom: 16px;
+  }
+}
+
 /* ── Card ────────────────────────────────────────────────────────────────── */
 
 .card {
