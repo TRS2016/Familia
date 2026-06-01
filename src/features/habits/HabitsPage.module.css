@@ -985,3 +985,164 @@
 }
 
 .noteArea:focus { border-color: var(--accent); }
+
+/* ── Today summary strip ─────────────────────────────────────────────────── */
+
+.todayStrip {
+  margin: 0 16px 8px;
+  padding: 12px 14px;
+  background: var(--bg-card);
+  border-radius: 14px;
+  box-shadow: var(--shadow-card);
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.todayStripInfo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.todayStripEmoji {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.todayStripLabel {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin: 0;
+}
+
+.todayStripCount {
+  font-size: 17px;
+  font-weight: 900;
+  color: var(--text);
+  margin: 0;
+  line-height: 1.1;
+}
+
+.todayStripRight {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.todayStripPct {
+  font-size: 12px;
+  font-weight: 800;
+  color: var(--text-muted);
+}
+
+.todayStripTrack {
+  width: 100%;
+  height: 6px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+
+.todayStripFill {
+  height: 100%;
+  border-radius: 99px;
+  transition: width 0.5s ease;
+}
+
+/* ── Streak milestone badge ──────────────────────────────────────────────── */
+
+.milestoneBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 1px 7px;
+  border-radius: 99px;
+  background: rgba(232, 184, 75, 0.15);
+  font-size: 10px;
+  font-weight: 800;
+  font-family: var(--font-family);
+}
+
+/* ── Monthly rate badge per habit ────────────────────────────────────────── */
+
+.monthlyRateBadge {
+  font-size: 9.5px;
+  font-weight: 800;
+  padding: 1px 5px;
+  border-radius: 99px;
+  background: var(--bg-input);
+  margin-left: 2px;
+}
+
+/* ── StatsModal monthly trend bars ──────────────────────────────────────── */
+
+.monthBars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 60px;
+  padding-top: 4px;
+}
+
+.monthBarWrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  min-width: 0;
+}
+
+.monthBar {
+  width: 100%;
+  min-height: 2px;
+  border-radius: 3px 3px 0 0;
+}
+
+.monthBarPct {
+  font-size: 7.5px;
+  color: var(--text-muted);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.monthBarLabel {
+  font-size: 8px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+/* ── Best day of week ────────────────────────────────────────────────────── */
+
+.bestDayHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0;
+}
+
+.bestDayName {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.bestDayBars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 44px;
+  padding-top: 4px;
+}
+
+.bestDayLabelActive {
+  color: var(--accent);
+  font-weight: 800;
+}

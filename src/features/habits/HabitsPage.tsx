@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { format, startOfWeek, addDays } from 'date-fns'
@@ -55,6 +55,17 @@ function isApplicable(habit: Habit, dateStr: string): boolean {
   if (habit.start_date && dateStr < habit.start_date) return false
   if (!habit.frequency_days || habit.frequency_days.length === 0) return true
   return habit.frequency_days.includes(isoDow(dateStr))
+}
+
+function streakMilestone(streak: number): { emoji: string } | null {
+  if (streak >= 365) return { emoji: '🏆' }
+  if (streak >= 100) return { emoji: '💎' }
+  if (streak >= 60)  return { emoji: '🥇' }
+  if (streak >= 30)  return { emoji: '🥈' }
+  if (streak >= 21)  return { emoji: '🌟' }
+  if (streak >= 14)  return { emoji: '⭐' }
+  if (streak >= 7)   return { emoji: '🔥' }
+  return null
 }
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -127,6 +138,26 @@ export default function HabitsPage() {
   )
   const doneSet = new Set(completions.map(c => `${c.habit_id}::${c.date}`))
   function isDone(habitId: string, date: string) { return doneSet.has(`${habitId}::${date}`) }
+
+  const monthlyRates = useMemo<Record<string, number>>(() => {
+    const now      = new Date()
+    const todayStr = format(now, 'yyyy-MM-dd')
+    const localSet = new Set(completions.map(c => `${c.habit_id}::${c.date}`))
+    const rates: Record<string, number> = {}
+    for (const h of habits) {
+      const days: string[] = []
+      const d = new Date(now.getFullYear(), now.getMonth(), 1)
+      while (true) {
+        const ds = format(d, 'yyyy-MM-dd')
+        if (ds > todayStr) break
+        if (isApplicable(h, ds)) days.push(ds)
+        d.setDate(d.getDate() + 1)
+      }
+      const done = days.filter(ds => localSet.has(`${h.id}::${ds}`)).length
+      rates[h.id] = days.length > 0 ? Math.round(done / days.length * 100) : 0
+    }
+    return rates
+  }, [habits, completions])
 
   const noteMap = new Map(completions.map(c => [`${c.habit_id}::${c.date}`, c.note]))
   function getNote(habitId: string, date: string): string | null {
@@ -289,6 +320,36 @@ export default function HabitsPage() {
         />
       )}
 
+      {/* ── Today summary strip ───────────────────────────────────── */}
+      {!isLoading && habits.length > 0 && isCurrentWeek && (() => {
+        const applicable = displayed.filter(h => isApplicable(h, today))
+        const done = applicable.filter(h => isDone(h.id, today)).length
+        const total = applicable.length
+        if (total === 0) return null
+        const pct = done / total
+        const allDone = done === total
+        return (
+          <div className={styles.todayStrip}>
+            <div className={styles.todayStripInfo}>
+              <span className={styles.todayStripEmoji}>{allDone ? '🎉' : '🔥'}</span>
+              <div>
+                <p className={styles.todayStripLabel}>Aujourd'hui</p>
+                <p className={styles.todayStripCount}>{done}/{total}</p>
+              </div>
+            </div>
+            <div className={styles.todayStripRight}>
+              <span className={styles.todayStripPct}>{Math.round(pct * 100)}%</span>
+              <div className={styles.todayStripTrack}>
+                <div
+                  className={styles.todayStripFill}
+                  style={{ width: `${pct * 100}%`, background: allDone ? '#5B9E8F' : 'var(--accent)' }}
+                />
+              </div>
+            </div>
+          </div>
+        )
+      })()}
+
       {!isLoading && habits.length > 0 && (
         <div className={styles.grid}>
           <div className={styles.gridHeader}>
@@ -313,6 +374,7 @@ export default function HabitsPage() {
                 habit={habit}
                 color={color}
                 streak={streak}
+                monthlyRate={monthlyRates[habit.id]}
                 dates={dates}
                 today={today}
                 isDone={date => isDone(habit.id, date)}
@@ -634,10 +696,11 @@ function HabitForm({ draft, setDraft, members, isPending, submitLabel }: {
 
 // ── Habit row ─────────────────────────────────────────────────────────────────
 
-function HabitRow({ habit, color, streak, dates, today, isDone, onToggle, onDelete, onEdit, onStats, onArchive }: {
+function HabitRow({ habit, color, streak, monthlyRate, dates, today, isDone, onToggle, onDelete, onEdit, onStats, onArchive }: {
   habit: Habit
   color: string
   streak: number
+  monthlyRate?: number
   dates: string[]
   today: string
   isDone: (date: string) => boolean
@@ -660,11 +723,27 @@ function HabitRow({ habit, color, streak, dates, today, isDone, onToggle, onDele
         <div className={styles.rowMeta}>
           <span className={styles.rowName}>{habit.name}</span>
           <div className={styles.rowStreak}>
-            <Flame size={10} strokeWidth={2.5} color="#E07B54" />
-            <span className={styles.rowStreakVal}>{streak}j</span>
+            {streakMilestone(streak) ? (
+              <span className={styles.milestoneBadge} style={{ color }}>
+                {streakMilestone(streak)!.emoji} {streak}j
+              </span>
+            ) : (
+              <>
+                <Flame size={10} strokeWidth={2.5} color="#E07B54" />
+                <span className={styles.rowStreakVal}>{streak}j</span>
+              </>
+            )}
             {nonDaily && (
               <span className={[styles.rowFreqBadge, isOnTrack ? styles.rowFreqDone : ''].join(' ')}>
                 {weekDone}/{target}
+              </span>
+            )}
+            {monthlyRate !== undefined && (
+              <span
+                className={styles.monthlyRateBadge}
+                style={{ color: monthlyRate >= 80 ? '#5B9E8F' : monthlyRate >= 50 ? 'var(--text-muted)' : '#E07B54' }}
+              >
+                {monthlyRate}%
               </span>
             )}
           </div>
@@ -746,6 +825,41 @@ function StatsModal({ habit, habits, completions, members, onSelectHabit, onClos
   const pctRegular = totalDays > 0 ? Math.round(totalDone / totalDays * 100) : 0
 
   const MONTH_LABELS = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc']
+
+  // Monthly completion trend (12 months of current year)
+  const monthlyTrend = useMemo(() => {
+    const now = new Date()
+    return Array.from({ length: 12 }, (_, i) => {
+      const isFuture = i > now.getMonth()
+      if (isFuture) return { label: MONTH_LABELS[i], pct: 0, isFuture: true }
+      const prefix   = `${year}-${String(i + 1).padStart(2, '0')}`
+      const done     = yearCompletions.filter(c => c.date.startsWith(prefix)).length
+      const firstDay = new Date(year, i, 1)
+      const endDay   = i === now.getMonth() ? now : new Date(year, i + 1, 0)
+      let applicable = 0
+      const d = new Date(firstDay)
+      while (d <= endDay) {
+        if (isApplicable(habit, format(d, 'yyyy-MM-dd'))) applicable++
+        d.setDate(d.getDate() + 1)
+      }
+      return { label: MONTH_LABELS[i], pct: applicable > 0 ? Math.round(done / applicable * 100) : 0, isFuture: false }
+    })
+  }, [yearCompletions, habit, year])
+  const maxMonthPct = Math.max(1, ...monthlyTrend.filter(m => !m.isFuture).map(m => m.pct))
+
+  // Best day of week
+  const dayTotals = useMemo(() => {
+    const totals = [0, 0, 0, 0, 0, 0, 0]
+    for (const c of yearCompletions) {
+      const dow = new Date(c.date + 'T12:00').getDay()
+      const idx = dow === 0 ? 6 : dow - 1
+      totals[idx]++
+    }
+    return totals
+  }, [yearCompletions])
+  const maxDayTotal  = Math.max(1, ...dayTotals)
+  const bestDayIdx   = dayTotals.indexOf(Math.max(...dayTotals))
+  const DAY_NAMES_FR = ['lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi', 'dimanche']
 
   return (
     <SlideUpModal title="Statistiques" onClose={onClose}>
@@ -876,6 +990,63 @@ function StatsModal({ habit, habits, completions, members, onSelectHabit, onClos
           })}
         </div>
       </div>
+
+      {/* Monthly trend */}
+      {!yearLoading && (
+        <div className={styles.weekBarsSection}>
+          <p className={styles.sectionLabel}>Taux de complétion par mois</p>
+          <div className={styles.monthBars}>
+            {monthlyTrend.map((m, i) => (
+              <div key={i} className={styles.monthBarWrap}>
+                <div
+                  className={styles.monthBar}
+                  style={{
+                    height: m.isFuture ? 2 : Math.max(2, (m.pct / maxMonthPct) * 52),
+                    background: m.isFuture
+                      ? 'var(--border)'
+                      : m.pct >= 80 ? '#5B9E8F'
+                      : m.pct >= 50 ? color
+                      : '#E07B54',
+                    opacity: m.isFuture ? 0.3 : 1,
+                  }}
+                />
+                {!m.isFuture && m.pct > 0 && (
+                  <span className={styles.monthBarPct}>{m.pct}%</span>
+                )}
+                <span className={styles.monthBarLabel}>{m.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Best day of week */}
+      {!yearLoading && yearCompletions.length > 7 && (
+        <div className={styles.weekBarsSection}>
+          <div className={styles.bestDayHeader}>
+            <p className={styles.sectionLabel}>Par jour de la semaine</p>
+            <span className={styles.bestDayName}>
+              Meilleur : {DAY_NAMES_FR[bestDayIdx]}
+            </span>
+          </div>
+          <div className={styles.bestDayBars}>
+            {dayTotals.map((count, i) => (
+              <div key={i} className={styles.monthBarWrap}>
+                <div
+                  className={styles.monthBar}
+                  style={{
+                    height: Math.max(2, (count / maxDayTotal) * 36),
+                    background: i === bestDayIdx ? color : 'var(--border)',
+                  }}
+                />
+                <span className={[styles.monthBarLabel, i === bestDayIdx ? styles.bestDayLabelActive : ''].join(' ')}>
+                  {WEEK_LABELS[i]}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
     </SlideUpModal>
   )
