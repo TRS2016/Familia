@@ -98,6 +98,27 @@
   gap: 12px;
 }
 
+/* ── Dashboard widgets ───────────────────────────────────────────────────── */
+/* Mobile : pile verticale. Desktop : masonry 2 colonnes via CSS columns. */
+
+.dashboard {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (min-width: 768px) {
+  .dashboard {
+    display: block;
+    columns: 2;
+    column-gap: 16px;
+  }
+  .dashboard > .widget {
+    break-inside: avoid;
+    margin-bottom: 16px;
+  }
+}
+
 .navCard {
   background: var(--bg-card);
   border-radius: var(--radius-lg);

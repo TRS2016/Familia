@@ -371,6 +371,9 @@ export default function HomePage() {
         </Link>
       </div>
 
+      {/* Dashboard widgets — masonry 2 colonnes sur desktop */}
+      <div className={styles.dashboard}>
+
       {/* Widget — Événements à venir */}
       {upcomingEvents && upcomingEvents.length > 0 && (
         <div className={styles.widget}>
@@ -582,6 +585,8 @@ export default function HomePage() {
           />
         </div>
       </div>
+
+      </div>{/* /dashboard */}
 
       {/* Members */}
       <p className={styles.sectionLabel}>
