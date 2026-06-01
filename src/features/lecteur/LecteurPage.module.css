@@ -1026,3 +1026,22 @@
   justify-content: center;
   flex-shrink: 0;
 }
+
+/* ── Desktop/tablette : plus d'air ───────────────────────────────────────────── */
+/* Placé en fin de fichier pour passer après toutes les règles de base.
+   Padding latéral homogène (28px) sur toutes les sections + cartes plus
+   espacées. */
+@media (min-width: 768px) {
+  .header               { padding: 28px 28px 16px; }
+  .playerDock           { padding: 8px 28px 12px; }
+  .tabRow               { margin: 16px 28px 0; }
+  .filterRow            { padding: 12px 28px 0; }
+  .searchWrap           { margin: 12px 28px 0; }
+  .list                 { padding: 14px 28px 0; gap: 10px; }
+  .playlistList         { padding: 14px 28px 0; gap: 12px; }
+  .libraryGrid          { gap: 12px; }
+  .playlistActions      { padding: 14px 28px 0; }
+  .playlistDetailHeader { padding: 12px 28px 0; }
+  .fileRow              { padding: 12px 14px; }
+  .playlistRow          { padding: 14px; }
+}
