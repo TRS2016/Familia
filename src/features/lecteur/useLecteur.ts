@@ -45,6 +45,7 @@ export interface LecteurPlaylistItem {
 export interface LecteurSmartFilters {
   kind?:      MediaFileKind
   member_id?: string
+  tag?:       string
   sort?:      'recent' | 'az' | 'oldest'
 }
 
@@ -58,8 +59,9 @@ export function detectKind(file: MediaFile): MediaFileKind {
 
 export function applyLecteurFilters(files: MediaFile[], filters: LecteurSmartFilters): MediaFile[] {
   const result = files.filter(f => {
-    if (filters.kind      && detectKind(f) !== filters.kind)     return false
+    if (filters.kind      && detectKind(f) !== filters.kind)      return false
     if (filters.member_id && f.member_id   !== filters.member_id) return false
+    if (filters.tag       && !(f.tags ?? []).includes(filters.tag)) return false
     return true
   })
   if (filters.sort === 'az')     return [...result].sort((a, b) => a.title.localeCompare(b.title))

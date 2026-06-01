@@ -614,6 +614,7 @@ function PlaylistsPane({ playlists, allFiles, selectedId, onSelect, onBack, onNe
 function smartFilterLabel(f: LecteurSmartFilters): string {
   const parts: string[] = []
   if (f.kind)   parts.push(KIND_META[f.kind].emoji + ' ' + f.kind)
+  if (f.tag)    parts.push('#' + f.tag)
   if (f.sort === 'az')     parts.push('A→Z')
   if (f.sort === 'oldest') parts.push('Plus anciens')
   return parts.length > 0 ? parts.join(' · ') : 'Tous les médias'
@@ -798,6 +799,12 @@ function AddSmartPlaylistModal({ files, members, onClose }: {
   const [name,    setName]    = useState('')
   const [filters, setFilters] = useState<LecteurSmartFilters>({})
 
+  const allTags = (() => {
+    const set = new Set<string>()
+    for (const f of files) for (const t of (f.tags ?? [])) set.add(t)
+    return [...set].sort()
+  })()
+
   const preview = applyLecteurFilters(files, filters)
 
   async function handleSubmit(e: FormEvent) {
@@ -847,6 +854,24 @@ function AddSmartPlaylistModal({ files, members, onClose }: {
                     style={filters.member_id === m.id ? { borderColor: memberColor(i), color: memberColor(i) } : {}}
                     onClick={() => setFilters(f => ({ ...f, member_id: f.member_id === m.id ? undefined : m.id }))}>
                     {m.display_name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {allTags.length > 0 && (
+            <div className={styles.smartRow}>
+              <span className={styles.smartLabel}>Tag</span>
+              <div className={styles.smartPills}>
+                <button type="button"
+                  className={[styles.smartPill, !filters.tag ? styles.smartPillActive : ''].join(' ')}
+                  onClick={() => setFilters(f => ({ ...f, tag: undefined }))}>Tous</button>
+                {allTags.map(t => (
+                  <button key={t} type="button"
+                    className={[styles.smartPill, filters.tag === t ? styles.smartPillActive : ''].join(' ')}
+                    onClick={() => setFilters(f => ({ ...f, tag: f.tag === t ? undefined : t }))}>
+                    #{t}
                   </button>
                 ))}
               </div>
