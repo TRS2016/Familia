@@ -82,8 +82,10 @@ export default function LecteurPage() {
   const hasNext = queueIndex < queue.length - 1
 
   function playFiles(fileList: MediaFile[], startIndex = 0) {
+    if (fileList.length === 0) return
     setQueue(fileList)
     setQueueIndex(Math.max(0, Math.min(startIndex, fileList.length - 1)))
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   function stop() {
@@ -152,48 +154,47 @@ export default function LecteurPage() {
         }}
       />
 
-      {/* ── Now-playing bar ──────────────────────────────────────── */}
+      {/* ── Sticky player dock (now-playing bar + embed) ─────────── */}
       {playingFile && (
-        <div className={styles.nowPlaying}>
-          <EqBars />
-          <span className={styles.nowPlayingTitle}>{playingFile.title}</span>
-          {queue.length > 1 && (
-            <span className={styles.queueBadge}>{queueIndex + 1}/{queue.length}</span>
-          )}
-          <div className={styles.nowPlayingNav}>
-            <button
-              className={styles.nowPlayingNavBtn}
-              onClick={() => setQueueIndex(i => i - 1)}
-              disabled={!hasPrev}
-              aria-label="Précédent"
-            >
-              <ChevronLeft size={16} strokeWidth={2.5} />
-            </button>
-            <button
-              className={styles.nowPlayingNavBtn}
-              onClick={() => setQueueIndex(i => i + 1)}
-              disabled={!hasNext}
-              aria-label="Suivant"
-            >
-              <ChevronRight size={16} strokeWidth={2.5} />
-            </button>
-            <button className={styles.nowPlayingStopBtn} onClick={stop} aria-label="Fermer">
-              <X size={14} strokeWidth={2.5} />
-            </button>
+        <div className={styles.playerDock}>
+          <div className={styles.nowPlaying}>
+            <EqBars />
+            <span className={styles.nowPlayingTitle}>{playingFile.title}</span>
+            {queue.length > 1 && (
+              <span className={styles.queueBadge}>{queueIndex + 1}/{queue.length}</span>
+            )}
+            <div className={styles.nowPlayingNav}>
+              <button
+                className={styles.nowPlayingNavBtn}
+                onClick={() => setQueueIndex(i => i - 1)}
+                disabled={!hasPrev}
+                aria-label="Précédent"
+              >
+                <ChevronLeft size={16} strokeWidth={2.5} />
+              </button>
+              <button
+                className={styles.nowPlayingNavBtn}
+                onClick={() => setQueueIndex(i => i + 1)}
+                disabled={!hasNext}
+                aria-label="Suivant"
+              >
+                <ChevronRight size={16} strokeWidth={2.5} />
+              </button>
+              <button className={styles.nowPlayingStopBtn} onClick={stop} aria-label="Fermer">
+                <X size={14} strokeWidth={2.5} />
+              </button>
+            </div>
           </div>
-        </div>
-      )}
-
-      {/* ── Player embed ─────────────────────────────────────────── */}
-      {playingFile && (
-        <div className={styles.playerWrap}>
-          <MediaPlayer
-            filePath={playingFile.file_path}
-            externalUrl={playingFile.external_url}
-            mimeType={playingFile.mime_type}
-            title={playingFile.title}
-            onEnded={hasNext ? () => setQueueIndex(i => i + 1) : undefined}
-          />
+          <div className={styles.playerWrap}>
+            <MediaPlayer
+              filePath={playingFile.file_path}
+              externalUrl={playingFile.external_url}
+              mimeType={playingFile.mime_type}
+              title={playingFile.title}
+              autoPlay
+              onEnded={hasNext ? () => setQueueIndex(i => i + 1) : undefined}
+            />
+          </div>
         </div>
       )}
 
