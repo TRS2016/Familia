@@ -391,13 +391,20 @@ function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, m
         tabIndex={0}
       >
         <div className={[styles.kindIcon, isPlaying ? styles.kindIconPlaying : ''].join(' ')}>
-          {isPlaying ? <EqBars small /> : meta.emoji}
+          {isPlaying ? (
+            <EqBars small />
+          ) : (
+            <>
+              <span className={styles.kindEmoji}>{meta.emoji}</span>
+              <span className={styles.kindPlay}><Play size={16} strokeWidth={2} fill="currentColor" /></span>
+            </>
+          )}
         </div>
         <div className={styles.fileBody}>
           <div className={styles.fileTitle}>{file.title}</div>
           <div className={styles.fileMeta}>
-            {meta.label}
-            {file.member && ` · ${file.member.display_name}`}
+            <span className={styles.fileKindTag}>{meta.label}</span>
+            {file.member && <span className={styles.fileMember}>{file.member.display_name}</span>}
           </div>
         </div>
 

@@ -3,8 +3,12 @@
 .page {
   min-height: 100dvh;
   background: var(--bg);
+  font-family: var(--font-family);
   display: flex;
   flex-direction: column;
+  max-width: var(--page-max-w);
+  margin: 0 auto;
+  width: 100%;
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
 }
 
@@ -13,56 +17,60 @@
 .header {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 16px 16px 0;
+  gap: 8px;
+  padding: 20px 16px 14px;
 }
 
 .backLink {
-  color: var(--text);
+  color: var(--accent);
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .pageTitle {
   flex: 1;
   font-size: 20px;
-  font-weight: 800;
+  font-weight: 900;
+  letter-spacing: -0.2px;
   margin: 0;
   color: var(--text);
 }
 
 .headerActions {
   display: flex;
-  gap: 8px;
+  gap: 6px;
 }
 
 .uploadBtn, .urlBtn {
   display: flex;
   align-items: center;
   gap: 5px;
-  padding: 7px 12px;
-  border-radius: 10px;
+  padding: 7px 13px;
+  border-radius: 99px;
   border: none;
   font-family: var(--font-family);
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
-  transition: opacity 0.15s;
+  transition: opacity 0.15s, border-color 0.15s;
 }
 
 .uploadBtn {
   background: var(--accent);
   color: #fff;
+  box-shadow: 0 4px 12px rgba(224, 123, 84, 0.3);
 }
 
 .urlBtn {
   background: var(--bg-input);
-  color: var(--text);
+  color: var(--text-sub);
   border: 1.5px solid var(--border);
 }
 
-.uploadBtn:hover, .urlBtn:hover { opacity: 0.85; }
-.uploadBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+.urlBtn:hover { border-color: var(--accent); color: var(--accent); }
+.uploadBtn:hover { opacity: 0.88; }
+.uploadBtn:disabled { opacity: 0.5; cursor: not-allowed; box-shadow: none; }
 
 /* ── Tabs ────────────────────────────────────────────────────────────────────── */
 
@@ -77,19 +85,19 @@
 
 .tab {
   flex: 1;
-  padding: 7px 0;
-  border-radius: 8px;
+  padding: 9px 0;
+  border-radius: 9px;
   border: none;
   cursor: pointer;
   background: transparent;
   color: var(--text-muted);
   font-family: var(--font-family);
-  font-weight: 600;
-  font-size: 12px;
+  font-weight: 700;
+  font-size: 13px;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 5px;
   transition: all 0.18s;
 }
 
@@ -159,26 +167,49 @@
   padding: 10px 12px;
   background: var(--bg-card);
   border: 1.5px solid transparent;
-  border-radius: 12px;
+  border-radius: 14px;
   box-shadow: var(--shadow-card);
   cursor: pointer;
-  transition: border-color 0.15s, transform 0.1s;
+  transition: border-color 0.15s, transform 0.12s, box-shadow 0.15s;
 }
 
-.fileRow:hover  { border-color: var(--border); }
+.fileRow:hover {
+  border-color: var(--border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+}
 .fileRow:active { transform: scale(0.99); }
 
 .kindIcon {
+  position: relative;
   font-size: 20px;
   flex-shrink: 0;
-  width: 42px;
-  height: 42px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--bg-input);
-  border-radius: 11px;
+  border-radius: 12px;
+  overflow: hidden;
 }
+
+.kindEmoji { transition: opacity 0.15s; }
+
+.kindPlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  background: rgba(224, 123, 84, 0.92);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.fileRow:hover .kindPlay  { opacity: 1; }
+.fileRow:hover .kindEmoji { opacity: 0; }
 
 .fileBody {
   flex: 1;
@@ -187,7 +218,7 @@
 
 .fileTitle {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   color: var(--text);
   white-space: nowrap;
   overflow: hidden;
@@ -195,9 +226,27 @@
 }
 
 .fileMeta {
+  display: flex;
+  align-items: center;
+  gap: 7px;
   font-size: 11px;
   color: var(--text-muted);
-  margin-top: 2px;
+  margin-top: 3px;
+}
+
+.fileKindTag {
+  font-weight: 700;
+  color: var(--text-sub);
+  background: var(--bg-input);
+  border-radius: 6px;
+  padding: 1px 7px;
+}
+
+.fileMember {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .playingIndicator {
@@ -336,7 +385,11 @@
   transition: border-color 0.15s, transform 0.1s;
 }
 
-.playlistRow:hover  { border-color: var(--border); }
+.playlistRow:hover {
+  border-color: var(--border);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-card-hover);
+}
 .playlistRow:active { transform: scale(0.99); }
 
 .playlistIcon {
