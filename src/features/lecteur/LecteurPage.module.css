@@ -17,8 +17,47 @@
 .header {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 8px 10px;
+  flex-wrap: wrap;
   padding: 20px 16px 14px;
+}
+
+/* Bloc droit : membres + boutons URL/Ajouter, sur la même ligne.
+   Wrappe sous le titre sur petit écran. */
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.headerMembers {
+  display: flex;
+  gap: 5px;
+}
+
+.headerMemberPill {
+  padding: 6px 12px;
+  border-radius: 99px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-sub);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.headerMemberPill:hover { color: var(--accent); }
+
+.headerMemberPillActive {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(224, 123, 84, 0.1);
 }
 
 .backLink {

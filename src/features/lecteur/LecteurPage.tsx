@@ -135,18 +135,44 @@ export default function LecteurPage() {
         </Link>
         <h1 className={styles.pageTitle}>Lecteur</h1>
         {activeTab === 'bibliothèque' && (
-          <div className={styles.headerActions}>
-            <button className={styles.urlBtn} onClick={() => setShowUrlModal(true)}>
-              <LinkIcon size={13} strokeWidth={2} /> URL
-            </button>
-            <button
-              className={styles.uploadBtn}
-              onClick={() => fileRef.current?.click()}
-              disabled={uploadFile.isPending || addFile.isPending}
-            >
-              <Upload size={13} strokeWidth={2} />
-              {uploadFile.isPending ? 'Upload…' : 'Ajouter'}
-            </button>
+          <div className={styles.headerRight}>
+            {members.length > 1 && (
+              <div className={styles.headerMembers}>
+                <button
+                  className={[styles.headerMemberPill, !filterMemberId ? styles.headerMemberPillActive : ''].join(' ')}
+                  onClick={() => setFilterMemberId(null)}
+                >
+                  Tous
+                </button>
+                {members.map((m, i) => {
+                  const active = filterMemberId === m.id
+                  const color  = memberColor(i)
+                  return (
+                    <button
+                      key={m.id}
+                      className={[styles.headerMemberPill, active ? styles.headerMemberPillActive : ''].join(' ')}
+                      style={active ? { borderColor: color, background: `${color}1A`, color } : {}}
+                      onClick={() => setFilterMemberId(id => id === m.id ? null : m.id)}
+                    >
+                      {m.display_name}
+                    </button>
+                  )
+                })}
+              </div>
+            )}
+            <div className={styles.headerActions}>
+              <button className={styles.urlBtn} onClick={() => setShowUrlModal(true)}>
+                <LinkIcon size={13} strokeWidth={2} /> URL
+              </button>
+              <button
+                className={styles.uploadBtn}
+                onClick={() => fileRef.current?.click()}
+                disabled={uploadFile.isPending || addFile.isPending}
+              >
+                <Upload size={13} strokeWidth={2} />
+                {uploadFile.isPending ? 'Upload…' : 'Ajouter'}
+              </button>
+            </div>
           </div>
         )}
       </header>
@@ -235,32 +261,6 @@ export default function LecteurPage() {
       {/* ── Bibliothèque tab ─────────────────────────────────────── */}
       {activeTab === 'bibliothèque' && (
         <>
-          {/* Member filters */}
-          {members.length > 1 && (
-            <div className={styles.filterRow}>
-              <button
-                className={[styles.filterPill, !filterMemberId ? styles.filterPillActive : ''].join(' ')}
-                onClick={() => setFilterMemberId(null)}
-              >
-                Tous
-              </button>
-              {members.map((m, i) => {
-                const active = filterMemberId === m.id
-                const color  = memberColor(i)
-                return (
-                  <button
-                    key={m.id}
-                    className={[styles.filterPill, active ? styles.filterPillActive : ''].join(' ')}
-                    style={active ? { borderColor: color, background: `${color}1A`, color } : {}}
-                    onClick={() => setFilterMemberId(id => id === m.id ? null : m.id)}
-                  >
-                    {m.display_name}
-                  </button>
-                )
-              })}
-            </div>
-          )}
-
           {/* Type filters */}
           <div className={styles.filterRow}>
             <button
