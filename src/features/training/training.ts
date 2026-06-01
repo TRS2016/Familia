@@ -1,0 +1,130 @@
+// ── Types & logique des minuteurs d'entraînement ──────────────────────────────
+
+export type TrainingMode = 'tabata' | 'emom' | 'amrap' | 'fortime' | 'intervals'
+
+export interface TrainingConfig {
+  prepare:  number  // décompte avant le départ (s)
+  work?:    number  // durée effort (s) — tabata, intervals
+  rest?:    number  // durée repos (s) — tabata, intervals
+  rounds?:  number  // nb de rounds — tabata, emom, intervals
+  interval?: number // durée d'une minute EMOM (s)
+  duration?: number // durée totale AMRAP (s)
+  cap?:     number  // plafond For Time (s, 0 = aucun)
+}
+
+export interface TrainingPreset {
+  id: string
+  household_id: string
+  member_id: string | null
+  name: string
+  mode: TrainingMode
+  config: TrainingConfig
+  created_at: string
+}
+
+export interface TrainingSession {
+  id: string
+  household_id: string
+  member_id: string | null
+  name: string
+  mode: TrainingMode
+  duration_seconds: number
+  completed_at: string
+  member?: { display_name: string } | null
+}
+
+// ── Métadonnées d'affichage ────────────────────────────────────────────────────
+
+export const MODE_META: Record<TrainingMode, { emoji: string; label: string; desc: string; color: string }> = {
+  tabata:    { emoji: '🔥', label: 'Tabata',      desc: 'Effort / repos × rounds',        color: '#E07B54' },
+  emom:      { emoji: '⏱️', label: 'EMOM',         desc: 'Chaque minute, un effort',       color: '#5B9E8F' },
+  amrap:     { emoji: '♾️', label: 'AMRAP',        desc: 'Max de tours en temps donné',    color: '#9B7AC4' },
+  fortime:   { emoji: '🏁', label: 'For Time',     desc: 'Chrono qui monte (+ plafond)',   color: '#E8B84B' },
+  intervals: { emoji: '🔁', label: 'Intervalles',  desc: 'Effort / repos personnalisés',   color: '#4F9DD4' },
+}
+
+export const MODE_ORDER: TrainingMode[] = ['tabata', 'emom', 'amrap', 'fortime', 'intervals']
+
+export const DEFAULT_CONFIG: Record<TrainingMode, TrainingConfig> = {
+  tabata:    { prepare: 10, work: 20, rest: 10, rounds: 8 },
+  emom:      { prepare: 10, interval: 60, rounds: 10 },
+  amrap:     { prepare: 10, duration: 12 * 60 },
+  fortime:   { prepare: 10, cap: 0 },
+  intervals: { prepare: 10, work: 45, rest: 15, rounds: 6 },
+}
+
+// ── Phases (modes en décompte) ─────────────────────────────────────────────────
+
+export type PhaseKind = 'prepare' | 'work' | 'rest'
+
+export interface Phase {
+  kind: PhaseKind
+  label: string
+  seconds: number
+  round?: number
+  totalRounds?: number
+}
+
+/** True si le mode est un chrono qui monte (For Time) plutôt qu'un décompte. */
+export function isCountUp(mode: TrainingMode): boolean {
+  return mode === 'fortime'
+}
+
+/** Compile une config en liste de phases (modes en décompte). */
+export function compilePhases(mode: TrainingMode, cfg: TrainingConfig): Phase[] {
+  const phases: Phase[] = []
+  const prepare = cfg.prepare ?? 0
+  if (prepare > 0) phases.push({ kind: 'prepare', label: 'Prêt ?', seconds: prepare })
+
+  if (mode === 'tabata' || mode === 'intervals') {
+    const rounds = Math.max(1, cfg.rounds ?? 1)
+    const work   = Math.max(1, cfg.work ?? 20)
+    const rest   = Math.max(0, cfg.rest ?? 0)
+    for (let r = 1; r <= rounds; r++) {
+      phases.push({ kind: 'work', label: 'Effort', seconds: work, round: r, totalRounds: rounds })
+      if (rest > 0 && r < rounds) {
+        phases.push({ kind: 'rest', label: 'Repos', seconds: rest, round: r, totalRounds: rounds })
+      }
+    }
+  } else if (mode === 'emom') {
+    const rounds   = Math.max(1, cfg.rounds ?? 1)
+    const interval = Math.max(1, cfg.interval ?? 60)
+    for (let r = 1; r <= rounds; r++) {
+      phases.push({ kind: 'work', label: 'Minute', seconds: interval, round: r, totalRounds: rounds })
+    }
+  } else if (mode === 'amrap') {
+    phases.push({ kind: 'work', label: 'AMRAP', seconds: Math.max(1, cfg.duration ?? 60) })
+  }
+
+  return phases
+}
+
+/** Durée totale prévue (s) — pour l'historique et l'aperçu. */
+export function totalDuration(mode: TrainingMode, cfg: TrainingConfig): number {
+  if (mode === 'fortime') return cfg.cap ?? 0
+  return compilePhases(mode, cfg).reduce((s, p) => s + p.seconds, 0)
+}
+
+// ── Formatage ──────────────────────────────────────────────────────────────────
+
+export function fmtClock(totalSec: number): string {
+  const s = Math.max(0, Math.round(totalSec))
+  const m = Math.floor(s / 60)
+  const sec = s % 60
+  return `${m}:${String(sec).padStart(2, '0')}`
+}
+
+/** Résumé court d'une config (ex: "20s / 10s × 8"). */
+export function configSummary(mode: TrainingMode, cfg: TrainingConfig): string {
+  switch (mode) {
+    case 'tabata':
+    case 'intervals':
+      return `${cfg.work}s / ${cfg.rest}s × ${cfg.rounds}`
+    case 'emom':
+      return `${fmtClock(cfg.interval ?? 60)} × ${cfg.rounds}`
+    case 'amrap':
+      return `AMRAP ${fmtClock(cfg.duration ?? 0)}`
+    case 'fortime':
+      return cfg.cap && cfg.cap > 0 ? `For Time (cap ${fmtClock(cfg.cap)})` : 'For Time'
+  }
+}

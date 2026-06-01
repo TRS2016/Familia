@@ -20,6 +20,7 @@ const HabitsPage      = lazy(() => import('./features/habits/HabitsPage'))
 const MediaPage       = lazy(() => import('./features/media/MediaPage'))
 const LecteurPage     = lazy(() => import('./features/lecteur/LecteurPage'))
 const MomentsPage     = lazy(() => import('./features/moments/MomentsPage'))
+const TrainingPage    = lazy(() => import('./features/training/TrainingPage'))
 const SharedListPage  = lazy(() => import('./pages/SharedListPage'))
 
 function Lazy({ children }: { children: React.ReactNode }) {
@@ -63,6 +64,7 @@ const router = createBrowserRouter([
               { path: '/media',              element: <Lazy><MediaPage /></Lazy>     },
               { path: '/lecteur',            element: <Lazy><LecteurPage /></Lazy>   },
               { path: '/moments',            element: <Lazy><MomentsPage /></Lazy>   },
+              { path: '/training',           element: <Lazy><TrainingPage /></Lazy>  },
             ],
           },
         ],

@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   Home, ShoppingCart, Calendar, Flame, Grid2x2,
-  BookOpen, Camera, Tv, Music, Settings,
+  BookOpen, Camera, Tv, Music, Settings, Dumbbell,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import SlideUpModal from './SlideUpModal'
@@ -22,6 +22,7 @@ const MOBILE_MORE = [
   { to: '/moments',  emoji: '📸', label: 'Moments'  },
   { to: '/media',    emoji: '🎬', label: 'Médias'   },
   { to: '/lecteur',  emoji: '🎵', label: 'Lecteur'  },
+  { to: '/training', emoji: '🏋️', label: 'Training' },
   { to: '/settings', emoji: '⚙️', label: 'Réglages' },
 ]
 
@@ -36,6 +37,7 @@ const SIDEBAR_ITEMS: { to: string; Icon: LucideIcon; label: string; exact: boole
   { to: '/moments',   Icon: Camera,       label: 'Moments',    exact: false },
   { to: '/media',     Icon: Tv,           label: 'Médias',     exact: false },
   { to: '/lecteur',   Icon: Music,        label: 'Lecteur',    exact: false },
+  { to: '/training',  Icon: Dumbbell,     label: 'Training',   exact: false },
 ]
 
 const SIDEBAR_FOOTER: { to: string; Icon: LucideIcon; label: string; exact: boolean }[] = [
