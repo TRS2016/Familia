@@ -72,7 +72,15 @@ export default function LecteurPage() {
   // ── Filters ──
   const [filterKind,     setFilterKind]     = useState<MediaFileKind | null>(null)
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
+  const [filterTag,      setFilterTag]      = useState<string | null>(null)
   const [filterTitle,    setFilterTitle]    = useState('')
+
+  // Tous les tags existants, triés par fréquence décroissante
+  const allTags = (() => {
+    const counts = new Map<string, number>()
+    for (const f of files) for (const t of (f.tags ?? [])) counts.set(t, (counts.get(t) ?? 0) + 1)
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t)
+  })()
 
   // ── Queue + player ──
   const [queue,      setQueue]      = useState<MediaFile[]>([])
@@ -105,6 +113,7 @@ export default function LecteurPage() {
   const filtered = files.filter(f => {
     if (filterKind     && detectKind(f) !== filterKind)                              return false
     if (filterMemberId && f.member_id   !== filterMemberId)                          return false
+    if (filterTag      && !(f.tags ?? []).includes(filterTag))                       return false
     if (filterTitle    && !f.title.toLowerCase().includes(filterTitle.toLowerCase())) return false
     return true
   })
@@ -275,6 +284,29 @@ export default function LecteurPage() {
             })}
           </div>
 
+          {/* Tag filters */}
+          {allTags.length > 0 && (
+            <div className={styles.filterRow}>
+              {filterTag && (
+                <button
+                  className={[styles.filterPill, styles.filterPillClear].join(' ')}
+                  onClick={() => setFilterTag(null)}
+                >
+                  <X size={11} strokeWidth={2.5} /> Tag
+                </button>
+              )}
+              {allTags.map(t => (
+                <button
+                  key={t}
+                  className={[styles.tagFilterPill, filterTag === t ? styles.tagFilterPillActive : ''].join(' ')}
+                  onClick={() => setFilterTag(cur => cur === t ? null : t)}
+                >
+                  #{t}
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Search */}
           {files.length > 3 && (
             <div className={styles.searchWrap}>
@@ -406,6 +438,13 @@ function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, m
             <span className={styles.fileKindTag}>{meta.label}</span>
             {file.member && <span className={styles.fileMember}>{file.member.display_name}</span>}
           </div>
+          {(file.tags ?? []).length > 0 && (
+            <div className={styles.fileTags}>
+              {(file.tags ?? []).map(t => (
+                <span key={t} className={styles.fileTag}>#{t}</span>
+              ))}
+            </div>
+          )}
         </div>
 
         {showActions ? (
@@ -455,6 +494,47 @@ function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, m
         )}
       </div>
     </li>
+  )
+}
+
+// ── TagInput ──────────────────────────────────────────────────────────────────
+
+function TagInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
+  const [input, setInput] = useState('')
+
+  function add(raw: string) {
+    const t = raw.trim().toLowerCase().replace(/^#+/, '')
+    if (t && !tags.includes(t)) onChange([...tags, t])
+    setInput('')
+  }
+
+  return (
+    <div>
+      {tags.length > 0 && (
+        <div className={styles.tagEditChips}>
+          {tags.map(t => (
+            <span key={t} className={styles.tagEditChip}>
+              #{t}
+              <button type="button" onClick={() => onChange(tags.filter(x => x !== t))} aria-label={`Retirer ${t}`}>
+                <X size={11} strokeWidth={2.5} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input
+        type="text"
+        className={styles.input}
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(input) }
+          else if (e.key === 'Backspace' && !input && tags.length) onChange(tags.slice(0, -1))
+        }}
+        onBlur={() => { if (input.trim()) add(input) }}
+        placeholder="chill, workout, enfants… (Entrée pour valider)"
+      />
+    </div>
   )
 }
 
@@ -641,11 +721,12 @@ function AddUrlModal({ onClose }: { onClose: () => void }) {
   const addFile = useAddMediaFile()
   const [title, setTitle] = useState('')
   const [url,   setUrl]   = useState('')
+  const [tags,  setTags]  = useState<string[]>([])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!title.trim() || !url.trim()) return
-    await addFile.mutateAsync({ title, external_url: url })
+    await addFile.mutateAsync({ title, external_url: url, tags })
     onClose()
   }
 
@@ -663,6 +744,10 @@ function AddUrlModal({ onClose }: { onClose: () => void }) {
           <input id="l-url" type="url" value={url} required
             onChange={e => setUrl(e.target.value)}
             className={styles.input} placeholder="https://youtube.com/watch?v=…" />
+        </div>
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel}>Tags</label>
+          <TagInput tags={tags} onChange={setTags} />
         </div>
         <button type="submit" className={styles.submitBtn} disabled={addFile.isPending || !title.trim() || !url.trim()}>
           {addFile.isPending ? 'Ajout…' : 'Ajouter'}
@@ -843,18 +928,22 @@ function AddToPlaylistModal({ mediaFileId, playlists, onClose }: {
 function EditFileModal({ file, onClose }: { file: MediaFile; onClose: () => void }) {
   const editFile = useEditMediaFile()
   const [title, setTitle] = useState(file.title)
+  const [tags,  setTags]  = useState<string[]>(file.tags ?? [])
+
+  const unchanged = title.trim() === file.title &&
+    JSON.stringify(tags) === JSON.stringify(file.tags ?? [])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!title.trim()) return
     try {
-      await editFile.mutateAsync({ id: file.id, title })
+      await editFile.mutateAsync({ id: file.id, title, tags })
       onClose()
     } catch { /* onError handles toast */ }
   }
 
   return (
-    <SlideUpModal title="Modifier le titre" onClose={onClose}>
+    <SlideUpModal title="Modifier" onClose={onClose}>
       <form onSubmit={handleSubmit} className={styles.form}>
         <div className={styles.fieldGroup}>
           <label className={styles.fieldLabel}>Titre</label>
@@ -868,10 +957,14 @@ function EditFileModal({ file, onClose }: { file: MediaFile; onClose: () => void
             placeholder="Titre du fichier…"
           />
         </div>
+        <div className={styles.fieldGroup}>
+          <label className={styles.fieldLabel}>Tags</label>
+          <TagInput tags={tags} onChange={setTags} />
+        </div>
         <button
           type="submit"
           className={styles.submitBtn}
-          disabled={editFile.isPending || !title.trim() || title.trim() === file.title}
+          disabled={editFile.isPending || !title.trim() || unchanged}
         >
           {editFile.isPending ? 'Enregistrement…' : 'Enregistrer'}
         </button>

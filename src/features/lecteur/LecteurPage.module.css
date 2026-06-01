@@ -149,6 +149,93 @@
   background: rgba(224, 123, 84, 0.1);
 }
 
+/* Tag filter pills */
+
+.tagFilterPill {
+  display: inline-flex;
+  align-items: center;
+  padding: 5px 11px;
+  border-radius: 20px;
+  border: 1.5px solid transparent;
+  background: var(--bg-input);
+  color: var(--text-sub);
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.tagFilterPill:hover { color: var(--accent); }
+
+.tagFilterPillActive {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: rgba(224, 123, 84, 0.12);
+}
+
+.filterPillClear {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-color: #D94F4F;
+  color: #D94F4F;
+  background: transparent;
+}
+
+/* Tags on file cards */
+
+.fileTags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 5px;
+}
+
+.fileTag {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(224, 123, 84, 0.1);
+  border-radius: 6px;
+  padding: 1px 6px;
+}
+
+/* Tag input (chips + field) */
+
+.tagEditChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.tagEditChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(224, 123, 84, 0.12);
+  border-radius: 8px;
+  padding: 3px 5px 3px 9px;
+}
+
+.tagEditChip button {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--accent);
+  cursor: pointer;
+  padding: 1px;
+  border-radius: 4px;
+}
+
+.tagEditChip button:hover { background: rgba(224, 123, 84, 0.2); }
+
 /* ── Library list ────────────────────────────────────────────────────────────── */
 
 .list {

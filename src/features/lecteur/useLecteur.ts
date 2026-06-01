@@ -17,6 +17,7 @@ export interface MediaFile {
   file_path: string | null
   external_url: string | null
   mime_type: string | null
+  tags: string[]
   created_at: string
   member: { display_name: string } | null
 }
@@ -98,7 +99,7 @@ export function useAddMediaFile() {
 
   return useMutation({
     mutationFn: async (input: {
-      title: string; file_path?: string | null; external_url?: string | null; mime_type?: string | null; description?: string | null
+      title: string; file_path?: string | null; external_url?: string | null; mime_type?: string | null; description?: string | null; tags?: string[]
     }): Promise<MediaFile> => {
       const { data, error } = await supabase
         .from('media_files')
@@ -110,6 +111,7 @@ export function useAddMediaFile() {
           file_path:    input.file_path ?? null,
           external_url: input.external_url?.trim() || null,
           mime_type:    input.mime_type ?? null,
+          tags:         input.tags ?? [],
         } as never)
         .select('*, member:members(display_name)')
         .single()
@@ -155,24 +157,26 @@ export function useEditMediaFile() {
   const { showToast } = useToast()
 
   return useMutation({
-    mutationFn: async ({ id, title }: { id: string; title: string }) => {
+    mutationFn: async ({ id, title, tags }: { id: string; title: string; tags?: string[] }) => {
+      const patch: Record<string, unknown> = { title: title.trim() }
+      if (tags !== undefined) patch.tags = tags
       const { error } = await supabase
         .from('media_files')
-        .update({ title: title.trim() } as never)
+        .update(patch as never)
         .eq('id', id)
       if (error) throw error
     },
-    onMutate: async ({ id, title }) => {
+    onMutate: async ({ id, title, tags }) => {
       await queryClient.cancelQueries({ queryKey: MEDIA_FILES_KEY })
       const previous = queryClient.getQueryData<MediaFile[]>(MEDIA_FILES_KEY) ?? []
       queryClient.setQueryData<MediaFile[]>(MEDIA_FILES_KEY,
-        previous.map(f => f.id === id ? { ...f, title: title.trim() } : f)
+        previous.map(f => f.id === id ? { ...f, title: title.trim(), ...(tags !== undefined ? { tags } : {}) } : f)
       )
       return { previous }
     },
     onError: (_err, _vars, ctx) => {
       queryClient.setQueryData(MEDIA_FILES_KEY, ctx?.previous ?? [])
-      showToast({ type: 'error', message: 'Impossible de modifier le titre.' })
+      showToast({ type: 'error', message: 'Impossible de modifier le fichier.' })
     },
   })
 }
