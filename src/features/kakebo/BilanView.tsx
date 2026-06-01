@@ -209,7 +209,7 @@ export default function BilanView({
 
       {/* Recent entries */}
       {recentEntries.length > 0 && (
-        <>
+        <div className={styles.recentBlock}>
           <div className={styles.sectionRow}>
             <span className={styles.sectionLabel}>Dernières opérations</span>
             <button className={styles.sectionLink} onClick={onShowDetail}>Tout voir →</button>
@@ -219,7 +219,7 @@ export default function BilanView({
               <EntryRow key={e.id} entry={e} showBorder={i < recentEntries.length - 1} onEdit={() => onEdit(e)} onReplay={() => onReplay(e)} />
             ))}
           </div>
-        </>
+        </div>
       )}
     </div>
   )

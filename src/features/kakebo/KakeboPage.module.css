@@ -230,6 +230,30 @@
   padding: 12px 16px 0;
 }
 
+/* Desktop : masonry 2 colonnes. Cartes larges (donut, graphiques,
+   grille catégories) en pleine largeur ; rythme/top3/annuel flottent. */
+@media (min-width: 768px) {
+  .scrollArea {
+    display: block;
+    columns: 2;
+    column-gap: 12px;
+    padding-top: 16px;
+  }
+  .scrollArea > * {
+    break-inside: avoid;
+    margin-bottom: 12px;
+  }
+  .heroCard,
+  .catGrid,
+  .trendCard,
+  .savingsCard {
+    column-span: all;
+  }
+  .catGrid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
 /* ── Hero card (donut) ───────────────────────────────────────────────────── */
 
 .heroCard {
@@ -500,6 +524,12 @@
 .catGrid {
   display: grid;
   grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.recentBlock {
+  display: flex;
+  flex-direction: column;
   gap: 8px;
 }
 
