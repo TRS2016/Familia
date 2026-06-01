@@ -247,6 +247,16 @@
   gap: 6px;
 }
 
+/* Desktop : bibliothèque + liste des playlists en grille 2 colonnes */
+@media (min-width: 768px) {
+  .libraryGrid,
+  .playlistList {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+}
+
 .fileRow {
   display: flex;
   align-items: center;

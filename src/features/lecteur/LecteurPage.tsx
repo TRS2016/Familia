@@ -338,7 +338,7 @@ export default function LecteurPage() {
           ) : filtered.length === 0 ? (
             <EmptyState emoji="🔍" title="Aucun résultat" description="Modifiez les filtres ou la recherche." />
           ) : (
-            <ul className={styles.list}>
+            <ul className={[styles.list, styles.libraryGrid].join(' ')}>
               {filtered.map((file, i) => (
                 <FileRow
                   key={file.id}

@@ -162,6 +162,15 @@
   padding: 0 16px;
 }
 
+/* Desktop : catalogue en grille 2 colonnes */
+@media (min-width: 768px) {
+  .list {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0 16px;
+  }
+}
+
 /* ── Item row ────────────────────────────────────────────────────────────── */
 
 .item {
