@@ -307,7 +307,7 @@ export default function HomePage() {
           <div className={styles.navIconWrap} style={{ background: 'rgba(91,158,143,0.15)' }}>
             <ShoppingCart size={22} color="#5B9E8F" strokeWidth={2} />
           </div>
-          <div>
+          <div className={styles.navText}>
             <div className={styles.navLabel}>Courses</div>
             <div className={styles.navSub}>Liste partagée</div>
           </div>
@@ -319,7 +319,7 @@ export default function HomePage() {
               <span className={styles.navBadge}>{upcomingEvents.length}</span>
             )}
           </div>
-          <div>
+          <div className={styles.navText}>
             <div className={styles.navLabel}>Calendrier</div>
             <div className={styles.navSub}>Agenda familial</div>
           </div>
@@ -328,7 +328,7 @@ export default function HomePage() {
           <div className={styles.navIconWrap} style={{ background: 'rgba(155,122,196,0.15)' }}>
             <BookOpen size={22} color="#9B7AC4" strokeWidth={2} />
           </div>
-          <div>
+          <div className={styles.navText}>
             <div className={styles.navLabel}>Budget</div>
             <div className={styles.navSub}>Kakebo familial</div>
           </div>
@@ -337,7 +337,7 @@ export default function HomePage() {
           <div className={styles.navIconWrap} style={{ background: 'rgba(232,184,75,0.15)' }}>
             <Flame size={22} color="#E8B84B" strokeWidth={2} />
           </div>
-          <div>
+          <div className={styles.navText}>
             <div className={styles.navLabel}>Habitudes</div>
             <div className={styles.navSub}>Suivi quotidien</div>
           </div>
@@ -346,7 +346,7 @@ export default function HomePage() {
           <div className={styles.navIconWrap} style={{ background: 'rgba(224,123,84,0.15)' }}>
             <Tv size={22} color="var(--accent)" strokeWidth={2} />
           </div>
-          <div>
+          <div className={styles.navText}>
             <div className={styles.navLabel}>Médias</div>
             <div className={styles.navSub}>Films · Séries · Livres</div>
           </div>
@@ -355,7 +355,7 @@ export default function HomePage() {
           <div className={styles.navIconWrap} style={{ background: 'rgba(155,122,196,0.15)' }}>
             <Music size={22} color="#9B7AC4" strokeWidth={2} />
           </div>
-          <div>
+          <div className={styles.navText}>
             <div className={styles.navLabel}>Lecteur</div>
             <div className={styles.navSub}>Audio · Vidéo · Maison</div>
           </div>
@@ -364,7 +364,7 @@ export default function HomePage() {
           <div className={styles.navIconWrap} style={{ background: 'rgba(212,119,138,0.15)' }}>
             <Camera size={22} color="#D4778A" strokeWidth={2} />
           </div>
-          <div>
+          <div className={styles.navText}>
             <div className={styles.navLabel}>Moments</div>
             <div className={styles.navSub}>Journal photo</div>
           </div>
