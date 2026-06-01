@@ -206,29 +206,52 @@
   color: #E07B54;
 }
 
-.rowActions {
-  display: flex;
-  gap: 2px;
-  flex-shrink: 0;
-  opacity: 0;
-  transition: opacity 0.15s;
-}
-
-.row:hover .rowActions { opacity: 1; }
-
-.rowActionBtn {
+.rowMoreBtn {
   background: none;
   border: none;
   cursor: pointer;
   color: var(--text-muted);
-  padding: 3px;
+  padding: 5px;
   display: flex;
   align-items: center;
-  border-radius: 4px;
-  transition: background 0.15s;
+  border-radius: 6px;
+  flex-shrink: 0;
+  transition: color 0.15s, background 0.15s;
 }
 
-.rowActionBtn:hover { background: var(--border); }
+.rowMoreBtn:hover { color: var(--text); background: var(--bg-input); }
+
+/* ── Habit action sheet ───────────────────────────────────────────────────── */
+
+.habitSheet {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 0 16px 16px;
+}
+
+.habitSheetAction {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: none;
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: left;
+  transition: background 0.15s;
+  width: 100%;
+}
+
+.habitSheetAction:hover  { background: var(--border); }
+.habitSheetAction:active { opacity: 0.75; }
+
+.habitSheetDanger { color: #D94F4F; }
 
 /* ── Day cell ────────────────────────────────────────────────────────────── */
 

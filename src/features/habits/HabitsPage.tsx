@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { format, startOfWeek, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Trash2, BarChart2, Flame, Pencil, Archive, ArchiveRestore, Trophy } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, BarChart2, Flame, Pencil, Archive, ArchiveRestore, Trophy, MoreHorizontal } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -710,6 +710,8 @@ function HabitRow({ habit, color, streak, monthlyRate, dates, today, isDone, onT
   onStats: () => void
   onArchive: () => void
 }) {
+  const [showSheet, setShowSheet] = useState(false)
+
   const applicableDates = dates.filter(d => isApplicable(habit, d))
   const weekDone  = applicableDates.filter(d => isDone(d)).length
   const target    = habit.frequency_days?.length ?? freqTarget(habit.frequency ?? 'daily')
@@ -717,70 +719,103 @@ function HabitRow({ habit, color, streak, monthlyRate, dates, today, isDone, onT
   const nonDaily  = (habit.frequency_days?.length ?? 0) > 0 || (habit.frequency ?? 'daily') !== 'daily'
 
   return (
-    <div className={styles.row}>
-      <div className={styles.rowInfo}>
-        <span className={styles.rowEmoji}>{habit.emoji}</span>
-        <div className={styles.rowMeta}>
-          <span className={styles.rowName}>{habit.name}</span>
-          <div className={styles.rowStreak}>
-            {streakMilestone(streak) ? (
-              <span className={styles.milestoneBadge} style={{ color }}>
-                {streakMilestone(streak)!.emoji} {streak}j
-              </span>
-            ) : (
-              <>
-                <Flame size={10} strokeWidth={2.5} color="#E07B54" />
-                <span className={styles.rowStreakVal}>{streak}j</span>
-              </>
-            )}
-            {nonDaily && (
-              <span className={[styles.rowFreqBadge, isOnTrack ? styles.rowFreqDone : ''].join(' ')}>
-                {weekDone}/{target}
-              </span>
-            )}
-            {monthlyRate !== undefined && (
-              <span
-                className={styles.monthlyRateBadge}
-                style={{ color: monthlyRate >= 80 ? '#5B9E8F' : monthlyRate >= 50 ? 'var(--text-muted)' : '#E07B54' }}
-              >
-                {monthlyRate}%
-              </span>
-            )}
+    <>
+      <div className={styles.row}>
+        <div className={styles.rowInfo}>
+          <span className={styles.rowEmoji}>{habit.emoji}</span>
+          <div className={styles.rowMeta}>
+            <span className={styles.rowName}>{habit.name}</span>
+            <div className={styles.rowStreak}>
+              {streakMilestone(streak) ? (
+                <span className={styles.milestoneBadge} style={{ color }}>
+                  {streakMilestone(streak)!.emoji} {streak}j
+                </span>
+              ) : (
+                <>
+                  <Flame size={10} strokeWidth={2.5} color="#E07B54" />
+                  <span className={styles.rowStreakVal}>{streak}j</span>
+                </>
+              )}
+              {nonDaily && (
+                <span className={[styles.rowFreqBadge, isOnTrack ? styles.rowFreqDone : ''].join(' ')}>
+                  {weekDone}/{target}
+                </span>
+              )}
+              {monthlyRate !== undefined && (
+                <span
+                  className={styles.monthlyRateBadge}
+                  style={{ color: monthlyRate >= 80 ? '#5B9E8F' : monthlyRate >= 50 ? 'var(--text-muted)' : '#E07B54' }}
+                >
+                  {monthlyRate}%
+                </span>
+              )}
+            </div>
           </div>
+          <button
+            className={styles.rowMoreBtn}
+            onClick={() => setShowSheet(true)}
+            aria-label="Actions"
+            data-no-feedback
+          >
+            <MoreHorizontal size={15} strokeWidth={2} />
+          </button>
         </div>
-        <div className={styles.rowActions}>
-          <button className={styles.rowActionBtn} onClick={onStats} aria-label="Stats"><BarChart2 size={12} strokeWidth={2} /></button>
-          <button className={styles.rowActionBtn} onClick={onEdit} aria-label="Modifier"><Pencil size={12} strokeWidth={2} /></button>
-          <button className={styles.rowActionBtn} onClick={onArchive} aria-label="Archiver"><Archive size={12} strokeWidth={2} /></button>
-          <button className={styles.rowActionBtn} onClick={onDelete} aria-label="Supprimer"><Trash2 size={12} strokeWidth={2} /></button>
-        </div>
+
+        {dates.map(date => {
+          const done     = isDone(date)
+          const isToday  = date === today
+          const isFuture = date > today
+          const na       = !isApplicable(habit, date)
+          return (
+            <button
+              key={date}
+              className={[
+                styles.dayCell,
+                done && !na ? styles.dayCellDone : '',
+                isToday && !na ? styles.dayCellToday : '',
+                isFuture ? styles.dayCellFuture : '',
+                na ? styles.dayCellNA : '',
+              ].join(' ')}
+              style={done && !na ? { background: color } : isToday && !na ? { borderColor: color } : {}}
+              onClick={() => !isFuture && !na && onToggle(date)}
+              disabled={isFuture || na}
+              aria-label={na ? 'Non applicable' : `${done ? 'Note/décocher' : 'Cocher'} ${date}`}
+            >
+              {done && !na && <span className={styles.checkMark}>✓</span>}
+            </button>
+          )
+        })}
       </div>
 
-      {dates.map(date => {
-        const done     = isDone(date)
-        const isToday  = date === today
-        const isFuture = date > today
-        const na       = !isApplicable(habit, date)
-        return (
-          <button
-            key={date}
-            className={[
-              styles.dayCell,
-              done && !na ? styles.dayCellDone : '',
-              isToday && !na ? styles.dayCellToday : '',
-              isFuture ? styles.dayCellFuture : '',
-              na ? styles.dayCellNA : '',
-            ].join(' ')}
-            style={done && !na ? { background: color } : isToday && !na ? { borderColor: color } : {}}
-            onClick={() => !isFuture && !na && onToggle(date)}
-            disabled={isFuture || na}
-            aria-label={na ? 'Non applicable' : `${done ? 'Note/décocher' : 'Cocher'} ${date}`}
-          >
-            {done && !na && <span className={styles.checkMark}>✓</span>}
-          </button>
-        )
-      })}
-    </div>
+      {showSheet && (
+        <SlideUpModal
+          title={`${habit.emoji} ${habit.name}`}
+          onClose={() => setShowSheet(false)}
+        >
+          <div className={styles.habitSheet}>
+            <button className={styles.habitSheetAction} onClick={() => { onStats(); setShowSheet(false) }}>
+              <BarChart2 size={18} strokeWidth={2} />
+              <span>Statistiques</span>
+            </button>
+            <button className={styles.habitSheetAction} onClick={() => { onEdit(); setShowSheet(false) }}>
+              <Pencil size={18} strokeWidth={2} />
+              <span>Modifier</span>
+            </button>
+            <button className={styles.habitSheetAction} onClick={() => { onArchive(); setShowSheet(false) }}>
+              <Archive size={18} strokeWidth={2} />
+              <span>Archiver</span>
+            </button>
+            <button
+              className={[styles.habitSheetAction, styles.habitSheetDanger].join(' ')}
+              onClick={() => { onDelete(); setShowSheet(false) }}
+            >
+              <Trash2 size={18} strokeWidth={2} />
+              <span>Supprimer</span>
+            </button>
+          </div>
+        </SlideUpModal>
+      )}
+    </>
   )
 }
 
