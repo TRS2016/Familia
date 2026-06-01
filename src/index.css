@@ -1,7 +1,16 @@
 /* ── Design tokens ────────────────────────────────────────────────────────── */
 
 :root {
-  --nav-h: 56px; /* bottom navigation bar height (sans safe area) */
+  --nav-h:      56px;  /* bottom nav height — 0 on desktop */
+  --sidebar-w:  220px; /* desktop sidebar width */
+  --page-max-w: 480px; /* page content max-width */
+}
+
+@media (min-width: 768px) {
+  :root {
+    --nav-h:      0px;
+    --page-max-w: 800px;
+  }
 }
 
 /* ── Reset minimal ────────────────────────────────────────────────────────── */
@@ -13,6 +22,7 @@
 body {
   margin: 0;
   overflow-x: hidden;
+  background: var(--bg);
   /* Prevent font scaling in landscape on iOS */
   -webkit-text-size-adjust: 100%;
 }
@@ -39,6 +49,14 @@ p { margin: 0; }
   textarea,
   select {
     font-size: 16px !important;
+  }
+}
+
+/* ── App content layout (sidebar offset on desktop) ─────────────────────── */
+
+@media (min-width: 768px) {
+  .app-content {
+    margin-left: var(--sidebar-w);
   }
 }
 

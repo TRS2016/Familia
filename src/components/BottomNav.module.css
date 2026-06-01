@@ -1,6 +1,6 @@
-/* ── Nav bar ─────────────────────────────────────────────────────────────── */
+/* ── Mobile bottom bar ────────────────────────────────────────────────────── */
 
-.nav {
+.mobileNav {
   position: fixed;
   bottom: 0;
   left: 0;
@@ -17,9 +17,11 @@
   -webkit-backdrop-filter: blur(16px);
 }
 
-/* ── Tab ─────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  .mobileNav { display: none; }
+}
 
-.tab {
+.mobileTab {
   flex: 1;
   display: flex;
   flex-direction: column;
@@ -37,17 +39,104 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.tab:active { opacity: 0.7; }
+.mobileTab:active  { opacity: 0.7; }
+.mobileTabActive   { color: var(--accent); }
 
-.tabActive { color: var(--accent); }
-
-.tabLabel {
+.mobileTabLabel {
   font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.2px;
 }
 
-/* ── "Plus" overflow grid ────────────────────────────────────────────────── */
+/* ── Desktop sidebar (hidden on mobile) ─────────────────────────────────── */
+
+.sidebar { display: none; }
+
+@media (min-width: 768px) {
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    position: fixed;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: var(--sidebar-w);
+    background: var(--bg-card);
+    border-right: 1px solid var(--border);
+    z-index: 200;
+    overflow-y: auto;
+  }
+}
+
+/* Brand */
+
+.sidebarBrand {
+  padding: 24px 20px 18px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.sidebarBrandName {
+  display: block;
+  font-size: 20px;
+  font-weight: 900;
+  color: var(--accent);
+  letter-spacing: -0.3px;
+  font-family: var(--font-family);
+}
+
+.sidebarBrandSub {
+  display: block;
+  font-size: 11px;
+  color: var(--text-muted);
+  font-weight: 600;
+  margin-top: 3px;
+  font-family: var(--font-family);
+}
+
+/* Nav items */
+
+.sidebarNav {
+  flex: 1;
+  padding: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+}
+
+.sidebarItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--text-muted);
+  text-decoration: none;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.15s, color 0.15s;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.sidebarItem:hover     { background: var(--bg-input); color: var(--text); }
+.sidebarItem:active    { opacity: 0.75; }
+.sidebarItemActive     { background: rgba(224, 123, 84, 0.1); color: var(--accent); }
+.sidebarItemLabel      { flex: 1; }
+
+/* Footer (Réglages) */
+
+.sidebarFooter {
+  padding: 8px 10px 20px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* ── Mobile "Plus" overflow grid ────────────────────────────────────────── */
 
 .moreGrid {
   display: grid;
@@ -70,13 +159,9 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.moreItem:hover   { background: var(--border); }
-.moreItem:active  { opacity: 0.75; }
-
-.moreItemActive {
-  border-color: var(--accent);
-  background: rgba(224, 123, 84, 0.08);
-}
+.moreItem:hover        { background: var(--border); }
+.moreItem:active       { opacity: 0.75; }
+.moreItemActive        { border-color: var(--accent); background: rgba(224, 123, 84, 0.08); }
 
 .moreEmoji {
   font-size: 26px;

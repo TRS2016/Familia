@@ -6,7 +6,7 @@
   flex-direction: column;
   gap: 20px;
   padding: 28px 20px calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
-  max-width: 480px;
+  max-width: var(--page-max-w);
   margin: 0 auto;
 }
 

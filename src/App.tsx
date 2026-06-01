@@ -30,7 +30,7 @@ function AnimatedLayout() {
   const { key } = useLocation()
   return (
     <>
-      <div key={key} className="page-enter">
+      <div key={key} className="page-enter app-content">
         <Outlet />
       </div>
       <BottomNav />

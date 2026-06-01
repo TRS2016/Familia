@@ -23,7 +23,7 @@
   font-family: var(--font-family);
   display: flex;
   flex-direction: column;
-  max-width: 480px;
+  max-width: var(--page-max-w);
   margin: 0 auto;
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 88px);
 }
@@ -676,8 +676,8 @@
 .fab {
   position: fixed;
   bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 16px);
-  /* Stay within the centered 480px column on large screens */
-  right: max(24px, calc((100vw - 480px) / 2 + 16px));
+  /* Stay within the centered content column on large screens */
+  right: max(24px, calc((100vw - var(--page-max-w)) / 2 + 16px));
   width: 56px;
   height: 56px;
   border-radius: 50%;
@@ -691,6 +691,12 @@
   box-shadow: var(--shadow-btn), 0 8px 24px rgba(224, 123, 84, 0.35);
   z-index: 20;
   transition: transform 0.15s, box-shadow 0.15s;
+}
+
+@media (min-width: 768px) {
+  .fab {
+    right: max(24px, calc((100vw - var(--sidebar-w) - var(--page-max-w)) / 2 + 16px));
+  }
 }
 
 .fab:hover {
