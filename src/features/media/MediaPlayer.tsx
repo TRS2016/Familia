@@ -1,7 +1,79 @@
-import { useCallback, useEffect, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Play, Pause } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import styles from './MediaPlayer.module.css'
+
+// ── Custom audio player ───────────────────────────────────────────────────────
+
+function fmtTime(s: number): string {
+  if (!isFinite(s) || s < 0) return '0:00'
+  const m = Math.floor(s / 60)
+  const sec = Math.floor(s % 60)
+  return `${m}:${String(sec).padStart(2, '0')}`
+}
+
+function CustomAudio({ src, autoPlay, onEnded }: {
+  src: string
+  autoPlay?: boolean
+  onEnded?: () => void
+}) {
+  const ref = useRef<HTMLAudioElement>(null)
+  const [playing,  setPlaying]  = useState(false)
+  const [current,  setCurrent]  = useState(0)
+  const [duration, setDuration] = useState(0)
+
+  function toggle() {
+    const el = ref.current
+    if (!el) return
+    if (el.paused) el.play().catch(() => { /* autoplay bloqué */ })
+    else el.pause()
+  }
+
+  function seek(e: React.MouseEvent<HTMLDivElement>) {
+    const el = ref.current
+    if (!el || !duration) return
+    const rect = e.currentTarget.getBoundingClientRect()
+    const frac = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width))
+    el.currentTime = frac * duration
+    setCurrent(el.currentTime)
+  }
+
+  const pct = duration ? (current / duration) * 100 : 0
+
+  return (
+    <div className={styles.audioPlayer}>
+      <audio
+        ref={ref}
+        src={src}
+        autoPlay={autoPlay}
+        preload="metadata"
+        onPlay={() => setPlaying(true)}
+        onPause={() => setPlaying(false)}
+        onTimeUpdate={e => setCurrent(e.currentTarget.currentTime)}
+        onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
+        onCanPlay={e => { if (autoPlay) e.currentTarget.play().catch(() => { /* bloqué */ }) }}
+        onEnded={onEnded}
+      />
+      <button
+        className={styles.audioPlayBtn}
+        onClick={toggle}
+        aria-label={playing ? 'Pause' : 'Lecture'}
+      >
+        {playing
+          ? <Pause size={18} strokeWidth={2.5} fill="currentColor" />
+          : <Play size={18} strokeWidth={2.5} fill="currentColor" />}
+      </button>
+      <span className={styles.audioTime}>{fmtTime(current)}</span>
+      <div className={styles.audioTrack} onClick={seek}>
+        <div className={styles.audioFill} style={{ width: `${pct}%` }}>
+          <span className={styles.audioThumb} />
+        </div>
+      </div>
+      <span className={styles.audioTime}>{fmtTime(duration)}</span>
+    </div>
+  )
+}
 
 // ── YouTube IFrame API loader (chargé une seule fois) ─────────────────────────
 
@@ -173,18 +245,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
   }
 
   if (type === 'audio') {
-    return (
-      <audio
-        key={url}
-        src={url}
-        controls
-        className={styles.audio}
-        preload="metadata"
-        autoPlay={autoPlay}
-        onCanPlay={handleCanPlay}
-        onEnded={onEnded}
-      />
-    )
+    return <CustomAudio key={url} src={url} autoPlay={autoPlay} onEnded={onEnded} />
   }
 
   return (
