@@ -185,7 +185,7 @@ export default function TrainingPage() {
 
 // ── Stepper ─────────────────────────────────────────────────────────────────────
 
-function Stepper({ label, value, setValue, step, min, max, fmt }: {
+function Stepper({ label, value, setValue, step, min, max, fmt, accent, wide }: {
   label: string
   value: number
   setValue: (v: number) => void
@@ -193,11 +193,13 @@ function Stepper({ label, value, setValue, step, min, max, fmt }: {
   min: number
   max: number
   fmt?: (v: number) => string
+  accent?: boolean
+  wide?: boolean
 }) {
   const clamp = (v: number) => Math.max(min, Math.min(max, v))
   return (
-    <div className={styles.stepper}>
-      <span className={styles.stepperLabel}>{label}</span>
+    <div className={[styles.stepper, accent ? styles.stepperAccent : '', wide ? styles.stepperWide : ''].join(' ')}>
+      <span className={[styles.stepperLabel, accent ? styles.stepperLabelAccent : ''].join(' ')}>{label}</span>
       <div className={styles.stepperControls}>
         <button type="button" className={styles.stepperBtn} onClick={() => setValue(clamp(value - step))} aria-label="Moins">
           <Minus size={16} strokeWidth={2.5} />
@@ -255,26 +257,26 @@ function ConfigScreen({ mode, initialConfig, presetName, onBack, onStart, onSave
 
         {(mode === 'tabata' || mode === 'intervals') && (
           <>
-            <Stepper label="Effort" value={cfg.work ?? 20} setValue={v => set({ work: v })} step={5} min={5} max={600} fmt={v => `${v}s`} />
+            <Stepper label="Effort" value={cfg.work ?? 20} setValue={v => set({ work: v })} step={5} min={5} max={600} fmt={v => `${v}s`} accent />
             <Stepper label="Repos" value={cfg.rest ?? 10} setValue={v => set({ rest: v })} step={5} min={0} max={600} fmt={v => `${v}s`} />
-            <Stepper label="Rounds" value={cfg.rounds ?? 8} setValue={v => set({ rounds: v })} step={1} min={1} max={50} />
+            <Stepper label="Rounds" value={cfg.rounds ?? 8} setValue={v => set({ rounds: v })} step={1} min={1} max={50} wide />
           </>
         )}
 
         {mode === 'emom' && (
           <>
-            <Stepper label="Intervalle" value={cfg.interval ?? 60} setValue={v => set({ interval: v })} step={15} min={15} max={600} fmt={fmtClock} />
+            <Stepper label="Intervalle" value={cfg.interval ?? 60} setValue={v => set({ interval: v })} step={15} min={15} max={600} fmt={fmtClock} accent />
             <Stepper label="Rounds" value={cfg.rounds ?? 10} setValue={v => set({ rounds: v })} step={1} min={1} max={60} />
           </>
         )}
 
         {mode === 'amrap' && (
-          <Stepper label="Durée" value={cfg.duration ?? 600} setValue={v => set({ duration: v })} step={60} min={60} max={3600} fmt={fmtClock} />
+          <Stepper label="Durée" value={cfg.duration ?? 600} setValue={v => set({ duration: v })} step={60} min={60} max={3600} fmt={fmtClock} accent wide />
         )}
 
         {mode === 'fortime' && (
           <>
-            <Stepper label="Objectif (tours)" value={cfg.target ?? 0} setValue={v => set({ target: v })} step={1} min={0} max={50} fmt={v => v === 0 ? 'Aucun' : String(v)} />
+            <Stepper label="Objectif (tours)" value={cfg.target ?? 0} setValue={v => set({ target: v })} step={1} min={0} max={50} fmt={v => v === 0 ? 'Aucun' : String(v)} accent />
             <Stepper label="Plafond (0 = aucun)" value={cfg.cap ?? 0} setValue={v => set({ cap: v })} step={60} min={0} max={3600} fmt={v => v === 0 ? 'Aucun' : fmtClock(v)} />
           </>
         )}
@@ -372,10 +374,10 @@ function ConfigScreen({ mode, initialConfig, presetName, onBack, onStart, onSave
 // ── Run screen ──────────────────────────────────────────────────────────────────
 
 const PHASE_COLOR: Record<string, string> = {
-  prepare: '#F0C95B', // jaune doré — prépare-toi
-  work:    '#FF7A45', // orange vif — effort
-  rest:    '#5AAEE6', // bleu ciel — repos
-  done:    '#6FD08A', // vert vif — réussite
+  prepare: '#C7BFA8', // tan neutre — prépare-toi
+  work:    '#E8643A', // orange brûlé — effort
+  rest:    '#3D80B8', // bleu — repos
+  done:    '#4F7D3A', // vert — terminé
 }
 
 const RING = { size: 290, r: 135 }
@@ -444,16 +446,13 @@ function RunScreen({ mode, config, title, onExit }: {
         <div className={styles.ringWrap} style={{ width: RING.size, height: RING.size }}>
           <svg width={RING.size} height={RING.size} className={styles.ringSvg}>
             <circle cx={RING.size / 2} cy={RING.size / 2} r={RING.r} fill="none"
-              stroke="rgba(244,240,230,0.1)" strokeWidth={10} />
+              stroke="rgba(244,240,230,0.12)" strokeWidth={5} />
             <circle cx={RING.size / 2} cy={RING.size / 2} r={RING.r} fill="none"
-              stroke={color} strokeWidth={10} strokeLinecap="round"
+              stroke={color} strokeWidth={5} strokeLinecap="round"
               strokeDasharray={RING_C}
               strokeDashoffset={RING_C * (1 - (done ? 1 : view.progress))}
               transform={`rotate(-90 ${RING.size / 2} ${RING.size / 2})`}
-              style={{
-                transition: 'stroke-dashoffset 0.2s linear, stroke 0.4s ease',
-                filter: `drop-shadow(0 0 7px ${color}99)`,
-              }}
+              style={{ transition: 'stroke-dashoffset 0.3s linear, stroke 0.4s ease' }}
             />
           </svg>
           <div className={styles.ringInner}>
