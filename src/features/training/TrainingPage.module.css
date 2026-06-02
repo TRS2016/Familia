@@ -505,7 +505,10 @@
   color: var(--text-muted);
 }
 
+.videoUploadRow { display: flex; gap: 8px; }
+
 .videoUploadBtn {
+  flex: 1;
   display: flex;
   align-items: center;
   justify-content: center;

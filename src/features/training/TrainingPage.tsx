@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
   ChevronLeft, Plus, Minus, Play, Pause, RotateCcw, X, SkipForward, Trash2, Bookmark,
-  Video, Upload, Link as LinkIcon,
+  Video, Link as LinkIcon, Camera, Images,
 } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
 import MediaPlayer from '../media/MediaPlayer'
@@ -170,6 +170,7 @@ export default function TrainingPage() {
       <ExerciseEditor
         mode={mode}
         rounds={cfg.rounds ?? 0}
+        sets={cfg.sets ?? 1}
         exercises={normalizeExercises(cfg.exercises)}
         onChange={list => set({ exercises: list })}
       />
@@ -326,13 +327,16 @@ function Stepper({ label, value, setValue, step, min, max, fmt, accent, wide }: 
 
 // ── Éditeur d'exercices (un par round) + vidéos ─────────────────────────────────
 
-function ExerciseEditor({ mode, rounds, exercises, onChange }: {
+function ExerciseEditor({ mode, rounds, sets, exercises, onChange }: {
   mode: TrainingMode
   rounds: number
+  sets: number
   exercises: Exercise[]
   onChange: (list: Exercise[]) => void
 }) {
-  const roundBased = mode === 'tabata' || mode === 'emom' || mode === 'intervals'
+  const seriesBased = mode === 'tabata' || mode === 'intervals'
+  const perMinute   = mode === 'emom'
+  const fixedSlots  = seriesBased || perMinute
   const [videoIdx, setVideoIdx] = useState<number | null>(null)
   const [freeInput, setFreeInput] = useState('')
 
@@ -352,14 +356,14 @@ function ExerciseEditor({ mode, rounds, exercises, onChange }: {
     setFreeInput('')
   }
 
-  const count = roundBased ? Math.max(1, rounds) : exercises.length
+  const count = seriesBased ? Math.max(1, sets) : perMinute ? Math.max(1, rounds) : exercises.length
+  const hint = seriesBased ? 'un par série' : perMinute ? 'un par minute' : 'défilent à l\'effort'
+  const slotTag = (i: number) => seriesBased ? `S${i + 1}` : perMinute ? `M${i + 1}` : `${i + 1}`
 
   return (
     <div className={styles.subCard}>
       <span className={styles.cfgSectionLabel}>
-        Exercices <span className={styles.cfgSectionHint}>
-          · {roundBased ? 'un par round, se répètent à chaque série' : 'défilent à l\'effort'}
-        </span>
+        Exercices <span className={styles.cfgSectionHint}>· {hint}</span>
       </span>
 
       <ul className={styles.exList}>
@@ -367,12 +371,12 @@ function ExerciseEditor({ mode, rounds, exercises, onChange }: {
           const ex = exercises[i] ?? { name: '' }
           return (
             <li key={i} className={styles.exItem}>
-              <span className={styles.exIdx}>{roundBased ? `R${i + 1}` : i + 1}</span>
+              <span className={styles.exIdx}>{slotTag(i)}</span>
               <input
                 className={styles.exNameInput}
                 value={ex.name}
                 onChange={e => setEx(i, { name: e.target.value })}
-                placeholder={roundBased ? `Exercice round ${i + 1}` : 'Exercice…'}
+                placeholder={seriesBased ? `Exercice série ${i + 1}` : perMinute ? `Exercice min ${i + 1}` : 'Exercice…'}
               />
               <button
                 type="button"
@@ -383,7 +387,7 @@ function ExerciseEditor({ mode, rounds, exercises, onChange }: {
               >
                 <Video size={15} strokeWidth={2} />
               </button>
-              {!roundBased && (
+              {!fixedSlots && (
                 <button type="button" className={styles.exRemove} onClick={() => removeEx(i)} aria-label="Retirer">
                   <X size={14} strokeWidth={2.5} />
                 </button>
@@ -393,7 +397,7 @@ function ExerciseEditor({ mode, rounds, exercises, onChange }: {
         })}
       </ul>
 
-      {!roundBased && (
+      {!fixedSlots && (
         <div className={styles.exAddRow}>
           <input
             className={styles.exInput}
@@ -427,7 +431,8 @@ function VideoSheet({ exercise, onClose, onSave }: {
   const upload = useUploadMediaFile()
   const [url, setUrl] = useState(exercise.videoUrl ?? '')
   const [path, setPath] = useState(exercise.videoPath)
-  const fileRef = useRef<HTMLInputElement>(null)
+  const galleryRef = useRef<HTMLInputElement>(null)
+  const cameraRef  = useRef<HTMLInputElement>(null)
 
   async function handleFile(file: File) {
     const res = await upload.mutateAsync(file)
@@ -449,21 +454,38 @@ function VideoSheet({ exercise, onClose, onSave }: {
           />
         </div>
 
-        <div className={styles.videoOr}>ou</div>
+        <div className={styles.videoOr}>ou {upload.isPending ? '· upload…' : path ? '· fichier ✓' : ''}</div>
 
-        <button
-          type="button"
-          className={styles.videoUploadBtn}
-          onClick={() => fileRef.current?.click()}
-          disabled={upload.isPending}
-        >
-          <Upload size={15} strokeWidth={2} />
-          {upload.isPending ? 'Upload…' : path ? 'Fichier uploadé ✓' : 'Uploader une vidéo'}
-        </button>
+        <div className={styles.videoUploadRow}>
+          <button
+            type="button"
+            className={styles.videoUploadBtn}
+            onClick={() => galleryRef.current?.click()}
+            disabled={upload.isPending}
+          >
+            <Images size={15} strokeWidth={2} /> Galerie
+          </button>
+          <button
+            type="button"
+            className={styles.videoUploadBtn}
+            onClick={() => cameraRef.current?.click()}
+            disabled={upload.isPending}
+          >
+            <Camera size={15} strokeWidth={2} /> Caméra
+          </button>
+        </div>
         <input
-          ref={fileRef}
+          ref={galleryRef}
           type="file"
           accept="video/*"
+          style={{ display: 'none' }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
+        />
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="video/*"
+          capture="environment"
           style={{ display: 'none' }}
           onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
         />
@@ -517,8 +539,9 @@ function RunScreen({ mode, config, title, onExit }: {
   const [showVideo, setShowVideo] = useState(false)
 
   const exObjs = normalizeExercises(config.exercises)
-  const curEx = view.kind === 'work' && view.round && exObjs.length > 0
-    ? exObjs[(view.round - 1) % exObjs.length]
+  const exIdxBase = (mode === 'tabata' || mode === 'intervals') ? view.set : view.round
+  const curEx = view.kind === 'work' && exIdxBase && exObjs.length > 0
+    ? exObjs[((exIdxBase - 1) % exObjs.length + exObjs.length) % exObjs.length]
     : undefined
 
   useEffect(() => {

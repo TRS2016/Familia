@@ -129,16 +129,22 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     const progress = ph.seconds > 0 ? Math.min(1, Math.max(0, 1 - remainingRef.current / ph.seconds)) : 0
 
     // exercices qui défilent par round d'effort
+    // Exercices : par série (tabata/intervals) ou par round/minute (emom)
     let exercise = '', exerciseNext = ''
     const n = exNames.length
     if (n > 0) {
-      if (ph.kind === 'work' && ph.round) {
-        exercise     = exNames[(ph.round - 1) % n]
-        exerciseNext = exNames[ph.round % n]
-      } else if (ph.kind === 'rest' && ph.round) {
-        exerciseNext = exNames[ph.round % n]
-      } else if (ph.kind === 'prepare') {
-        exerciseNext = exNames[0]
+      const seriesBased = mode === 'tabata' || mode === 'intervals'
+      const idxOf = (p: typeof ph) => {
+        const base = seriesBased ? (p.set ?? 1) : (p.round ?? 1)
+        return ((base - 1) % n + n) % n
+      }
+      if (ph.kind === 'work') exercise = exNames[idxOf(ph)]
+      for (let k = phaseIdxRef.current + 1; k < phases.length; k++) {
+        if (phases[k].kind === 'work') {
+          const nm = exNames[idxOf(phases[k])]
+          if (nm && nm !== exercise) exerciseNext = nm
+          break
+        }
       }
     }
 
@@ -162,7 +168,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
             exerciseNext,
           }
     )
-  }, [phases, exNames])
+  }, [phases, exNames, mode])
 
   const emitCountUp = useCallback(() => {
     const value = Math.floor(elapsedRef.current)
