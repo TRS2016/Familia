@@ -83,6 +83,15 @@ export default function TrainingPage() {
   const focuses = [...new Set(presets.map(p => p.config.focus).filter(Boolean))] as string[]
   const shownPresets = focusFilter ? presets.filter(p => p.config.focus === focusFilter) : presets
 
+  // Aperçu de l'horloge (état arrêté)
+  const PV = { size: 190, r: 88 }
+  const PV_C = 2 * Math.PI * PV.r
+  const previewBig = mode === 'fortime'
+    ? (cfg.cap ? fmtClock(cfg.cap) : '∞')
+    : mode === 'amrap'
+    ? fmtClock(cfg.duration ?? 0)
+    : fmtClock(total)
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
@@ -107,6 +116,25 @@ export default function TrainingPage() {
       </div>
 
       <p className={styles.configHint}>{m.desc}</p>
+
+      {/* Aperçu de l'horloge */}
+      <div className={styles.previewWrap}>
+        <div className={styles.previewRing} style={{ width: PV.size, height: PV.size }}>
+          <svg width={PV.size} height={PV.size} className={styles.ringSvg}>
+            <circle cx={PV.size / 2} cy={PV.size / 2} r={PV.r} fill="none" stroke="var(--tr-line)" strokeWidth={4} />
+            <circle cx={PV.size / 2} cy={PV.size / 2} r={PV.r} fill="none"
+              stroke={m.color} strokeWidth={4} strokeLinecap="round"
+              strokeDasharray={PV_C} strokeDashoffset={0}
+              transform={`rotate(-90 ${PV.size / 2} ${PV.size / 2})`}
+            />
+          </svg>
+          <div className={styles.previewInner}>
+            <span className={styles.previewLabel} style={{ color: m.color }}>{m.label.toUpperCase()}</span>
+            <span className={styles.previewBig}>{previewBig}</span>
+            <span className={styles.previewSub}>{configSummary(mode, cfg)}</span>
+          </div>
+        </div>
+      </div>
 
       {/* Réglages du mode sélectionné */}
       <div className={styles.configCard}>

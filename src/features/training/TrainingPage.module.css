@@ -125,6 +125,49 @@
 
 .modeTabEmoji { font-size: 15px; line-height: 1; }
 
+/* Aperçu de l'horloge (config) */
+.previewWrap {
+  display: flex;
+  justify-content: center;
+  padding: 8px 22px 2px;
+}
+
+.previewRing { position: relative; flex-shrink: 0; }
+
+.previewInner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+
+.previewLabel {
+  font-family: var(--tr-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+}
+
+.previewBig {
+  font-family: var(--tr-display);
+  font-weight: 600;
+  font-feature-settings: "tnum", "ss01";
+  font-size: 44px;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  color: var(--tr-ink);
+}
+
+.previewSub {
+  font-family: var(--tr-mono);
+  font-size: 9px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--tr-ink3);
+}
+
 /* ── Filtre & chips de zone ─────────────────────────────────────────────────── */
 
 .focusFilterRow {
