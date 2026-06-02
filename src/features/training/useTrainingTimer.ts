@@ -13,6 +13,7 @@ export interface TimerView {
   phaseIndex: number
   phaseCount: number
   elapsedTotal: number // s écoulées (pour l'historique)
+  progress: number     // 0→1 de la phase courante (anneau)
 }
 
 // ── Bips Web Audio ─────────────────────────────────────────────────────────────
@@ -80,6 +81,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
 
   const countUp = isCountUp(mode)
   const cap = config.cap ?? 0
+  const target = config.target ?? 0
 
   const cfgKey = JSON.stringify(config)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -95,9 +97,12 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     phaseIndex: 0,
     phaseCount: phases.length,
     elapsedTotal: 0,
+    progress: 0,
   }
 
   const [view, setView] = useState<TimerView>(initial)
+  const [taps, setTaps] = useState(0)
+  const tapsRef = useRef(0)
 
   const intervalRef  = useRef<number | undefined>(undefined)
   const lastRef      = useRef(0)
@@ -111,9 +116,10 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     const ph = phases[phaseIdxRef.current]
     if (!ph) return
     const value = Math.max(0, Math.ceil(remainingRef.current))
+    const progress = ph.seconds > 0 ? Math.min(1, Math.max(0, 1 - remainingRef.current / ph.seconds)) : 0
     setView(v =>
       v.value === value && v.phaseIndex === phaseIdxRef.current && v.status === 'running'
-        ? v
+        ? { ...v, progress }
         : {
             status: 'running',
             kind: ph.kind,
@@ -124,21 +130,23 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
             phaseIndex: phaseIdxRef.current,
             phaseCount: phases.length,
             elapsedTotal: Math.round(elapsedRef.current),
+            progress,
           }
     )
   }, [phases])
 
   const emitCountUp = useCallback(() => {
     const value = Math.floor(elapsedRef.current)
+    const progress = cap > 0 ? Math.min(1, elapsedRef.current / cap) : 0
     setView(v =>
       v.value === value && v.status === 'running'
-        ? v
+        ? { ...v, progress }
         : {
             status: 'running', kind: 'work', label: 'For Time', value,
-            round: 0, totalRounds: 0, phaseIndex: 0, phaseCount: 0, elapsedTotal: value,
+            round: 0, totalRounds: 0, phaseIndex: 0, phaseCount: 0, elapsedTotal: value, progress,
           }
     )
-  }, [])
+  }, [cap])
 
   const finish = useCallback(() => {
     statusRef.current = 'done'
@@ -156,8 +164,8 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
 
     if (countUp) {
       elapsedRef.current += dt
-      if (cap > 0 && elapsedRef.current >= cap) {
-        elapsedRef.current = cap
+      if ((cap > 0 && elapsedRef.current >= cap) || (target > 0 && tapsRef.current >= target)) {
+        if (cap > 0 && elapsedRef.current >= cap) elapsedRef.current = cap
         emitCountUp()
         finish()
         return
@@ -185,7 +193,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
       }
       emitCountdown()
     }
-  }, [countUp, cap, phases, emitCountUp, emitCountdown, finish, sndTick, sndGo, sndBreak])
+  }, [countUp, cap, target, phases, emitCountUp, emitCountdown, finish, sndTick, sndGo, sndBreak])
 
   const start = useCallback(() => {
     ensure()
@@ -193,6 +201,8 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     remainingRef.current = phases[0]?.seconds ?? 0
     elapsedRef.current   = 0
     prevCeilRef.current  = -1
+    tapsRef.current      = 0
+    setTaps(0)
     statusRef.current    = 'running'
     lastRef.current      = performance.now()
     // son de départ
@@ -226,6 +236,8 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     remainingRef.current = phases[0]?.seconds ?? 0
     elapsedRef.current   = 0
     prevCeilRef.current  = -1
+    tapsRef.current      = 0
+    setTaps(0)
     setView({ ...initial })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phases])
@@ -240,8 +252,15 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     emitCountdown()
   }, [countUp, phases, finish, emitCountdown])
 
+  const addTap = useCallback(() => {
+    if (statusRef.current !== 'running') return
+    tapsRef.current += 1
+    setTaps(tapsRef.current)
+    if (countUp && target > 0 && tapsRef.current >= target) finish()
+  }, [countUp, target, finish])
+
   // nettoyage
   useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current) }, [])
 
-  return { view, start, pause, resume, reset, skip }
+  return { view, taps, start, pause, resume, reset, skip, addTap }
 }

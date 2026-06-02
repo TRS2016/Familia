@@ -10,6 +10,7 @@ export interface TrainingConfig {
   interval?: number // durée d'une minute EMOM (s)
   duration?: number // durée totale AMRAP (s)
   cap?:     number  // plafond For Time (s, 0 = aucun)
+  target?:  number  // objectif de tours For Time (0 = aucun)
 }
 
 export interface TrainingPreset {
@@ -49,7 +50,7 @@ export const DEFAULT_CONFIG: Record<TrainingMode, TrainingConfig> = {
   tabata:    { prepare: 10, work: 20, rest: 10, rounds: 8 },
   emom:      { prepare: 10, interval: 60, rounds: 10 },
   amrap:     { prepare: 10, duration: 12 * 60 },
-  fortime:   { prepare: 10, cap: 0 },
+  fortime:   { prepare: 10, cap: 15 * 60, target: 5 },
   intervals: { prepare: 10, work: 45, rest: 15, rounds: 6 },
 }
 

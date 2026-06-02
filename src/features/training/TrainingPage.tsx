@@ -224,7 +224,10 @@ function ConfigScreen({ mode, initialConfig, presetName, onBack, onStart, onSave
         )}
 
         {mode === 'fortime' && (
-          <Stepper label="Plafond (0 = aucun)" value={cfg.cap ?? 0} setValue={v => set({ cap: v })} step={60} min={0} max={3600} fmt={v => v === 0 ? 'Aucun' : fmtClock(v)} />
+          <>
+            <Stepper label="Objectif (tours)" value={cfg.target ?? 0} setValue={v => set({ target: v })} step={1} min={0} max={50} fmt={v => v === 0 ? 'Aucun' : String(v)} />
+            <Stepper label="Plafond (0 = aucun)" value={cfg.cap ?? 0} setValue={v => set({ cap: v })} step={60} min={0} max={3600} fmt={v => v === 0 ? 'Aucun' : fmtClock(v)} />
+          </>
         )}
       </div>
 
@@ -267,15 +270,15 @@ function ConfigScreen({ mode, initialConfig, presetName, onBack, onStart, onSave
 
 // ── Run screen ──────────────────────────────────────────────────────────────────
 
-const KIND_BG: Record<string, string> = {
-  prepare: '#4F5D75', // bleu ardoise — "prépare-toi"
-  work:    '#E0633C', // orange vif — effort
-  rest:    '#2E9E8F', // turquoise — récupération
-  done:    '#5DA271', // vert — séance réussie
+const PHASE_COLOR: Record<string, string> = {
+  prepare: '#A89F97', // gris chaud — prépare-toi
+  work:    '#E0633C', // orange — effort
+  rest:    '#3D80B8', // bleu — repos
+  done:    '#5FB06A', // vert — réussite
 }
-const KIND_LABEL: Record<string, string> = {
-  prepare: 'Prêt ?', work: 'EFFORT', rest: 'REPOS', done: 'Terminé',
-}
+
+const RING = { size: 290, r: 135 }
+const RING_C = 2 * Math.PI * RING.r
 
 function RunScreen({ mode, config, title, onExit }: {
   mode: TrainingMode
@@ -283,18 +286,17 @@ function RunScreen({ mode, config, title, onExit }: {
   title: string
   onExit: () => void
 }) {
-  const { view, start, pause, resume, reset, skip } = useTrainingTimer(mode, config)
+  const { view, taps, start, pause, resume, reset, skip, addTap } = useTrainingTimer(mode, config)
   const logSession = useLogTrainingSession()
   const { data: member } = useMember()
   const loggedRef = useRef(false)
   const startedRef = useRef(false)
+  const [confirmExit, setConfirmExit] = useState(false)
 
-  // démarrage auto à l'arrivée
   useEffect(() => {
     if (!startedRef.current) { startedRef.current = true; start() }
   }, [start])
 
-  // log de la séance une seule fois à la fin
   useEffect(() => {
     if (view.status === 'done' && !loggedRef.current) {
       loggedRef.current = true
@@ -302,53 +304,79 @@ function RunScreen({ mode, config, title, onExit }: {
     }
   }, [view.status, view.elapsedTotal, title, mode, logSession])
 
-  const bg = KIND_BG[view.kind] ?? '#A89F97'
-  const big = view.kind === 'done'
+  const color = view.status === 'done' ? PHASE_COLOR.done : (PHASE_COLOR[view.kind] ?? PHASE_COLOR.prepare)
+  const done  = view.status === 'done'
+  const showTap = !done && (mode === 'amrap' || mode === 'fortime')
+
+  const big = done
     ? '✓'
     : (mode === 'fortime' || view.value >= 60 ? fmtClock(view.value) : String(view.value))
 
+  const phaseLabel = done ? 'Terminé'
+    : view.kind === 'prepare' ? 'Prêt ?'
+    : mode === 'fortime' ? 'For Time'
+    : mode === 'amrap' ? 'AMRAP'
+    : view.kind === 'rest' ? 'Repos' : 'Effort'
+
+  let subtitle = ''
+  if (done) subtitle = `Séance de ${fmtClock(view.elapsedTotal)}`
+  else if (mode === 'amrap') subtitle = `${taps} tour${taps > 1 ? 's' : ''}`
+  else if (mode === 'fortime') subtitle = `${taps} / ${config.target ?? 0} tours`
+  else if (view.totalRounds > 0) subtitle = `Ronde ${view.round} / ${view.totalRounds}`
+
+  function handleClose() {
+    if (view.status === 'running' || view.status === 'paused') setConfirmExit(true)
+    else { reset(); onExit() }
+  }
+
   return (
-    <div className={styles.runRoot} style={{ background: bg }}>
-      <button className={styles.runClose} onClick={onExit} aria-label="Quitter">
+    <div className={styles.runRoot}>
+      <button className={styles.runClose} onClick={handleClose} aria-label="Quitter">
         <X size={22} strokeWidth={2.5} />
       </button>
 
       <div className={styles.runTop}>
-        <span className={styles.runTitle}>{title}</span>
-        {view.totalRounds > 0 && view.status !== 'done' && (
-          <span className={styles.runRounds}>Round {view.round} / {view.totalRounds}</span>
-        )}
+        <span className={styles.runEyebrow}>{title}</span>
       </div>
 
       <div className={styles.runCenter}>
-        <span className={styles.runPhase}>
-          {view.status === 'done' ? KIND_LABEL.done
-            : view.kind === 'prepare' ? KIND_LABEL.prepare
-            : mode === 'fortime' ? 'FOR TIME'
-            : mode === 'amrap' ? 'AMRAP'
-            : KIND_LABEL[view.kind]}
-        </span>
-        <span className={styles.runBig}>{big}</span>
-        {view.status === 'done' && (
-          <span className={styles.runDoneSub}>
-            {member?.display_name ? `Bravo ${member.display_name} ! ` : 'Bravo ! '}
-            Séance de {fmtClock(view.elapsedTotal)}
-          </span>
+        <div className={styles.ringWrap} style={{ width: RING.size, height: RING.size }}>
+          <svg width={RING.size} height={RING.size} className={styles.ringSvg}>
+            <circle cx={RING.size / 2} cy={RING.size / 2} r={RING.r} fill="none"
+              stroke="rgba(244,240,230,0.12)" strokeWidth={5} />
+            <circle cx={RING.size / 2} cy={RING.size / 2} r={RING.r} fill="none"
+              stroke={color} strokeWidth={5} strokeLinecap="round"
+              strokeDasharray={RING_C}
+              strokeDashoffset={RING_C * (1 - (done ? 1 : view.progress))}
+              transform={`rotate(-90 ${RING.size / 2} ${RING.size / 2})`}
+              style={{ transition: 'stroke-dashoffset 0.2s linear, stroke 0.4s ease' }}
+            />
+          </svg>
+          <div className={styles.ringInner}>
+            <span className={styles.runPhase} style={{ color }}>{phaseLabel.toUpperCase()}</span>
+            <span className={styles.runBig}>{big}</span>
+            {subtitle && <span className={styles.runSub}>{subtitle}</span>}
+          </div>
+        </div>
+
+        {done && member?.display_name && (
+          <span className={styles.runBravo}>Bravo {member.display_name} 💪</span>
         )}
-        {view.status !== 'done' && (
-          <span className={styles.runElapsed}>Total {fmtClock(view.elapsedTotal)}</span>
+
+        {showTap && (
+          <button className={styles.tapBtn} onClick={addTap}>
+            +1 tour{mode === 'fortime' && config.target ? ` · ${taps}/${config.target}` : taps > 0 ? ` · ${taps}` : ''}
+          </button>
         )}
       </div>
 
       <div className={styles.runControls}>
-        {view.status === 'done' ? (
+        {done ? (
           <>
             <button className={styles.runCtrlBtn} onClick={() => { loggedRef.current = false; reset(); start() }}>
               <RotateCcw size={20} strokeWidth={2.5} /> Refaire
             </button>
-            <button className={styles.runCtrlBtnPrimary} onClick={onExit}>
-              Terminer
-            </button>
+            <button className={styles.runCtrlBtnPrimary} onClick={onExit}>Terminer</button>
           </>
         ) : (
           <>
@@ -365,12 +393,28 @@ function RunScreen({ mode, config, title, onExit }: {
                 ? <><Pause size={20} strokeWidth={2.5} fill="currentColor" /> Pause</>
                 : <><Play size={20} strokeWidth={2.5} fill="currentColor" /> Reprendre</>}
             </button>
-            <button className={styles.runCtrlBtn} onClick={() => { reset(); onExit() }} aria-label="Arrêter">
+            <button className={styles.runCtrlBtn} onClick={handleClose} aria-label="Terminer">
               <X size={20} strokeWidth={2.5} />
             </button>
           </>
         )}
       </div>
+
+      {confirmExit && (
+        <div className={styles.exitOverlay} onClick={() => setConfirmExit(false)}>
+          <div className={styles.exitSheet} onClick={e => e.stopPropagation()}>
+            <span className={styles.exitEyebrow}>Chrono en cours</span>
+            <p className={styles.exitTitle}>Arrêter le chrono ?</p>
+            <p className={styles.exitText}>Le minuteur en cours sera remis à zéro.</p>
+            <button className={styles.exitContinue} onClick={() => setConfirmExit(false)}>
+              Continuer le chrono
+            </button>
+            <button className={styles.exitStop} onClick={() => { reset(); onExit() }}>
+              Arrêter et quitter
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

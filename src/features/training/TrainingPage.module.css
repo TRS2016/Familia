@@ -382,10 +382,10 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  color: #fff;
+  background: #16130F;
+  color: #F4F0E6;
   font-family: var(--font-family);
   padding: env(safe-area-inset-top, 0px) 20px env(safe-area-inset-bottom, 0px);
-  transition: background 0.45s ease;
 }
 
 .runClose {
@@ -396,12 +396,13 @@
   height: 40px;
   border-radius: 50%;
   border: none;
-  background: rgba(255, 255, 255, 0.18);
-  color: #fff;
+  background: rgba(244, 240, 230, 0.12);
+  color: #F4F0E6;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  z-index: 2;
 }
 
 .runTop {
@@ -409,21 +410,13 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
 }
 
-.runTitle {
-  font-size: 16px;
+.runEyebrow {
+  font-size: 13px;
   font-weight: 800;
-  opacity: 0.9;
-}
-
-.runRounds {
-  font-size: 14px;
-  font-weight: 700;
-  background: rgba(255, 255, 255, 0.2);
-  padding: 4px 14px;
-  border-radius: 99px;
+  letter-spacing: 0.5px;
+  opacity: 0.8;
 }
 
 .runCenter {
@@ -432,36 +425,145 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 22px;
+}
+
+/* Anneau de progression */
+.ringWrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.ringSvg {
+  position: absolute;
+  inset: 0;
+}
+
+.ringInner {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
 }
 
 .runPhase {
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 800;
-  letter-spacing: 3px;
-  opacity: 0.85;
+  letter-spacing: 2.5px;
 }
 
 .runBig {
-  font-size: clamp(96px, 38vw, 200px);
+  font-size: 82px;
   font-weight: 900;
   line-height: 1;
   font-variant-numeric: tabular-nums;
   letter-spacing: -2px;
 }
 
-.runElapsed {
-  font-size: 14px;
+.runSub {
+  font-size: 12px;
   font-weight: 700;
-  opacity: 0.75;
-  font-variant-numeric: tabular-nums;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  opacity: 0.6;
 }
 
-.runDoneSub {
+.runBravo {
+  font-size: 16px;
+  font-weight: 800;
+}
+
+/* Bouton +1 tour */
+.tapBtn {
+  width: 100%;
+  max-width: 320px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 2px solid rgba(244, 240, 230, 0.18);
+  background: rgba(244, 240, 230, 0.08);
+  color: #F4F0E6;
+  font-family: var(--font-family);
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.tapBtn:hover  { background: rgba(244, 240, 230, 0.14); }
+.tapBtn:active { transform: scale(0.97); }
+
+/* Sheet de confirmation de sortie */
+.exitOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+}
+
+.exitSheet {
+  width: 100%;
+  background: var(--bg-card);
+  color: var(--text);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  padding: 22px 22px max(28px, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  animation: famFadeUp 0.25s ease;
+}
+
+@keyframes famFadeUp {
+  from { transform: translateY(40px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+
+.exitEyebrow {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.exitTitle {
+  font-size: 19px;
+  font-weight: 900;
+  margin: 2px 0 0;
+}
+
+.exitText {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0 0 8px;
+}
+
+.exitContinue {
+  padding: 14px;
+  border-radius: 14px;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-family);
   font-size: 15px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.exitStop {
+  padding: 13px;
+  border-radius: 14px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: #c0392b;
+  font-family: var(--font-family);
+  font-size: 14px;
   font-weight: 700;
-  opacity: 0.95;
-  text-align: center;
+  cursor: pointer;
 }
 
 .runControls {
