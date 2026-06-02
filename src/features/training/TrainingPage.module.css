@@ -361,17 +361,17 @@
 .stepper {
   display: flex;
   flex-direction: column;
-  gap: 5px;
-  padding: 9px 11px;
+  gap: 3px;
+  padding: 7px 9px;
   background: var(--tr-paper2);
   border: 1px solid var(--tr-line);
-  border-radius: 12px;
+  border-radius: 11px;
 }
 
 .stepperLabel {
   font-family: var(--tr-mono);
-  font-size: 8.5px;
-  letter-spacing: 0.1em;
+  font-size: 8px;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--tr-ink3);
 }
@@ -384,8 +384,8 @@
 }
 
 .stepperBtn {
-  width: 30px;
-  height: 30px;
+  width: 26px;
+  height: 26px;
   border-radius: 999px;
   border: 1px solid var(--tr-line);
   background: var(--tr-paper);
@@ -403,14 +403,14 @@
   font-weight: 600;
   font-feature-settings: "tnum", "ss01";
   letter-spacing: -0.02em;
-  font-size: clamp(18px, 5vw, 24px);
+  font-size: clamp(16px, 4.5vw, 21px);
   color: var(--tr-ink);
   text-align: center;
   min-width: 0;
 }
 
 @media (min-width: 768px) {
-  .stepperBtn { width: 32px; height: 32px; }
+  .stepperBtn { width: 28px; height: 28px; }
 }
 
 .stepperAccent { border-color: var(--tr-accent); }
@@ -1039,35 +1039,14 @@
 
 /* ── Desktop : un peu d'air ─────────────────────────────────────────────────── */
 
-/* Wrappers neutres sur mobile (n'affectent pas la mise en page) */
+/* Wrappers neutres (colonne unique, comme avant) */
 .configZone, .configMain { display: contents; }
 
 @media (min-width: 768px) {
-  /* Page training plus large pour mieux occuper l'espace */
-  .page { max-width: 940px; }
-
-  .header, .sectionLabel, .modeTabs, .presetList, .configActions,
-  .historyCard, .configHint, .focusFilterRow, .configZone {
+  .header, .sectionLabel, .modeTabs, .presetList, .configCard, .configActions,
+  .historyCard, .configHint, .totalLine, .subCard, .focusFilterRow {
     padding-left: 28px;
     padding-right: 28px;
   }
-  .historyCard { margin-left: 28px; margin-right: 28px; }
-
-  /* Aperçu (gauche, collant) + réglages & exercices (droite) côte à côte */
-  .configZone {
-    display: grid;
-    grid-template-columns: minmax(230px, 290px) 1fr;
-    gap: 22px;
-    align-items: start;
-  }
-  .configMain { display: flex; flex-direction: column; gap: 12px; }
-  .previewWrap { padding: 0; position: sticky; top: 16px; }
-  .configCard  { padding: 0; }
-  .subCard     { margin: 0; }
-
-  /* Presets en 2 colonnes */
-  .presetList { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-
-  /* Actions pas démesurément larges */
-  .configActions { max-width: 560px; }
+  .historyCard, .totalLine, .subCard { margin-left: 28px; margin-right: 28px; }
 }

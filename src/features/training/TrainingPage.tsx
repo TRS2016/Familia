@@ -374,11 +374,11 @@ function Stepper({ label, value, setValue, step, min, max, fmt, accent, wide }: 
       <span className={[styles.stepperLabel, accent ? styles.stepperLabelAccent : ''].join(' ')}>{label}</span>
       <div className={styles.stepperControls}>
         <button type="button" className={styles.stepperBtn} onClick={() => setValue(clamp(value - step))} aria-label="Moins">
-          <Minus size={15} strokeWidth={2.5} />
+          <Minus size={13} strokeWidth={2.5} />
         </button>
         <span className={styles.stepperValue}>{fmt ? fmt(value) : value}</span>
         <button type="button" className={styles.stepperBtn} onClick={() => setValue(clamp(value + step))} aria-label="Plus">
-          <Plus size={15} strokeWidth={2.5} />
+          <Plus size={13} strokeWidth={2.5} />
         </button>
       </div>
     </div>
