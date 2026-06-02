@@ -88,53 +88,42 @@
 
 /* ── Modes ──────────────────────────────────────────────────────────────────── */
 
-.modeGrid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 10px;
-  padding: 0 22px;
-}
-
-.modeCard {
+/* Onglets de mode (une ligne, scrollable) */
+.modeTabs {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: 5px;
-  padding: 14px;
-  background: var(--tr-paper2);
-  border: 1px solid var(--tr-line);
-  border-radius: var(--tr-rm);
-  cursor: pointer;
-  font-family: var(--font-family);
-  text-align: left;
-  transition: transform 0.12s;
+  gap: 8px;
+  padding: 6px 22px 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
 }
-.modeCard:active { transform: scale(0.98); }
+.modeTabs::-webkit-scrollbar { display: none; }
 
-.modeEmoji {
-  width: 44px;
-  height: 44px;
-  border-radius: 12px;
-  display: flex;
+.modeTab {
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  font-size: 22px;
-  margin-bottom: 4px;
-}
-
-.modeName {
-  font-family: var(--tr-display);
+  gap: 7px;
+  flex-shrink: 0;
+  padding: 9px 15px;
+  border: 1px solid var(--tr-line);
+  border-radius: 999px;
+  background: var(--tr-paper2);
+  color: var(--tr-ink2);
+  font-family: var(--font-family);
+  font-size: 13px;
   font-weight: 600;
-  font-size: 16px;
-  color: var(--tr-ink);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+.modeTab:active { transform: scale(0.96); }
+
+.modeTabActive {
+  background: var(--tr-ink);
+  color: var(--tr-paper);
+  border-color: var(--tr-ink);
 }
 
-.modeDesc {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--tr-ink3);
-  line-height: 1.3;
-}
+.modeTabEmoji { font-size: 15px; line-height: 1; }
 
 /* ── Filtre & chips de zone ─────────────────────────────────────────────────── */
 
@@ -810,7 +799,7 @@
 /* ── Desktop : un peu d'air ─────────────────────────────────────────────────── */
 
 @media (min-width: 768px) {
-  .header, .sectionLabel, .modeGrid, .presetList, .configCard, .configActions,
+  .header, .sectionLabel, .modeTabs, .presetList, .configCard, .configActions,
   .historyCard, .configHint, .totalLine, .subCard, .focusFilterRow {
     padding-left: 28px;
     padding-right: 28px;

@@ -10,7 +10,7 @@ import { useMember } from '../../auth/useMember'
 import {
   MODE_META, MODE_ORDER, DEFAULT_CONFIG, FOCUS_OPTIONS, configSummary, totalDuration, fmtClock, isCountUp,
 } from './training'
-import type { TrainingMode, TrainingConfig } from './training'
+import type { TrainingMode, TrainingConfig, TrainingPreset } from './training'
 import {
   useTrainingPresets, useAddTrainingPreset, useDeleteTrainingPreset,
   useTrainingSessions, useLogTrainingSession, useTrainingRealtime,
@@ -19,21 +19,52 @@ import { useTrainingTimer } from './useTrainingTimer'
 import styles from './TrainingPage.module.css'
 
 type Screen =
-  | { name: 'list' }
-  | { name: 'config'; mode: TrainingMode; config: TrainingConfig; presetName?: string }
-  | { name: 'run';    mode: TrainingMode; config: TrainingConfig; title: string }
+  | { name: 'home' }
+  | { name: 'run'; mode: TrainingMode; config: TrainingConfig; title: string }
 
-// ── Page ──────────────────────────────────────────────────────────────────────
+// ── Page (écran unique : onglets de mode + config inline) ──────────────────────
 
 export default function TrainingPage() {
   useTrainingRealtime()
-  const { data: presets = [] }   = useTrainingPresets()
-  const { data: sessions = [] }  = useTrainingSessions(15)
+  const { data: presets = [] }  = useTrainingPresets()
+  const { data: sessions = [] } = useTrainingSessions(15)
   const addPreset    = useAddTrainingPreset()
   const deletePreset = useDeleteTrainingPreset()
 
-  const [screen, setScreen] = useState<Screen>({ name: 'list' })
+  const [screen, setScreen]   = useState<Screen>({ name: 'home' })
+  const [mode, setMode]       = useState<TrainingMode>('tabata')
+  const [configs, setConfigs] = useState<Record<TrainingMode, TrainingConfig>>(() => {
+    const o = {} as Record<TrainingMode, TrainingConfig>
+    for (const mm of MODE_ORDER) o[mm] = { ...DEFAULT_CONFIG[mm] }
+    return o
+  })
+  const [presetName, setPresetName] = useState<string | undefined>(undefined)
+  const [exInput, setExInput]       = useState('')
   const [focusFilter, setFocusFilter] = useState<string | null>(null)
+  const [showSave, setShowSave]     = useState(false)
+  const [saveName, setSaveName]     = useState('')
+
+  const cfg = configs[mode]
+  const set = (patch: Partial<TrainingConfig>) =>
+    setConfigs(c => ({ ...c, [mode]: { ...c[mode], ...patch } }))
+  const exercises = cfg.exercises ?? []
+
+  function addExercise() {
+    const t = exInput.trim()
+    if (!t) return
+    set({ exercises: [...exercises, t] })
+    setExInput('')
+  }
+  function selectMode(m: TrainingMode) {
+    setMode(m)
+    setPresetName(undefined)
+  }
+  function loadPreset(p: TrainingPreset) {
+    setMode(p.mode)
+    setConfigs(c => ({ ...c, [p.mode]: { ...p.config } }))
+    setPresetName(p.name)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 
   if (screen.name === 'run') {
     return (
@@ -41,217 +72,43 @@ export default function TrainingPage() {
         mode={screen.mode}
         config={screen.config}
         title={screen.title}
-        onExit={() => setScreen({ name: 'list' })}
+        onExit={() => setScreen({ name: 'home' })}
       />
     )
   }
 
-  if (screen.name === 'config') {
-    return (
-      <ConfigScreen
-        mode={screen.mode}
-        initialConfig={screen.config}
-        presetName={screen.presetName}
-        onBack={() => setScreen({ name: 'list' })}
-        onStart={(config, title) => setScreen({ name: 'run', mode: screen.mode, config, title })}
-        onSavePreset={(name, config) => addPreset.mutate({ name, mode: screen.mode, config })}
-      />
-    )
-  }
+  const m       = MODE_META[mode]
+  const total   = totalDuration(mode, cfg)
+  const title   = presetName ?? m.label
+  const focuses = [...new Set(presets.map(p => p.config.focus).filter(Boolean))] as string[]
+  const shownPresets = focusFilter ? presets.filter(p => p.config.focus === focusFilter) : presets
 
-  // ── Liste ──
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <Link to="/" className={styles.backLink} aria-label="Retour">
-          <ChevronLeft size={22} strokeWidth={2.5} />
+          <ChevronLeft size={20} strokeWidth={2.5} />
         </Link>
         <h1 className={styles.pageTitle}>Training</h1>
       </header>
 
-      {/* Modes */}
-      <p className={styles.sectionLabel}>Choisir un format</p>
-      <div className={styles.modeGrid}>
-        {MODE_ORDER.map(mode => {
-          const m = MODE_META[mode]
-          return (
-            <button
-              key={mode}
-              className={styles.modeCard}
-              style={{ borderColor: `${m.color}59` }}
-              onClick={() => setScreen({ name: 'config', mode, config: { ...DEFAULT_CONFIG[mode] } })}
-            >
-              <span
-                className={styles.modeEmoji}
-                style={{ background: `${m.color}33`, boxShadow: `inset 0 0 0 1.5px ${m.color}` }}
-              >
-                {m.emoji}
-              </span>
-              <span className={styles.modeName}>{m.label}</span>
-              <span className={styles.modeDesc}>{m.desc}</span>
-            </button>
-          )
-        })}
+      {/* Onglets de mode — une ligne */}
+      <div className={styles.modeTabs}>
+        {MODE_ORDER.map(mm => (
+          <button
+            key={mm}
+            className={[styles.modeTab, mm === mode ? styles.modeTabActive : ''].join(' ')}
+            onClick={() => selectMode(mm)}
+          >
+            <span className={styles.modeTabEmoji}>{MODE_META[mm].emoji}</span>
+            {MODE_META[mm].label}
+          </button>
+        ))}
       </div>
-
-      {/* Presets partagés */}
-      {presets.length > 0 && (() => {
-        const focuses = [...new Set(presets.map(p => p.config.focus).filter(Boolean))] as string[]
-        const shown = focusFilter ? presets.filter(p => p.config.focus === focusFilter) : presets
-        return (
-          <>
-            <p className={styles.sectionLabel}>Mes séances</p>
-            {focuses.length > 0 && (
-              <div className={styles.focusFilterRow}>
-                <button
-                  className={[styles.focusChip, !focusFilter ? styles.focusChipActive : ''].join(' ')}
-                  onClick={() => setFocusFilter(null)}
-                >
-                  Toutes
-                </button>
-                {focuses.map(f => (
-                  <button
-                    key={f}
-                    className={[styles.focusChip, focusFilter === f ? styles.focusChipActive : ''].join(' ')}
-                    onClick={() => setFocusFilter(cur => cur === f ? null : f)}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className={styles.presetList}>
-              {shown.map(p => {
-                const exCount = p.config.exercises?.length ?? 0
-                return (
-                  <div key={p.id} className={styles.presetRow}>
-                    <button
-                      className={styles.presetMain}
-                      onClick={() => setScreen({ name: 'config', mode: p.mode, config: p.config, presetName: p.name })}
-                    >
-                      <span
-                        className={styles.presetEmoji}
-                        style={{ background: `${MODE_META[p.mode].color}33`, boxShadow: `inset 0 0 0 1.5px ${MODE_META[p.mode].color}` }}
-                      >
-                        {MODE_META[p.mode].emoji}
-                      </span>
-                      <span className={styles.presetInfo}>
-                        <span className={styles.presetName}>{p.name}</span>
-                        <span className={styles.presetSub}>
-                          {MODE_META[p.mode].label} · {configSummary(p.mode, p.config)}
-                          {exCount > 0 ? ` · ${exCount} ex.` : ''}
-                        </span>
-                      </span>
-                      {p.config.focus && <span className={styles.presetFocus}>{p.config.focus}</span>}
-                    </button>
-                    <button
-                      className={styles.presetDelete}
-                      onClick={() => deletePreset.mutate(p.id)}
-                      aria-label="Supprimer"
-                    >
-                      <Trash2 size={15} strokeWidth={2} />
-                    </button>
-                  </div>
-                )
-              })}
-            </div>
-          </>
-        )
-      })()}
-
-      {/* Historique */}
-      {sessions.length > 0 && (
-        <>
-          <p className={styles.sectionLabel}>Dernières séances</p>
-          <div className={styles.historyCard}>
-            <ul className={styles.historyList}>
-              {sessions.map(s => (
-                <li key={s.id} className={styles.historyRow}>
-                  <span className={styles.historyEmoji}>{MODE_META[s.mode]?.emoji ?? '🏋️'}</span>
-                  <span className={styles.historyName}>{s.name}</span>
-                  <span className={styles.historyDur}>{fmtClock(s.duration_seconds)}</span>
-                  <span className={styles.historyDate}>
-                    {format(new Date(s.completed_at), 'd MMM', { locale: fr })}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
-
-// ── Stepper ─────────────────────────────────────────────────────────────────────
-
-function Stepper({ label, value, setValue, step, min, max, fmt, accent, wide }: {
-  label: string
-  value: number
-  setValue: (v: number) => void
-  step: number
-  min: number
-  max: number
-  fmt?: (v: number) => string
-  accent?: boolean
-  wide?: boolean
-}) {
-  const clamp = (v: number) => Math.max(min, Math.min(max, v))
-  return (
-    <div className={[styles.stepper, accent ? styles.stepperAccent : '', wide ? styles.stepperWide : ''].join(' ')}>
-      <span className={[styles.stepperLabel, accent ? styles.stepperLabelAccent : ''].join(' ')}>{label}</span>
-      <div className={styles.stepperControls}>
-        <button type="button" className={styles.stepperBtn} onClick={() => setValue(clamp(value - step))} aria-label="Moins">
-          <Minus size={16} strokeWidth={2.5} />
-        </button>
-        <span className={styles.stepperValue}>{fmt ? fmt(value) : value}</span>
-        <button type="button" className={styles.stepperBtn} onClick={() => setValue(clamp(value + step))} aria-label="Plus">
-          <Plus size={16} strokeWidth={2.5} />
-        </button>
-      </div>
-    </div>
-  )
-}
-
-// ── Config screen ─────────────────────────────────────────────────────────────
-
-function ConfigScreen({ mode, initialConfig, presetName, onBack, onStart, onSavePreset }: {
-  mode: TrainingMode
-  initialConfig: TrainingConfig
-  presetName?: string
-  onBack: () => void
-  onStart: (config: TrainingConfig, title: string) => void
-  onSavePreset: (name: string, config: TrainingConfig) => void
-}) {
-  const m = MODE_META[mode]
-  const [cfg, setCfg] = useState<TrainingConfig>({ ...initialConfig })
-  const [showSave, setShowSave] = useState(false)
-  const [saveName, setSaveName] = useState(presetName ?? '')
-  const [exInput, setExInput] = useState('')
-  const set = (patch: Partial<TrainingConfig>) => setCfg(c => ({ ...c, ...patch }))
-
-  const exercises = cfg.exercises ?? []
-  function addExercise() {
-    const t = exInput.trim()
-    if (!t) return
-    set({ exercises: [...exercises, t] })
-    setExInput('')
-  }
-
-  const total = totalDuration(mode, cfg)
-  const title = presetName ?? m.label
-
-  return (
-    <div className={styles.page}>
-      <header className={styles.header}>
-        <button className={styles.backLink} onClick={onBack} aria-label="Retour">
-          <ChevronLeft size={22} strokeWidth={2.5} />
-        </button>
-        <h1 className={styles.pageTitle}>{m.emoji} {title}</h1>
-      </header>
 
       <p className={styles.configHint}>{m.desc}</p>
 
+      {/* Réglages du mode sélectionné */}
       <div className={styles.configCard}>
         <Stepper label="Décompte avant départ" value={cfg.prepare ?? 0} setValue={v => set({ prepare: v })} step={5} min={0} max={60} fmt={v => `${v}s`} />
 
@@ -335,11 +192,18 @@ function ConfigScreen({ mode, initialConfig, presetName, onBack, onStart, onSave
       </div>
 
       {!isCountUp(mode) && (
-        <p className={styles.totalLine}>Durée totale ≈ <strong>{fmtClock(total)}</strong></p>
+        <p className={styles.totalLine}>
+          <span>Durée totale</span>
+          <strong>{fmtClock(total)}</strong>
+        </p>
       )}
 
+      {/* Actions */}
       <div className={styles.configActions}>
-        <button className={styles.startBtn} onClick={() => onStart(cfg, title)}>
+        <button
+          className={styles.startBtn}
+          onClick={() => setScreen({ name: 'run', mode, config: cfg, title })}
+        >
           <Play size={18} strokeWidth={2.5} fill="currentColor" /> Démarrer
         </button>
         <button className={styles.saveBtn} onClick={() => { setSaveName(presetName ?? ''); setShowSave(true) }}>
@@ -347,11 +211,86 @@ function ConfigScreen({ mode, initialConfig, presetName, onBack, onStart, onSave
         </button>
       </div>
 
+      {/* Presets enregistrés */}
+      {presets.length > 0 && (
+        <>
+          <p className={styles.sectionLabel}>Mes séances</p>
+          {focuses.length > 0 && (
+            <div className={styles.focusFilterRow}>
+              <button
+                className={[styles.focusChip, !focusFilter ? styles.focusChipActive : ''].join(' ')}
+                onClick={() => setFocusFilter(null)}
+              >
+                Toutes
+              </button>
+              {focuses.map(f => (
+                <button
+                  key={f}
+                  className={[styles.focusChip, focusFilter === f ? styles.focusChipActive : ''].join(' ')}
+                  onClick={() => setFocusFilter(cur => cur === f ? null : f)}
+                >
+                  {f}
+                </button>
+              ))}
+            </div>
+          )}
+          <div className={styles.presetList}>
+            {shownPresets.map(p => {
+              const exCount = p.config.exercises?.length ?? 0
+              return (
+                <div key={p.id} className={styles.presetRow}>
+                  <button className={styles.presetMain} onClick={() => loadPreset(p)}>
+                    <span
+                      className={styles.presetEmoji}
+                      style={{ background: `${MODE_META[p.mode].color}33`, boxShadow: `inset 0 0 0 1.5px ${MODE_META[p.mode].color}` }}
+                    >
+                      {MODE_META[p.mode].emoji}
+                    </span>
+                    <span className={styles.presetInfo}>
+                      <span className={styles.presetName}>{p.name}</span>
+                      <span className={styles.presetSub}>
+                        {MODE_META[p.mode].label} · {configSummary(p.mode, p.config)}
+                        {exCount > 0 ? ` · ${exCount} ex.` : ''}
+                      </span>
+                    </span>
+                    {p.config.focus && <span className={styles.presetFocus}>{p.config.focus}</span>}
+                  </button>
+                  <button className={styles.presetDelete} onClick={() => deletePreset.mutate(p.id)} aria-label="Supprimer">
+                    <Trash2 size={15} strokeWidth={2} />
+                  </button>
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Historique */}
+      {sessions.length > 0 && (
+        <>
+          <p className={styles.sectionLabel}>Dernières séances</p>
+          <div className={styles.historyCard}>
+            <ul className={styles.historyList}>
+              {sessions.map(s => (
+                <li key={s.id} className={styles.historyRow}>
+                  <span className={styles.historyEmoji}>{MODE_META[s.mode]?.emoji ?? '🏋️'}</span>
+                  <span className={styles.historyName}>{s.name}</span>
+                  <span className={styles.historyDur}>{fmtClock(s.duration_seconds)}</span>
+                  <span className={styles.historyDate}>
+                    {format(new Date(s.completed_at), 'd MMM', { locale: fr })}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </>
+      )}
+
       {showSave && (
         <SlideUpModal title="Enregistrer la séance" onClose={() => setShowSave(false)}>
           <form
             className={styles.saveForm}
-            onSubmit={e => { e.preventDefault(); if (saveName.trim()) { onSavePreset(saveName.trim(), cfg); setShowSave(false) } }}
+            onSubmit={e => { e.preventDefault(); if (saveName.trim()) { addPreset.mutate({ name: saveName.trim(), mode, config: cfg }); setPresetName(saveName.trim()); setShowSave(false) } }}
           >
             <input
               type="text"
@@ -367,6 +306,36 @@ function ConfigScreen({ mode, initialConfig, presetName, onBack, onStart, onSave
           </form>
         </SlideUpModal>
       )}
+    </div>
+  )
+}
+
+// ── Stepper ─────────────────────────────────────────────────────────────────────
+
+function Stepper({ label, value, setValue, step, min, max, fmt, accent, wide }: {
+  label: string
+  value: number
+  setValue: (v: number) => void
+  step: number
+  min: number
+  max: number
+  fmt?: (v: number) => string
+  accent?: boolean
+  wide?: boolean
+}) {
+  const clamp = (v: number) => Math.max(min, Math.min(max, v))
+  return (
+    <div className={[styles.stepper, accent ? styles.stepperAccent : '', wide ? styles.stepperWide : ''].join(' ')}>
+      <span className={[styles.stepperLabel, accent ? styles.stepperLabelAccent : ''].join(' ')}>{label}</span>
+      <div className={styles.stepperControls}>
+        <button type="button" className={styles.stepperBtn} onClick={() => setValue(clamp(value - step))} aria-label="Moins">
+          <Minus size={16} strokeWidth={2.5} />
+        </button>
+        <span className={styles.stepperValue}>{fmt ? fmt(value) : value}</span>
+        <button type="button" className={styles.stepperBtn} onClick={() => setValue(clamp(value + step))} aria-label="Plus">
+          <Plus size={16} strokeWidth={2.5} />
+        </button>
+      </div>
     </div>
   )
 }
