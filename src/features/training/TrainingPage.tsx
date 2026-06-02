@@ -16,7 +16,7 @@ import {
 } from './training'
 import type { TrainingMode, TrainingConfig, TrainingPreset, Exercise } from './training'
 import {
-  useTrainingPresets, useAddTrainingPreset, useDeleteTrainingPreset,
+  useTrainingPresets, useAddTrainingPreset, useUpdateTrainingPreset, useDeleteTrainingPreset,
   useTrainingSessions, useLogTrainingSession, useTrainingRealtime,
 } from './useTraining'
 import { useTrainingTimer } from './useTrainingTimer'
@@ -26,6 +26,31 @@ type Screen =
   | { name: 'home' }
   | { name: 'run'; mode: TrainingMode; config: TrainingConfig; title: string }
 
+// Garde l'écran allumé pendant la séance (réacquiert au retour au 1er plan)
+function useWakeLock(active: boolean) {
+  useEffect(() => {
+    if (!active) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let sentinel: any = null
+    let released = false
+    const request = async () => {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const nav = navigator as any
+        if (nav.wakeLock?.request) sentinel = await nav.wakeLock.request('screen')
+      } catch { /* non supporté ou refusé */ }
+    }
+    const onVis = () => { if (document.visibilityState === 'visible' && !released) request() }
+    request()
+    document.addEventListener('visibilitychange', onVis)
+    return () => {
+      released = true
+      document.removeEventListener('visibilitychange', onVis)
+      try { sentinel?.release?.() } catch { /* déjà relâché */ }
+    }
+  }, [active])
+}
+
 // ── Page (écran unique : onglets de mode + config inline) ──────────────────────
 
 export default function TrainingPage() {
@@ -33,6 +58,7 @@ export default function TrainingPage() {
   const { data: presets = [] }  = useTrainingPresets()
   const { data: sessions = [] } = useTrainingSessions(15)
   const addPreset    = useAddTrainingPreset()
+  const updatePreset = useUpdateTrainingPreset()
   const deletePreset = useDeleteTrainingPreset()
 
   const [screen, setScreen]   = useState<Screen>({ name: 'home' })
@@ -43,6 +69,7 @@ export default function TrainingPage() {
     return o
   })
   const [presetName, setPresetName] = useState<string | undefined>(undefined)
+  const [editingPresetId, setEditingPresetId] = useState<string | null>(null)
   const [focusFilter, setFocusFilter] = useState<string | null>(null)
   const [showSave, setShowSave]     = useState(false)
   const [saveName, setSaveName]     = useState('')
@@ -55,11 +82,13 @@ export default function TrainingPage() {
   function selectMode(m: TrainingMode) {
     setMode(m)
     setPresetName(undefined)
+    setEditingPresetId(null)
   }
   function loadPreset(p: TrainingPreset) {
     setMode(p.mode)
     setConfigs(c => ({ ...c, [p.mode]: { ...p.config } }))
     setPresetName(p.name)
+    setEditingPresetId(p.id)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -264,10 +293,19 @@ export default function TrainingPage() {
       )}
 
       {showSave && (
-        <SlideUpModal title="Enregistrer la séance" onClose={() => setShowSave(false)}>
+        <SlideUpModal title={editingPresetId ? 'Modifier la séance' : 'Enregistrer la séance'} onClose={() => setShowSave(false)}>
           <form
             className={styles.saveForm}
-            onSubmit={e => { e.preventDefault(); if (saveName.trim()) { addPreset.mutate({ name: saveName.trim(), mode, config: { ...cfg, focus: saveFocus || undefined } }); setPresetName(saveName.trim()); setShowSave(false) } }}
+            onSubmit={e => {
+              e.preventDefault()
+              const n = saveName.trim()
+              if (!n) return
+              const cfgToSave = { ...cfg, focus: saveFocus || undefined }
+              if (editingPresetId) updatePreset.mutate({ id: editingPresetId, name: n, mode, config: cfgToSave })
+              else addPreset.mutate({ name: n, mode, config: cfgToSave })
+              setPresetName(n)
+              setShowSave(false)
+            }}
           >
             <input
               type="text"
@@ -286,8 +324,26 @@ export default function TrainingPage() {
               {FOCUS_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
             </select>
             <button type="submit" className={styles.startBtn} disabled={!saveName.trim()}>
-              Enregistrer le preset
+              {editingPresetId ? 'Mettre à jour' : 'Enregistrer le preset'}
             </button>
+            {editingPresetId && (
+              <button
+                type="button"
+                className={styles.saveBtn}
+                style={{ justifyContent: 'center' }}
+                disabled={!saveName.trim()}
+                onClick={() => {
+                  const n = saveName.trim()
+                  if (!n) return
+                  addPreset.mutate({ name: n, mode, config: { ...cfg, focus: saveFocus || undefined } })
+                  setPresetName(n)
+                  setEditingPresetId(null)
+                  setShowSave(false)
+                }}
+              >
+                Enregistrer comme nouvelle
+              </button>
+            )}
           </form>
         </SlideUpModal>
       )}
@@ -531,6 +587,7 @@ function RunScreen({ mode, config, title, onExit }: {
   onExit: () => void
 }) {
   const { view, taps, start, pause, resume, reset, skip, addTap } = useTrainingTimer(mode, config)
+  useWakeLock(view.status === 'running' || view.status === 'paused')
   const logSession = useLogTrainingSession()
   const { data: member } = useMember()
   const loggedRef = useRef(false)

@@ -56,6 +56,33 @@ export function useAddTrainingPreset() {
   })
 }
 
+export function useUpdateTrainingPreset() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async (input: { id: string; name: string; mode: TrainingMode; config: TrainingConfig }) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any)
+        .from('training_presets')
+        .update({ name: input.name.trim(), mode: input.mode, config: input.config })
+        .eq('id', input.id)
+      if (error) throw error
+    },
+    onMutate: async (input) => {
+      const previous = queryClient.getQueryData<TrainingPreset[]>(TRAINING_PRESETS_KEY) ?? []
+      queryClient.setQueryData<TrainingPreset[]>(TRAINING_PRESETS_KEY,
+        previous.map(p => p.id === input.id ? { ...p, name: input.name.trim(), mode: input.mode, config: input.config } : p)
+      )
+      return { previous }
+    },
+    onError: (_e, _v, ctx) => {
+      queryClient.setQueryData(TRAINING_PRESETS_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de mettre à jour le preset.' })
+    },
+  })
+}
+
 export function useDeleteTrainingPreset() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
