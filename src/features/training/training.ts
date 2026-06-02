@@ -11,7 +11,12 @@ export interface TrainingConfig {
   duration?: number // durée totale AMRAP (s)
   cap?:     number  // plafond For Time (s, 0 = aucun)
   target?:  number  // objectif de tours For Time (0 = aucun)
+  exercises?: string[] // exercices nommés qui défilent pendant l'effort
+  focus?:   string  // zone travaillée (Abdos, Jambes…) — pour ranger/filtrer
 }
+
+// Zones d'entraînement pour catégoriser les séances
+export const FOCUS_OPTIONS = ['Full body', 'Abdos', 'Jambes', 'Haut du corps', 'Cardio', 'Mobilité'] as const
 
 export interface TrainingPreset {
   id: string

@@ -14,6 +14,8 @@ export interface TimerView {
   phaseCount: number
   elapsedTotal: number // s écoulées (pour l'historique)
   progress: number     // 0→1 de la phase courante (anneau)
+  exercise: string     // exercice à faire maintenant (phase d'effort)
+  exerciseNext: string // exercice suivant (affiché en repos/préparation)
 }
 
 // ── Bips Web Audio ─────────────────────────────────────────────────────────────
@@ -86,6 +88,8 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
   const cfgKey = JSON.stringify(config)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const phases = useMemo(() => (countUp ? [] : compilePhases(mode, config)), [mode, cfgKey])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const exercises = useMemo(() => config.exercises ?? [], [cfgKey])
 
   const initial: TimerView = {
     status: 'idle',
@@ -98,6 +102,8 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     phaseCount: phases.length,
     elapsedTotal: 0,
     progress: 0,
+    exercise: '',
+    exerciseNext: countUp ? '' : (phases[0]?.kind === 'prepare' && (config.exercises?.length ?? 0) > 0 ? config.exercises![0] : ''),
   }
 
   const [view, setView] = useState<TimerView>(initial)
@@ -117,6 +123,21 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     if (!ph) return
     const value = Math.max(0, Math.ceil(remainingRef.current))
     const progress = ph.seconds > 0 ? Math.min(1, Math.max(0, 1 - remainingRef.current / ph.seconds)) : 0
+
+    // exercices qui défilent par round d'effort
+    let exercise = '', exerciseNext = ''
+    const n = exercises.length
+    if (n > 0) {
+      if (ph.kind === 'work' && ph.round) {
+        exercise     = exercises[(ph.round - 1) % n]
+        exerciseNext = exercises[ph.round % n]
+      } else if (ph.kind === 'rest' && ph.round) {
+        exerciseNext = exercises[ph.round % n]
+      } else if (ph.kind === 'prepare') {
+        exerciseNext = exercises[0]
+      }
+    }
+
     setView(v =>
       v.value === value && v.phaseIndex === phaseIdxRef.current && v.status === 'running'
         ? { ...v, progress }
@@ -131,9 +152,11 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
             phaseCount: phases.length,
             elapsedTotal: Math.round(elapsedRef.current),
             progress,
+            exercise,
+            exerciseNext,
           }
     )
-  }, [phases])
+  }, [phases, exercises])
 
   const emitCountUp = useCallback(() => {
     const value = Math.floor(elapsedRef.current)
@@ -144,6 +167,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
         : {
             status: 'running', kind: 'work', label: 'For Time', value,
             round: 0, totalRounds: 0, phaseIndex: 0, phaseCount: 0, elapsedTotal: value, progress,
+            exercise: '', exerciseNext: '',
           }
     )
   }, [cap])

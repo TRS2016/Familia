@@ -8,7 +8,7 @@ import {
 import SlideUpModal from '../../components/SlideUpModal'
 import { useMember } from '../../auth/useMember'
 import {
-  MODE_META, MODE_ORDER, DEFAULT_CONFIG, configSummary, totalDuration, fmtClock, isCountUp,
+  MODE_META, MODE_ORDER, DEFAULT_CONFIG, FOCUS_OPTIONS, configSummary, totalDuration, fmtClock, isCountUp,
 } from './training'
 import type { TrainingMode, TrainingConfig } from './training'
 import {
@@ -33,6 +33,7 @@ export default function TrainingPage() {
   const deletePreset = useDeleteTrainingPreset()
 
   const [screen, setScreen] = useState<Screen>({ name: 'list' })
+  const [focusFilter, setFocusFilter] = useState<string | null>(null)
 
   if (screen.name === 'run') {
     return (
@@ -94,39 +95,69 @@ export default function TrainingPage() {
       </div>
 
       {/* Presets partagés */}
-      {presets.length > 0 && (
-        <>
-          <p className={styles.sectionLabel}>Mes séances</p>
-          <div className={styles.presetList}>
-            {presets.map(p => (
-              <div key={p.id} className={styles.presetRow}>
+      {presets.length > 0 && (() => {
+        const focuses = [...new Set(presets.map(p => p.config.focus).filter(Boolean))] as string[]
+        const shown = focusFilter ? presets.filter(p => p.config.focus === focusFilter) : presets
+        return (
+          <>
+            <p className={styles.sectionLabel}>Mes séances</p>
+            {focuses.length > 0 && (
+              <div className={styles.focusFilterRow}>
                 <button
-                  className={styles.presetMain}
-                  onClick={() => setScreen({ name: 'config', mode: p.mode, config: p.config, presetName: p.name })}
+                  className={[styles.focusChip, !focusFilter ? styles.focusChipActive : ''].join(' ')}
+                  onClick={() => setFocusFilter(null)}
                 >
-                  <span
-                    className={styles.presetEmoji}
-                    style={{ background: `${MODE_META[p.mode].color}33`, boxShadow: `inset 0 0 0 1.5px ${MODE_META[p.mode].color}` }}
+                  Toutes
+                </button>
+                {focuses.map(f => (
+                  <button
+                    key={f}
+                    className={[styles.focusChip, focusFilter === f ? styles.focusChipActive : ''].join(' ')}
+                    onClick={() => setFocusFilter(cur => cur === f ? null : f)}
                   >
-                    {MODE_META[p.mode].emoji}
-                  </span>
-                  <span className={styles.presetInfo}>
-                    <span className={styles.presetName}>{p.name}</span>
-                    <span className={styles.presetSub}>{MODE_META[p.mode].label} · {configSummary(p.mode, p.config)}</span>
-                  </span>
-                </button>
-                <button
-                  className={styles.presetDelete}
-                  onClick={() => deletePreset.mutate(p.id)}
-                  aria-label="Supprimer"
-                >
-                  <Trash2 size={15} strokeWidth={2} />
-                </button>
+                    {f}
+                  </button>
+                ))}
               </div>
-            ))}
-          </div>
-        </>
-      )}
+            )}
+            <div className={styles.presetList}>
+              {shown.map(p => {
+                const exCount = p.config.exercises?.length ?? 0
+                return (
+                  <div key={p.id} className={styles.presetRow}>
+                    <button
+                      className={styles.presetMain}
+                      onClick={() => setScreen({ name: 'config', mode: p.mode, config: p.config, presetName: p.name })}
+                    >
+                      <span
+                        className={styles.presetEmoji}
+                        style={{ background: `${MODE_META[p.mode].color}33`, boxShadow: `inset 0 0 0 1.5px ${MODE_META[p.mode].color}` }}
+                      >
+                        {MODE_META[p.mode].emoji}
+                      </span>
+                      <span className={styles.presetInfo}>
+                        <span className={styles.presetName}>{p.name}</span>
+                        <span className={styles.presetSub}>
+                          {MODE_META[p.mode].label} · {configSummary(p.mode, p.config)}
+                          {exCount > 0 ? ` · ${exCount} ex.` : ''}
+                        </span>
+                      </span>
+                      {p.config.focus && <span className={styles.presetFocus}>{p.config.focus}</span>}
+                    </button>
+                    <button
+                      className={styles.presetDelete}
+                      onClick={() => deletePreset.mutate(p.id)}
+                      aria-label="Supprimer"
+                    >
+                      <Trash2 size={15} strokeWidth={2} />
+                    </button>
+                  </div>
+                )
+              })}
+            </div>
+          </>
+        )
+      })()}
 
       {/* Historique */}
       {sessions.length > 0 && (
@@ -194,7 +225,16 @@ function ConfigScreen({ mode, initialConfig, presetName, onBack, onStart, onSave
   const [cfg, setCfg] = useState<TrainingConfig>({ ...initialConfig })
   const [showSave, setShowSave] = useState(false)
   const [saveName, setSaveName] = useState(presetName ?? '')
+  const [exInput, setExInput] = useState('')
   const set = (patch: Partial<TrainingConfig>) => setCfg(c => ({ ...c, ...patch }))
+
+  const exercises = cfg.exercises ?? []
+  function addExercise() {
+    const t = exInput.trim()
+    if (!t) return
+    set({ exercises: [...exercises, t] })
+    setExInput('')
+  }
 
   const total = totalDuration(mode, cfg)
   const title = presetName ?? m.label
@@ -238,6 +278,58 @@ function ConfigScreen({ mode, initialConfig, presetName, onBack, onStart, onSave
             <Stepper label="Plafond (0 = aucun)" value={cfg.cap ?? 0} setValue={v => set({ cap: v })} step={60} min={0} max={3600} fmt={v => v === 0 ? 'Aucun' : fmtClock(v)} />
           </>
         )}
+      </div>
+
+      {/* Zone travaillée */}
+      <div className={styles.subCard}>
+        <span className={styles.cfgSectionLabel}>Zone travaillée</span>
+        <div className={styles.focusChips}>
+          {FOCUS_OPTIONS.map(f => (
+            <button
+              key={f}
+              type="button"
+              className={[styles.focusChip, cfg.focus === f ? styles.focusChipActive : ''].join(' ')}
+              onClick={() => set({ focus: cfg.focus === f ? undefined : f })}
+            >
+              {f}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Exercices */}
+      <div className={styles.subCard}>
+        <span className={styles.cfgSectionLabel}>Exercices <span className={styles.cfgSectionHint}>· défilent à chaque effort</span></span>
+        {exercises.length > 0 && (
+          <ul className={styles.exList}>
+            {exercises.map((ex, i) => (
+              <li key={i} className={styles.exItem}>
+                <span className={styles.exIdx}>{i + 1}</span>
+                <span className={styles.exName}>{ex}</span>
+                <button
+                  type="button"
+                  className={styles.exRemove}
+                  onClick={() => set({ exercises: exercises.filter((_, j) => j !== i) })}
+                  aria-label="Retirer"
+                >
+                  <X size={14} strokeWidth={2.5} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className={styles.exAddRow}>
+          <input
+            className={styles.exInput}
+            value={exInput}
+            onChange={e => setExInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExercise() } }}
+            placeholder="Ex : Pompes, Squats, Gainage…"
+          />
+          <button type="button" className={styles.exAddBtn} onClick={addExercise} aria-label="Ajouter">
+            <Plus size={18} strokeWidth={2.5} />
+          </button>
+        </div>
       </div>
 
       {!isCountUp(mode) && (
@@ -370,6 +462,19 @@ function RunScreen({ mode, config, title, onExit }: {
             {subtitle && <span className={styles.runSub}>{subtitle}</span>}
           </div>
         </div>
+
+        {!done && (view.exercise || view.exerciseNext) && (
+          <div className={styles.exerciseBox}>
+            {view.exercise ? (
+              <span className={styles.exerciseCurrent} style={{ color }}>{view.exercise}</span>
+            ) : (
+              <span className={styles.exerciseUpcoming}>Prochain : {view.exerciseNext}</span>
+            )}
+            {view.exercise && view.exerciseNext && (
+              <span className={styles.exerciseUpcoming}>puis {view.exerciseNext}</span>
+            )}
+          </div>
+        )}
 
         {done && member?.display_name && (
           <span className={styles.runBravo}>Bravo {member.display_name} 💪</span>
