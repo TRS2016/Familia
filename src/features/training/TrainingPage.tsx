@@ -77,9 +77,15 @@ export default function TrainingPage() {
             <button
               key={mode}
               className={styles.modeCard}
+              style={{ borderColor: `${m.color}59` }}
               onClick={() => setScreen({ name: 'config', mode, config: { ...DEFAULT_CONFIG[mode] } })}
             >
-              <span className={styles.modeEmoji} style={{ background: `${m.color}1F` }}>{m.emoji}</span>
+              <span
+                className={styles.modeEmoji}
+                style={{ background: `${m.color}33`, boxShadow: `inset 0 0 0 1.5px ${m.color}` }}
+              >
+                {m.emoji}
+              </span>
               <span className={styles.modeName}>{m.label}</span>
               <span className={styles.modeDesc}>{m.desc}</span>
             </button>
@@ -98,7 +104,10 @@ export default function TrainingPage() {
                   className={styles.presetMain}
                   onClick={() => setScreen({ name: 'config', mode: p.mode, config: p.config, presetName: p.name })}
                 >
-                  <span className={styles.presetEmoji} style={{ background: `${MODE_META[p.mode].color}1F` }}>
+                  <span
+                    className={styles.presetEmoji}
+                    style={{ background: `${MODE_META[p.mode].color}33`, boxShadow: `inset 0 0 0 1.5px ${MODE_META[p.mode].color}` }}
+                  >
                     {MODE_META[p.mode].emoji}
                   </span>
                   <span className={styles.presetInfo}>
