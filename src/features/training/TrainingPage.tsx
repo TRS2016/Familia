@@ -155,7 +155,7 @@ export default function TrainingPage() {
         )}
 
         {mode === 'amrap' && (
-          <Stepper label="Durée" value={cfg.duration ?? 600} setValue={v => set({ duration: v })} step={60} min={60} max={3600} fmt={fmtClock} accent wide />
+          <Stepper label="Durée" value={cfg.duration ?? 600} setValue={v => set({ duration: v })} step={60} min={60} max={3600} fmt={fmtClock} accent />
         )}
 
         {mode === 'fortime' && (
