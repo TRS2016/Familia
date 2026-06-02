@@ -1039,11 +1039,35 @@
 
 /* ── Desktop : un peu d'air ─────────────────────────────────────────────────── */
 
+/* Wrappers neutres sur mobile (n'affectent pas la mise en page) */
+.configZone, .configMain { display: contents; }
+
 @media (min-width: 768px) {
-  .header, .sectionLabel, .modeTabs, .presetList, .configCard, .configActions,
-  .historyCard, .configHint, .totalLine, .subCard, .focusFilterRow {
+  /* Page training plus large pour mieux occuper l'espace */
+  .page { max-width: 940px; }
+
+  .header, .sectionLabel, .modeTabs, .presetList, .configActions,
+  .historyCard, .configHint, .focusFilterRow, .configZone {
     padding-left: 28px;
     padding-right: 28px;
   }
-  .historyCard, .totalLine, .subCard { margin-left: 28px; margin-right: 28px; }
+  .historyCard { margin-left: 28px; margin-right: 28px; }
+
+  /* Aperçu (gauche, collant) + réglages & exercices (droite) côte à côte */
+  .configZone {
+    display: grid;
+    grid-template-columns: minmax(230px, 290px) 1fr;
+    gap: 22px;
+    align-items: start;
+  }
+  .configMain { display: flex; flex-direction: column; gap: 12px; }
+  .previewWrap { padding: 0; position: sticky; top: 16px; }
+  .configCard  { padding: 0; }
+  .subCard     { margin: 0; }
+
+  /* Presets en 2 colonnes */
+  .presetList { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  /* Actions pas démesurément larges */
+  .configActions { max-width: 560px; }
 }

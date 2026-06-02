@@ -143,6 +143,7 @@ export default function TrainingPage() {
 
       <p className={styles.configHint}>{m.desc}</p>
 
+      <div className={styles.configZone}>
       {/* Aperçu de l'horloge */}
       <div className={styles.previewWrap}>
         <div className={styles.previewRing}>
@@ -163,6 +164,7 @@ export default function TrainingPage() {
       </div>
 
       {/* Réglages du mode sélectionné */}
+      <div className={styles.configMain}>
       <div className={styles.configCard}>
         <Stepper label="Décompte avant départ" value={cfg.prepare ?? 0} setValue={v => set({ prepare: v })} step={5} min={0} max={60} fmt={v => `${v}s`} />
 
@@ -203,6 +205,8 @@ export default function TrainingPage() {
         exercises={normalizeExercises(cfg.exercises)}
         onChange={list => set({ exercises: list })}
       />
+      </div>{/* /configMain */}
+      </div>{/* /configZone */}
 
       {/* Actions */}
       <div className={styles.configActions}>
