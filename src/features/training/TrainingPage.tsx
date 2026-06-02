@@ -271,10 +271,10 @@ function ConfigScreen({ mode, initialConfig, presetName, onBack, onStart, onSave
 // ── Run screen ──────────────────────────────────────────────────────────────────
 
 const PHASE_COLOR: Record<string, string> = {
-  prepare: '#A89F97', // gris chaud — prépare-toi
-  work:    '#E0633C', // orange — effort
-  rest:    '#3D80B8', // bleu — repos
-  done:    '#5FB06A', // vert — réussite
+  prepare: '#F0C95B', // jaune doré — prépare-toi
+  work:    '#FF7A45', // orange vif — effort
+  rest:    '#5AAEE6', // bleu ciel — repos
+  done:    '#6FD08A', // vert vif — réussite
 }
 
 const RING = { size: 290, r: 135 }
@@ -343,13 +343,16 @@ function RunScreen({ mode, config, title, onExit }: {
         <div className={styles.ringWrap} style={{ width: RING.size, height: RING.size }}>
           <svg width={RING.size} height={RING.size} className={styles.ringSvg}>
             <circle cx={RING.size / 2} cy={RING.size / 2} r={RING.r} fill="none"
-              stroke="rgba(244,240,230,0.12)" strokeWidth={5} />
+              stroke="rgba(244,240,230,0.1)" strokeWidth={10} />
             <circle cx={RING.size / 2} cy={RING.size / 2} r={RING.r} fill="none"
-              stroke={color} strokeWidth={5} strokeLinecap="round"
+              stroke={color} strokeWidth={10} strokeLinecap="round"
               strokeDasharray={RING_C}
               strokeDashoffset={RING_C * (1 - (done ? 1 : view.progress))}
               transform={`rotate(-90 ${RING.size / 2} ${RING.size / 2})`}
-              style={{ transition: 'stroke-dashoffset 0.2s linear, stroke 0.4s ease' }}
+              style={{
+                transition: 'stroke-dashoffset 0.2s linear, stroke 0.4s ease',
+                filter: `drop-shadow(0 0 7px ${color}99)`,
+              }}
             />
           </svg>
           <div className={styles.ringInner}>
