@@ -64,11 +64,14 @@ p { margin: 0; }
 
 @keyframes pageEnter {
   from { opacity: 0; transform: translateY(7px); }
-  to   { opacity: 1; transform: translateY(0);   }
+  to   { opacity: 1; transform: none;            }
 }
 
+/* fill-mode 'backwards' applique l'état initial avant le départ sans
+   conserver de transform à la fin → pas de containing-block résiduel qui
+   piégerait les position:fixed (run du chrono, lightbox, FABs…). */
 .page-enter {
-  animation: pageEnter 0.2s ease forwards;
+  animation: pageEnter 0.2s ease backwards;
 }
 
 /* ── Touch feedback ───────────────────────────────────────────────────────── */
