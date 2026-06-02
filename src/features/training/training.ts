@@ -13,8 +13,26 @@ export interface TrainingConfig {
   duration?: number // durée totale AMRAP (s)
   cap?:     number  // plafond For Time (s, 0 = aucun)
   target?:  number  // objectif de tours For Time (0 = aucun)
-  exercises?: string[] // exercices nommés qui défilent pendant l'effort
+  exercises?: Exercise[] // exercices (un par round) qui défilent pendant l'effort
   focus?:   string  // zone travaillée (Abdos, Jambes…) — pour ranger/filtrer
+}
+
+export interface Exercise {
+  name: string
+  videoUrl?: string   // lien externe (YouTube, Vimeo…)
+  videoPath?: string  // fichier uploadé (bucket family-media)
+}
+
+/** Normalise les exercices (compat anciens presets stockés en string[]). */
+export function normalizeExercises(raw: unknown): Exercise[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map(e => (typeof e === 'string' ? { name: e } : e))
+    .filter((e): e is Exercise => !!e && typeof (e as Exercise).name === 'string')
+}
+
+export function exerciseHasVideo(e: Exercise | undefined): boolean {
+  return !!e && (!!e.videoUrl || !!e.videoPath)
 }
 
 // Zones d'entraînement pour catégoriser les séances

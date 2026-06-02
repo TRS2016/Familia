@@ -4,13 +4,17 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
   ChevronLeft, Plus, Minus, Play, Pause, RotateCcw, X, SkipForward, Trash2, Bookmark,
+  Video, Upload, Link as LinkIcon,
 } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
+import MediaPlayer from '../media/MediaPlayer'
 import { useMember } from '../../auth/useMember'
+import { useUploadMediaFile } from '../lecteur/useLecteur'
 import {
   MODE_META, MODE_ORDER, DEFAULT_CONFIG, FOCUS_OPTIONS, configSummary, totalDuration, fmtClock, isCountUp,
+  normalizeExercises, exerciseHasVideo,
 } from './training'
-import type { TrainingMode, TrainingConfig, TrainingPreset } from './training'
+import type { TrainingMode, TrainingConfig, TrainingPreset, Exercise } from './training'
 import {
   useTrainingPresets, useAddTrainingPreset, useDeleteTrainingPreset,
   useTrainingSessions, useLogTrainingSession, useTrainingRealtime,
@@ -39,7 +43,6 @@ export default function TrainingPage() {
     return o
   })
   const [presetName, setPresetName] = useState<string | undefined>(undefined)
-  const [exInput, setExInput]       = useState('')
   const [focusFilter, setFocusFilter] = useState<string | null>(null)
   const [showSave, setShowSave]     = useState(false)
   const [saveName, setSaveName]     = useState('')
@@ -48,14 +51,7 @@ export default function TrainingPage() {
   const cfg = configs[mode]
   const set = (patch: Partial<TrainingConfig>) =>
     setConfigs(c => ({ ...c, [mode]: { ...c[mode], ...patch } }))
-  const exercises = cfg.exercises ?? []
 
-  function addExercise() {
-    const t = exInput.trim()
-    if (!t) return
-    set({ exercises: [...exercises, t] })
-    setExInput('')
-  }
   function selectMode(m: TrainingMode) {
     setMode(m)
     setPresetName(undefined)
@@ -171,39 +167,12 @@ export default function TrainingPage() {
       </div>
 
       {/* Exercices */}
-      <div className={styles.subCard}>
-        <span className={styles.cfgSectionLabel}>Exercices <span className={styles.cfgSectionHint}>· défilent à chaque effort</span></span>
-        {exercises.length > 0 && (
-          <ul className={styles.exList}>
-            {exercises.map((ex, i) => (
-              <li key={i} className={styles.exItem}>
-                <span className={styles.exIdx}>{i + 1}</span>
-                <span className={styles.exName}>{ex}</span>
-                <button
-                  type="button"
-                  className={styles.exRemove}
-                  onClick={() => set({ exercises: exercises.filter((_, j) => j !== i) })}
-                  aria-label="Retirer"
-                >
-                  <X size={14} strokeWidth={2.5} />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className={styles.exAddRow}>
-          <input
-            className={styles.exInput}
-            value={exInput}
-            onChange={e => setExInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addExercise() } }}
-            placeholder="Ex : Pompes, Squats, Gainage…"
-          />
-          <button type="button" className={styles.exAddBtn} onClick={addExercise} aria-label="Ajouter">
-            <Plus size={18} strokeWidth={2.5} />
-          </button>
-        </div>
-      </div>
+      <ExerciseEditor
+        mode={mode}
+        rounds={cfg.rounds ?? 0}
+        exercises={normalizeExercises(cfg.exercises)}
+        onChange={list => set({ exercises: list })}
+      />
 
       {/* Actions */}
       <div className={styles.configActions}>
@@ -355,6 +324,172 @@ function Stepper({ label, value, setValue, step, min, max, fmt, accent, wide }: 
   )
 }
 
+// ── Éditeur d'exercices (un par round) + vidéos ─────────────────────────────────
+
+function ExerciseEditor({ mode, rounds, exercises, onChange }: {
+  mode: TrainingMode
+  rounds: number
+  exercises: Exercise[]
+  onChange: (list: Exercise[]) => void
+}) {
+  const roundBased = mode === 'tabata' || mode === 'emom' || mode === 'intervals'
+  const [videoIdx, setVideoIdx] = useState<number | null>(null)
+  const [freeInput, setFreeInput] = useState('')
+
+  function setEx(i: number, patch: Partial<Exercise>) {
+    const next = exercises.slice()
+    while (next.length <= i) next.push({ name: '' })
+    next[i] = { ...next[i], ...patch }
+    onChange(next)
+  }
+  function removeEx(i: number) {
+    onChange(exercises.filter((_, j) => j !== i))
+  }
+  function addFree() {
+    const t = freeInput.trim()
+    if (!t) return
+    onChange([...exercises, { name: t }])
+    setFreeInput('')
+  }
+
+  const count = roundBased ? Math.max(1, rounds) : exercises.length
+
+  return (
+    <div className={styles.subCard}>
+      <span className={styles.cfgSectionLabel}>
+        Exercices <span className={styles.cfgSectionHint}>
+          · {roundBased ? 'un par round, se répètent à chaque série' : 'défilent à l\'effort'}
+        </span>
+      </span>
+
+      <ul className={styles.exList}>
+        {Array.from({ length: count }).map((_, i) => {
+          const ex = exercises[i] ?? { name: '' }
+          return (
+            <li key={i} className={styles.exItem}>
+              <span className={styles.exIdx}>{roundBased ? `R${i + 1}` : i + 1}</span>
+              <input
+                className={styles.exNameInput}
+                value={ex.name}
+                onChange={e => setEx(i, { name: e.target.value })}
+                placeholder={roundBased ? `Exercice round ${i + 1}` : 'Exercice…'}
+              />
+              <button
+                type="button"
+                className={[styles.exVideoBtn, exerciseHasVideo(ex) ? styles.exVideoBtnSet : ''].join(' ')}
+                onClick={() => setVideoIdx(i)}
+                aria-label="Vidéo de démo"
+                title="Vidéo de démo"
+              >
+                <Video size={15} strokeWidth={2} />
+              </button>
+              {!roundBased && (
+                <button type="button" className={styles.exRemove} onClick={() => removeEx(i)} aria-label="Retirer">
+                  <X size={14} strokeWidth={2.5} />
+                </button>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+
+      {!roundBased && (
+        <div className={styles.exAddRow}>
+          <input
+            className={styles.exInput}
+            value={freeInput}
+            onChange={e => setFreeInput(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addFree() } }}
+            placeholder="Ajouter un exercice…"
+          />
+          <button type="button" className={styles.exAddBtn} onClick={addFree} aria-label="Ajouter">
+            <Plus size={18} strokeWidth={2.5} />
+          </button>
+        </div>
+      )}
+
+      {videoIdx !== null && (
+        <VideoSheet
+          exercise={exercises[videoIdx] ?? { name: '' }}
+          onClose={() => setVideoIdx(null)}
+          onSave={patch => { setEx(videoIdx, patch); setVideoIdx(null) }}
+        />
+      )}
+    </div>
+  )
+}
+
+function VideoSheet({ exercise, onClose, onSave }: {
+  exercise: Exercise
+  onClose: () => void
+  onSave: (patch: Partial<Exercise>) => void
+}) {
+  const upload = useUploadMediaFile()
+  const [url, setUrl] = useState(exercise.videoUrl ?? '')
+  const [path, setPath] = useState(exercise.videoPath)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  async function handleFile(file: File) {
+    const res = await upload.mutateAsync(file)
+    setPath(res.path)
+    setUrl('')
+  }
+
+  return (
+    <SlideUpModal title={`Vidéo — ${exercise.name || 'exercice'}`} onClose={onClose}>
+      <div className={styles.videoSheet}>
+        <label className={styles.cfgSectionLabel}>Lien (YouTube, Vimeo…)</label>
+        <div className={styles.exAddRow}>
+          <input
+            className={styles.exInput}
+            type="url"
+            value={url}
+            onChange={e => { setUrl(e.target.value); if (e.target.value) setPath(undefined) }}
+            placeholder="https://youtube.com/watch?v=…"
+          />
+        </div>
+
+        <div className={styles.videoOr}>ou</div>
+
+        <button
+          type="button"
+          className={styles.videoUploadBtn}
+          onClick={() => fileRef.current?.click()}
+          disabled={upload.isPending}
+        >
+          <Upload size={15} strokeWidth={2} />
+          {upload.isPending ? 'Upload…' : path ? 'Fichier uploadé ✓' : 'Uploader une vidéo'}
+        </button>
+        <input
+          ref={fileRef}
+          type="file"
+          accept="video/*"
+          style={{ display: 'none' }}
+          onChange={e => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = '' }}
+        />
+
+        {(url || path) && (
+          <button
+            type="button"
+            className={styles.videoRemove}
+            onClick={() => { setUrl(''); setPath(undefined) }}
+          >
+            <LinkIcon size={13} strokeWidth={2} /> Retirer la vidéo
+          </button>
+        )}
+
+        <button
+          type="button"
+          className={styles.startBtn}
+          onClick={() => onSave({ videoUrl: url.trim() || undefined, videoPath: url.trim() ? undefined : path })}
+        >
+          Enregistrer
+        </button>
+      </div>
+    </SlideUpModal>
+  )
+}
+
 // ── Run screen ──────────────────────────────────────────────────────────────────
 
 const PHASE_COLOR: Record<string, string> = {
@@ -379,6 +514,12 @@ function RunScreen({ mode, config, title, onExit }: {
   const loggedRef = useRef(false)
   const startedRef = useRef(false)
   const [confirmExit, setConfirmExit] = useState(false)
+  const [showVideo, setShowVideo] = useState(false)
+
+  const exObjs = normalizeExercises(config.exercises)
+  const curEx = view.kind === 'work' && view.round && exObjs.length > 0
+    ? exObjs[(view.round - 1) % exObjs.length]
+    : undefined
 
   useEffect(() => {
     if (!startedRef.current) { startedRef.current = true; start() }
@@ -460,6 +601,11 @@ function RunScreen({ mode, config, title, onExit }: {
             {view.exercise && view.exerciseNext && (
               <span className={styles.exerciseUpcoming}>puis {view.exerciseNext}</span>
             )}
+            {exerciseHasVideo(curEx) && (
+              <button className={styles.demoBtn} onClick={() => setShowVideo(true)}>
+                <Video size={14} strokeWidth={2} /> Voir la démo
+              </button>
+            )}
           </div>
         )}
 
@@ -518,6 +664,18 @@ function RunScreen({ mode, config, title, onExit }: {
             </button>
           </div>
         </div>
+      )}
+
+      {showVideo && curEx && (
+        <SlideUpModal title={curEx.name || 'Démo'} onClose={() => setShowVideo(false)}>
+          <div className={styles.demoPlayer}>
+            <MediaPlayer
+              filePath={curEx.videoPath ?? null}
+              externalUrl={curEx.videoUrl ?? null}
+              title={curEx.name}
+            />
+          </div>
+        </SlideUpModal>
       )}
     </div>
   )

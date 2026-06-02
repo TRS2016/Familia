@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { compilePhases, isCountUp, type TrainingConfig, type TrainingMode } from './training'
+import { compilePhases, isCountUp, normalizeExercises, type TrainingConfig, type TrainingMode } from './training'
 
 type Status = 'idle' | 'running' | 'paused' | 'done'
 
@@ -91,7 +91,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const phases = useMemo(() => (countUp ? [] : compilePhases(mode, config)), [mode, cfgKey])
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const exercises = useMemo(() => config.exercises ?? [], [cfgKey])
+  const exNames = useMemo(() => normalizeExercises(config.exercises).map(e => e.name), [cfgKey])
 
   const initial: TimerView = {
     status: 'idle',
@@ -107,7 +107,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     elapsedTotal: 0,
     progress: 0,
     exercise: '',
-    exerciseNext: countUp ? '' : (phases[0]?.kind === 'prepare' && (config.exercises?.length ?? 0) > 0 ? config.exercises![0] : ''),
+    exerciseNext: '',
   }
 
   const [view, setView] = useState<TimerView>(initial)
@@ -130,15 +130,15 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
 
     // exercices qui défilent par round d'effort
     let exercise = '', exerciseNext = ''
-    const n = exercises.length
+    const n = exNames.length
     if (n > 0) {
       if (ph.kind === 'work' && ph.round) {
-        exercise     = exercises[(ph.round - 1) % n]
-        exerciseNext = exercises[ph.round % n]
+        exercise     = exNames[(ph.round - 1) % n]
+        exerciseNext = exNames[ph.round % n]
       } else if (ph.kind === 'rest' && ph.round) {
-        exerciseNext = exercises[ph.round % n]
+        exerciseNext = exNames[ph.round % n]
       } else if (ph.kind === 'prepare') {
-        exerciseNext = exercises[0]
+        exerciseNext = exNames[0]
       }
     }
 
@@ -162,7 +162,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
             exerciseNext,
           }
     )
-  }, [phases, exercises])
+  }, [phases, exNames])
 
   const emitCountUp = useCallback(() => {
     const value = Math.floor(elapsedRef.current)

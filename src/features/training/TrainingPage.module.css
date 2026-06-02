@@ -464,6 +464,99 @@
 
 .exName { flex: 1; font-size: 14px; font-weight: 600; color: var(--tr-ink); min-width: 0; }
 
+.exNameInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--tr-ink);
+  outline: none;
+}
+.exNameInput::placeholder { color: var(--tr-ink4); font-weight: 500; }
+
+.exVideoBtn {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  border: 1px solid var(--tr-line);
+  background: var(--tr-paper);
+  color: var(--tr-ink4);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.exVideoBtn:active { transform: scale(0.92); }
+.exVideoBtnSet { border-color: var(--tr-accent); color: var(--tr-accent); background: rgba(232, 100, 58, 0.1); }
+
+/* Sheet vidéo */
+.videoSheet { display: flex; flex-direction: column; gap: 10px; padding: 0 16px 16px; }
+
+.videoOr {
+  text-align: center;
+  font-family: var(--tr-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.videoUploadBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 13px;
+  border-radius: 12px;
+  border: 1.5px dashed var(--border);
+  background: var(--bg-input);
+  color: var(--text-sub);
+  font-family: var(--font-family);
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.videoUploadBtn:hover { border-color: var(--accent); color: var(--accent); }
+.videoUploadBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.videoRemove {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: center;
+  background: none;
+  border: none;
+  color: #c0392b;
+  font-family: var(--font-family);
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+/* Bouton démo (run) */
+.demoBtn {
+  margin-top: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(244, 240, 230, 0.25);
+  background: rgba(244, 240, 230, 0.08);
+  color: var(--tr-paper);
+  font-family: var(--font-family);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.demoBtn:active { transform: scale(0.96); }
+
+.demoPlayer { padding: 0 16px 16px; }
+
 .exRemove {
   background: none;
   border: none;
