@@ -43,6 +43,7 @@ export default function TrainingPage() {
   const [focusFilter, setFocusFilter] = useState<string | null>(null)
   const [showSave, setShowSave]     = useState(false)
   const [saveName, setSaveName]     = useState('')
+  const [saveFocus, setSaveFocus]   = useState('')
 
   const cfg = configs[mode]
   const set = (patch: Partial<TrainingConfig>) =>
@@ -167,23 +168,6 @@ export default function TrainingPage() {
         )}
       </div>
 
-      {/* Zone travaillée */}
-      <div className={styles.subCard}>
-        <span className={styles.cfgSectionLabel}>Zone travaillée</span>
-        <div className={styles.focusChips}>
-          {FOCUS_OPTIONS.map(f => (
-            <button
-              key={f}
-              type="button"
-              className={[styles.focusChip, cfg.focus === f ? styles.focusChipActive : ''].join(' ')}
-              onClick={() => set({ focus: cfg.focus === f ? undefined : f })}
-            >
-              {f}
-            </button>
-          ))}
-        </div>
-      </div>
-
       {/* Exercices */}
       <div className={styles.subCard}>
         <span className={styles.cfgSectionLabel}>Exercices <span className={styles.cfgSectionHint}>· défilent à chaque effort</span></span>
@@ -227,7 +211,7 @@ export default function TrainingPage() {
         >
           <Play size={18} strokeWidth={2.5} fill="currentColor" /> Démarrer
         </button>
-        <button className={styles.saveBtn} onClick={() => { setSaveName(presetName ?? ''); setShowSave(true) }}>
+        <button className={styles.saveBtn} onClick={() => { setSaveName(presetName ?? ''); setSaveFocus(cfg.focus ?? ''); setShowSave(true) }}>
           <Bookmark size={15} strokeWidth={2} /> Enregistrer
         </button>
       </div>
@@ -311,7 +295,7 @@ export default function TrainingPage() {
         <SlideUpModal title="Enregistrer la séance" onClose={() => setShowSave(false)}>
           <form
             className={styles.saveForm}
-            onSubmit={e => { e.preventDefault(); if (saveName.trim()) { addPreset.mutate({ name: saveName.trim(), mode, config: cfg }); setPresetName(saveName.trim()); setShowSave(false) } }}
+            onSubmit={e => { e.preventDefault(); if (saveName.trim()) { addPreset.mutate({ name: saveName.trim(), mode, config: { ...cfg, focus: saveFocus || undefined } }); setPresetName(saveName.trim()); setShowSave(false) } }}
           >
             <input
               type="text"
@@ -321,6 +305,14 @@ export default function TrainingPage() {
               placeholder="Ex : Tabata abdos, EMOM jambes…"
               autoFocus
             />
+            <select
+              className={styles.saveSelect}
+              value={saveFocus}
+              onChange={e => setSaveFocus(e.target.value)}
+            >
+              <option value="">Zone travaillée (optionnel)</option>
+              {FOCUS_OPTIONS.map(f => <option key={f} value={f}>{f}</option>)}
+            </select>
             <button type="submit" className={styles.startBtn} disabled={!saveName.trim()}>
               Enregistrer le preset
             </button>
