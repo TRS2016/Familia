@@ -144,7 +144,7 @@ export default function TrainingPage() {
           <>
             <Stepper label="Effort" value={cfg.work ?? 20} setValue={v => set({ work: v })} step={5} min={5} max={600} fmt={v => `${v}s`} accent />
             <Stepper label="Repos" value={cfg.rest ?? 10} setValue={v => set({ rest: v })} step={5} min={0} max={600} fmt={v => `${v}s`} />
-            <Stepper label="Rounds" value={cfg.rounds ?? 8} setValue={v => set({ rounds: v })} step={1} min={1} max={50} wide />
+            <Stepper label="Rounds" value={cfg.rounds ?? 8} setValue={v => set({ rounds: v })} step={1} min={1} max={50} />
           </>
         )}
 
@@ -218,13 +218,6 @@ export default function TrainingPage() {
           </button>
         </div>
       </div>
-
-      {!isCountUp(mode) && (
-        <p className={styles.totalLine}>
-          <span>Durée totale</span>
-          <strong>{fmtClock(total)}</strong>
-        </p>
-      )}
 
       {/* Actions */}
       <div className={styles.configActions}>
