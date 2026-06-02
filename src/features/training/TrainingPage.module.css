@@ -384,8 +384,8 @@
 }
 
 .stepperBtn {
-  width: 30px;
-  height: 30px;
+  width: 16px;
+  height: 16px;
   border-radius: 999px;
   border: 1px solid var(--tr-line);
   background: var(--tr-paper);
@@ -410,7 +410,7 @@
 }
 
 @media (min-width: 768px) {
-  .stepperBtn { width: 34px; height: 34px; }
+  .stepperBtn { width: 18px; height: 18px; }
   .stepperValue { font-size: 32px; }
 }
 
