@@ -119,8 +119,8 @@ export default function TrainingPage() {
 
       {/* Aperçu de l'horloge */}
       <div className={styles.previewWrap}>
-        <div className={styles.previewRing} style={{ width: PV.size, height: PV.size }}>
-          <svg width={PV.size} height={PV.size} className={styles.ringSvg}>
+        <div className={styles.previewRing}>
+          <svg viewBox={`0 0 ${PV.size} ${PV.size}`} className={styles.ringSvg}>
             <circle cx={PV.size / 2} cy={PV.size / 2} r={PV.r} fill="none" stroke="var(--tr-line)" strokeWidth={4} />
             <circle cx={PV.size / 2} cy={PV.size / 2} r={PV.r} fill="none"
               stroke={m.color} strokeWidth={4} strokeLinecap="round"
@@ -440,8 +440,8 @@ function RunScreen({ mode, config, title, onExit }: {
       </div>
 
       <div className={styles.runCenter}>
-        <div className={styles.ringWrap} style={{ width: RING.size, height: RING.size }}>
-          <svg width={RING.size} height={RING.size} className={styles.ringSvg}>
+        <div className={styles.ringWrap}>
+          <svg viewBox={`0 0 ${RING.size} ${RING.size}`} className={styles.ringSvg}>
             <circle cx={RING.size / 2} cy={RING.size / 2} r={RING.r} fill="none"
               stroke="rgba(244,240,230,0.12)" strokeWidth={5} />
             <circle cx={RING.size / 2} cy={RING.size / 2} r={RING.r} fill="none"
