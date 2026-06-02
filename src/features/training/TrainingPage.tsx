@@ -536,9 +536,10 @@ function RunScreen({ mode, config, title, onExit }: {
   const loggedRef = useRef(false)
   const startedRef = useRef(false)
   const [confirmExit, setConfirmExit] = useState(false)
-  const [showVideo, setShowVideo] = useState(false)
+  const [videoEx, setVideoEx] = useState<Exercise | null>(null)
 
   const exObjs = normalizeExercises(config.exercises)
+  const isCircuit = mode === 'amrap' || mode === 'fortime' // exercices = circuit (pas de défilement)
   const exIdxBase = (mode === 'tabata' || mode === 'intervals') ? view.set : view.round
   const curEx = view.kind === 'work' && exIdxBase && exObjs.length > 0
     ? exObjs[((exIdxBase - 1) % exObjs.length + exObjs.length) % exObjs.length]
@@ -625,10 +626,29 @@ function RunScreen({ mode, config, title, onExit }: {
               <span className={styles.exerciseUpcoming}>puis {view.exerciseNext}</span>
             )}
             {exerciseHasVideo(curEx) && (
-              <button className={styles.demoBtn} onClick={() => setShowVideo(true)}>
+              <button className={styles.demoBtn} onClick={() => setVideoEx(curEx ?? null)}>
                 <Video size={14} strokeWidth={2} /> Voir la démo
               </button>
             )}
+          </div>
+        )}
+
+        {/* Circuit (AMRAP / For Time) — liste des exercices */}
+        {!done && isCircuit && exObjs.length > 0 && (
+          <div className={styles.circuit}>
+            <span className={styles.circuitLabel}>Circuit</span>
+            <ul className={styles.circuitList}>
+              {exObjs.map((ex, i) => (
+                <li key={i} className={styles.circuitItem}>
+                  <span className={styles.circuitName}>{ex.name}</span>
+                  {exerciseHasVideo(ex) && (
+                    <button className={styles.circuitDemo} onClick={() => setVideoEx(ex)} aria-label="Démo">
+                      <Video size={13} strokeWidth={2} />
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ul>
           </div>
         )}
 
@@ -689,13 +709,13 @@ function RunScreen({ mode, config, title, onExit }: {
         </div>
       )}
 
-      {showVideo && curEx && (
-        <SlideUpModal title={curEx.name || 'Démo'} onClose={() => setShowVideo(false)}>
+      {videoEx && (
+        <SlideUpModal title={videoEx.name || 'Démo'} onClose={() => setVideoEx(null)}>
           <div className={styles.demoPlayer}>
             <MediaPlayer
-              filePath={curEx.videoPath ?? null}
-              externalUrl={curEx.videoUrl ?? null}
-              title={curEx.name}
+              filePath={videoEx.videoPath ?? null}
+              externalUrl={videoEx.videoUrl ?? null}
+              title={videoEx.name}
             />
           </div>
         </SlideUpModal>
