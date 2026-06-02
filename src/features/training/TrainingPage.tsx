@@ -591,6 +591,7 @@ function RunScreen({ mode, config, title, onExit }: {
         <X size={22} strokeWidth={2.5} />
       </button>
 
+      <div className={styles.runInner}>
       <div className={styles.runTop}>
         <span className={styles.runEyebrow}>{title}</span>
       </div>
@@ -692,6 +693,7 @@ function RunScreen({ mode, config, title, onExit }: {
           </>
         )}
       </div>
+      </div>{/* /runInner */}
 
       {confirmExit && (
         <div className={styles.exitOverlay} onClick={() => setConfirmExit(false)}>

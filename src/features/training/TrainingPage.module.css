@@ -791,12 +791,23 @@
   z-index: 2;
 }
 
+/* Colonne centrée — le contenu ne s'étire pas sur grand écran */
+.runInner {
+  position: relative;
+  z-index: 2;
+  flex: 1;
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
 .runTop {
   margin-top: max(28px, calc(env(safe-area-inset-top) + 28px));
   display: flex;
   flex-direction: column;
   align-items: center;
-  z-index: 2;
 }
 
 .runEyebrow {
@@ -820,13 +831,13 @@
 .ringWrap {
   position: relative;
   flex-shrink: 0;
-  width: min(290px, 74vw);
+  width: min(330px, 82vw);
   aspect-ratio: 1;
 }
 .ringSvg { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 @media (min-width: 768px) {
-  .ringWrap { width: 320px; }
+  .ringWrap { width: 360px; }
 }
 
 .ringInner {
@@ -851,7 +862,7 @@
   font-family: var(--tr-display);
   font-weight: 600;
   font-feature-settings: "tnum", "ss01";
-  font-size: clamp(58px, 22vw, 88px);
+  font-size: clamp(62px, 24vw, 96px);
   line-height: 1;
   letter-spacing: -0.04em;
   color: var(--tr-paper);
@@ -913,27 +924,25 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 14px 0 28px;
+  padding: 12px 0 24px;
   width: 100%;
-  max-width: 440px;
   justify-content: center;
   border-top: 1px solid rgba(244, 240, 230, 0.1);
-  z-index: 2;
 }
 
 .runCtrlBtn {
   display: flex;
   align-items: center;
-  gap: 7px;
-  min-width: 56px;
-  height: 54px;
-  padding: 0 18px;
+  gap: 6px;
+  min-width: 48px;
+  height: 46px;
+  padding: 0 15px;
   border-radius: 999px;
   border: 1px solid rgba(244, 240, 230, 0.18);
   background: rgba(244, 240, 230, 0.1);
   color: var(--tr-paper);
   font-family: var(--font-family);
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
   cursor: pointer;
   justify-content: center;
@@ -946,13 +955,13 @@
   align-items: center;
   justify-content: center;
   gap: 8px;
-  height: 54px;
+  height: 46px;
   border-radius: 999px;
   border: none;
   background: var(--tr-accent);
   color: #fff;
   font-family: var(--font-family);
-  font-size: 16px;
+  font-size: 15px;
   font-weight: 700;
   cursor: pointer;
 }
