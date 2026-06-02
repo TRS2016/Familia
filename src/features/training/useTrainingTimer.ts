@@ -10,6 +10,8 @@ export interface TimerView {
   value: number        // grand chiffre affiché (s)
   round: number
   totalRounds: number
+  set: number
+  totalSets: number
   phaseIndex: number
   phaseCount: number
   elapsedTotal: number // s écoulées (pour l'historique)
@@ -98,6 +100,8 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     value: countUp ? 0 : (phases[0]?.seconds ?? 0),
     round: phases[0]?.round ?? 0,
     totalRounds: phases[0]?.totalRounds ?? 0,
+    set: phases[0]?.set ?? 0,
+    totalSets: phases[0]?.totalSets ?? 0,
     phaseIndex: 0,
     phaseCount: phases.length,
     elapsedTotal: 0,
@@ -148,6 +152,8 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
             value,
             round: ph.round ?? 0,
             totalRounds: ph.totalRounds ?? 0,
+            set: ph.set ?? 0,
+            totalSets: ph.totalSets ?? 0,
             phaseIndex: phaseIdxRef.current,
             phaseCount: phases.length,
             elapsedTotal: Math.round(elapsedRef.current),
@@ -166,7 +172,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
         ? { ...v, progress }
         : {
             status: 'running', kind: 'work', label: 'For Time', value,
-            round: 0, totalRounds: 0, phaseIndex: 0, phaseCount: 0, elapsedTotal: value, progress,
+            round: 0, totalRounds: 0, set: 0, totalSets: 0, phaseIndex: 0, phaseCount: 0, elapsedTotal: value, progress,
             exercise: '', exerciseNext: '',
           }
     )

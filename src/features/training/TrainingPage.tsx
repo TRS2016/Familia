@@ -145,7 +145,9 @@ export default function TrainingPage() {
           <>
             <Stepper label="Effort" value={cfg.work ?? 20} setValue={v => set({ work: v })} step={5} min={5} max={600} fmt={v => `${v}s`} accent />
             <Stepper label="Repos" value={cfg.rest ?? 10} setValue={v => set({ rest: v })} step={5} min={0} max={600} fmt={v => `${v}s`} />
-            <Stepper label="Rounds" value={cfg.rounds ?? 8} setValue={v => set({ rounds: v })} step={1} min={1} max={50} />
+            <Stepper label="Rounds / série" value={cfg.rounds ?? 8} setValue={v => set({ rounds: v })} step={1} min={1} max={50} />
+            <Stepper label="Séries" value={cfg.sets ?? 1} setValue={v => set({ sets: v })} step={1} min={1} max={20} />
+            <Stepper label="Repos séries" value={cfg.setRest ?? 60} setValue={v => set({ setRest: v })} step={15} min={0} max={600} fmt={v => `${v}s`} />
           </>
         )}
 
@@ -407,7 +409,11 @@ function RunScreen({ mode, config, title, onExit }: {
   if (done) subtitle = `Séance de ${fmtClock(view.elapsedTotal)}`
   else if (mode === 'amrap') subtitle = `${taps} tour${taps > 1 ? 's' : ''}`
   else if (mode === 'fortime') subtitle = `${taps} / ${config.target ?? 0} tours`
-  else if (view.totalRounds > 0) subtitle = `Ronde ${view.round} / ${view.totalRounds}`
+  else if (view.totalRounds > 0) {
+    subtitle = view.totalSets > 1
+      ? `Série ${view.set}/${view.totalSets} · Ronde ${view.round}/${view.totalRounds}`
+      : `Ronde ${view.round} / ${view.totalRounds}`
+  }
 
   function handleClose() {
     if (view.status === 'running' || view.status === 'paused') setConfirmExit(true)

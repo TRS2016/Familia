@@ -6,7 +6,9 @@ export interface TrainingConfig {
   prepare:  number  // décompte avant le départ (s)
   work?:    number  // durée effort (s) — tabata, intervals
   rest?:    number  // durée repos (s) — tabata, intervals
-  rounds?:  number  // nb de rounds — tabata, emom, intervals
+  rounds?:  number  // nb de rounds (par série) — tabata, emom, intervals
+  sets?:    number  // nb de séries — tabata, intervals
+  setRest?: number  // repos entre séries (s) — tabata, intervals
   interval?: number // durée d'une minute EMOM (s)
   duration?: number // durée totale AMRAP (s)
   cap?:     number  // plafond For Time (s, 0 = aucun)
@@ -52,11 +54,11 @@ export const MODE_META: Record<TrainingMode, { emoji: string; label: string; des
 export const MODE_ORDER: TrainingMode[] = ['tabata', 'emom', 'amrap', 'fortime', 'intervals']
 
 export const DEFAULT_CONFIG: Record<TrainingMode, TrainingConfig> = {
-  tabata:    { prepare: 10, work: 20, rest: 10, rounds: 8 },
+  tabata:    { prepare: 10, work: 20, rest: 10, rounds: 8, sets: 1, setRest: 60 },
   emom:      { prepare: 10, interval: 60, rounds: 10 },
   amrap:     { prepare: 10, duration: 12 * 60 },
   fortime:   { prepare: 10, cap: 15 * 60, target: 5 },
-  intervals: { prepare: 10, work: 45, rest: 15, rounds: 6 },
+  intervals: { prepare: 10, work: 45, rest: 15, rounds: 6, sets: 1, setRest: 60 },
 }
 
 // ── Phases (modes en décompte) ─────────────────────────────────────────────────
@@ -69,6 +71,8 @@ export interface Phase {
   seconds: number
   round?: number
   totalRounds?: number
+  set?: number
+  totalSets?: number
 }
 
 /** True si le mode est un chrono qui monte (For Time) plutôt qu'un décompte. */
@@ -83,13 +87,20 @@ export function compilePhases(mode: TrainingMode, cfg: TrainingConfig): Phase[] 
   if (prepare > 0) phases.push({ kind: 'prepare', label: 'Prêt ?', seconds: prepare })
 
   if (mode === 'tabata' || mode === 'intervals') {
-    const rounds = Math.max(1, cfg.rounds ?? 1)
-    const work   = Math.max(1, cfg.work ?? 20)
-    const rest   = Math.max(0, cfg.rest ?? 0)
-    for (let r = 1; r <= rounds; r++) {
-      phases.push({ kind: 'work', label: 'Effort', seconds: work, round: r, totalRounds: rounds })
-      if (rest > 0 && r < rounds) {
-        phases.push({ kind: 'rest', label: 'Repos', seconds: rest, round: r, totalRounds: rounds })
+    const sets    = Math.max(1, cfg.sets ?? 1)
+    const rounds  = Math.max(1, cfg.rounds ?? 1)
+    const work    = Math.max(1, cfg.work ?? 20)
+    const rest    = Math.max(0, cfg.rest ?? 0)
+    const setRest = Math.max(0, cfg.setRest ?? 0)
+    for (let s = 1; s <= sets; s++) {
+      for (let r = 1; r <= rounds; r++) {
+        phases.push({ kind: 'work', label: 'Effort', seconds: work, round: r, totalRounds: rounds, set: s, totalSets: sets })
+        if (rest > 0 && r < rounds) {
+          phases.push({ kind: 'rest', label: 'Repos', seconds: rest, round: r, totalRounds: rounds, set: s, totalSets: sets })
+        }
+      }
+      if (setRest > 0 && s < sets) {
+        phases.push({ kind: 'rest', label: 'Repos série', seconds: setRest, round: rounds, totalRounds: rounds, set: s, totalSets: sets })
       }
     }
   } else if (mode === 'emom') {
@@ -124,8 +135,10 @@ export function fmtClock(totalSec: number): string {
 export function configSummary(mode: TrainingMode, cfg: TrainingConfig): string {
   switch (mode) {
     case 'tabata':
-    case 'intervals':
-      return `${cfg.work}s / ${cfg.rest}s × ${cfg.rounds}`
+    case 'intervals': {
+      const base = `${cfg.work}s / ${cfg.rest}s × ${cfg.rounds}`
+      return (cfg.sets ?? 1) > 1 ? `${cfg.sets} séries · ${base}` : base
+    }
     case 'emom':
       return `${fmtClock(cfg.interval ?? 60)} × ${cfg.rounds}`
     case 'amrap':
