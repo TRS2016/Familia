@@ -197,7 +197,10 @@ export function useUploadMediaFile() {
       if (error) throw error
       return { path, mimeType: file.type || 'application/octet-stream' }
     },
-    onError: () => showToast({ type: 'error', message: "Impossible d'uploader le fichier." }),
+    onError: (e: unknown) => {
+      const msg = (e as { message?: string })?.message ?? ''
+      showToast({ type: 'error', message: msg ? `Upload échoué : ${msg}` : "Impossible d'uploader le fichier." })
+    },
   })
 }
 
