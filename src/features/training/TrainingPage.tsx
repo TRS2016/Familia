@@ -491,13 +491,17 @@ function VideoSheet({ exercise, onClose, onSave }: {
   const upload = useUploadMediaFile()
   const [url, setUrl] = useState(exercise.videoUrl ?? '')
   const [path, setPath] = useState(exercise.videoPath)
+  const [mime, setMime] = useState(exercise.videoMime)
   const galleryRef = useRef<HTMLInputElement>(null)
   const cameraRef  = useRef<HTMLInputElement>(null)
 
   async function handleFile(file: File) {
-    const res = await upload.mutateAsync(file)
-    setPath(res.path)
-    setUrl('')
+    try {
+      const res = await upload.mutateAsync(file)
+      setPath(res.path)
+      setMime(res.mimeType || file.type || 'video/mp4')
+      setUrl('')
+    } catch { /* toast géré par le hook */ }
   }
 
   return (
@@ -554,7 +558,7 @@ function VideoSheet({ exercise, onClose, onSave }: {
           <button
             type="button"
             className={styles.videoRemove}
-            onClick={() => { setUrl(''); setPath(undefined) }}
+            onClick={() => { setUrl(''); setPath(undefined); setMime(undefined) }}
           >
             <LinkIcon size={13} strokeWidth={2} /> Retirer la vidéo
           </button>
@@ -563,7 +567,9 @@ function VideoSheet({ exercise, onClose, onSave }: {
         <button
           type="button"
           className={styles.startBtn}
-          onClick={() => onSave({ videoUrl: url.trim() || undefined, videoPath: url.trim() ? undefined : path })}
+          onClick={() => onSave(url.trim()
+            ? { videoUrl: url.trim(), videoPath: undefined, videoMime: undefined }
+            : { videoUrl: undefined, videoPath: path, videoMime: mime })}
         >
           Enregistrer
         </button>
@@ -778,6 +784,7 @@ function RunScreen({ mode, config, title, onExit }: {
             <MediaPlayer
               filePath={videoEx.videoPath ?? null}
               externalUrl={videoEx.videoUrl ?? null}
+              mimeType={videoEx.videoMime ?? null}
               title={videoEx.name}
             />
           </div>

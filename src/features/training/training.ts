@@ -21,6 +21,7 @@ export interface Exercise {
   name: string
   videoUrl?: string   // lien externe (YouTube, Vimeo…)
   videoPath?: string  // fichier uploadé (bucket family-media)
+  videoMime?: string  // type MIME du fichier uploadé (pour le lecteur)
 }
 
 /** Normalise les exercices (compat anciens presets stockés en string[]). */
