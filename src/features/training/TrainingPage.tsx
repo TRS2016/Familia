@@ -9,6 +9,7 @@ import {
 import SlideUpModal from '../../components/SlideUpModal'
 import MediaPlayer from '../media/MediaPlayer'
 import { useMember } from '../../auth/useMember'
+import { useToast } from '../../components/useToast'
 import { useUploadMediaFile } from '../lecteur/useLecteur'
 import {
   MODE_META, MODE_ORDER, DEFAULT_CONFIG, FOCUS_OPTIONS, configSummary, totalDuration, fmtClock, isCountUp,
@@ -495,7 +496,16 @@ function VideoSheet({ exercise, onClose, onSave }: {
   const galleryRef = useRef<HTMLInputElement>(null)
   const cameraRef  = useRef<HTMLInputElement>(null)
 
+  const { showToast } = useToast()
   async function handleFile(file: File) {
+    // Plafond Supabase free-tier : 50 Mo/fichier. On garde une marge.
+    if (file.size > 50 * 1024 * 1024) {
+      showToast({
+        type: 'error',
+        message: `Vidéo trop lourde (${Math.round(file.size / 1024 / 1024)} Mo). Max 50 Mo — utilise un clip plus court ou un lien YouTube.`,
+      })
+      return
+    }
     try {
       const res = await upload.mutateAsync(file)
       setPath(res.path)
