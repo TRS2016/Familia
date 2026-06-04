@@ -617,10 +617,8 @@ function RunScreen({ mode, config, title, onExit }: {
 
   const exObjs = normalizeExercises(config.exercises)
   const isCircuit = mode === 'amrap' || mode === 'fortime' // exercices = circuit (pas de défilement)
-  const exIdxBase = (mode === 'tabata' || mode === 'intervals') ? view.set : view.round
-  const curEx = view.kind === 'work' && exIdxBase && exObjs.length > 0
-    ? exObjs[((exIdxBase - 1) % exObjs.length + exObjs.length) % exObjs.length]
-    : undefined
+  // Démo : exo courant pendant l'effort, exo suivant pendant le repos/décompte.
+  const demoEx = view.kind === 'work' ? view.exerciseObj : view.exerciseNextObj
 
   useEffect(() => {
     if (!startedRef.current) { startedRef.current = true; start() }
@@ -693,19 +691,20 @@ function RunScreen({ mode, config, title, onExit }: {
           </div>
         </div>
 
-        {!done && (view.exercise || view.exerciseNext) && (
+        {!done && !isCircuit && (view.exercise || view.exerciseNext || exerciseHasVideo(demoEx ?? undefined)) && (
           <div className={styles.exerciseBox}>
             {view.exercise ? (
               <span className={styles.exerciseCurrent} style={{ color }}>{view.exercise}</span>
-            ) : (
+            ) : view.exerciseNext ? (
               <span className={styles.exerciseUpcoming}>Prochain : {view.exerciseNext}</span>
-            )}
+            ) : null}
             {view.exercise && view.exerciseNext && (
               <span className={styles.exerciseUpcoming}>puis {view.exerciseNext}</span>
             )}
-            {exerciseHasVideo(curEx) && (
-              <button className={styles.demoBtn} onClick={() => setVideoEx(curEx ?? null)}>
-                <Video size={14} strokeWidth={2} /> Voir la démo
+            {exerciseHasVideo(demoEx ?? undefined) && (
+              <button className={styles.demoBtn} onClick={() => setVideoEx(demoEx)}>
+                <Video size={14} strokeWidth={2} />
+                {view.kind === 'work' ? ' Voir la démo' : ' Démo · prochain exo'}
               </button>
             )}
           </div>

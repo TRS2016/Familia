@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { compilePhases, isCountUp, normalizeExercises, type TrainingConfig, type TrainingMode } from './training'
+import { compilePhases, isCountUp, normalizeExercises, type Exercise, type TrainingConfig, type TrainingMode } from './training'
 
 type Status = 'idle' | 'running' | 'paused' | 'done'
 
@@ -18,6 +18,8 @@ export interface TimerView {
   progress: number     // 0→1 de la phase courante (anneau)
   exercise: string     // exercice à faire maintenant (phase d'effort)
   exerciseNext: string // exercice suivant (affiché en repos/préparation)
+  exerciseObj: Exercise | null     // objet exo courant (pour la vidéo de démo)
+  exerciseNextObj: Exercise | null // objet exo suivant (démo pendant le repos)
 }
 
 // ── Bips Web Audio ─────────────────────────────────────────────────────────────
@@ -91,7 +93,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const phases = useMemo(() => (countUp ? [] : compilePhases(mode, config)), [mode, cfgKey])
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  const exNames = useMemo(() => normalizeExercises(config.exercises).map(e => e.name), [cfgKey])
+  const exObjs = useMemo(() => normalizeExercises(config.exercises), [cfgKey])
 
   const initial: TimerView = {
     status: 'idle',
@@ -108,6 +110,8 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     progress: 0,
     exercise: '',
     exerciseNext: '',
+    exerciseObj: null,
+    exerciseNextObj: null,
   }
 
   const [view, setView] = useState<TimerView>(initial)
@@ -131,18 +135,22 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     // exercices qui défilent par round d'effort
     // Exercices : par série (tabata/intervals) ou par round/minute (emom)
     let exercise = '', exerciseNext = ''
-    const n = exNames.length
+    let exerciseObj: Exercise | null = null, exerciseNextObj: Exercise | null = null
+    const n = exObjs.length
     if (n > 0) {
       const seriesBased = mode === 'tabata' || mode === 'intervals'
       const idxOf = (p: typeof ph) => {
         const base = seriesBased ? (p.set ?? 1) : (p.round ?? 1)
         return ((base - 1) % n + n) % n
       }
-      if (ph.kind === 'work') exercise = exNames[idxOf(ph)]
+      if (ph.kind === 'work') { exerciseObj = exObjs[idxOf(ph)]; exercise = exerciseObj.name }
       for (let k = phaseIdxRef.current + 1; k < phases.length; k++) {
         if (phases[k].kind === 'work') {
-          const nm = exNames[idxOf(phases[k])]
-          if (nm && nm !== exercise) exerciseNext = nm
+          const nx = exObjs[idxOf(phases[k])]
+          if (nx) {
+            exerciseNextObj = nx
+            if (nx.name && nx.name !== exercise) exerciseNext = nx.name
+          }
           break
         }
       }
@@ -166,9 +174,11 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
             progress,
             exercise,
             exerciseNext,
+            exerciseObj,
+            exerciseNextObj,
           }
     )
-  }, [phases, exNames, mode])
+  }, [phases, exObjs, mode])
 
   const emitCountUp = useCallback(() => {
     const value = Math.floor(elapsedRef.current)
@@ -179,7 +189,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
         : {
             status: 'running', kind: 'work', label: 'For Time', value,
             round: 0, totalRounds: 0, set: 0, totalSets: 0, phaseIndex: 0, phaseCount: 0, elapsedTotal: value, progress,
-            exercise: '', exerciseNext: '',
+            exercise: '', exerciseNext: '', exerciseObj: null, exerciseNextObj: null,
           }
     )
   }, [cap])
