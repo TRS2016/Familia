@@ -711,8 +711,9 @@
 
 /* Démo auto-lancée pendant prépa / repos (intégrée sous le chrono) */
 .demoInline {
-  width: 100%;
-  max-width: 300px;
+  /* largeur définie (pas 100%) : .exerciseBox est centré et ne s'étire pas,
+     un width:100% s'effondrerait à 0 quand la vidéo est le seul enfant */
+  width: min(300px, 78vw);
   margin-top: 8px;
   border-radius: 14px;
   overflow: hidden;
