@@ -74,16 +74,47 @@ function vibrate(ms: number | number[]) {
   try { navigator.vibrate?.(ms) } catch { /* non supporté */ }
 }
 
+// ── Annonces vocales (Web Speech) ────────────────────────────────────────────────
+
+function useSpeaker() {
+  return useCallback((text: string) => {
+    try {
+      const synth = window.speechSynthesis
+      if (!synth) return
+      const u = new SpeechSynthesisUtterance(text)
+      u.lang = 'fr-FR'
+      u.rate = 1.05
+      synth.cancel() // coupe l'annonce précédente pour rester synchro
+      synth.speak(u)
+    } catch { /* synthèse vocale indisponible */ }
+  }, [])
+}
+
 // ── Hook minuteur ───────────────────────────────────────────────────────────────
 
-export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
-  const { ensure, beep, motif } = useBeeper()
+export interface TimerOptions {
+  muted?: boolean  // coupe bips + voix (la vibration reste)
+  voice?: boolean  // annonces vocales des phases
+}
 
-  // Motifs sémantiques
-  const sndGo    = useCallback(() => motif([{ f: 660, d: 0.12 }, { f: 990, d: 0.28 }]), [motif])
-  const sndBreak = useCallback(() => motif([{ f: 523, d: 0.16, v: 0.3 }, { f: 392, d: 0.28, v: 0.3 }]), [motif])
-  const sndStop  = useCallback(() => motif([{ f: 784, d: 0.16 }, { f: 587, d: 0.16 }, { f: 392, d: 0.5 }]), [motif])
-  const sndTick  = useCallback((rest: boolean) => beep(rest ? 620 : 880, 0.09, 0.22), [beep])
+export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opts: TimerOptions = {}) {
+  const { ensure, beep, motif } = useBeeper()
+  const speakRaw = useSpeaker()
+
+  const mutedRef = useRef(!!opts.muted)
+  const voiceRef = useRef(!!opts.voice)
+  mutedRef.current = !!opts.muted
+  voiceRef.current = !!opts.voice
+
+  const speak = useCallback((text: string) => {
+    if (!mutedRef.current && voiceRef.current) speakRaw(text)
+  }, [speakRaw])
+
+  // Motifs sémantiques (silencieux si mute). La voix double éventuellement le bip.
+  const sndGo    = useCallback(() => { if (!mutedRef.current) motif([{ f: 660, d: 0.12 }, { f: 990, d: 0.28 }]) }, [motif])
+  const sndBreak = useCallback(() => { if (!mutedRef.current) motif([{ f: 523, d: 0.16, v: 0.3 }, { f: 392, d: 0.28, v: 0.3 }]) }, [motif])
+  const sndStop  = useCallback(() => { if (!mutedRef.current) motif([{ f: 784, d: 0.16 }, { f: 587, d: 0.16 }, { f: 392, d: 0.5 }]) }, [motif])
+  const sndTick  = useCallback((rest: boolean) => { if (!mutedRef.current) beep(rest ? 620 : 880, 0.09, 0.22) }, [beep])
 
   const countUp = isCountUp(mode)
   const cap = config.cap ?? 0
@@ -194,13 +225,23 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     )
   }, [cap])
 
+  // Nom d'exercice associé à une phase (pour l'annonce vocale).
+  const exNameForPhase = useCallback((ph: typeof phases[number]): string => {
+    const n = exObjs.length
+    if (n === 0 || ph.kind !== 'work') return ''
+    const seriesBased = mode === 'tabata' || mode === 'intervals'
+    const base = seriesBased ? (ph.set ?? 1) : (ph.round ?? 1)
+    return exObjs[((base - 1) % n + n) % n]?.name ?? ''
+  }, [exObjs, mode])
+
   const finish = useCallback(() => {
     statusRef.current = 'done'
     if (intervalRef.current) clearInterval(intervalRef.current)
     sndStop()
+    speak('Terminé. Bravo !')
     vibrate([150, 90, 150, 90, 280])
     setView(v => ({ ...v, status: 'done', kind: 'done', label: 'Terminé', value: 0, elapsedTotal: Math.round(elapsedRef.current) }))
-  }, [sndStop])
+  }, [sndStop, speak])
 
   const tick = useCallback(() => {
     const now = performance.now()
@@ -224,7 +265,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
       const ceil = Math.ceil(remainingRef.current)
       if (ceil !== prevCeilRef.current) {
         prevCeilRef.current = ceil
-        if (ceil >= 1 && ceil <= 3) { sndTick(ph.kind === 'rest'); vibrate(40) }
+        if (ceil >= 1 && ceil <= 3) { sndTick(ph.kind === 'rest'); speak(String(ceil)); vibrate(40) }
       }
       if (remainingRef.current <= 0) {
         const carry = remainingRef.current
@@ -233,13 +274,14 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
         phaseIdxRef.current = next
         remainingRef.current = phases[next].seconds + carry
         prevCeilRef.current = -1
-        const isWork = phases[next].kind === 'work'
-        if (isWork) { sndGo(); vibrate([90, 50, 120]) }
-        else        { sndBreak(); vibrate(200) }
+        const nextPh = phases[next]
+        const isWork = nextPh.kind === 'work'
+        if (isWork) { sndGo(); vibrate([90, 50, 120]); speak(exNameForPhase(nextPh) || 'Effort') }
+        else        { sndBreak(); vibrate(200); speak(nextPh.label === 'Repos série' ? 'Repos série' : 'Repos') }
       }
       emitCountdown()
     }
-  }, [countUp, cap, target, phases, emitCountUp, emitCountdown, finish, sndTick, sndGo, sndBreak])
+  }, [countUp, cap, target, phases, emitCountUp, emitCountdown, finish, sndTick, sndGo, sndBreak, speak, exNameForPhase])
 
   const start = useCallback(() => {
     ensure()
@@ -251,12 +293,15 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig) {
     setTaps(0)
     statusRef.current    = 'running'
     lastRef.current      = performance.now()
-    // son de départ
+    // son de départ + annonce de la 1re phase
     sndGo()
+    const first = phases[0]
+    if (countUp) speak('C\'est parti')
+    else if (first) speak(first.kind === 'prepare' ? 'Prêts ?' : (exNameForPhase(first) || 'Effort'))
     if (intervalRef.current) clearInterval(intervalRef.current)
     intervalRef.current = window.setInterval(tick, 100)
     if (countUp) emitCountUp(); else emitCountdown()
-  }, [ensure, sndGo, phases, countUp, emitCountUp, emitCountdown, tick])
+  }, [ensure, sndGo, phases, countUp, emitCountUp, emitCountdown, tick, speak, exNameForPhase])
 
   const pause = useCallback(() => {
     if (statusRef.current !== 'running') return

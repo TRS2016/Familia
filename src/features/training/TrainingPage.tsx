@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
   ChevronLeft, Plus, Minus, Play, Pause, RotateCcw, X, SkipForward, Trash2, Bookmark,
-  Video, Link as LinkIcon, Camera, Images,
+  Video, Link as LinkIcon, Camera, Images, Volume2, VolumeX, Megaphone,
 } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
 import MediaPlayer from '../media/MediaPlayer'
@@ -18,8 +18,9 @@ import {
 import type { TrainingMode, TrainingConfig, TrainingPreset, Exercise } from './training'
 import {
   useTrainingPresets, useAddTrainingPreset, useUpdateTrainingPreset, useDeleteTrainingPreset,
-  useTrainingSessions, useLogTrainingSession, useTrainingRealtime,
+  useTrainingSessions, useLogTrainingSession, useTrainingRealtime, useTrainingStats,
 } from './useTraining'
+import type { TrainingStats } from './useTraining'
 import { useTrainingTimer } from './useTrainingTimer'
 import styles from './TrainingPage.module.css'
 
@@ -52,12 +53,25 @@ function useWakeLock(active: boolean) {
   }, [active])
 }
 
+// Préférence booléenne persistée (localStorage)
+function useBoolPref(key: string, initial: boolean): [boolean, (v: boolean) => void] {
+  const [val, setVal] = useState<boolean>(() => {
+    try { const s = localStorage.getItem(key); return s === null ? initial : s === '1' } catch { return initial }
+  })
+  const set = (v: boolean) => {
+    setVal(v)
+    try { localStorage.setItem(key, v ? '1' : '0') } catch { /* indisponible */ }
+  }
+  return [val, set]
+}
+
 // ── Page (écran unique : onglets de mode + config inline) ──────────────────────
 
 export default function TrainingPage() {
   useTrainingRealtime()
   const { data: presets = [] }  = useTrainingPresets()
   const { data: sessions = [] } = useTrainingSessions(15)
+  const { data: stats }         = useTrainingStats()
   const addPreset    = useAddTrainingPreset()
   const updatePreset = useUpdateTrainingPreset()
   const deletePreset = useDeleteTrainingPreset()
@@ -276,6 +290,14 @@ export default function TrainingPage() {
         </>
       )}
 
+      {/* Stats */}
+      {stats && stats.totalCount > 0 && (
+        <>
+          <p className={styles.sectionLabel}>Cette semaine</p>
+          <StatsCard stats={stats} />
+        </>
+      )}
+
       {/* Historique */}
       {sessions.length > 0 && (
         <>
@@ -381,6 +403,59 @@ function Stepper({ label, value, setValue, step, min, max, fmt, accent, wide }: 
         <button type="button" className={styles.stepperBtn} onClick={() => setValue(clamp(value + step))} aria-label="Plus">
           <Plus size={13} strokeWidth={2.5} />
         </button>
+      </div>
+    </div>
+  )
+}
+
+// ── Carte de stats ──────────────────────────────────────────────────────────────
+
+const DAY_LETTERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
+
+function StatsCard({ stats }: { stats: TrainingStats }) {
+  const maxSec = Math.max(1, ...stats.perDay.map(d => d.seconds))
+  const todayKey = stats.perDay[stats.perDay.length - 1]?.date
+  return (
+    <div className={styles.statsCard}>
+      <div className={styles.statsGrid}>
+        <div className={styles.statCell}>
+          <span className={[styles.statValue, styles.statValueAccent].join(' ')}>{stats.weekCount}</span>
+          <span className={styles.statLabel}>Séances</span>
+        </div>
+        <div className={styles.statCell}>
+          <span className={styles.statValue}>{fmtClock(stats.weekSeconds)}</span>
+          <span className={styles.statLabel}>Temps</span>
+        </div>
+        <div className={styles.statCell}>
+          <span className={[styles.statValue, stats.streakDays > 0 ? styles.statValueAccent : ''].join(' ')}>
+            {stats.streakDays > 0 ? `${stats.streakDays}🔥` : '0'}
+          </span>
+          <span className={styles.statLabel}>Série</span>
+        </div>
+        <div className={styles.statCell}>
+          <span className={styles.statValue}>{stats.totalCount}</span>
+          <span className={styles.statLabel}>Total</span>
+        </div>
+      </div>
+
+      <div className={styles.statChart}>
+        {stats.perDay.map(d => {
+          const dow = new Date(d.date + 'T00:00:00').getDay()
+          const isToday = d.date === todayKey
+          return (
+            <div key={d.date} className={styles.statBarCol}>
+              <div className={styles.statBarTrack}>
+                <div
+                  className={[styles.statBar, d.seconds === 0 ? styles.statBarEmpty : ''].join(' ')}
+                  style={{ height: `${Math.round((d.seconds / maxSec) * 100)}%` }}
+                />
+              </div>
+              <span className={[styles.statBarDay, isToday ? styles.statBarDayToday : ''].join(' ')}>
+                {DAY_LETTERS[dow]}
+              </span>
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -606,7 +681,9 @@ function RunScreen({ mode, config, title, onExit }: {
   title: string
   onExit: () => void
 }) {
-  const { view, taps, start, pause, resume, reset, skip, addTap } = useTrainingTimer(mode, config)
+  const [muted, setMuted] = useBoolPref('training.muted', false)
+  const [voice, setVoice] = useBoolPref('training.voice', false)
+  const { view, taps, start, pause, resume, reset, skip, addTap } = useTrainingTimer(mode, config, { muted, voice })
   useWakeLock(view.status === 'running' || view.status === 'paused')
   const logSession = useLogTrainingSession()
   const { data: member } = useMember()
@@ -662,6 +739,10 @@ function RunScreen({ mode, config, title, onExit }: {
 
   return (
     <div className={styles.runRoot}>
+      {/* Flash de couleur à chaque changement de phase (re-monté via key) */}
+      {view.status === 'running' && !done && (
+        <div key={view.phaseIndex} className={styles.phaseFlash} style={{ background: color }} />
+      )}
       <button className={styles.runClose} onClick={handleClose} aria-label="Quitter">
         <X size={22} strokeWidth={2.5} />
       </button>
@@ -669,6 +750,26 @@ function RunScreen({ mode, config, title, onExit }: {
       <div className={styles.runInner}>
       <div className={styles.runTop}>
         <span className={styles.runEyebrow}>{title}</span>
+        <div className={styles.runToggles}>
+          <button
+            className={[styles.runToggle, voice ? styles.runToggleOn : ''].join(' ')}
+            onClick={() => setVoice(!voice)}
+            aria-label={voice ? 'Couper les annonces vocales' : 'Activer les annonces vocales'}
+            aria-pressed={voice}
+            title="Annonces vocales"
+          >
+            <Megaphone size={17} strokeWidth={2} />
+          </button>
+          <button
+            className={[styles.runToggle, muted ? styles.runToggleMuted : ''].join(' ')}
+            onClick={() => setMuted(!muted)}
+            aria-label={muted ? 'Réactiver le son' : 'Couper le son'}
+            aria-pressed={muted}
+            title="Son"
+          >
+            {muted ? <VolumeX size={17} strokeWidth={2} /> : <Volume2 size={17} strokeWidth={2} />}
+          </button>
+        </div>
       </div>
 
       <div className={styles.runCenter}>
