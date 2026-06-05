@@ -847,8 +847,12 @@ function RunScreen({ mode, config, title, onExit }: {
   const demoEx = view.kind === 'work' ? view.exerciseObj : view.exerciseNextObj
   // Phases d'attente : on lance la démo du prochain exo automatiquement.
   const isRestLike = view.kind === 'prepare' || view.kind === 'rest'
+  // Démo affichée inline pendant l'effort (toggle « Voir la démo »).
+  const [workDemo, setWorkDemo] = useState(false)
+  useEffect(() => { setWorkDemo(false) }, [view.phaseIndex]) // se referme à chaque nouvelle phase
+  const inlineDemo = exerciseHasVideo(demoEx ?? undefined) && (isRestLike || workDemo)
   // Démo en cours : anneau réduit, vidéo agrandie.
-  const demoPlaying = !isCircuit && isRestLike && exerciseHasVideo(demoEx ?? undefined)
+  const demoPlaying = !isCircuit && inlineDemo
 
   useEffect(() => {
     if (!startedRef.current) { startedRef.current = true; start() }
@@ -982,20 +986,27 @@ function RunScreen({ mode, config, title, onExit }: {
               <span className={styles.exerciseUpcoming}>puis {view.exerciseNext}</span>
             )}
             {exerciseHasVideo(demoEx ?? undefined) && (
-              isRestLike ? (
-                <div className={[styles.demoInline, styles.demoInlineLarge].join(' ')}>
-                  <MediaPlayer
-                    key={demoEx!.videoPath ?? demoEx!.videoUrl}
-                    filePath={demoEx!.videoPath ?? null}
-                    externalUrl={demoEx!.videoUrl ?? null}
-                    mimeType={demoEx!.videoMime ?? null}
-                    title={demoEx!.name}
-                    autoPlay
-                    muted
-                  />
-                </div>
+              inlineDemo ? (
+                <>
+                  <div className={[styles.demoInline, styles.demoInlineLarge].join(' ')}>
+                    <MediaPlayer
+                      key={demoEx!.videoPath ?? demoEx!.videoUrl}
+                      filePath={demoEx!.videoPath ?? null}
+                      externalUrl={demoEx!.videoUrl ?? null}
+                      mimeType={demoEx!.videoMime ?? null}
+                      title={demoEx!.name}
+                      autoPlay
+                      muted
+                    />
+                  </div>
+                  {view.kind === 'work' && (
+                    <button className={styles.demoBtn} onClick={() => setWorkDemo(false)}>
+                      <Video size={14} strokeWidth={2} /> Masquer la démo
+                    </button>
+                  )}
+                </>
               ) : (
-                <button className={styles.demoBtn} onClick={() => setVideoEx(demoEx)}>
+                <button className={styles.demoBtn} onClick={() => setWorkDemo(true)}>
                   <Video size={14} strokeWidth={2} /> Voir la démo
                 </button>
               )
