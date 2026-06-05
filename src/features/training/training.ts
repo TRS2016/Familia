@@ -56,6 +56,7 @@ export interface TrainingSession {
   name: string
   mode: TrainingMode
   duration_seconds: number
+  focus?: string | null
   completed_at: string
   member?: { display_name: string } | null
 }

@@ -129,7 +129,7 @@ export function useLogTrainingSession() {
   const { data: member } = useMember()
 
   return useMutation({
-    mutationFn: async (input: { name: string; mode: TrainingMode; duration_seconds: number }) => {
+    mutationFn: async (input: { name: string; mode: TrainingMode; duration_seconds: number; focus?: string | null }) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await (supabase as any)
         .from('training_sessions')
@@ -139,6 +139,7 @@ export function useLogTrainingSession() {
           name:             input.name,
           mode:             input.mode,
           duration_seconds: input.duration_seconds,
+          focus:            input.focus ?? null,
         })
       if (error) throw error
     },
@@ -156,6 +157,7 @@ export interface TrainingStats {
   totalCount:   number   // séances all-time (sur la fenêtre récupérée)
   streakDays:   number   // jours consécutifs avec ≥1 séance (jusqu'à aujourd'hui/hier)
   perDay:       { date: string; seconds: number }[] // 7 derniers jours (du + ancien au + récent)
+  zones:        { focus: string; count: number }[]  // répartition par zone (desc), sur la fenêtre
 }
 
 /** Clé locale (YYYY-MM-DD) d'une date — pour grouper par jour sans souci de fuseau. */
@@ -180,22 +182,27 @@ export function useTrainingStats() {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { data, error } = await (supabase as any)
         .from('training_sessions')
-        .select('duration_seconds, completed_at')
+        .select('duration_seconds, completed_at, focus')
         .eq('household_id', HOUSEHOLD_ID)
         .gte('completed_at', since.toISOString())
         .order('completed_at', { ascending: false })
       if (error) throw error
-      const rows = (data ?? []) as { duration_seconds: number; completed_at: string }[]
+      const rows = (data ?? []) as { duration_seconds: number; completed_at: string; focus: string | null }[]
 
       const now = new Date()
       const weekStart = startOfWeek(now)
       const secByDay = new Map<string, number>()
+      const countByZone = new Map<string, number>()
       let weekCount = 0, weekSeconds = 0
       for (const r of rows) {
         const d = new Date(r.completed_at)
         secByDay.set(dayKey(d), (secByDay.get(dayKey(d)) ?? 0) + (r.duration_seconds ?? 0))
         if (d >= weekStart) { weekCount++; weekSeconds += r.duration_seconds ?? 0 }
+        if (r.focus) countByZone.set(r.focus, (countByZone.get(r.focus) ?? 0) + 1)
       }
+      const zones = [...countByZone.entries()]
+        .map(([focus, count]) => ({ focus, count }))
+        .sort((a, b) => b.count - a.count)
 
       // streak : jours consécutifs avec séance, en partant d'aujourd'hui (ou hier).
       let streakDays = 0
@@ -213,7 +220,7 @@ export function useTrainingStats() {
         perDay.push({ date: dayKey(d), seconds: secByDay.get(dayKey(d)) ?? 0 })
       }
 
-      return { weekCount, weekSeconds, totalCount: rows.length, streakDays, perDay }
+      return { weekCount, weekSeconds, totalCount: rows.length, streakDays, perDay, zones }
     },
   })
 }

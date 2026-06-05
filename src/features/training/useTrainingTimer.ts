@@ -115,6 +115,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
   const sndBreak = useCallback(() => { if (!mutedRef.current) motif([{ f: 523, d: 0.16, v: 0.3 }, { f: 392, d: 0.28, v: 0.3 }]) }, [motif])
   const sndStop  = useCallback(() => { if (!mutedRef.current) motif([{ f: 784, d: 0.16 }, { f: 587, d: 0.16 }, { f: 392, d: 0.5 }]) }, [motif])
   const sndTick  = useCallback((rest: boolean) => { if (!mutedRef.current) beep(rest ? 620 : 880, 0.09, 0.22) }, [beep])
+  const sndMark  = useCallback(() => { if (!mutedRef.current) beep(740, 0.14, 0.28) }, [beep]) // repère mi-parcours / 10s
 
   const countUp = isCountUp(mode)
   const cap = config.cap ?? 0
@@ -156,6 +157,9 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
   const remainingRef = useRef(phases[0]?.seconds ?? 0)
   const elapsedRef   = useRef(0)
   const prevCeilRef  = useRef(-1)
+  const halfFiredRef = useRef(false) // repère mi-parcours déjà joué pour la phase courante
+  const capHalfRef   = useRef(false) // repère mi-parcours du plafond (For Time)
+  const capTenRef    = useRef(false) // bip 10s avant le plafond (For Time)
 
   const emitCountdown = useCallback(() => {
     const ph = phases[phaseIdxRef.current]
@@ -251,6 +255,15 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
 
     if (countUp) {
       elapsedRef.current += dt
+      // Repères sur le plafond For Time (mi-temps + 10s restantes)
+      if (cap > 0) {
+        if (!capHalfRef.current && elapsedRef.current >= cap / 2 && cap >= 120) {
+          capHalfRef.current = true; sndMark(); speak('Mi-temps'); vibrate(80)
+        }
+        if (!capTenRef.current && cap - elapsedRef.current <= 10 && cap >= 30) {
+          capTenRef.current = true; sndMark(); speak('Dix secondes'); vibrate(80)
+        }
+      }
       if ((cap > 0 && elapsedRef.current >= cap) || (target > 0 && tapsRef.current >= target)) {
         if (cap > 0 && elapsedRef.current >= cap) elapsedRef.current = cap
         emitCountUp()
@@ -263,8 +276,14 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
       elapsedRef.current   += dt
       const ph = phases[phaseIdxRef.current]
       const ceil = Math.ceil(remainingRef.current)
+      // Repère mi-parcours sur les efforts longs
+      if (ph.kind === 'work' && ph.seconds >= 40 && !halfFiredRef.current && remainingRef.current <= ph.seconds / 2) {
+        halfFiredRef.current = true; sndMark(); speak('Mi-temps'); vibrate(80)
+      }
       if (ceil !== prevCeilRef.current) {
         prevCeilRef.current = ceil
+        // Bip 10s avant la fin d'un effort suffisamment long
+        if (ph.kind === 'work' && ph.seconds >= 25 && ceil === 10) { sndMark(); speak('Dix secondes'); vibrate(60) }
         if (ceil >= 1 && ceil <= 3) { sndTick(ph.kind === 'rest'); speak(String(ceil)); vibrate(40) }
       }
       if (remainingRef.current <= 0) {
@@ -274,6 +293,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
         phaseIdxRef.current = next
         remainingRef.current = phases[next].seconds + carry
         prevCeilRef.current = -1
+        halfFiredRef.current = false
         const nextPh = phases[next]
         const isWork = nextPh.kind === 'work'
         if (isWork) { sndGo(); vibrate([90, 50, 120]); speak(exNameForPhase(nextPh) || 'Effort') }
@@ -281,7 +301,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
       }
       emitCountdown()
     }
-  }, [countUp, cap, target, phases, emitCountUp, emitCountdown, finish, sndTick, sndGo, sndBreak, speak, exNameForPhase])
+  }, [countUp, cap, target, phases, emitCountUp, emitCountdown, finish, sndTick, sndGo, sndBreak, sndMark, speak, exNameForPhase])
 
   const start = useCallback(() => {
     ensure()
@@ -289,6 +309,9 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
     remainingRef.current = phases[0]?.seconds ?? 0
     elapsedRef.current   = 0
     prevCeilRef.current  = -1
+    halfFiredRef.current = false
+    capHalfRef.current   = false
+    capTenRef.current    = false
     tapsRef.current      = 0
     setTaps(0)
     statusRef.current    = 'running'
@@ -327,6 +350,9 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
     remainingRef.current = phases[0]?.seconds ?? 0
     elapsedRef.current   = 0
     prevCeilRef.current  = -1
+    halfFiredRef.current = false
+    capHalfRef.current   = false
+    capTenRef.current    = false
     tapsRef.current      = 0
     setTaps(0)
     setView({ ...initial })
@@ -340,6 +366,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
     phaseIdxRef.current = next
     remainingRef.current = phases[next].seconds
     prevCeilRef.current = -1
+    halfFiredRef.current = false
     emitCountdown()
   }, [countUp, phases, finish, emitCountdown])
 

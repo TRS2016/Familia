@@ -86,6 +86,7 @@ export default function TrainingPage() {
   const [presetName, setPresetName] = useState<string | undefined>(undefined)
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null)
   const [focusFilter, setFocusFilter] = useState<string | null>(null)
+  const [historyMember, setHistoryMember] = useState<string | null>(null)
   const [showSave, setShowSave]     = useState(false)
   const [saveName, setSaveName]     = useState('')
   const [saveFocus, setSaveFocus]   = useState('')
@@ -280,15 +281,42 @@ export default function TrainingPage() {
       )}
 
       {/* Historique */}
-      {sessions.length > 0 && (
+      {sessions.length > 0 && (() => {
+        const members = [...new Set(sessions.map(s => s.member?.display_name).filter(Boolean))] as string[]
+        const shownSessions = historyMember
+          ? sessions.filter(s => s.member?.display_name === historyMember)
+          : sessions
+        return (
         <>
           <p className={styles.sectionLabel}>Dernières séances</p>
+          {members.length > 1 && (
+            <div className={styles.focusFilterRow}>
+              <button
+                className={[styles.focusChip, !historyMember ? styles.focusChipActive : ''].join(' ')}
+                onClick={() => setHistoryMember(null)}
+              >
+                Tous
+              </button>
+              {members.map(mName => (
+                <button
+                  key={mName}
+                  className={[styles.focusChip, historyMember === mName ? styles.focusChipActive : ''].join(' ')}
+                  onClick={() => setHistoryMember(cur => cur === mName ? null : mName)}
+                >
+                  {mName}
+                </button>
+              ))}
+            </div>
+          )}
           <div className={styles.historyCard}>
             <ul className={styles.historyList}>
-              {sessions.map(s => (
+              {shownSessions.map(s => (
                 <li key={s.id} className={styles.historyRow}>
                   <span className={styles.historyEmoji}>{MODE_META[s.mode]?.emoji ?? '🏋️'}</span>
-                  <span className={styles.historyName}>{s.name}</span>
+                  <span className={styles.historyName}>
+                    {s.name}
+                    {s.member?.display_name && <span className={styles.historyMember}> · {s.member.display_name}</span>}
+                  </span>
                   <span className={styles.historyDur}>{fmtClock(s.duration_seconds)}</span>
                   <span className={styles.historyDate}>
                     {format(new Date(s.completed_at), 'd MMM', { locale: fr })}
@@ -298,7 +326,8 @@ export default function TrainingPage() {
             </ul>
           </div>
         </>
-      )}
+        )
+      })()}
 
       {showSave && (
         <SlideUpModal title={editingPresetId ? 'Modifier la séance' : 'Enregistrer la séance'} onClose={() => setShowSave(false)}>
@@ -438,6 +467,16 @@ function StatsCard({ stats }: { stats: TrainingStats }) {
           )
         })}
       </div>
+
+      {stats.zones.length > 0 && (
+        <div className={styles.statZones}>
+          {stats.zones.map(z => (
+            <span key={z.focus} className={styles.statZone}>
+              {z.focus}<span className={styles.statZoneCount}>{z.count}</span>
+            </span>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -685,9 +724,9 @@ function RunScreen({ mode, config, title, onExit }: {
   useEffect(() => {
     if (view.status === 'done' && !loggedRef.current) {
       loggedRef.current = true
-      logSession.mutate({ name: title, mode, duration_seconds: view.elapsedTotal })
+      logSession.mutate({ name: title, mode, duration_seconds: view.elapsedTotal, focus: config.focus ?? null })
     }
-  }, [view.status, view.elapsedTotal, title, mode, logSession])
+  }, [view.status, view.elapsedTotal, title, mode, config.focus, logSession])
 
   const color = view.status === 'done' ? PHASE_COLOR.done : (PHASE_COLOR[view.kind] ?? PHASE_COLOR.prepare)
   const done  = view.status === 'done'
@@ -772,6 +811,27 @@ function RunScreen({ mode, config, title, onExit }: {
             {subtitle && <span className={styles.runSub}>{subtitle}</span>}
           </div>
         </div>
+
+        {/* Progression globale — points de rounds (modes multi-phases) */}
+        {!done && !isCircuit && view.totalRounds > 1 && (
+          <div className={styles.roundDots} aria-label={`Round ${view.round} sur ${view.totalRounds}`}>
+            {Array.from({ length: view.totalRounds }).map((_, i) => {
+              const isCurrent = i === view.round - 1
+              const isDone    = i < view.round - 1
+              return (
+                <span
+                  key={i}
+                  className={[
+                    styles.roundDot,
+                    isDone ? styles.roundDotDone : '',
+                    isCurrent ? styles.roundDotCurrent : '',
+                  ].join(' ')}
+                  style={isCurrent || isDone ? { background: color, borderColor: color } : undefined}
+                />
+              )
+            })}
+          </div>
+        )}
 
         {!done && !isCircuit && (view.exercise || view.exerciseNext || exerciseHasVideo(demoEx ?? undefined)) && (
           <div className={styles.exerciseBox}>
