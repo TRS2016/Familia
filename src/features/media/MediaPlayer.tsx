@@ -97,9 +97,10 @@ function loadYouTubeApi(): Promise<void> {
   return ytApiPromise
 }
 
-function YouTubePlayer({ videoId, autoPlay, onEnded }: {
+function YouTubePlayer({ videoId, autoPlay, muted, onEnded }: {
   videoId: string
   autoPlay?: boolean
+  muted?: boolean
   onEnded?: () => void
 }) {
   const hostRef    = useRef<HTMLDivElement>(null)
@@ -118,10 +119,10 @@ function YouTubePlayer({ videoId, autoPlay, onEnded }: {
       const w = window as any
       player = new w.YT.Player(hostRef.current, {
         videoId,
-        playerVars: { autoplay: autoPlay ? 1 : 0, rel: 0, playsinline: 1 },
+        playerVars: { autoplay: autoPlay ? 1 : 0, rel: 0, playsinline: 1, mute: muted ? 1 : 0 },
         events: {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onReady: (e: any) => { if (autoPlay) e.target.playVideo() },
+          onReady: (e: any) => { if (muted) e.target.mute(); if (autoPlay) e.target.playVideo() },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onStateChange: (e: any) => {
             if (e.data === w.YT.PlayerState.ENDED) onEndedRef.current?.()
@@ -134,7 +135,7 @@ function YouTubePlayer({ videoId, autoPlay, onEnded }: {
       cancelled = true
       try { player?.destroy?.() } catch { /* déjà détruit */ }
     }
-  }, [videoId, autoPlay])
+  }, [videoId, autoPlay, muted])
 
   return (
     <div className={styles.iframeWrap}>
@@ -173,9 +174,10 @@ interface Props {
   title: string
   onEnded?: () => void
   autoPlay?: boolean
+  muted?: boolean
 }
 
-export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay }: Props) {
+export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay, muted }: Props) {
   const { data: signedUrl, isLoading } = useQuery({
     queryKey: ['media-file-url', filePath],
     queryFn: async () => {
@@ -196,10 +198,11 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
   const handleCanPlay = useCallback((e: React.SyntheticEvent<HTMLMediaElement>) => {
     if (autoPlay) {
       const el = e.currentTarget
+      if (muted) el.muted = true // garantit le muet avant lecture (React met l'attribut tardivement)
       const p = el.play()
       if (p && typeof p.catch === 'function') p.catch(() => { /* autoplay bloqué */ })
     }
-  }, [autoPlay])
+  }, [autoPlay, muted])
 
   if (filePath && isLoading) {
     return <div className={styles.skeleton}>Chargement du média…</div>
@@ -211,7 +214,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
   const type = detectType(url, mimeType)
 
   if (type === 'youtube') {
-    return <YouTubePlayer videoId={youtubeId(url)} autoPlay={autoPlay} onEnded={onEnded} />
+    return <YouTubePlayer videoId={youtubeId(url)} autoPlay={autoPlay} muted={muted} onEnded={onEnded} />
   }
 
   if (type === 'spotify') {
@@ -238,6 +241,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
         preload="metadata"
         playsInline
         autoPlay={autoPlay}
+        muted={muted}
         onCanPlay={handleCanPlay}
         onEnded={onEnded}
       />

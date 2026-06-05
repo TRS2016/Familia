@@ -709,6 +709,19 @@
 
 .demoPlayer { padding: 0 16px 16px; }
 
+/* Démo auto-lancée pendant prépa / repos (intégrée sous le chrono) */
+.demoInline {
+  width: 100%;
+  max-width: 300px;
+  margin-top: 8px;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #000;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+}
+.demoInline video,
+.demoInline iframe { display: block; width: 100%; }
+
 /* Circuit AMRAP / For Time (run) */
 .circuit {
   width: 100%;

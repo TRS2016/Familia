@@ -845,6 +845,8 @@ function RunScreen({ mode, config, title, onExit }: {
   const isCircuit = mode === 'amrap' || mode === 'fortime' // exercices = circuit (pas de défilement)
   // Démo : exo courant pendant l'effort, exo suivant pendant le repos/décompte.
   const demoEx = view.kind === 'work' ? view.exerciseObj : view.exerciseNextObj
+  // Phases d'attente : on lance la démo du prochain exo automatiquement.
+  const isRestLike = view.kind === 'prepare' || view.kind === 'rest'
 
   useEffect(() => {
     if (!startedRef.current) { startedRef.current = true; start() }
@@ -978,10 +980,23 @@ function RunScreen({ mode, config, title, onExit }: {
               <span className={styles.exerciseUpcoming}>puis {view.exerciseNext}</span>
             )}
             {exerciseHasVideo(demoEx ?? undefined) && (
-              <button className={styles.demoBtn} onClick={() => setVideoEx(demoEx)}>
-                <Video size={14} strokeWidth={2} />
-                {view.kind === 'work' ? ' Voir la démo' : ' Démo · prochain exo'}
-              </button>
+              isRestLike ? (
+                <div className={styles.demoInline}>
+                  <MediaPlayer
+                    key={demoEx!.videoPath ?? demoEx!.videoUrl}
+                    filePath={demoEx!.videoPath ?? null}
+                    externalUrl={demoEx!.videoUrl ?? null}
+                    mimeType={demoEx!.videoMime ?? null}
+                    title={demoEx!.name}
+                    autoPlay
+                    muted
+                  />
+                </div>
+              ) : (
+                <button className={styles.demoBtn} onClick={() => setVideoEx(demoEx)}>
+                  <Video size={14} strokeWidth={2} /> Voir la démo
+                </button>
+              )
             )}
           </div>
         )}
