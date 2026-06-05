@@ -719,6 +719,12 @@
   overflow: hidden;
   background: #000;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35);
+  transition: width 0.35s ease;
+}
+/* Vidéo agrandie quand la démo tourne (anneau réduit en parallèle) */
+.demoInlineLarge { width: min(440px, 92vw); }
+@media (min-width: 768px) {
+  .demoInlineLarge { width: 480px; }
 }
 .demoInline video,
 .demoInline iframe { display: block; width: 100%; }
@@ -1056,12 +1062,23 @@
   flex-shrink: 0;
   width: min(360px, 88vw);
   aspect-ratio: 1;
+  transition: width 0.35s ease;
 }
 .ringSvg { position: absolute; inset: 0; width: 100%; height: 100%; }
 
 @media (min-width: 768px) {
   .ringWrap { width: 400px; }
 }
+
+/* Démo en cours : anneau réduit pour laisser la place à la vidéo */
+.ringWrapCompact { width: min(170px, 44vw); }
+@media (min-width: 768px) {
+  .ringWrapCompact { width: 190px; }
+}
+/* Texte central proportionnel à l'anneau réduit */
+.ringWrapCompact .runBig { font-size: clamp(38px, 13vw, 52px); }
+.ringWrapCompact .runPhase { font-size: 9px; margin-bottom: 1px; }
+.ringWrapCompact .runSub { font-size: 10px; }
 
 .ringInner {
   position: absolute;

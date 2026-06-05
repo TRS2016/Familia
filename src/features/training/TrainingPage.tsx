@@ -847,6 +847,8 @@ function RunScreen({ mode, config, title, onExit }: {
   const demoEx = view.kind === 'work' ? view.exerciseObj : view.exerciseNextObj
   // Phases d'attente : on lance la démo du prochain exo automatiquement.
   const isRestLike = view.kind === 'prepare' || view.kind === 'rest'
+  // Démo en cours : anneau réduit, vidéo agrandie.
+  const demoPlaying = !isCircuit && isRestLike && exerciseHasVideo(demoEx ?? undefined)
 
   useEffect(() => {
     if (!startedRef.current) { startedRef.current = true; start() }
@@ -929,7 +931,7 @@ function RunScreen({ mode, config, title, onExit }: {
       </div>
 
       <div className={styles.runCenter}>
-        <div className={styles.ringWrap}>
+        <div className={[styles.ringWrap, demoPlaying ? styles.ringWrapCompact : ''].join(' ')}>
           <svg viewBox={`0 0 ${RING.size} ${RING.size}`} className={styles.ringSvg}>
             <circle cx={RING.size / 2} cy={RING.size / 2} r={RING.r} fill="none"
               stroke="rgba(244,240,230,0.12)" strokeWidth={5} />
@@ -981,7 +983,7 @@ function RunScreen({ mode, config, title, onExit }: {
             )}
             {exerciseHasVideo(demoEx ?? undefined) && (
               isRestLike ? (
-                <div className={styles.demoInline}>
+                <div className={[styles.demoInline, styles.demoInlineLarge].join(' ')}>
                   <MediaPlayer
                     key={demoEx!.videoPath ?? demoEx!.videoUrl}
                     filePath={demoEx!.videoPath ?? null}
