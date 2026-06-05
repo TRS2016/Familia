@@ -124,11 +124,9 @@ export default function TrainingPage() {
   const focuses = [...new Set(presets.map(p => p.config.focus).filter(Boolean))] as string[]
   const shownPresets = focusFilter ? presets.filter(p => p.config.focus === focusFilter) : presets
 
-  // Aperçu de l'horloge (état arrêté)
-  const PV = { size: 190, r: 88 }
-  const PV_C = 2 * Math.PI * PV.r
-  const previewBig = mode === 'fortime'
-    ? (cfg.cap ? fmtClock(cfg.cap) : '∞')
+  // Durée affichée sur le bouton Démarrer (vide si For Time sans plafond)
+  const startDur = mode === 'fortime'
+    ? (cfg.cap ? fmtClock(cfg.cap) : '')
     : mode === 'amrap'
     ? fmtClock(cfg.duration ?? 0)
     : fmtClock(total)
@@ -156,28 +154,11 @@ export default function TrainingPage() {
         ))}
       </div>
 
-      <p className={styles.configHint}>{m.desc}</p>
+      <p className={styles.configHint}>
+        <span className={styles.configHintMode} style={{ color: m.color }}>{m.label}</span> — {m.desc}
+      </p>
 
       <div className={styles.configZone}>
-      {/* Aperçu de l'horloge */}
-      <div className={styles.previewWrap}>
-        <div className={styles.previewRing}>
-          <svg viewBox={`0 0 ${PV.size} ${PV.size}`} className={styles.ringSvg}>
-            <circle cx={PV.size / 2} cy={PV.size / 2} r={PV.r} fill="none" stroke="var(--tr-line)" strokeWidth={4} />
-            <circle cx={PV.size / 2} cy={PV.size / 2} r={PV.r} fill="none"
-              stroke={m.color} strokeWidth={4} strokeLinecap="round"
-              strokeDasharray={PV_C} strokeDashoffset={0}
-              transform={`rotate(-90 ${PV.size / 2} ${PV.size / 2})`}
-            />
-          </svg>
-          <div className={styles.previewInner}>
-            <span className={styles.previewLabel} style={{ color: m.color }}>{m.label.toUpperCase()}</span>
-            <span className={styles.previewBig}>{previewBig}</span>
-            <span className={styles.previewSub}>{configSummary(mode, cfg)}</span>
-          </div>
-        </div>
-      </div>
-
       {/* Réglages du mode sélectionné */}
       <div className={styles.configMain}>
       <div className={styles.configCard}>
@@ -229,7 +210,7 @@ export default function TrainingPage() {
           className={styles.startBtn}
           onClick={() => setScreen({ name: 'run', mode, config: cfg, title })}
         >
-          <Play size={18} strokeWidth={2.5} fill="currentColor" /> Démarrer
+          <Play size={18} strokeWidth={2.5} fill="currentColor" /> Démarrer{startDur ? ` · ${startDur}` : ''}
         </button>
         <button className={styles.saveBtn} onClick={() => { setSaveName(presetName ?? ''); setSaveFocus(cfg.focus ?? ''); setShowSave(true) }}>
           <Bookmark size={15} strokeWidth={2} /> Enregistrer
