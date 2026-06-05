@@ -149,6 +149,23 @@ export function useLogTrainingSession() {
   })
 }
 
+export function useDeleteTrainingSession() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error } = await (supabase as any).from('training_sessions').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: TRAINING_SESSIONS_KEY })
+    },
+    onError: () => showToast({ type: 'error', message: 'Impossible de supprimer la séance.' }),
+  })
+}
+
 // ── Stats ────────────────────────────────────────────────────────────────────────
 
 export interface TrainingStats {
@@ -221,6 +238,31 @@ export function useTrainingStats() {
       }
 
       return { weekCount, weekSeconds, totalCount: rows.length, streakDays, perDay, zones }
+    },
+  })
+}
+
+// ── Records For Time (meilleur temps par nom de séance) ──────────────────────────
+
+export function useTrainingRecords() {
+  return useQuery({
+    queryKey: [...TRAINING_SESSIONS_KEY, 'records'],
+    queryFn: async (): Promise<Map<string, number>> => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase as any)
+        .from('training_sessions')
+        .select('name, duration_seconds')
+        .eq('household_id', HOUSEHOLD_ID)
+        .eq('mode', 'fortime')
+      if (error) throw error
+      const rows = (data ?? []) as { name: string; duration_seconds: number }[]
+      const best = new Map<string, number>()
+      for (const r of rows) {
+        if (!r.duration_seconds) continue
+        const cur = best.get(r.name)
+        if (cur === undefined || r.duration_seconds < cur) best.set(r.name, r.duration_seconds)
+      }
+      return best
     },
   })
 }

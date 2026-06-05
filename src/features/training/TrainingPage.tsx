@@ -4,7 +4,7 @@ import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import {
   ChevronLeft, Plus, Minus, Play, Pause, RotateCcw, X, SkipForward, Trash2, Bookmark,
-  Video, Link as LinkIcon, Camera, Images, Volume2, VolumeX, Megaphone,
+  Video, Link as LinkIcon, Camera, Images, Volume2, VolumeX, Megaphone, Copy, ChevronUp, ChevronDown,
 } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
 import MediaPlayer from '../media/MediaPlayer'
@@ -19,6 +19,7 @@ import type { TrainingMode, TrainingConfig, TrainingPreset, Exercise } from './t
 import {
   useTrainingPresets, useAddTrainingPreset, useUpdateTrainingPreset, useDeleteTrainingPreset,
   useTrainingSessions, useLogTrainingSession, useTrainingRealtime, useTrainingStats,
+  useDeleteTrainingSession, useTrainingRecords,
 } from './useTraining'
 import type { TrainingStats } from './useTraining'
 import { useTrainingTimer } from './useTrainingTimer'
@@ -65,6 +66,18 @@ function useBoolPref(key: string, initial: boolean): [boolean, (v: boolean) => v
   return [val, set]
 }
 
+// Préférence numérique persistée (localStorage)
+function useNumPref(key: string, initial: number): [number, (v: number) => void] {
+  const [val, setVal] = useState<number>(() => {
+    try { const s = localStorage.getItem(key); return s === null ? initial : (Number(s) || initial) } catch { return initial }
+  })
+  const set = (v: number) => {
+    setVal(v)
+    try { localStorage.setItem(key, String(v)) } catch { /* indisponible */ }
+  }
+  return [val, set]
+}
+
 // ── Page (écran unique : onglets de mode + config inline) ──────────────────────
 
 export default function TrainingPage() {
@@ -72,9 +85,11 @@ export default function TrainingPage() {
   const { data: presets = [] }  = useTrainingPresets()
   const { data: sessions = [] } = useTrainingSessions(15)
   const { data: stats }         = useTrainingStats()
+  const { data: records }       = useTrainingRecords()
   const addPreset    = useAddTrainingPreset()
   const updatePreset = useUpdateTrainingPreset()
   const deletePreset = useDeleteTrainingPreset()
+  const deleteSession = useDeleteTrainingSession()
 
   const [screen, setScreen]   = useState<Screen>({ name: 'home' })
   const [mode, setMode]       = useState<TrainingMode>('tabata')
@@ -87,9 +102,12 @@ export default function TrainingPage() {
   const [editingPresetId, setEditingPresetId] = useState<string | null>(null)
   const [focusFilter, setFocusFilter] = useState<string | null>(null)
   const [historyMember, setHistoryMember] = useState<string | null>(null)
+  const [confirmDel, setConfirmDel] = useState<{ kind: 'preset' | 'session'; id: string; label: string } | null>(null)
   const [showSave, setShowSave]     = useState(false)
   const [saveName, setSaveName]     = useState('')
   const [saveFocus, setSaveFocus]   = useState('')
+  const [weeklyGoal, setWeeklyGoal] = useNumPref('training.weeklyGoal', 3)
+  const [showGoal, setShowGoal]     = useState(false)
 
   const cfg = configs[mode]
   const set = (patch: Partial<TrainingConfig>) =>
@@ -244,6 +262,7 @@ export default function TrainingPage() {
           <div className={styles.presetList}>
             {shownPresets.map(p => {
               const exCount = p.config.exercises?.length ?? 0
+              const record = p.mode === 'fortime' ? records?.get(p.name) : undefined
               return (
                 <div key={p.id} className={styles.presetRow}>
                   <button className={styles.presetMain} onClick={() => loadPreset(p)}>
@@ -258,11 +277,20 @@ export default function TrainingPage() {
                       <span className={styles.presetSub}>
                         {MODE_META[p.mode].label} · {configSummary(p.mode, p.config)}
                         {exCount > 0 ? ` · ${exCount} ex.` : ''}
+                        {record !== undefined && <span className={styles.presetRecord}> · 🏆 {fmtClock(record)}</span>}
                       </span>
                     </span>
                     {p.config.focus && <span className={styles.presetFocus}>{p.config.focus}</span>}
                   </button>
-                  <button className={styles.presetDelete} onClick={() => deletePreset.mutate(p.id)} aria-label="Supprimer">
+                  <button
+                    className={styles.presetDuplicate}
+                    onClick={() => addPreset.mutate({ name: `${p.name} (copie)`, mode: p.mode, config: { ...p.config } })}
+                    aria-label="Dupliquer"
+                    title="Dupliquer"
+                  >
+                    <Copy size={14} strokeWidth={2} />
+                  </button>
+                  <button className={styles.presetDelete} onClick={() => setConfirmDel({ kind: 'preset', id: p.id, label: p.name })} aria-label="Supprimer">
                     <Trash2 size={15} strokeWidth={2} />
                   </button>
                 </div>
@@ -276,7 +304,7 @@ export default function TrainingPage() {
       {stats && stats.totalCount > 0 && (
         <>
           <p className={styles.sectionLabel}>Cette semaine</p>
-          <StatsCard stats={stats} />
+          <StatsCard stats={stats} goal={weeklyGoal} onEditGoal={() => setShowGoal(true)} />
         </>
       )}
 
@@ -321,6 +349,13 @@ export default function TrainingPage() {
                   <span className={styles.historyDate}>
                     {format(new Date(s.completed_at), 'd MMM', { locale: fr })}
                   </span>
+                  <button
+                    className={styles.historyDelete}
+                    onClick={() => setConfirmDel({ kind: 'session', id: s.id, label: s.name })}
+                    aria-label="Supprimer la séance"
+                  >
+                    <Trash2 size={13} strokeWidth={2} />
+                  </button>
                 </li>
               ))}
             </ul>
@@ -328,6 +363,51 @@ export default function TrainingPage() {
         </>
         )
       })()}
+
+      {showGoal && (
+        <SlideUpModal title="Objectif de la semaine" onClose={() => setShowGoal(false)}>
+          <div className={styles.goalForm}>
+            <p className={styles.goalHint}>Nombre de séances à viser chaque semaine.</p>
+            <Stepper
+              label="Séances / semaine"
+              value={weeklyGoal}
+              setValue={setWeeklyGoal}
+              step={1}
+              min={1}
+              max={14}
+              wide
+            />
+            <button type="button" className={styles.startBtn} onClick={() => setShowGoal(false)}>
+              Valider
+            </button>
+          </div>
+        </SlideUpModal>
+      )}
+
+      {confirmDel && (
+        <div className={styles.pageOverlay} onClick={() => setConfirmDel(null)}>
+          <div className={styles.exitSheet} onClick={e => e.stopPropagation()}>
+            <span className={styles.exitEyebrow}>{confirmDel.kind === 'preset' ? 'Séance enregistrée' : 'Historique'}</span>
+            <p className={styles.exitTitle}>
+              Supprimer {confirmDel.kind === 'preset' ? 'la séance' : 'cette entrée'} ?
+            </p>
+            <p className={styles.exitText}>« {confirmDel.label} » — cette action est définitive.</p>
+            <button className={styles.exitContinue} onClick={() => setConfirmDel(null)}>
+              Annuler
+            </button>
+            <button
+              className={styles.exitStop}
+              onClick={() => {
+                if (confirmDel.kind === 'preset') deletePreset.mutate(confirmDel.id)
+                else deleteSession.mutate(confirmDel.id)
+                setConfirmDel(null)
+              }}
+            >
+              Supprimer
+            </button>
+          </div>
+        </div>
+      )}
 
       {showSave && (
         <SlideUpModal title={editingPresetId ? 'Modifier la séance' : 'Enregistrer la séance'} onClose={() => setShowSave(false)}>
@@ -422,16 +502,37 @@ function Stepper({ label, value, setValue, step, min, max, fmt, accent, wide }: 
 
 const DAY_LETTERS = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
 
-function StatsCard({ stats }: { stats: TrainingStats }) {
+function StatsCard({ stats, goal, onEditGoal }: { stats: TrainingStats; goal: number; onEditGoal: () => void }) {
   const maxSec = Math.max(1, ...stats.perDay.map(d => d.seconds))
   const todayKey = stats.perDay[stats.perDay.length - 1]?.date
+
+  // Anneau d'objectif hebdo
+  const G = { size: 46, r: 19 }
+  const GC = 2 * Math.PI * G.r
+  const goalPct = goal > 0 ? Math.min(1, stats.weekCount / goal) : 0
+  const goalMet = goal > 0 && stats.weekCount >= goal
+  const goalColor = goalMet ? 'var(--tr-ok)' : 'var(--tr-accent)'
+
   return (
     <div className={styles.statsCard}>
       <div className={styles.statsGrid}>
-        <div className={styles.statCell}>
-          <span className={[styles.statValue, styles.statValueAccent].join(' ')}>{stats.weekCount}</span>
-          <span className={styles.statLabel}>Séances</span>
-        </div>
+        <button className={[styles.statCell, styles.statCellGoal].join(' ')} onClick={onEditGoal} aria-label="Objectif hebdomadaire">
+          <span className={styles.goalRing}>
+            <svg viewBox={`0 0 ${G.size} ${G.size}`} className={styles.goalRingSvg}>
+              <circle cx={G.size / 2} cy={G.size / 2} r={G.r} fill="none" stroke="var(--tr-line)" strokeWidth={4} />
+              <circle cx={G.size / 2} cy={G.size / 2} r={G.r} fill="none"
+                stroke={goalColor} strokeWidth={4} strokeLinecap="round"
+                strokeDasharray={GC} strokeDashoffset={GC * (1 - goalPct)}
+                transform={`rotate(-90 ${G.size / 2} ${G.size / 2})`}
+                style={{ transition: 'stroke-dashoffset 0.4s ease' }}
+              />
+            </svg>
+            <span className={styles.goalRingText} style={{ color: goalColor }}>
+              {stats.weekCount}<span className={styles.goalRingDen}>/{goal}</span>
+            </span>
+          </span>
+          <span className={styles.statLabel}>Objectif</span>
+        </button>
         <div className={styles.statCell}>
           <span className={styles.statValue}>{fmtClock(stats.weekSeconds)}</span>
           <span className={styles.statLabel}>Temps</span>
@@ -505,6 +606,13 @@ function ExerciseEditor({ mode, rounds, sets, exercises, onChange }: {
   function removeEx(i: number) {
     onChange(exercises.filter((_, j) => j !== i))
   }
+  function moveEx(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= exercises.length) return
+    const next = exercises.slice()
+    ;[next[i], next[j]] = [next[j], next[i]]
+    onChange(next)
+  }
   function addFree() {
     const t = freeInput.trim()
     if (!t) return
@@ -543,6 +651,16 @@ function ExerciseEditor({ mode, rounds, sets, exercises, onChange }: {
               >
                 <Video size={15} strokeWidth={2} />
               </button>
+              {!fixedSlots && count > 1 && (
+                <span className={styles.exMove}>
+                  <button type="button" className={styles.exMoveBtn} onClick={() => moveEx(i, -1)} disabled={i === 0} aria-label="Monter">
+                    <ChevronUp size={13} strokeWidth={2.5} />
+                  </button>
+                  <button type="button" className={styles.exMoveBtn} onClick={() => moveEx(i, 1)} disabled={i === count - 1} aria-label="Descendre">
+                    <ChevronDown size={13} strokeWidth={2.5} />
+                  </button>
+                </span>
+              )}
               {!fixedSlots && (
                 <button type="button" className={styles.exRemove} onClick={() => removeEx(i)} aria-label="Retirer">
                   <X size={14} strokeWidth={2.5} />
@@ -707,10 +825,21 @@ function RunScreen({ mode, config, title, onExit }: {
   useWakeLock(view.status === 'running' || view.status === 'paused')
   const logSession = useLogTrainingSession()
   const { data: member } = useMember()
+  const { data: records } = useTrainingRecords()
   const loggedRef = useRef(false)
   const startedRef = useRef(false)
   const [confirmExit, setConfirmExit] = useState(false)
   const [videoEx, setVideoEx] = useState<Exercise | null>(null)
+
+  // Record For Time : capture le meilleur temps connu AVANT cette séance
+  const prevBestRef = useRef<number | undefined>(undefined)
+  const prevBestCaptured = useRef(false)
+  useEffect(() => {
+    if (!prevBestCaptured.current && mode === 'fortime' && records) {
+      prevBestCaptured.current = true
+      prevBestRef.current = records.get(title)
+    }
+  }, [records, title, mode])
 
   const exObjs = normalizeExercises(config.exercises)
   const isCircuit = mode === 'amrap' || mode === 'fortime' // exercices = circuit (pas de défilement)
@@ -751,6 +880,11 @@ function RunScreen({ mode, config, title, onExit }: {
       ? `Série ${view.set}/${view.totalSets} · Ronde ${view.round}/${view.totalRounds}`
       : `Ronde ${view.round} / ${view.totalRounds}`
   }
+
+  // Record For Time : la séance compte si l'objectif est atteint (ou sans objectif)
+  const ftCompleted = mode === 'fortime' && (!config.target || taps >= config.target)
+  const prevBest = prevBestRef.current
+  const isNewRecord = done && ftCompleted && (prevBest === undefined || view.elapsedTotal < prevBest)
 
   function handleClose() {
     if (view.status === 'running' || view.status === 'paused') setConfirmExit(true)
@@ -873,6 +1007,14 @@ function RunScreen({ mode, config, title, onExit }: {
 
         {done && member?.display_name && (
           <span className={styles.runBravo}>Bravo {member.display_name} 💪</span>
+        )}
+
+        {done && mode === 'fortime' && ftCompleted && (
+          isNewRecord ? (
+            <span className={styles.runRecord}>🏆 Nouveau record · {fmtClock(view.elapsedTotal)}</span>
+          ) : prevBest !== undefined ? (
+            <span className={styles.runRecordPrev}>Record : {fmtClock(prevBest)}</span>
+          ) : null
         )}
 
         {showTap && (

@@ -227,6 +227,8 @@
   white-space: nowrap;
 }
 
+.presetRecord { color: #C79A2E; font-weight: 700; white-space: nowrap; }
+
 .presetDelete {
   flex-shrink: 0;
   background: none;
@@ -238,6 +240,18 @@
   align-items: center;
 }
 .presetDelete:hover { color: #c0392b; }
+
+.presetDuplicate {
+  flex-shrink: 0;
+  background: none;
+  border: none;
+  color: var(--tr-ink4);
+  cursor: pointer;
+  padding: 12px 6px 12px 10px;
+  display: flex;
+  align-items: center;
+}
+.presetDuplicate:hover { color: var(--tr-accent); }
 
 /* ── Historique ─────────────────────────────────────────────────────────────── */
 
@@ -297,6 +311,23 @@
   text-align: right;
 }
 
+.historyDelete {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  margin-left: -2px;
+  border: none;
+  background: transparent;
+  color: var(--tr-ink4);
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.historyDelete:hover { color: var(--tr-accent); background: var(--tr-paper3); }
+
 /* ── Stats ──────────────────────────────────────────────────────────────────── */
 
 .statsCard {
@@ -311,6 +342,7 @@
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 6px;
+  align-items: center;
 }
 
 .statCell {
@@ -320,6 +352,38 @@
   gap: 2px;
   text-align: center;
 }
+
+.statCellGoal {
+  border: none;
+  background: none;
+  cursor: pointer;
+  font-family: inherit;
+  padding: 0;
+}
+
+.goalRing {
+  position: relative;
+  width: 46px;
+  height: 46px;
+  display: block;
+}
+.goalRingSvg { width: 100%; height: 100%; display: block; }
+.goalRingText {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--tr-display);
+  font-weight: 700;
+  font-feature-settings: "tnum";
+  font-size: 15px;
+  line-height: 1;
+}
+.goalRingDen { font-size: 9px; opacity: 0.7; margin-left: 1px; }
+
+.goalForm { display: flex; flex-direction: column; gap: 14px; padding: 0 16px 16px; }
+.goalHint { font-size: 13px; color: var(--tr-ink3); margin: 0; }
 
 .statValue {
   font-family: var(--tr-display);
@@ -714,6 +778,20 @@
 }
 .exRemove:hover { color: #c0392b; }
 
+.exMove { display: flex; flex-direction: column; flex-shrink: 0; }
+.exMoveBtn {
+  background: none;
+  border: none;
+  color: var(--tr-ink4);
+  cursor: pointer;
+  padding: 0 2px;
+  display: flex;
+  align-items: center;
+  line-height: 0.7;
+}
+.exMoveBtn:hover:not(:disabled) { color: var(--tr-ink2); }
+.exMoveBtn:disabled { opacity: 0.3; cursor: default; }
+
 .exAddRow { display: flex; gap: 8px; }
 
 .exInput {
@@ -1009,6 +1087,22 @@
 
 .runBravo { font-size: 16px; font-weight: 700; }
 
+.runRecord {
+  font-family: var(--tr-display);
+  font-weight: 700;
+  font-size: 15px;
+  color: #E8B84B;
+  margin-top: 4px;
+}
+.runRecordPrev {
+  font-family: var(--tr-mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(244, 240, 230, 0.5);
+  margin-top: 4px;
+}
+
 /* Progression globale — points de rounds */
 .roundDots {
   display: flex;
@@ -1124,6 +1218,15 @@
   position: absolute;
   inset: 0;
   z-index: 10;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-end;
+}
+/* Variante plein écran pour les overlays sur la page (scrollable) */
+.pageOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: flex-end;
