@@ -149,15 +149,17 @@ function YouTubePlayer({ videoId, autoPlay, muted, onEnded }: {
 type PlayerType = 'youtube' | 'spotify' | 'video' | 'audio' | 'link'
 
 function detectType(url: string, mimeType?: string | null): PlayerType {
-  if (/youtube\.com\/watch|youtu\.be\//.test(url)) return 'youtube'
+  if (/(?:youtube\.com|youtube-nocookie\.com|youtu\.be)/i.test(url) && youtubeId(url)) return 'youtube'
   if (/open\.spotify\.com/.test(url)) return 'spotify'
   if (mimeType?.startsWith('video/') || /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(url)) return 'video'
   if (mimeType?.startsWith('audio/') || /\.(mp3|wav|m4a|ogg|flac|aac)(\?|#|$)/i.test(url)) return 'audio'
   return 'link'
 }
 
+// Extrait l'ID 11 caractères de toutes les formes courantes :
+// watch?v=, youtu.be/, /shorts/, /embed/, /live/, /v/ (+ sous-domaines m./www.)
 function youtubeId(url: string): string {
-  const m = url.match(/(?:v=|youtu\.be\/)([a-zA-Z0-9_-]{11})/)
+  const m = url.match(/(?:v=|vi=|youtu\.be\/|\/shorts\/|\/embed\/|\/live\/|\/v\/)([a-zA-Z0-9_-]{11})/)
   return m?.[1] ?? ''
 }
 
