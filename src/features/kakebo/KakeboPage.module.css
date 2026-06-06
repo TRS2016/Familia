@@ -1197,6 +1197,88 @@
 
 .input:focus { border-color: var(--accent); }
 
+/* Ligne nom + budget côte à côte dans les paramètres */
+.catEditRow { display: flex; gap: 8px; }
+.catEditRow > input:first-child { flex: 2; }
+.catEditRow > input:last-child { flex: 1; min-width: 84px; }
+
+/* Filtre par tag (détail catégorie) */
+.tagFilterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 4px 0 12px;
+}
+.tagFilterPill {
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.tagFilterPillActive { background: var(--accent); border-color: var(--accent); color: #fff; }
+.tagFilterClear {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 11px;
+  border-radius: 999px;
+  border: 1px solid var(--accent);
+  background: transparent;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  font-family: var(--font-family);
+  cursor: pointer;
+}
+
+/* Chips de tags sur une opération */
+.entryTags { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 3px; }
+.entryTag {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 1px 5px;
+}
+
+/* Saisie de tags (puces) */
+.tagEditChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+.tagEditChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 6px 4px 9px;
+  border-radius: 999px;
+  background: rgba(224, 123, 84, 0.13);
+  border: 1px solid var(--accent);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+.tagEditChip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  padding: 0;
+}
+
 .catPills {
   display: flex;
   flex-wrap: wrap;

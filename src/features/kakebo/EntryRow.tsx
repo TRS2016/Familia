@@ -25,6 +25,13 @@ export default function EntryRow({ entry, showBorder, onEdit, onDelete, onReplay
       <div className={styles.entryBody}>
         <p className={styles.entryDesc}>{entry.description ?? cat?.name ?? '—'}</p>
         <p className={styles.entryMeta}>{cat?.name}{entry.member?.display_name ? ` · ${entry.member.display_name}` : ''}</p>
+        {(entry.tags ?? []).length > 0 && (
+          <div className={styles.entryTags}>
+            {(entry.tags ?? []).map(t => (
+              <span key={t} className={styles.entryTag}>#{t}</span>
+            ))}
+          </div>
+        )}
       </div>
       <div className={styles.entryRight}>
         <span className={styles.entryAmount} style={isIncome ? { color: '#5B9E8F' } : undefined}>

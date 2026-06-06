@@ -24,6 +24,7 @@ export interface KakeboEntry {
   amount: number
   date: string
   description: string | null
+  tags: string[]
   created_at: string
   category: KakeboCategory | null
   member: { display_name: string } | null
@@ -35,6 +36,7 @@ export interface NewEntryInput {
   date: string
   description: string
   member_id: string | null // null = dépense commune (foyer)
+  tags: string[]
 }
 
 export interface EditEntryInput {
@@ -44,6 +46,7 @@ export interface EditEntryInput {
   date: string
   description: string
   member_id: string | null
+  tags: string[]
 }
 
 // ── Query keys ────────────────────────────────────────────────────────────────
@@ -157,6 +160,7 @@ export function useAddEntry(year: number, month: number) {
           amount: input.amount,
           date: input.date,
           description: input.description.trim() || null,
+          tags: input.tags,
         })
         .select(`*, category:kakebo_categories(*), member:members(display_name)`)
         .single()
@@ -175,6 +179,7 @@ export function useAddEntry(year: number, month: number) {
         amount: input.amount,
         date: input.date,
         description: input.description.trim() || null,
+        tags: input.tags,
         created_at: new Date().toISOString(),
         category: categories.find(c => c.id === input.category_id) ?? null,
         member: (input.member_id && member && input.member_id === member.id)
@@ -211,6 +216,7 @@ export function useEditEntry(year: number, month: number) {
           date: input.date,
           description: input.description.trim() || null,
           member_id: input.member_id,
+          tags: input.tags,
         })
         .eq('id', input.id)
         .select(`*, category:kakebo_categories(*), member:members(display_name)`)
@@ -230,6 +236,7 @@ export function useEditEntry(year: number, month: number) {
           date: input.date,
           description: input.description.trim() || null,
           member_id: input.member_id,
+          tags: input.tags,
           category: categories.find(c => c.id === input.category_id) ?? e.category,
         })
       )
@@ -331,6 +338,30 @@ export function useUpdateCategoryBudget() {
     onError: (_err, _vars, ctx) => {
       queryClient.setQueryData(KAKEBO_CATS_KEY, ctx?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de sauvegarder le budget.' })
+    },
+  })
+}
+
+export function useRenameCategory() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ id, name }: { id: string; name: string }) => {
+      const { error } = await supabase.from('kakebo_categories').update({ name }).eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, name }) => {
+      await queryClient.cancelQueries({ queryKey: KAKEBO_CATS_KEY })
+      const previous = queryClient.getQueryData<KakeboCategory[]>(KAKEBO_CATS_KEY) ?? []
+      queryClient.setQueryData<KakeboCategory[]>(KAKEBO_CATS_KEY,
+        previous.map(c => c.id === id ? { ...c, name } : c)
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      queryClient.setQueryData(KAKEBO_CATS_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de renommer la catégorie.' })
     },
   })
 }

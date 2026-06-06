@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { format, addMonths, subMonths, getDaysInMonth } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Settings, Download } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Settings, Download, X } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -21,6 +21,7 @@ import {
   useKakeboMemberBudgets,
   useUpdateMemberBudget,
   useUpdateMemberObjectif,
+  useRenameCategory,
 } from './useKakebo'
 import { useKakeboRealtime } from './useKakeboRealtime'
 import type { KakeboEntry } from './useKakebo'
@@ -69,6 +70,8 @@ export default function KakeboPage() {
   const updateCategoryBudget  = useUpdateCategoryBudget()
   const updateMemberBudget    = useUpdateMemberBudget()
   const updateMemberObjectif  = useUpdateMemberObjectif()
+  const renameCategory        = useRenameCategory()
+  const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({})
 
   const { data: memberBudgets = [] } = useKakeboMemberBudgets(selectedMemberId)
   const selectedMember = members.find(m => m.id === selectedMemberId) ?? null
@@ -80,7 +83,7 @@ export default function KakeboPage() {
 
   // Edit entry state
   const [editTarget, setEditTarget] = useState<KakeboEntry | null>(null)
-  const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '', member_id: null as string | null })
+  const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '', member_id: null as string | null, tags: [] as string[] })
 
   // Add form state
   const firstCatId = categories.find(c => c.type !== 'income')?.id ?? ''
@@ -90,6 +93,7 @@ export default function KakeboPage() {
     description: '',
     date: format(new Date(), 'yyyy-MM-dd'),
     member_id: null as string | null,
+    tags: [] as string[],
   })
 
   // Ouvre le modal d'ajout en pré-affectant à la vue courante (Foyer ou membre)
@@ -196,6 +200,7 @@ export default function KakeboPage() {
       description: entry.description ?? '',
       date: entry.date,
       member_id: entry.member_id,
+      tags: entry.tags ?? [],
     })
     setEditTarget(entry)
   }
@@ -212,6 +217,7 @@ export default function KakeboPage() {
       date: editDraft.date,
       description: editDraft.description,
       member_id: editDraft.member_id,
+      tags: editDraft.tags,
     })
     setEditTarget(null)
   }
@@ -225,6 +231,7 @@ export default function KakeboPage() {
         date: format(new Date(), 'yyyy-MM-dd'),
         description: entry.description ?? '',
         member_id: entry.member_id,
+        tags: entry.tags ?? [],
       },
       { onSuccess: () => showToast({ type: 'success', message: 'Opération dupliquée pour aujourd\'hui.' }) }
     )
@@ -273,6 +280,11 @@ export default function KakeboPage() {
           if (cat && cat.monthly_budget !== monthly_budget) {
             updateCategoryBudget.mutate({ id, monthly_budget })
           }
+          // Renommage de catégorie (global au foyer)
+          const newName = (nameDrafts[id] ?? '').trim()
+          if (cat && newName && newName !== cat.name) {
+            renameCategory.mutate({ id, name: newName })
+          }
         }
       }
       setShowBudget(false)
@@ -282,10 +294,13 @@ export default function KakeboPage() {
   function openBudgetModal() {
     setBudgetDraft(effectiveObjectif)
     const drafts: Record<string, string> = {}
+    const names: Record<string, string> = {}
     for (const cat of displayCategories.filter(c => c.type !== 'income')) {
       drafts[cat.id] = cat.monthly_budget != null ? String(cat.monthly_budget) : ''
+      names[cat.id] = cat.name
     }
     setBudgetDrafts(drafts)
+    setNameDrafts(names)
     setShowBudget(true)
   }
 
@@ -299,8 +314,9 @@ export default function KakeboPage() {
       date: draft.date,
       description: draft.description,
       member_id: draft.member_id,
+      tags: draft.tags,
     })
-    setDraft({ category_id: draft.category_id, amount: '', description: '', date: draft.date, member_id: draft.member_id })
+    setDraft({ category_id: draft.category_id, amount: '', description: '', date: draft.date, member_id: draft.member_id, tags: [] })
     setShowAdd(false)
   }
 
@@ -579,6 +595,12 @@ export default function KakeboPage() {
                 />
               </div>
 
+              {/* Tags */}
+              <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Tags</label>
+                <TagInput tags={draft.tags} onChange={tags => setDraft(d => ({ ...d, tags }))} />
+              </div>
+
               {/* Date */}
               <div className={styles.fieldGroup}>
                 <label htmlFor="k-date" className={styles.fieldLabel}>Date</label>
@@ -686,6 +708,10 @@ export default function KakeboPage() {
                 />
               </div>
               <div className={styles.fieldGroup}>
+                <label className={styles.fieldLabel}>Tags</label>
+                <TagInput tags={editDraft.tags} onChange={tags => setEditDraft(d => ({ ...d, tags }))} />
+              </div>
+              <div className={styles.fieldGroup}>
                 <label htmlFor="e-date" className={styles.fieldLabel}>Date</label>
                 <input
                   id="e-date"
@@ -731,19 +757,39 @@ export default function KakeboPage() {
               </div>
               {displayCategories.filter(c => c.type !== 'income').map(cat => (
                 <div key={cat.id} className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>
-                    <span className={styles.catDot} style={{ background: catColor(cat) }} />
-                    {' '}{cat.name} (€)
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    step="1"
-                    value={budgetDrafts[cat.id] ?? ''}
-                    onChange={e => setBudgetDrafts(d => ({ ...d, [cat.id]: e.target.value }))}
-                    className={styles.input}
-                    placeholder="Sans limite"
-                  />
+                  {selectedMemberId ? (
+                    <label className={styles.fieldLabel}>
+                      <span className={styles.catDot} style={{ background: catColor(cat) }} />
+                      {' '}{cat.name} (€)
+                    </label>
+                  ) : (
+                    <label className={styles.fieldLabel}>
+                      <span className={styles.catDot} style={{ background: catColor(cat) }} />
+                      {' '}Catégorie & budget (€)
+                    </label>
+                  )}
+                  <div className={selectedMemberId ? undefined : styles.catEditRow}>
+                    {!selectedMemberId && (
+                      <input
+                        type="text"
+                        value={nameDrafts[cat.id] ?? ''}
+                        onChange={e => setNameDrafts(d => ({ ...d, [cat.id]: e.target.value }))}
+                        className={styles.input}
+                        placeholder="Nom de la catégorie"
+                        aria-label={`Nom de ${cat.name}`}
+                      />
+                    )}
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={budgetDrafts[cat.id] ?? ''}
+                      onChange={e => setBudgetDrafts(d => ({ ...d, [cat.id]: e.target.value }))}
+                      className={styles.input}
+                      placeholder="Sans limite"
+                      aria-label={`Budget de ${cat.name}`}
+                    />
+                  </div>
                 </div>
               ))}
               <button className={styles.submitBtn} onClick={saveBudget} disabled={updateObjectif.isPending || updateMemberObjectif.isPending}>
@@ -753,6 +799,47 @@ export default function KakeboPage() {
         </SlideUpModal>
       )}
 
+    </div>
+  )
+}
+
+// ── TagInput ────────────────────────────────────────────────────────────────────
+
+function TagInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
+  const [input, setInput] = useState('')
+
+  function add(raw: string) {
+    const t = raw.trim().toLowerCase().replace(/^#+/, '')
+    if (t && !tags.includes(t)) onChange([...tags, t])
+    setInput('')
+  }
+
+  return (
+    <div>
+      {tags.length > 0 && (
+        <div className={styles.tagEditChips}>
+          {tags.map(t => (
+            <span key={t} className={styles.tagEditChip}>
+              #{t}
+              <button type="button" onClick={() => onChange(tags.filter(x => x !== t))} aria-label={`Retirer ${t}`}>
+                <X size={11} strokeWidth={2.5} />
+              </button>
+            </span>
+          ))}
+        </div>
+      )}
+      <input
+        type="text"
+        className={styles.input}
+        value={input}
+        onChange={e => setInput(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(input) }
+          else if (e.key === 'Backspace' && !input && tags.length) onChange(tags.slice(0, -1))
+        }}
+        onBlur={() => { if (input.trim()) add(input) }}
+        placeholder="courses, vacances, voiture… (Entrée pour valider)"
+      />
     </div>
   )
 }
