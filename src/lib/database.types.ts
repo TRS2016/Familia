@@ -512,6 +512,7 @@ export type Database = {
           household_id: string
           id: string
           member_id: string | null
+          tags: string[]
         }
         Insert: {
           amount: number
@@ -522,6 +523,7 @@ export type Database = {
           household_id: string
           id?: string
           member_id?: string | null
+          tags?: string[]
         }
         Update: {
           amount?: number
@@ -532,6 +534,7 @@ export type Database = {
           household_id?: string
           id?: string
           member_id?: string | null
+          tags?: string[]
         }
         Relationships: [
           {
@@ -610,6 +613,7 @@ export type Database = {
           id: string
           member_id: string | null
           mime_type: string | null
+          tags: string[]
           title: string
         }
         Insert: {
@@ -621,6 +625,7 @@ export type Database = {
           id?: string
           member_id?: string | null
           mime_type?: string | null
+          tags?: string[]
           title: string
         }
         Update: {
@@ -632,6 +637,7 @@ export type Database = {
           id?: string
           member_id?: string | null
           mime_type?: string | null
+          tags?: string[]
           title?: string
         }
         Relationships: [
@@ -1146,6 +1152,99 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_presets: {
+        Row: {
+          config: Json
+          created_at: string
+          household_id: string
+          id: string
+          member_id: string | null
+          mode: string
+          name: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          household_id: string
+          id?: string
+          member_id?: string | null
+          mode: string
+          name: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          household_id?: string
+          id?: string
+          member_id?: string | null
+          mode?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_presets_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_presets_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_sessions: {
+        Row: {
+          completed_at: string
+          duration_seconds: number
+          focus: string | null
+          household_id: string
+          id: string
+          member_id: string | null
+          mode: string
+          name: string
+        }
+        Insert: {
+          completed_at?: string
+          duration_seconds?: number
+          focus?: string | null
+          household_id: string
+          id?: string
+          member_id?: string | null
+          mode: string
+          name: string
+        }
+        Update: {
+          completed_at?: string
+          duration_seconds?: number
+          focus?: string | null
+          household_id?: string
+          id?: string
+          member_id?: string | null
+          mode?: string
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_sessions_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_sessions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
             referencedColumns: ["id"]
           },
         ]
