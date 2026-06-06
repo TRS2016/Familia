@@ -849,16 +849,35 @@ function RunScreen({ mode, config, title, onExit }: {
   const isRestLike = view.kind === 'prepare' || view.kind === 'rest'
   // Démo affichée inline pendant l'effort (toggle « Voir la démo »).
   const [workDemo, setWorkDemo]     = useState(false)
-  const [demoFs, setDemoFs]         = useState(false) // plein écran (swipe haut)
   const [demoClosed, setDemoClosed] = useState(false) // fermée pour la phase en cours
   // Tout se réinitialise à chaque nouvelle phase.
-  useEffect(() => { setWorkDemo(false); setDemoFs(false); setDemoClosed(false) }, [view.phaseIndex])
+  useEffect(() => { setWorkDemo(false); setDemoClosed(false) }, [view.phaseIndex])
   const inlineDemo = exerciseHasVideo(demoEx ?? undefined) && (isRestLike || workDemo)
   const showDemo   = inlineDemo && !demoClosed
   // Démo affichée : anneau réduit, vidéo agrandie.
   const demoPlaying = !isCircuit && showDemo
 
-  function closeDemo() { setDemoClosed(true); setWorkDemo(false); setDemoFs(false) }
+  function closeDemo() { setDemoClosed(true); setWorkDemo(false) }
+
+  // Plein écran natif (Fullscreen API + repli iOS sur l'élément <video>)
+  const demoRef = useRef<HTMLDivElement>(null)
+  function enterFs() {
+    const el = demoRef.current
+    if (!el) return
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const anyEl = el as any
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const vid = el.querySelector('video') as any
+    if (anyEl.requestFullscreen) anyEl.requestFullscreen().catch(() => { /* refusé */ })
+    else if (anyEl.webkitRequestFullscreen) anyEl.webkitRequestFullscreen()
+    else if (vid?.webkitEnterFullscreen) vid.webkitEnterFullscreen() // iOS Safari (vidéo uploadée)
+  }
+  function exitFs() {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const d = document as any
+    if (d.fullscreenElement && d.exitFullscreen) d.exitFullscreen().catch(() => { /* ignore */ })
+    else if (d.webkitFullscreenElement && d.webkitExitFullscreen) d.webkitExitFullscreen()
+  }
   const swipeRef = useRef<{ x: number; y: number } | null>(null)
   function onDemoPointerDown(e: React.PointerEvent) { swipeRef.current = { x: e.clientX, y: e.clientY } }
   function onDemoPointerUp(e: React.PointerEvent) {
@@ -867,7 +886,10 @@ function RunScreen({ mode, config, title, onExit }: {
     if (!s) return
     const dy = e.clientY - s.y
     const dx = e.clientX - s.x
-    if (Math.abs(dy) > 45 && Math.abs(dy) > Math.abs(dx)) setDemoFs(dy < 0) // haut → plein écran, bas → normal
+    if (Math.abs(dy) > 45 && Math.abs(dy) > Math.abs(dx)) {
+      if (dy < 0) enterFs()  // haut → plein écran natif
+      else exitFs()          // bas → sortie plein écran
+    }
   }
 
   useEffect(() => {
@@ -1003,7 +1025,7 @@ function RunScreen({ mode, config, title, onExit }: {
             )}
             {exerciseHasVideo(demoEx ?? undefined) && (
               showDemo ? (
-                <div className={[styles.demoInline, styles.demoInlineLarge, demoFs ? styles.demoInlineFs : ''].join(' ')}>
+                <div ref={demoRef} className={[styles.demoInline, styles.demoInlineLarge].join(' ')}>
                   <MediaPlayer
                     key={demoEx!.videoPath ?? demoEx!.videoUrl}
                     filePath={demoEx!.videoPath ?? null}
@@ -1013,7 +1035,7 @@ function RunScreen({ mode, config, title, onExit }: {
                     autoPlay
                     muted
                   />
-                  {/* Capteur de gestes : swipe haut = plein écran, swipe bas = normal */}
+                  {/* Capteur de gestes : swipe haut = plein écran natif, swipe bas = sortie */}
                   <div
                     className={styles.demoGesture}
                     onPointerDown={onDemoPointerDown}
@@ -1022,7 +1044,7 @@ function RunScreen({ mode, config, title, onExit }: {
                   <button className={styles.demoClose} onClick={closeDemo} aria-label="Fermer la vidéo">
                     <X size={18} strokeWidth={2.5} />
                   </button>
-                  <span className={styles.demoHint}>{demoFs ? 'Swipe ↓ pour réduire' : 'Swipe ↑ plein écran'}</span>
+                  <span className={styles.demoHint}>Swipe ↑ plein écran</span>
                 </div>
               ) : view.kind === 'work' ? (
                 <button className={styles.demoBtn} onClick={() => { setDemoClosed(false); setWorkDemo(true) }}>
