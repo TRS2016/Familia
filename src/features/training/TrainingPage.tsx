@@ -864,13 +864,19 @@ function RunScreen({ mode, config, title, onExit }: {
   function enterFs() {
     const el = demoRef.current
     if (!el) return
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const anyEl = el as any
+    // Cible : l'élément <video> (plein écran natif réel, y compris iOS), sinon
+    // l'<iframe> YouTube, sinon le conteneur.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const vid = el.querySelector('video') as any
-    if (anyEl.requestFullscreen) anyEl.requestFullscreen().catch(() => { /* refusé */ })
-    else if (anyEl.webkitRequestFullscreen) anyEl.webkitRequestFullscreen()
-    else if (vid?.webkitEnterFullscreen) vid.webkitEnterFullscreen() // iOS Safari (vidéo uploadée)
+    if (vid) {
+      if (vid.webkitEnterFullscreen) { vid.webkitEnterFullscreen(); return } // iOS Safari
+      if (vid.requestFullscreen) { vid.requestFullscreen().catch(() => {}); return }
+      if (vid.webkitRequestFullscreen) { vid.webkitRequestFullscreen(); return }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const target = (el.querySelector('iframe') ?? el) as any
+    if (target.requestFullscreen) target.requestFullscreen().catch(() => {})
+    else if (target.webkitRequestFullscreen) target.webkitRequestFullscreen()
   }
   function exitFs() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
