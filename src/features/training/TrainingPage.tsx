@@ -864,16 +864,19 @@ function RunScreen({ mode, config, title, onExit }: {
   function enterFs() {
     const el = demoRef.current
     if (!el) return
-    // On met en plein écran le CONTENEUR (vidéo + capteur de gestes + bouton X)
-    // pour garder nos contrôles (swipe ↓, fermer) actifs en plein écran.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const anyEl = el as any
-    if (anyEl.requestFullscreen) { anyEl.requestFullscreen().catch(() => {}); return }
-    if (anyEl.webkitRequestFullscreen) { anyEl.webkitRequestFullscreen(); return }
-    // iOS Safari : pas de plein écran sur un conteneur → repli sur la vidéo native
+    // Plein écran natif : vidéo uploadée d'abord (rendu le plus natif, iOS inclus),
+    // sinon l'iframe YouTube (bascule paysage + remplit l'écran), sinon le conteneur.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const vid = el.querySelector('video') as any
-    if (vid?.webkitEnterFullscreen) vid.webkitEnterFullscreen()
+    if (vid) {
+      if (vid.webkitEnterFullscreen) { vid.webkitEnterFullscreen(); return }
+      if (vid.requestFullscreen) { vid.requestFullscreen().catch(() => {}); return }
+      if (vid.webkitRequestFullscreen) { vid.webkitRequestFullscreen(); return }
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const target = (el.querySelector('iframe') ?? el) as any
+    if (target.requestFullscreen) target.requestFullscreen().catch(() => {})
+    else if (target.webkitRequestFullscreen) target.webkitRequestFullscreen()
   }
   function exitFs() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
