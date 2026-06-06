@@ -1095,9 +1095,10 @@
   .ringWrapCompact { width: 190px; }
 }
 /* Texte central proportionnel à l'anneau réduit */
-.ringWrapCompact .runBig { font-size: clamp(38px, 13vw, 52px); }
-.ringWrapCompact .runPhase { font-size: 9px; margin-bottom: 1px; }
-.ringWrapCompact .runSub { font-size: 10px; }
+.ringWrapCompact .runBig { font-size: clamp(28px, 10vw, 40px); }
+.ringWrapCompact .runPhase { font-size: 8px; margin-bottom: 1px; }
+.ringWrapCompact .runSub { display: none; }
+.ringWrapCompact .ringInner { padding: 0 14px; }
 
 .ringInner {
   position: absolute;
@@ -1276,7 +1277,7 @@
 .pageOverlay {
   position: fixed;
   inset: 0;
-  z-index: 200;
+  z-index: 300; /* au-dessus de la BottomNav (200) */
   background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: flex-end;
