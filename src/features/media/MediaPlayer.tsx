@@ -122,7 +122,16 @@ function YouTubePlayer({ videoId, autoPlay, muted, onEnded }: {
         playerVars: { autoplay: autoPlay ? 1 : 0, rel: 0, playsinline: 1, mute: muted ? 1 : 0 },
         events: {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          onReady: (e: any) => { if (muted) e.target.mute(); if (autoPlay) e.target.playVideo() },
+          onReady: (e: any) => {
+            if (muted) e.target.mute()
+            if (autoPlay) e.target.playVideo()
+            // Garantit que l'iframe peut passer en plein écran natif (Android/PC)
+            try {
+              const f = e.target.getIframe?.()
+              f?.setAttribute('allowfullscreen', '')
+              f?.setAttribute('allow', 'autoplay; fullscreen; encrypted-media; picture-in-picture')
+            } catch { /* ignore */ }
+          },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onStateChange: (e: any) => {
             if (e.data === w.YT.PlayerState.ENDED) onEndedRef.current?.()
