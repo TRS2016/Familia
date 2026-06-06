@@ -97,10 +97,11 @@ function loadYouTubeApi(): Promise<void> {
   return ytApiPromise
 }
 
-function YouTubePlayer({ videoId, autoPlay, muted, onEnded }: {
+function YouTubePlayer({ videoId, autoPlay, muted, loop, onEnded }: {
   videoId: string
   autoPlay?: boolean
   muted?: boolean
+  loop?: boolean
   onEnded?: () => void
 }) {
   const hostRef    = useRef<HTMLDivElement>(null)
@@ -119,7 +120,11 @@ function YouTubePlayer({ videoId, autoPlay, muted, onEnded }: {
       const w = window as any
       player = new w.YT.Player(hostRef.current, {
         videoId,
-        playerVars: { autoplay: autoPlay ? 1 : 0, rel: 0, playsinline: 1, mute: muted ? 1 : 0 },
+        playerVars: {
+          autoplay: autoPlay ? 1 : 0, rel: 0, playsinline: 1, mute: muted ? 1 : 0,
+          // loop YouTube nécessite playlist = même id
+          loop: loop ? 1 : 0, ...(loop ? { playlist: videoId } : {}),
+        },
         events: {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onReady: (e: any) => {
@@ -134,7 +139,10 @@ function YouTubePlayer({ videoId, autoPlay, muted, onEnded }: {
           },
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onStateChange: (e: any) => {
-            if (e.data === w.YT.PlayerState.ENDED) onEndedRef.current?.()
+            if (e.data === w.YT.PlayerState.ENDED) {
+              if (loop) { e.target.seekTo(0); e.target.playVideo() } // relance (fiable même si playlist échoue)
+              else onEndedRef.current?.()
+            }
           },
         },
       })
@@ -144,7 +152,7 @@ function YouTubePlayer({ videoId, autoPlay, muted, onEnded }: {
       cancelled = true
       try { player?.destroy?.() } catch { /* déjà détruit */ }
     }
-  }, [videoId, autoPlay, muted])
+  }, [videoId, autoPlay, muted, loop])
 
   return (
     <div className={styles.iframeWrap}>
@@ -186,9 +194,10 @@ interface Props {
   onEnded?: () => void
   autoPlay?: boolean
   muted?: boolean
+  loop?: boolean
 }
 
-export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay, muted }: Props) {
+export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay, muted, loop }: Props) {
   const { data: signedUrl, isLoading } = useQuery({
     queryKey: ['media-file-url', filePath],
     queryFn: async () => {
@@ -225,7 +234,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
   const type = detectType(url, mimeType)
 
   if (type === 'youtube') {
-    return <YouTubePlayer videoId={youtubeId(url)} autoPlay={autoPlay} muted={muted} onEnded={onEnded} />
+    return <YouTubePlayer videoId={youtubeId(url)} autoPlay={autoPlay} muted={muted} loop={loop} onEnded={onEnded} />
   }
 
   if (type === 'spotify') {
@@ -253,6 +262,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
         playsInline
         autoPlay={autoPlay}
         muted={muted}
+        loop={loop}
         onCanPlay={handleCanPlay}
         onEnded={onEnded}
       />

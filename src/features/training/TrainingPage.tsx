@@ -1001,6 +1001,7 @@ function RunScreen({ mode, config, title, onExit }: {
                     title={demoEx!.name}
                     autoPlay
                     muted
+                    loop
                   />
                   <button className={styles.demoClose} onClick={closeDemo} aria-label="Fermer la vidéo">
                     <X size={18} strokeWidth={2.5} />
