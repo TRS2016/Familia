@@ -857,46 +857,7 @@ function RunScreen({ mode, config, title, onExit }: {
   // Démo affichée : anneau réduit, vidéo agrandie.
   const demoPlaying = !isCircuit && showDemo
 
-  function closeDemo() { exitFs(); setDemoClosed(true); setWorkDemo(false) }
-
-  // Plein écran natif (Fullscreen API + repli iOS sur l'élément <video>)
-  const demoRef = useRef<HTMLDivElement>(null)
-  function enterFs() {
-    const el = demoRef.current
-    if (!el) return
-    // Plein écran natif : vidéo uploadée d'abord (rendu le plus natif, iOS inclus),
-    // sinon l'iframe YouTube (bascule paysage + remplit l'écran), sinon le conteneur.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const vid = el.querySelector('video') as any
-    if (vid) {
-      if (vid.webkitEnterFullscreen) { vid.webkitEnterFullscreen(); return }
-      if (vid.requestFullscreen) { vid.requestFullscreen().catch(() => {}); return }
-      if (vid.webkitRequestFullscreen) { vid.webkitRequestFullscreen(); return }
-    }
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const target = (el.querySelector('iframe') ?? el) as any
-    if (target.requestFullscreen) target.requestFullscreen().catch(() => {})
-    else if (target.webkitRequestFullscreen) target.webkitRequestFullscreen()
-  }
-  function exitFs() {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const d = document as any
-    if (d.fullscreenElement && d.exitFullscreen) d.exitFullscreen().catch(() => { /* ignore */ })
-    else if (d.webkitFullscreenElement && d.webkitExitFullscreen) d.webkitExitFullscreen()
-  }
-  const swipeRef = useRef<{ x: number; y: number } | null>(null)
-  function onDemoPointerDown(e: React.PointerEvent) { swipeRef.current = { x: e.clientX, y: e.clientY } }
-  function onDemoPointerUp(e: React.PointerEvent) {
-    const s = swipeRef.current
-    swipeRef.current = null
-    if (!s) return
-    const dy = e.clientY - s.y
-    const dx = e.clientX - s.x
-    if (Math.abs(dy) > 45 && Math.abs(dy) > Math.abs(dx)) {
-      if (dy < 0) enterFs()  // haut → plein écran natif
-      else exitFs()          // bas → sortie plein écran
-    }
-  }
+  function closeDemo() { setDemoClosed(true); setWorkDemo(false) }
 
   useEffect(() => {
     if (!startedRef.current) { startedRef.current = true; start() }
@@ -1031,7 +992,7 @@ function RunScreen({ mode, config, title, onExit }: {
             )}
             {exerciseHasVideo(demoEx ?? undefined) && (
               showDemo ? (
-                <div ref={demoRef} className={[styles.demoInline, styles.demoInlineLarge].join(' ')}>
+                <div className={[styles.demoInline, styles.demoInlineLarge].join(' ')}>
                   <MediaPlayer
                     key={demoEx!.videoPath ?? demoEx!.videoUrl}
                     filePath={demoEx!.videoPath ?? null}
@@ -1041,16 +1002,9 @@ function RunScreen({ mode, config, title, onExit }: {
                     autoPlay
                     muted
                   />
-                  {/* Capteur de gestes : swipe haut = plein écran natif, swipe bas = sortie */}
-                  <div
-                    className={styles.demoGesture}
-                    onPointerDown={onDemoPointerDown}
-                    onPointerUp={onDemoPointerUp}
-                  />
                   <button className={styles.demoClose} onClick={closeDemo} aria-label="Fermer la vidéo">
                     <X size={18} strokeWidth={2.5} />
                   </button>
-                  <span className={styles.demoHint}>Swipe ↑ plein écran</span>
                 </div>
               ) : view.kind === 'work' ? (
                 <button className={styles.demoBtn} onClick={() => { setDemoClosed(false); setWorkDemo(true) }}>
