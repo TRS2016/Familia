@@ -711,6 +711,7 @@
 
 /* Démo auto-lancée pendant prépa / repos (intégrée sous le chrono) */
 .demoInline {
+  position: relative;
   /* largeur définie (pas 100%) : .exerciseBox est centré et ne s'étire pas,
      un width:100% s'effondrerait à 0 quand la vidéo est le seul enfant */
   width: min(300px, 78vw);
@@ -728,6 +729,69 @@
 }
 .demoInline video,
 .demoInline iframe { display: block; width: 100%; }
+
+/* Capteur de gestes (au-dessus du lecteur, sous le bouton fermer) */
+.demoGesture {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  touch-action: none;
+}
+
+.demoClose {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 3;
+  width: 32px;
+  height: 32px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.demoHint {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  pointer-events: none;
+  font-family: var(--tr-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.85);
+  background: rgba(0, 0, 0, 0.45);
+  padding: 3px 8px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+
+/* Plein écran (swipe vers le haut) */
+.demoInlineFs {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  width: 100%;
+  max-width: none;
+  height: 100%;
+  margin: 0;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.demoInlineFs video {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
 
 /* Circuit AMRAP / For Time (run) */
 .circuit {

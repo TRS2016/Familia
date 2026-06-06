@@ -848,11 +848,27 @@ function RunScreen({ mode, config, title, onExit }: {
   // Phases d'attente : on lance la démo du prochain exo automatiquement.
   const isRestLike = view.kind === 'prepare' || view.kind === 'rest'
   // Démo affichée inline pendant l'effort (toggle « Voir la démo »).
-  const [workDemo, setWorkDemo] = useState(false)
-  useEffect(() => { setWorkDemo(false) }, [view.phaseIndex]) // se referme à chaque nouvelle phase
+  const [workDemo, setWorkDemo]     = useState(false)
+  const [demoFs, setDemoFs]         = useState(false) // plein écran (swipe haut)
+  const [demoClosed, setDemoClosed] = useState(false) // fermée pour la phase en cours
+  // Tout se réinitialise à chaque nouvelle phase.
+  useEffect(() => { setWorkDemo(false); setDemoFs(false); setDemoClosed(false) }, [view.phaseIndex])
   const inlineDemo = exerciseHasVideo(demoEx ?? undefined) && (isRestLike || workDemo)
-  // Démo en cours : anneau réduit, vidéo agrandie.
-  const demoPlaying = !isCircuit && inlineDemo
+  const showDemo   = inlineDemo && !demoClosed
+  // Démo affichée : anneau réduit, vidéo agrandie.
+  const demoPlaying = !isCircuit && showDemo
+
+  function closeDemo() { setDemoClosed(true); setWorkDemo(false); setDemoFs(false) }
+  const swipeRef = useRef<{ x: number; y: number } | null>(null)
+  function onDemoPointerDown(e: React.PointerEvent) { swipeRef.current = { x: e.clientX, y: e.clientY } }
+  function onDemoPointerUp(e: React.PointerEvent) {
+    const s = swipeRef.current
+    swipeRef.current = null
+    if (!s) return
+    const dy = e.clientY - s.y
+    const dx = e.clientX - s.x
+    if (Math.abs(dy) > 45 && Math.abs(dy) > Math.abs(dx)) setDemoFs(dy < 0) // haut → plein écran, bas → normal
+  }
 
   useEffect(() => {
     if (!startedRef.current) { startedRef.current = true; start() }
@@ -986,30 +1002,33 @@ function RunScreen({ mode, config, title, onExit }: {
               <span className={styles.exerciseUpcoming}>puis {view.exerciseNext}</span>
             )}
             {exerciseHasVideo(demoEx ?? undefined) && (
-              inlineDemo ? (
-                <>
-                  <div className={[styles.demoInline, styles.demoInlineLarge].join(' ')}>
-                    <MediaPlayer
-                      key={demoEx!.videoPath ?? demoEx!.videoUrl}
-                      filePath={demoEx!.videoPath ?? null}
-                      externalUrl={demoEx!.videoUrl ?? null}
-                      mimeType={demoEx!.videoMime ?? null}
-                      title={demoEx!.name}
-                      autoPlay
-                      muted
-                    />
-                  </div>
-                  {view.kind === 'work' && (
-                    <button className={styles.demoBtn} onClick={() => setWorkDemo(false)}>
-                      <Video size={14} strokeWidth={2} /> Masquer la démo
-                    </button>
-                  )}
-                </>
-              ) : (
-                <button className={styles.demoBtn} onClick={() => setWorkDemo(true)}>
+              showDemo ? (
+                <div className={[styles.demoInline, styles.demoInlineLarge, demoFs ? styles.demoInlineFs : ''].join(' ')}>
+                  <MediaPlayer
+                    key={demoEx!.videoPath ?? demoEx!.videoUrl}
+                    filePath={demoEx!.videoPath ?? null}
+                    externalUrl={demoEx!.videoUrl ?? null}
+                    mimeType={demoEx!.videoMime ?? null}
+                    title={demoEx!.name}
+                    autoPlay
+                    muted
+                  />
+                  {/* Capteur de gestes : swipe haut = plein écran, swipe bas = normal */}
+                  <div
+                    className={styles.demoGesture}
+                    onPointerDown={onDemoPointerDown}
+                    onPointerUp={onDemoPointerUp}
+                  />
+                  <button className={styles.demoClose} onClick={closeDemo} aria-label="Fermer la vidéo">
+                    <X size={18} strokeWidth={2.5} />
+                  </button>
+                  <span className={styles.demoHint}>{demoFs ? 'Swipe ↓ pour réduire' : 'Swipe ↑ plein écran'}</span>
+                </div>
+              ) : view.kind === 'work' ? (
+                <button className={styles.demoBtn} onClick={() => { setDemoClosed(false); setWorkDemo(true) }}>
                   <Video size={14} strokeWidth={2} /> Voir la démo
                 </button>
-              )
+              ) : null
             )}
           </div>
         )}
