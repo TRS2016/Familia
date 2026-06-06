@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ShoppingCart, Calendar, Settings, BookOpen, Flame, Tv, Camera, Music } from 'lucide-react'
+import { ShoppingCart, Calendar, Settings, BookOpen, Flame, Tv, Camera, Music, Bell } from 'lucide-react'
+import SlideUpModal from '../components/SlideUpModal'
 import { format, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
@@ -94,6 +95,30 @@ export default function HomePage() {
   const { showToast } = useToast()
   const queryClient = useQueryClient()
   const [noteText, setNoteText] = useState('')
+
+  // Notification manuelle au foyer
+  const NOTIFY_PRESETS = ['J\'ai ajouté une ligne 📝', 'Je suis en route 🚗', 'À table ! 🍽️', 'Appelle-moi 📞', 'Pense aux courses 🛒']
+  const [showNotify, setShowNotify]   = useState(false)
+  const [notifyText, setNotifyText]   = useState('Coucou 👋')
+  const [notifySending, setNotifySending] = useState(false)
+
+  async function sendNotify() {
+    const body = notifyText.trim()
+    if (!body || !member) return
+    setNotifySending(true)
+    try {
+      const { error } = await supabase.functions.invoke('notify-household', {
+        body: { title: member.display_name, body, module: 'message' },
+      })
+      if (error) throw error
+      showToast({ type: 'success', message: 'Notification envoyée au foyer.' })
+      setShowNotify(false)
+    } catch {
+      showToast({ type: 'error', message: 'Impossible d\'envoyer la notification.' })
+    } finally {
+      setNotifySending(false)
+    }
+  }
 
   const { data: upcomingEvents } = useQuery({
     queryKey: QK.homeEvents,
@@ -294,11 +319,53 @@ export default function HomePage() {
                 ))
             }
           </div>
+          <button
+            className={styles.settingsLink}
+            onClick={() => { setNotifyText('Coucou 👋'); setShowNotify(true) }}
+            aria-label="Notifier le foyer"
+            title="Notifier le foyer"
+          >
+            <Bell size={20} strokeWidth={2} />
+          </button>
           <Link to="/settings" className={styles.settingsLink} aria-label="Réglages">
             <Settings size={20} strokeWidth={2} />
           </Link>
         </div>
       </header>
+
+      {showNotify && (
+        <SlideUpModal title="Notifier le foyer" onClose={() => setShowNotify(false)}>
+          <div className={styles.notifyForm}>
+            <div className={styles.notifyPresets}>
+              {NOTIFY_PRESETS.map(p => (
+                <button
+                  key={p}
+                  type="button"
+                  className={styles.notifyChip}
+                  onClick={() => setNotifyText(p)}
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+            <textarea
+              className={styles.notifyTextarea}
+              value={notifyText}
+              onChange={e => setNotifyText(e.target.value)}
+              rows={3}
+              placeholder="Votre message au foyer…"
+              autoFocus
+            />
+            <button
+              className={styles.notifySend}
+              onClick={sendNotify}
+              disabled={notifySending || !notifyText.trim()}
+            >
+              {notifySending ? 'Envoi…' : 'Envoyer au foyer'}
+            </button>
+          </div>
+        </SlideUpModal>
+      )}
 
       {/* Nav cards */}
       <p className={styles.sectionLabel}>Accès rapide</p>

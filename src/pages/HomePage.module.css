@@ -47,9 +47,59 @@
   align-items: center;
   text-decoration: none;
   transition: color 0.15s;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
 }
 
 .settingsLink:hover { color: var(--accent); }
+
+/* ── Notifier le foyer ───────────────────────────────────────────────────── */
+
+.notifyForm { display: flex; flex-direction: column; gap: 14px; padding: 0 16px 16px; }
+.notifyPresets { display: flex; flex-wrap: wrap; gap: 8px; }
+.notifyChip {
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-size: 13px;
+  font-family: var(--font-family);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.notifyChip:hover { border-color: var(--accent); color: var(--accent); }
+
+.notifyTextarea {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: 14px;
+  line-height: 1.5;
+  resize: none;
+  outline: none;
+}
+.notifyTextarea:focus { border-color: var(--accent); }
+
+.notifySend {
+  padding: 13px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-family);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.notifySend:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ── Avatar stack ────────────────────────────────────────────────────────── */
 
