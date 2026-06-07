@@ -322,6 +322,7 @@ export type Database = {
       habit_completions: {
         Row: {
           completed: boolean
+          count: number
           created_at: string
           date: string
           habit_id: string
@@ -330,6 +331,7 @@ export type Database = {
         }
         Insert: {
           completed?: boolean
+          count?: number
           created_at?: string
           date: string
           habit_id: string
@@ -338,6 +340,7 @@ export type Database = {
         }
         Update: {
           completed?: boolean
+          count?: number
           created_at?: string
           date?: string
           habit_id?: string
@@ -396,6 +399,7 @@ export type Database = {
           position: number | null
           reminder_time: string | null
           start_date: string | null
+          target_count: number
         }
         Insert: {
           archived_at?: string | null
@@ -412,6 +416,7 @@ export type Database = {
           position?: number | null
           reminder_time?: string | null
           start_date?: string | null
+          target_count?: number
         }
         Update: {
           archived_at?: string | null
@@ -428,6 +433,7 @@ export type Database = {
           position?: number | null
           reminder_time?: string | null
           start_date?: string | null
+          target_count?: number
         }
         Relationships: [
           {

@@ -15,6 +15,7 @@ export interface Habit {
   emoji: string
   color: string | null
   kind: 'do' | 'avoid'             // 'do' = à faire, 'avoid' = à éviter (cocher = tenu)
+  target_count: number             // objectif quotidien (1 = simple oui/non)
   frequency: string
   frequency_days: number[] | null  // 1=lun…7=dim — remplace frequency si défini
   start_date: string | null        // date ISO yyyy-MM-dd, null = pas de restriction
@@ -30,6 +31,7 @@ export interface HabitCompletion {
   habit_id: string
   date: string
   completed: boolean
+  count: number
   created_at: string
   note: string | null
 }
@@ -40,6 +42,7 @@ export interface NewHabitInput {
   member_id: string | null
   color: string | null
   kind?: 'do' | 'avoid'
+  target_count?: number
   frequency?: string
   frequency_days?: number[] | null
   start_date?: string | null
@@ -52,6 +55,7 @@ export interface EditHabitInput {
   emoji: string
   member_id: string | null
   kind?: 'do' | 'avoid'
+  target_count?: number
   frequency?: string
   frequency_days?: number[] | null
   start_date?: string | null
@@ -142,13 +146,14 @@ export function useRecentCompletions(habitIds: string[]) {
     queryFn: async (): Promise<HabitCompletion[]> => {
       const validIds = habitIds.filter(id => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/.test(id))
       if (validIds.length === 0) return []
+      // On récupère aussi les lignes partielles (compteur non terminé) pour afficher
+      // la progression du jour ; le filtre completed se fait côté client.
       const { data, error } = await supabase
         .from('habit_completions')
         .select('*')
         .in('habit_id', validIds)
         .gte('date', from)
         .lte('date', to)
-        .eq('completed', true)
       if (error) throw error
       return data as HabitCompletion[]
     },
@@ -179,7 +184,7 @@ export function useYearCompletions(habitId: string | null, year: number) {
 
 export function calcStreak(habitId: string, completions: HabitCompletion[]): number {
   const doneSet = new Set(
-    completions.filter(c => c.habit_id === habitId).map(c => c.date)
+    completions.filter(c => c.habit_id === habitId && c.completed).map(c => c.date)
   )
   let streak = 0
   let d = new Date()
@@ -237,6 +242,7 @@ export function useAddHabit() {
           emoji: input.emoji,
           color: input.color,
           kind: input.kind ?? 'do',
+          target_count: input.target_count ?? 1,
           frequency: input.frequency ?? 'daily',
           frequency_days: input.frequency_days ?? null,
           start_date: input.start_date ?? null,
@@ -258,6 +264,7 @@ export function useAddHabit() {
         emoji: input.emoji,
         color: input.color,
         kind: input.kind ?? 'do',
+        target_count: input.target_count ?? 1,
         frequency: input.frequency ?? 'daily',
         frequency_days: input.frequency_days ?? null,
         start_date: input.start_date ?? null,
@@ -319,6 +326,7 @@ export function useEditHabit() {
           emoji: input.emoji,
           member_id: input.member_id,
           kind: input.kind,
+          target_count: input.target_count,
           frequency: input.frequency,
           frequency_days: input.frequency_days,
           start_date: input.start_date,
@@ -340,6 +348,7 @@ export function useEditHabit() {
           emoji: input.emoji,
           member_id: input.member_id,
           kind: input.kind ?? h.kind,
+          target_count: input.target_count ?? h.target_count,
           frequency: input.frequency ?? h.frequency,
           frequency_days: input.frequency_days !== undefined ? input.frequency_days : h.frequency_days,
           start_date: input.start_date !== undefined ? input.start_date : h.start_date,
@@ -437,9 +446,48 @@ export function useToggleCompletion() {
       const previous = queryClient.getQueryData<HabitCompletion[]>(key) ?? []
       queryClient.setQueryData<HabitCompletion[]>(key, done
         ? [...previous.filter(c => !(c.habit_id === habitId && c.date === date)),
-           { id: `opt-${habitId}-${date}`, habit_id: habitId, date, completed: true, created_at: new Date().toISOString(), note: null }]
+           { id: `opt-${habitId}-${date}`, habit_id: habitId, date, completed: true, count: 1, created_at: new Date().toISOString(), note: null }]
         : previous.filter(c => !(c.habit_id === habitId && c.date === date))
       )
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      queryClient.setQueryData(key, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de mettre à jour l\'habitude.' })
+    },
+  })
+}
+
+/** Définit la progression du jour pour une habitude quantifiable (compteur). */
+export function useSetCount() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  const key = completionsKey('recent')
+
+  return useMutation({
+    mutationFn: async ({ habitId, date, count, target }: { habitId: string; date: string; count: number; target: number }) => {
+      if (count <= 0) {
+        const { error } = await supabase.from('habit_completions').delete().eq('habit_id', habitId).eq('date', date)
+        if (error) throw error
+      } else {
+        const { error } = await supabase
+          .from('habit_completions')
+          .upsert({ habit_id: habitId, date, count, completed: count >= target } as never, { onConflict: 'habit_id,date' })
+        if (error) throw error
+      }
+    },
+    onMutate: async ({ habitId, date, count, target }) => {
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<HabitCompletion[]>(key) ?? []
+      const others = previous.filter(c => !(c.habit_id === habitId && c.date === date))
+      const next = count <= 0
+        ? others
+        : [...others, {
+            id: `opt-${habitId}-${date}`, habit_id: habitId, date,
+            completed: count >= target, count, created_at: new Date().toISOString(),
+            note: previous.find(c => c.habit_id === habitId && c.date === date)?.note ?? null,
+          }]
+      queryClient.setQueryData<HabitCompletion[]>(key, next)
       return { previous }
     },
     onError: (_err, _vars, ctx) => {
@@ -456,10 +504,17 @@ export function useUpdateCompletionNote() {
 
   return useMutation({
     mutationFn: async ({ habitId, date, note }: { habitId: string; date: string; note: string | null }) => {
-      const { error } = await supabase
-        .from('habit_completions')
-        .upsert({ habit_id: habitId, date, completed: true, note: note || null } as never, { onConflict: 'habit_id,date' })
-      if (error) throw error
+      // Met à jour la note sans toucher au compteur d'une habitude quantifiable.
+      const { data: existing, error: selErr } = await supabase
+        .from('habit_completions').select('id').eq('habit_id', habitId).eq('date', date).maybeSingle()
+      if (selErr) throw selErr
+      if (existing) {
+        const { error } = await supabase.from('habit_completions').update({ note: note || null } as never).eq('id', existing.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('habit_completions').insert({ habit_id: habitId, date, completed: true, count: 1, note: note || null } as never)
+        if (error) throw error
+      }
     },
     onMutate: async ({ habitId, date, note }) => {
       await queryClient.cancelQueries({ queryKey: key })

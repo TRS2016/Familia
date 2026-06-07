@@ -14,8 +14,8 @@ import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import {
   useHabits, useArchivedHabits, useRecentCompletions, useYearCompletions,
-  useAddHabit, useDeleteHabit, useEditHabit, useToggleCompletion,
-  useArchiveHabit, useUnarchiveHabit, useReorderHabits, useUpdateCompletionNote,
+  useAddHabit, useDeleteHabit, useEditHabit,
+  useArchiveHabit, useUnarchiveHabit, useReorderHabits, useUpdateCompletionNote, useSetCount,
   calcStreak, calcBestStreak,
 } from './useHabits'
 import type { Habit, HabitCompletion } from './useHabits'
@@ -83,11 +83,11 @@ export default function HabitsPage() {
   const addHabit     = useAddHabit()
   const deleteHabit  = useDeleteHabit()
   const editHabit    = useEditHabit()
-  const toggle       = useToggleCompletion()
   const archiveHabit = useArchiveHabit()
   const unarchive    = useUnarchiveHabit()
   const reorder      = useReorderHabits()
   const updateNote   = useUpdateCompletionNote()
+  const setCount     = useSetCount()
 
   function moveHabit(habitId: string, dir: -1 | 1) {
     // Voisin dans la même section (membre) si groupé, sinon dans la liste affichée
@@ -118,7 +118,7 @@ export default function HabitsPage() {
   const [selectedDate, setSelectedDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [editTarget, setEditTarget] = useState<Habit | null>(null)
   const [editDraft,  setEditDraft]  = useState({
-    name: '', emoji: '⭐', member_id: null as string | null, kind: 'do' as 'do' | 'avoid',
+    name: '', emoji: '⭐', member_id: null as string | null, kind: 'do' as 'do' | 'avoid', target_count: 1,
     frequency: 'daily', frequency_days: null as number[] | null, start_date: null as string | null, reminder_time: null as string | null,
   })
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
@@ -144,6 +144,7 @@ export default function HabitsPage() {
     emoji: '⭐',
     member_id: currentMember?.id ?? null as string | null,
     kind: 'do' as 'do' | 'avoid',
+    target_count: 1,
     frequency: 'daily',
     frequency_days: null as number[] | null,
     start_date: null as string | null,
@@ -156,8 +157,11 @@ export default function HabitsPage() {
     (!filterMemberId || h.member_id === filterMemberId) &&
     isApplicable(h, selectedDate)
   )
-  const doneSet = new Set(completions.map(c => `${c.habit_id}::${c.date}`))
+  const doneSet = new Set(completions.filter(c => c.completed).map(c => `${c.habit_id}::${c.date}`))
   function isDone(habitId: string, date: string) { return doneSet.has(`${habitId}::${date}`) }
+
+  const countMap = new Map(completions.map(c => [`${c.habit_id}::${c.date}`, c.count]))
+  function getCount(habitId: string, date: string): number { return countMap.get(`${habitId}::${date}`) ?? 0 }
 
   const noteMap = new Map(completions.map(c => [`${c.habit_id}::${c.date}`, c.note]))
   function getNote(habitId: string, date: string): string | null { return noteMap.get(`${habitId}::${date}`) ?? null }
@@ -213,6 +217,8 @@ export default function HabitsPage() {
         monthlyRate={monthlyRates[habit.id]}
         weekDone={weekDone}
         done={isDone(habit.id, selectedDate)}
+        count={getCount(habit.id, selectedDate)}
+        target={habit.target_count ?? 1}
         hasNote={!!getNote(habit.id, selectedDate)}
         onToggle={() => handleToggle(habit.id)}
         onNote={() => openNote(habit.id)}
@@ -231,8 +237,12 @@ export default function HabitsPage() {
 
   function handleToggle(habitId: string) {
     if (selectedDate > today) return
-    const done = isDone(habitId, selectedDate)
-    toggle.mutate({ habitId, date: selectedDate, done: !done })
+    const habit = habits.find(h => h.id === habitId)
+    if (!habit) return
+    const target = Math.max(1, habit.target_count ?? 1)
+    const current = getCount(habitId, selectedDate)
+    const nextCount = current >= target ? 0 : current + 1
+    setCount.mutate({ habitId, date: selectedDate, count: nextCount, target })
   }
 
   function openEdit(habit: Habit) {
@@ -241,6 +251,7 @@ export default function HabitsPage() {
       emoji: habit.emoji,
       member_id: habit.member_id,
       kind: habit.kind ?? 'do',
+      target_count: habit.target_count ?? 1,
       frequency: habit.frequency ?? 'daily',
       frequency_days: habit.frequency_days ?? null,
       start_date: habit.start_date ?? null,
@@ -261,6 +272,7 @@ export default function HabitsPage() {
         emoji: editDraft.emoji,
         member_id: editDraft.member_id,
         kind: editDraft.kind,
+        target_count: Math.max(1, editDraft.target_count || 1),
         frequency: editDraft.frequency,
         frequency_days: freqDays,
         start_date: editDraft.start_date || null,
@@ -283,12 +295,13 @@ export default function HabitsPage() {
         member_id: draft.member_id ?? currentMember?.id ?? null,
         color: null,
         kind: draft.kind,
+        target_count: Math.max(1, draft.target_count || 1),
         frequency: draft.frequency,
         frequency_days: freqDays,
         start_date: draft.start_date || null,
         reminder_time: draft.reminder_time || null,
       })
-      setDraft({ name: '', emoji: '⭐', member_id: currentMember?.id ?? null, kind: 'do', frequency: 'daily', frequency_days: null, start_date: null, reminder_time: null })
+      setDraft({ name: '', emoji: '⭐', member_id: currentMember?.id ?? null, kind: 'do', target_count: 1, frequency: 'daily', frequency_days: null, start_date: null, reminder_time: null })
       setShowAdd(false)
     } catch { /* onError handles toast */ }
   }
@@ -569,6 +582,7 @@ type HabitDraft = {
   emoji: string
   member_id: string | null
   kind: 'do' | 'avoid'
+  target_count: number
   frequency: string
   frequency_days: number[] | null
   start_date: string | null
@@ -623,6 +637,27 @@ function HabitForm({ draft, setDraft, members, isPending, submitLabel }: {
             className={[styles.freqPill, draft.kind === 'avoid' ? styles.freqPillActive : ''].join(' ')}
             onClick={() => setDraft(d => ({ ...d, kind: 'avoid' }))}
           >🚫 À éviter</button>
+        </div>
+      </div>
+
+      <div className={styles.fieldGroup}>
+        <label className={styles.fieldLabel}>Objectif par jour</label>
+        <div className={styles.reminderRow}>
+          <button
+            type="button"
+            className={[styles.freqPill, draft.target_count <= 1 ? styles.freqPillActive : ''].join(' ')}
+            style={{ flexShrink: 0 }}
+            onClick={() => setDraft(d => ({ ...d, target_count: 1 }))}
+          >Simple (oui/non)</button>
+          <input
+            type="number"
+            min={1}
+            max={99}
+            className={styles.timeInput}
+            value={draft.target_count > 1 ? draft.target_count : ''}
+            onChange={e => setDraft(d => ({ ...d, target_count: Math.max(1, parseInt(e.target.value) || 1) }))}
+            placeholder="Ex : 8 (verres)"
+          />
         </div>
       </div>
 
@@ -744,13 +779,15 @@ function HabitForm({ draft, setDraft, members, isPending, submitLabel }: {
 
 // ── Habit row ─────────────────────────────────────────────────────────────────
 
-function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, hasNote, onToggle, onNote, onDelete, onEdit, onStats, onArchive, canReorder, isFirst, isLast, onMoveUp, onMoveDown }: {
+function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, count, target, hasNote, onToggle, onNote, onDelete, onEdit, onStats, onArchive, canReorder, isFirst, isLast, onMoveUp, onMoveDown }: {
   habit: Habit
   color: string
   streak: number
   monthlyRate?: number
   weekDone: number
   done: boolean
+  count: number
+  target: number
   hasNote: boolean
   onToggle: () => void
   onNote: () => void
@@ -766,10 +803,10 @@ function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, hasNote, 
 }) {
   const [showSheet, setShowSheet] = useState(false)
 
-  const target    = habit.frequency_days?.length ?? freqTarget(habit.frequency ?? 'daily')
-  const isOnTrack = weekDone >= target
-  const nonDaily  = (habit.frequency_days?.length ?? 0) > 0 || (habit.frequency ?? 'daily') !== 'daily'
-  const isAvoid   = habit.kind === 'avoid'
+  const weekTarget = habit.frequency_days?.length ?? freqTarget(habit.frequency ?? 'daily')
+  const isOnTrack  = weekDone >= weekTarget
+  const nonDaily   = (habit.frequency_days?.length ?? 0) > 0 || (habit.frequency ?? 'daily') !== 'daily'
+  const isAvoid    = habit.kind === 'avoid'
   const checkColor = isAvoid ? '#5B9E8F' : color
 
   return (
@@ -794,7 +831,7 @@ function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, hasNote, 
             )}
             {nonDaily && (
               <span className={[styles.rowFreqBadge, isOnTrack ? styles.rowFreqDone : ''].join(' ')}>
-                {weekDone}/{target}
+                {weekDone}/{weekTarget}
               </span>
             )}
             {monthlyRate !== undefined && (
@@ -816,15 +853,27 @@ function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, hasNote, 
         >
           <MoreHorizontal size={15} strokeWidth={2} />
         </button>
-        <button
-          className={[styles.habitCheck, done ? styles.habitCheckDone : ''].join(' ')}
-          style={done ? { background: checkColor, borderColor: checkColor } : {}}
-          onClick={onToggle}
-          aria-label={done ? (isAvoid ? 'Annuler « tenu »' : 'Décocher') : (isAvoid ? 'Marquer tenu' : 'Cocher')}
-          aria-pressed={done}
-        >
-          {done && <span className={styles.checkMark}>✓</span>}
-        </button>
+        {target > 1 ? (
+          <button
+            className={[styles.habitCount, done ? styles.habitCountDone : ''].join(' ')}
+            style={done ? { background: checkColor, borderColor: checkColor }
+                        : count > 0 ? { borderColor: checkColor, color: checkColor } : {}}
+            onClick={onToggle}
+            aria-label={`Progression ${count} sur ${target}`}
+          >
+            {done ? <span className={styles.checkMark}>✓</span> : <span className={styles.habitCountText}>{count}/{target}</span>}
+          </button>
+        ) : (
+          <button
+            className={[styles.habitCheck, done ? styles.habitCheckDone : ''].join(' ')}
+            style={done ? { background: checkColor, borderColor: checkColor } : {}}
+            onClick={onToggle}
+            aria-label={done ? (isAvoid ? 'Annuler « tenu »' : 'Décocher') : (isAvoid ? 'Marquer tenu' : 'Cocher')}
+            aria-pressed={done}
+          >
+            {done && <span className={styles.checkMark}>✓</span>}
+          </button>
+        )}
       </div>
 
       {showSheet && (
@@ -895,7 +944,7 @@ function StatsModal({ habit, habits, completions, members, onSelectHabit, onClos
   const bestStreak = calcBestStreak(habit.id, yearCompletions)
 
   const dates = weekDates()
-  const doneSet = new Set(completions.filter(c => c.habit_id === habit.id).map(c => c.date))
+  const doneSet = new Set(completions.filter(c => c.habit_id === habit.id && c.completed).map(c => c.date))
 
   const yearStart = new Date(year, 0, 1)
   const firstMon  = startOfWeek(yearStart, { weekStartsOn: 1 })
