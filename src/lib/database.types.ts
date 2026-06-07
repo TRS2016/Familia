@@ -392,6 +392,7 @@ export type Database = {
           id: string
           member_id: string | null
           name: string
+          position: number | null
           reminder_time: string | null
           start_date: string | null
         }
@@ -406,6 +407,7 @@ export type Database = {
           id?: string
           member_id?: string | null
           name: string
+          position?: number | null
           reminder_time?: string | null
           start_date?: string | null
         }
@@ -420,6 +422,7 @@ export type Database = {
           id?: string
           member_id?: string | null
           name?: string
+          position?: number | null
           reminder_time?: string | null
           start_date?: string | null
         }

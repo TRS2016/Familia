@@ -250,6 +250,8 @@
 
 .habitSheetAction:hover  { background: var(--border); }
 .habitSheetAction:active { opacity: 0.75; }
+.habitSheetAction:disabled { opacity: 0.4; cursor: not-allowed; }
+.habitSheetAction:disabled:hover { background: none; }
 
 .habitSheetDanger { color: #D94F4F; }
 

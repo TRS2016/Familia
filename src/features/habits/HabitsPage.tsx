@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { format, startOfWeek, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Trash2, BarChart2, Flame, Pencil, Archive, ArchiveRestore, Trophy, MoreHorizontal } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, BarChart2, Flame, Pencil, Archive, ArchiveRestore, Trophy, MoreHorizontal, ChevronUp, ChevronDown } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -15,7 +15,7 @@ import EmptyState from '../../components/EmptyState'
 import {
   useHabits, useArchivedHabits, useRecentCompletions, useYearCompletions,
   useAddHabit, useDeleteHabit, useEditHabit, useToggleCompletion,
-  useArchiveHabit, useUnarchiveHabit, useUpdateCompletionNote,
+  useArchiveHabit, useUnarchiveHabit, useUpdateCompletionNote, useReorderHabits,
   calcStreak, calcBestStreak,
 } from './useHabits'
 import type { Habit, HabitCompletion } from './useHabits'
@@ -86,6 +86,16 @@ export default function HabitsPage() {
   const archiveHabit = useArchiveHabit()
   const unarchive    = useUnarchiveHabit()
   const updateNote   = useUpdateCompletionNote()
+  const reorder      = useReorderHabits()
+
+  function moveHabit(habitId: string, dir: -1 | 1) {
+    const idx = habits.findIndex(h => h.id === habitId)
+    const j = idx + dir
+    if (idx < 0 || j < 0 || j >= habits.length) return
+    const next = habits.slice()
+    ;[next[idx], next[j]] = [next[j], next[idx]]
+    reorder.mutate(next.map(h => h.id))
+  }
 
   const { data: members = [] } = useQuery({
     queryKey: QK.membersList,
@@ -368,6 +378,8 @@ export default function HabitsPage() {
             const idx    = memberIdx(habit)
             const color  = idx >= 0 ? memberColor(idx) : 'var(--accent)'
             const streak = calcStreak(habit.id, completions)
+            const fullIdx = habits.findIndex(h => h.id === habit.id)
+            const canReorder = !filterMemberId  // réordonnancement seulement en vue « Tous »
             return (
               <HabitRow
                 key={habit.id}
@@ -383,6 +395,11 @@ export default function HabitsPage() {
                 onEdit={() => openEdit(habit)}
                 onStats={() => { setStatsHabitId(habit.id); setShowStats(true) }}
                 onArchive={() => archiveHabit.mutate(habit.id)}
+                canReorder={canReorder}
+                isFirst={fullIdx === 0}
+                isLast={fullIdx === habits.length - 1}
+                onMoveUp={() => moveHabit(habit.id, -1)}
+                onMoveDown={() => moveHabit(habit.id, 1)}
               />
             )
           })}
@@ -696,7 +713,7 @@ function HabitForm({ draft, setDraft, members, isPending, submitLabel }: {
 
 // ── Habit row ─────────────────────────────────────────────────────────────────
 
-function HabitRow({ habit, color, streak, monthlyRate, dates, today, isDone, onToggle, onDelete, onEdit, onStats, onArchive }: {
+function HabitRow({ habit, color, streak, monthlyRate, dates, today, isDone, onToggle, onDelete, onEdit, onStats, onArchive, canReorder, isFirst, isLast, onMoveUp, onMoveDown }: {
   habit: Habit
   color: string
   streak: number
@@ -709,6 +726,11 @@ function HabitRow({ habit, color, streak, monthlyRate, dates, today, isDone, onT
   onEdit: () => void
   onStats: () => void
   onArchive: () => void
+  canReorder: boolean
+  isFirst: boolean
+  isLast: boolean
+  onMoveUp: () => void
+  onMoveDown: () => void
 }) {
   const [showSheet, setShowSheet] = useState(false)
 
@@ -793,6 +815,18 @@ function HabitRow({ habit, color, streak, monthlyRate, dates, today, isDone, onT
           onClose={() => setShowSheet(false)}
         >
           <div className={styles.habitSheet}>
+            {canReorder && (
+              <>
+                <button className={styles.habitSheetAction} disabled={isFirst} onClick={() => { onMoveUp(); setShowSheet(false) }}>
+                  <ChevronUp size={18} strokeWidth={2} />
+                  <span>Monter</span>
+                </button>
+                <button className={styles.habitSheetAction} disabled={isLast} onClick={() => { onMoveDown(); setShowSheet(false) }}>
+                  <ChevronDown size={18} strokeWidth={2} />
+                  <span>Descendre</span>
+                </button>
+              </>
+            )}
             <button className={styles.habitSheetAction} onClick={() => { onStats(); setShowSheet(false) }}>
               <BarChart2 size={18} strokeWidth={2} />
               <span>Statistiques</span>

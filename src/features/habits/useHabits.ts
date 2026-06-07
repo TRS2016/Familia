@@ -19,6 +19,7 @@ export interface Habit {
   start_date: string | null        // date ISO yyyy-MM-dd, null = pas de restriction
   archived_at: string | null
   reminder_time: string | null     // HH:MM heure Paris
+  position: number | null          // ordre d'affichage personnalisé
   created_at: string
   member: { id: string; display_name: string } | null
 }
@@ -73,9 +74,40 @@ export function useHabits() {
         .select('*, member:members(id, display_name)')
         .eq('household_id', HOUSEHOLD_ID)
         .is('archived_at', null)
+        .order('position', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true })
       if (error) throw error
       return data as unknown as Habit[]
+    },
+  })
+}
+
+export function useReorderHabits() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    // orderedIds = liste complète des habitudes dans le nouvel ordre
+    mutationFn: async (orderedIds: string[]) => {
+      await Promise.all(orderedIds.map((id, i) =>
+        supabase.from('habits').update({ position: i + 1 } as never).eq('id', id)
+      ))
+    },
+    onMutate: async (orderedIds: string[]) => {
+      await queryClient.cancelQueries({ queryKey: HABITS_KEY })
+      const previous = queryClient.getQueryData<Habit[]>(HABITS_KEY) ?? []
+      const byId = new Map(previous.map(h => [h.id, h]))
+      const reordered: Habit[] = []
+      orderedIds.forEach((id, i) => {
+        const h = byId.get(id)
+        if (h) reordered.push({ ...h, position: i + 1 })
+      })
+      queryClient.setQueryData<Habit[]>(HABITS_KEY, reordered)
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      queryClient.setQueryData(HABITS_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de réordonner les habitudes.' })
     },
   })
 }
@@ -226,6 +258,7 @@ export function useAddHabit() {
         start_date: input.start_date ?? null,
         archived_at: null,
         reminder_time: input.reminder_time ?? null,
+        position: null,
         created_at: new Date().toISOString(),
         member: (member && input.member_id === member.id)
           ? { id: member.id, display_name: member.display_name }
