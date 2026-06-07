@@ -14,6 +14,7 @@ export interface Habit {
   name: string
   emoji: string
   color: string | null
+  kind: 'do' | 'avoid'             // 'do' = à faire, 'avoid' = à éviter (cocher = tenu)
   frequency: string
   frequency_days: number[] | null  // 1=lun…7=dim — remplace frequency si défini
   start_date: string | null        // date ISO yyyy-MM-dd, null = pas de restriction
@@ -38,6 +39,7 @@ export interface NewHabitInput {
   emoji: string
   member_id: string | null
   color: string | null
+  kind?: 'do' | 'avoid'
   frequency?: string
   frequency_days?: number[] | null
   start_date?: string | null
@@ -49,6 +51,7 @@ export interface EditHabitInput {
   name: string
   emoji: string
   member_id: string | null
+  kind?: 'do' | 'avoid'
   frequency?: string
   frequency_days?: number[] | null
   start_date?: string | null
@@ -233,6 +236,7 @@ export function useAddHabit() {
           name: input.name.trim(),
           emoji: input.emoji,
           color: input.color,
+          kind: input.kind ?? 'do',
           frequency: input.frequency ?? 'daily',
           frequency_days: input.frequency_days ?? null,
           start_date: input.start_date ?? null,
@@ -253,6 +257,7 @@ export function useAddHabit() {
         name: input.name.trim(),
         emoji: input.emoji,
         color: input.color,
+        kind: input.kind ?? 'do',
         frequency: input.frequency ?? 'daily',
         frequency_days: input.frequency_days ?? null,
         start_date: input.start_date ?? null,
@@ -313,6 +318,7 @@ export function useEditHabit() {
           name: input.name.trim(),
           emoji: input.emoji,
           member_id: input.member_id,
+          kind: input.kind,
           frequency: input.frequency,
           frequency_days: input.frequency_days,
           start_date: input.start_date,
@@ -333,6 +339,7 @@ export function useEditHabit() {
           name: input.name.trim(),
           emoji: input.emoji,
           member_id: input.member_id,
+          kind: input.kind ?? h.kind,
           frequency: input.frequency ?? h.frequency,
           frequency_days: input.frequency_days !== undefined ? input.frequency_days : h.frequency_days,
           start_date: input.start_date !== undefined ? input.start_date : h.start_date,

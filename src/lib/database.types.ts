@@ -390,6 +390,7 @@ export type Database = {
           frequency_days: number[] | null
           household_id: string
           id: string
+          kind: string
           member_id: string | null
           name: string
           position: number | null
@@ -405,6 +406,7 @@ export type Database = {
           frequency_days?: number[] | null
           household_id: string
           id?: string
+          kind?: string
           member_id?: string | null
           name: string
           position?: number | null
@@ -420,6 +422,7 @@ export type Database = {
           frequency_days?: number[] | null
           household_id?: string
           id?: string
+          kind?: string
           member_id?: string | null
           name?: string
           position?: number | null
