@@ -15,12 +15,13 @@ import EmptyState from '../../components/EmptyState'
 import {
   useHabits, useArchivedHabits, useRecentCompletions, useYearCompletions,
   useAddHabit, useDeleteHabit, useEditHabit, useToggleCompletion,
-  useArchiveHabit, useUnarchiveHabit, useUpdateCompletionNote, useReorderHabits,
+  useArchiveHabit, useUnarchiveHabit, useReorderHabits,
   calcStreak, calcBestStreak,
 } from './useHabits'
 import type { Habit, HabitCompletion } from './useHabits'
 import { useHabitsRealtime } from './useHabitsRealtime'
 import { memberColor } from '../../lib/constants'
+import { capitalize } from '../../lib/utils'
 import styles from './HabitsPage.module.css'
 
 const WEEK_LABELS   = ['L', 'M', 'M', 'J', 'V', 'S', 'D']
@@ -85,16 +86,19 @@ export default function HabitsPage() {
   const toggle       = useToggleCompletion()
   const archiveHabit = useArchiveHabit()
   const unarchive    = useUnarchiveHabit()
-  const updateNote   = useUpdateCompletionNote()
   const reorder      = useReorderHabits()
 
   function moveHabit(habitId: string, dir: -1 | 1) {
-    const idx = habits.findIndex(h => h.id === habitId)
-    const j = idx + dir
-    if (idx < 0 || j < 0 || j >= habits.length) return
-    const next = habits.slice()
-    ;[next[idx], next[j]] = [next[j], next[idx]]
-    reorder.mutate(next.map(h => h.id))
+    // Voisin dans la liste affichée, mais on réordonne la liste complète
+    const visIdx = displayed.findIndex(h => h.id === habitId)
+    const neighbor = displayed[visIdx + dir]
+    if (!neighbor) return
+    const full = habits.slice()
+    const a = full.findIndex(h => h.id === habitId)
+    const b = full.findIndex(h => h.id === neighbor.id)
+    if (a < 0 || b < 0) return
+    ;[full[a], full[b]] = [full[b], full[a]]
+    reorder.mutate(full.map(h => h.id))
   }
 
   const { data: members = [] } = useQuery({
@@ -107,7 +111,7 @@ export default function HabitsPage() {
     },
   })
 
-  const [weekCursor, setWeekCursor] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
+  const [selectedDate, setSelectedDate] = useState(() => format(new Date(), 'yyyy-MM-dd'))
   const [editTarget, setEditTarget] = useState<Habit | null>(null)
   const [editDraft,  setEditDraft]  = useState({
     name: '', emoji: '⭐', member_id: null as string | null,
@@ -119,15 +123,15 @@ export default function HabitsPage() {
   const [statsHabitId, setStatsHabitId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [showArchived, setShowArchived] = useState(false)
-  const [noteTarget, setNoteTarget] = useState<{ habitId: string; date: string } | null>(null)
-  const [noteDraft, setNoteDraft] = useState('')
 
   const today          = format(new Date(), 'yyyy-MM-dd')
-  const currentWeekStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
-  const isCurrentWeek  = format(weekCursor, 'yyyy-MM-dd') === currentWeekStr
+  const yesterday      = format(addDays(new Date(), -1), 'yyyy-MM-dd')
+  const isToday        = selectedDate === today
   // eslint-disable-next-line react-hooks/purity
-  const MIN_WEEK_STR   = format(startOfWeek(new Date(Date.now() - 56 * 24 * 60 * 60 * 1000), { weekStartsOn: 1 }), 'yyyy-MM-dd')
-  const weekNavLabel   = `${format(weekCursor, 'd MMM', { locale: fr })} – ${format(addDays(weekCursor, 6), 'd MMM', { locale: fr })}`
+  const MIN_DATE       = format(addDays(new Date(), -60), 'yyyy-MM-dd')
+  const dayNavLabel    = isToday ? 'Aujourd\'hui'
+    : selectedDate === yesterday ? 'Hier'
+    : capitalize(format(new Date(selectedDate + 'T12:00'), 'EEEE d MMM', { locale: fr }))
 
   const [draft, setDraft] = useState({
     name: '',
@@ -139,12 +143,11 @@ export default function HabitsPage() {
     reminder_time: null as string | null,
   })
 
-  const dates = Array.from({ length: 7 }, (_, i) => format(addDays(weekCursor, i), 'yyyy-MM-dd'))
-  const weekEnd = dates[6]
-
+  const thisWeek = weekDates() // pour le badge x/objectif de la semaine en cours
+  // Habitudes applicables au jour sélectionné (jours configurés, ou toujours si quotidienne)
   const displayed = habits.filter(h =>
-    (!h.start_date || h.start_date <= weekEnd) &&
-    (!filterMemberId || h.member_id === filterMemberId)
+    (!filterMemberId || h.member_id === filterMemberId) &&
+    isApplicable(h, selectedDate)
   )
   const doneSet = new Set(completions.map(c => `${c.habit_id}::${c.date}`))
   function isDone(habitId: string, date: string) { return doneSet.has(`${habitId}::${date}`) }
@@ -169,20 +172,10 @@ export default function HabitsPage() {
     return rates
   }, [habits, completions])
 
-  const noteMap = new Map(completions.map(c => [`${c.habit_id}::${c.date}`, c.note]))
-  function getNote(habitId: string, date: string): string | null {
-    return noteMap.get(`${habitId}::${date}`) ?? null
-  }
-
-  function handleToggle(habitId: string, date: string) {
-    if (date > today) return
-    const done = isDone(habitId, date)
-    if (done) {
-      setNoteDraft(getNote(habitId, date) ?? '')
-      setNoteTarget({ habitId, date })
-    } else {
-      toggle.mutate({ habitId, date, done: true })
-    }
+  function handleToggle(habitId: string) {
+    if (selectedDate > today) return
+    const done = isDone(habitId, selectedDate)
+    toggle.mutate({ habitId, date: selectedDate, done: !done })
   }
 
   function openEdit(habit: Habit) {
@@ -290,27 +283,27 @@ export default function HabitsPage() {
         })}
       </div>
 
-      {/* ── Week navigation ──────────────────────────────────────────── */}
+      {/* ── Day navigation ───────────────────────────────────────────── */}
       <div className={styles.weekNav}>
         <button
           className={styles.weekNavBtn}
-          onClick={() => setWeekCursor(w => addDays(w, -7))}
-          disabled={format(weekCursor, 'yyyy-MM-dd') <= MIN_WEEK_STR}
-          aria-label="Semaine précédente"
+          onClick={() => setSelectedDate(d => format(addDays(new Date(d + 'T12:00'), -1), 'yyyy-MM-dd'))}
+          disabled={selectedDate <= MIN_DATE}
+          aria-label="Jour précédent"
         >
           <ChevronLeft size={14} strokeWidth={2.5} />
         </button>
         <button
-          className={[styles.weekNavLabel, isCurrentWeek ? styles.weekNavLabelCurrent : ''].join(' ')}
-          onClick={() => setWeekCursor(startOfWeek(new Date(), { weekStartsOn: 1 }))}
+          className={[styles.weekNavLabel, isToday ? styles.weekNavLabelCurrent : ''].join(' ')}
+          onClick={() => setSelectedDate(today)}
         >
-          {isCurrentWeek ? 'Cette semaine' : weekNavLabel}
+          {dayNavLabel}
         </button>
         <button
           className={styles.weekNavBtn}
-          onClick={() => setWeekCursor(w => addDays(w, 7))}
-          disabled={isCurrentWeek}
-          aria-label="Semaine suivante"
+          onClick={() => setSelectedDate(d => format(addDays(new Date(d + 'T12:00'), 1), 'yyyy-MM-dd'))}
+          disabled={isToday}
+          aria-label="Jour suivant"
         >
           <ChevronRight size={14} strokeWidth={2.5} />
         </button>
@@ -330,12 +323,10 @@ export default function HabitsPage() {
         />
       )}
 
-      {/* ── Today summary strip ───────────────────────────────────── */}
-      {!isLoading && habits.length > 0 && isCurrentWeek && (() => {
-        const applicable = displayed.filter(h => isApplicable(h, today))
-        const done = applicable.filter(h => isDone(h.id, today)).length
-        const total = applicable.length
-        if (total === 0) return null
+      {/* ── Day summary strip ─────────────────────────────────────────── */}
+      {!isLoading && displayed.length > 0 && (() => {
+        const done = displayed.filter(h => isDone(h.id, selectedDate)).length
+        const total = displayed.length
         const pct = done / total
         const allDone = done === total
         return (
@@ -343,7 +334,7 @@ export default function HabitsPage() {
             <div className={styles.todayStripInfo}>
               <span className={styles.todayStripEmoji}>{allDone ? '🎉' : '🔥'}</span>
               <div>
-                <p className={styles.todayStripLabel}>Aujourd'hui</p>
+                <p className={styles.todayStripLabel}>{dayNavLabel}</p>
                 <p className={styles.todayStripCount}>{done}/{total}</p>
               </div>
             </div>
@@ -360,25 +351,18 @@ export default function HabitsPage() {
         )
       })()}
 
-      {!isLoading && habits.length > 0 && (
-        <div className={styles.grid}>
-          <div className={styles.gridHeader}>
-            <div className={styles.gridHeaderLabel}>Habitude</div>
-            {WEEK_LABELS.map((d, i) => {
-              const isToday = dates[i] === format(new Date(), 'yyyy-MM-dd')
-              return (
-                <div key={i} className={[styles.dayLabel, isToday ? styles.dayLabelToday : ''].join(' ')}>
-                  {d}
-                </div>
-              )
-            })}
-          </div>
+      {/* ── Day checklist ─────────────────────────────────────────────── */}
+      {!isLoading && habits.length > 0 && displayed.length === 0 && (
+        <p className={styles.dayEmpty}>Rien de prévu ce jour 🌙</p>
+      )}
 
-          {displayed.map(habit => {
+      {!isLoading && displayed.length > 0 && (
+        <div className={styles.habitList}>
+          {displayed.map((habit, i) => {
             const idx    = memberIdx(habit)
             const color  = idx >= 0 ? memberColor(idx) : 'var(--accent)'
             const streak = calcStreak(habit.id, completions)
-            const fullIdx = habits.findIndex(h => h.id === habit.id)
+            const weekDone = thisWeek.filter(d => isApplicable(habit, d) && isDone(habit.id, d)).length
             const canReorder = !filterMemberId  // réordonnancement seulement en vue « Tous »
             return (
               <HabitRow
@@ -387,17 +371,16 @@ export default function HabitsPage() {
                 color={color}
                 streak={streak}
                 monthlyRate={monthlyRates[habit.id]}
-                dates={dates}
-                today={today}
-                isDone={date => isDone(habit.id, date)}
-                onToggle={date => handleToggle(habit.id, date)}
+                weekDone={weekDone}
+                done={isDone(habit.id, selectedDate)}
+                onToggle={() => handleToggle(habit.id)}
                 onDelete={() => setConfirmDeleteId(habit.id)}
                 onEdit={() => openEdit(habit)}
                 onStats={() => { setStatsHabitId(habit.id); setShowStats(true) }}
                 onArchive={() => archiveHabit.mutate(habit.id)}
                 canReorder={canReorder}
-                isFirst={fullIdx === 0}
-                isLast={fullIdx === habits.length - 1}
+                isFirst={i === 0}
+                isLast={i === displayed.length - 1}
                 onMoveUp={() => moveHabit(habit.id, -1)}
                 onMoveDown={() => moveHabit(habit.id, 1)}
               />
@@ -432,45 +415,6 @@ export default function HabitsPage() {
             </div>
           )}
         </div>
-      )}
-
-      {/* ── Note modal ────────────────────────────────────────────────── */}
-      {noteTarget && (
-        <SlideUpModal title="Note" onClose={() => setNoteTarget(null)}>
-          <div className={styles.form}>
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Note sur cette réalisation</label>
-              <textarea
-                className={styles.noteArea}
-                value={noteDraft}
-                onChange={e => setNoteDraft(e.target.value)}
-                placeholder="Ex : 3 séries × 15 reps, 30 min de course…"
-                rows={4}
-                autoFocus
-              />
-            </div>
-            <button
-              className={styles.submitBtn}
-              onClick={async () => {
-                await updateNote.mutateAsync({ habitId: noteTarget.habitId, date: noteTarget.date, note: noteDraft || null })
-                setNoteTarget(null)
-              }}
-              disabled={updateNote.isPending}
-            >
-              {updateNote.isPending ? 'Enregistrement…' : 'Enregistrer la note'}
-            </button>
-            <button
-              className={styles.cancelBtn}
-              style={{ marginTop: 0, color: '#D94F4F', borderColor: '#D94F4F' }}
-              onClick={() => {
-                toggle.mutate({ habitId: noteTarget.habitId, date: noteTarget.date, done: false })
-                setNoteTarget(null)
-              }}
-            >
-              Décocher
-            </button>
-          </div>
-        </SlideUpModal>
       )}
 
       {/* ── Add habit modal ───────────────────────────────────────────── */}
@@ -713,15 +657,14 @@ function HabitForm({ draft, setDraft, members, isPending, submitLabel }: {
 
 // ── Habit row ─────────────────────────────────────────────────────────────────
 
-function HabitRow({ habit, color, streak, monthlyRate, dates, today, isDone, onToggle, onDelete, onEdit, onStats, onArchive, canReorder, isFirst, isLast, onMoveUp, onMoveDown }: {
+function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, onToggle, onDelete, onEdit, onStats, onArchive, canReorder, isFirst, isLast, onMoveUp, onMoveDown }: {
   habit: Habit
   color: string
   streak: number
   monthlyRate?: number
-  dates: string[]
-  today: string
-  isDone: (date: string) => boolean
-  onToggle: (date: string) => void
+  weekDone: number
+  done: boolean
+  onToggle: () => void
   onDelete: () => void
   onEdit: () => void
   onStats: () => void
@@ -734,79 +677,59 @@ function HabitRow({ habit, color, streak, monthlyRate, dates, today, isDone, onT
 }) {
   const [showSheet, setShowSheet] = useState(false)
 
-  const applicableDates = dates.filter(d => isApplicable(habit, d))
-  const weekDone  = applicableDates.filter(d => isDone(d)).length
   const target    = habit.frequency_days?.length ?? freqTarget(habit.frequency ?? 'daily')
   const isOnTrack = weekDone >= target
   const nonDaily  = (habit.frequency_days?.length ?? 0) > 0 || (habit.frequency ?? 'daily') !== 'daily'
 
   return (
     <>
-      <div className={styles.row}>
-        <div className={styles.rowInfo}>
-          <span className={styles.rowEmoji}>{habit.emoji}</span>
-          <div className={styles.rowMeta}>
-            <span className={styles.rowName}>{habit.name}</span>
-            <div className={styles.rowStreak}>
-              {streakMilestone(streak) ? (
-                <span className={styles.milestoneBadge} style={{ color }}>
-                  {streakMilestone(streak)!.emoji} {streak}j
-                </span>
-              ) : (
-                <>
-                  <Flame size={10} strokeWidth={2.5} color="#E07B54" />
-                  <span className={styles.rowStreakVal}>{streak}j</span>
-                </>
-              )}
-              {nonDaily && (
-                <span className={[styles.rowFreqBadge, isOnTrack ? styles.rowFreqDone : ''].join(' ')}>
-                  {weekDone}/{target}
-                </span>
-              )}
-              {monthlyRate !== undefined && (
-                <span
-                  className={styles.monthlyRateBadge}
-                  style={{ color: monthlyRate >= 80 ? '#5B9E8F' : monthlyRate >= 50 ? 'var(--text-muted)' : '#E07B54' }}
-                >
-                  {monthlyRate}%
-                </span>
-              )}
-            </div>
+      <div className={styles.habitItem}>
+        <span className={styles.rowEmoji}>{habit.emoji}</span>
+        <div className={styles.rowMeta}>
+          <span className={styles.rowName}>{habit.name}</span>
+          <div className={styles.rowStreak}>
+            {streakMilestone(streak) ? (
+              <span className={styles.milestoneBadge} style={{ color }}>
+                {streakMilestone(streak)!.emoji} {streak}j
+              </span>
+            ) : (
+              <>
+                <Flame size={10} strokeWidth={2.5} color="#E07B54" />
+                <span className={styles.rowStreakVal}>{streak}j</span>
+              </>
+            )}
+            {nonDaily && (
+              <span className={[styles.rowFreqBadge, isOnTrack ? styles.rowFreqDone : ''].join(' ')}>
+                {weekDone}/{target}
+              </span>
+            )}
+            {monthlyRate !== undefined && (
+              <span
+                className={styles.monthlyRateBadge}
+                style={{ color: monthlyRate >= 80 ? '#5B9E8F' : monthlyRate >= 50 ? 'var(--text-muted)' : '#E07B54' }}
+              >
+                {monthlyRate}%
+              </span>
+            )}
           </div>
-          <button
-            className={styles.rowMoreBtn}
-            onClick={() => setShowSheet(true)}
-            aria-label="Actions"
-            data-no-feedback
-          >
-            <MoreHorizontal size={15} strokeWidth={2} />
-          </button>
         </div>
-
-        {dates.map(date => {
-          const done     = isDone(date)
-          const isToday  = date === today
-          const isFuture = date > today
-          const na       = !isApplicable(habit, date)
-          return (
-            <button
-              key={date}
-              className={[
-                styles.dayCell,
-                done && !na ? styles.dayCellDone : '',
-                isToday && !na ? styles.dayCellToday : '',
-                isFuture ? styles.dayCellFuture : '',
-                na ? styles.dayCellNA : '',
-              ].join(' ')}
-              style={done && !na ? { background: color } : isToday && !na ? { borderColor: color } : {}}
-              onClick={() => !isFuture && !na && onToggle(date)}
-              disabled={isFuture || na}
-              aria-label={na ? 'Non applicable' : `${done ? 'Note/décocher' : 'Cocher'} ${date}`}
-            >
-              {done && !na && <span className={styles.checkMark}>✓</span>}
-            </button>
-          )
-        })}
+        <button
+          className={styles.rowMoreBtn}
+          onClick={() => setShowSheet(true)}
+          aria-label="Actions"
+          data-no-feedback
+        >
+          <MoreHorizontal size={15} strokeWidth={2} />
+        </button>
+        <button
+          className={[styles.habitCheck, done ? styles.habitCheckDone : ''].join(' ')}
+          style={done ? { background: color, borderColor: color } : {}}
+          onClick={onToggle}
+          aria-label={done ? 'Décocher' : 'Cocher'}
+          aria-pressed={done}
+        >
+          {done && <span className={styles.checkMark}>✓</span>}
+        </button>
       </div>
 
       {showSheet && (

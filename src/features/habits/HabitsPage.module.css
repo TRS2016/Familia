@@ -183,7 +183,7 @@
 }
 
 .rowName {
-  font-size: 12px;
+  font-size: 14.5px;
   font-weight: 700;
   color: var(--text);
   display: block;
@@ -286,6 +286,49 @@
   font-weight: 900;
   color: #fff;
   line-height: 1;
+}
+
+/* ── Liste du jour ───────────────────────────────────────────────────────── */
+
+.habitList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.habitItem {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 16px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+.habitCheck {
+  flex-shrink: 0;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  border: 2px solid var(--border);
+  background: var(--bg-input);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, border-color 0.15s, transform 0.1s;
+}
+.habitCheck:active { transform: scale(0.9); }
+.habitCheck .checkMark { font-size: 15px; }
+
+.dayEmpty {
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 14px;
+  padding: 36px 16px;
+  margin: 0;
 }
 
 /* ── Modal / overlay ─────────────────────────────────────────────────────── */
