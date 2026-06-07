@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { format, startOfWeek, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Trash2, BarChart2, Flame, Pencil, Archive, ArchiveRestore, Trophy, MoreHorizontal, ChevronUp, ChevronDown } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, BarChart2, Flame, Pencil, Archive, ArchiveRestore, Trophy, MoreHorizontal, ChevronUp, ChevronDown, StickyNote } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -15,7 +15,7 @@ import EmptyState from '../../components/EmptyState'
 import {
   useHabits, useArchivedHabits, useRecentCompletions, useYearCompletions,
   useAddHabit, useDeleteHabit, useEditHabit, useToggleCompletion,
-  useArchiveHabit, useUnarchiveHabit, useReorderHabits,
+  useArchiveHabit, useUnarchiveHabit, useReorderHabits, useUpdateCompletionNote,
   calcStreak, calcBestStreak,
 } from './useHabits'
 import type { Habit, HabitCompletion } from './useHabits'
@@ -87,11 +87,15 @@ export default function HabitsPage() {
   const archiveHabit = useArchiveHabit()
   const unarchive    = useUnarchiveHabit()
   const reorder      = useReorderHabits()
+  const updateNote   = useUpdateCompletionNote()
 
   function moveHabit(habitId: string, dir: -1 | 1) {
-    // Voisin dans la liste affichée, mais on réordonne la liste complète
-    const visIdx = displayed.findIndex(h => h.id === habitId)
-    const neighbor = displayed[visIdx + dir]
+    // Voisin dans la même section (membre) si groupé, sinon dans la liste affichée
+    const siblings = grouped
+      ? (grouped.find(g => g.items.some(h => h.id === habitId))?.items ?? displayed)
+      : displayed
+    const visIdx = siblings.findIndex(h => h.id === habitId)
+    const neighbor = siblings[visIdx + dir]
     if (!neighbor) return
     const full = habits.slice()
     const a = full.findIndex(h => h.id === habitId)
@@ -123,6 +127,8 @@ export default function HabitsPage() {
   const [statsHabitId, setStatsHabitId] = useState<string | null>(null)
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [showArchived, setShowArchived] = useState(false)
+  const [noteTarget, setNoteTarget] = useState<{ habitId: string; date: string } | null>(null)
+  const [noteDraft, setNoteDraft] = useState('')
 
   const today          = format(new Date(), 'yyyy-MM-dd')
   const yesterday      = format(addDays(new Date(), -1), 'yyyy-MM-dd')
@@ -152,6 +158,13 @@ export default function HabitsPage() {
   const doneSet = new Set(completions.map(c => `${c.habit_id}::${c.date}`))
   function isDone(habitId: string, date: string) { return doneSet.has(`${habitId}::${date}`) }
 
+  const noteMap = new Map(completions.map(c => [`${c.habit_id}::${c.date}`, c.note]))
+  function getNote(habitId: string, date: string): string | null { return noteMap.get(`${habitId}::${date}`) ?? null }
+  function openNote(habitId: string) {
+    setNoteDraft(getNote(habitId, selectedDate) ?? '')
+    setNoteTarget({ habitId, date: selectedDate })
+  }
+
   const monthlyRates = useMemo<Record<string, number>>(() => {
     const now      = new Date()
     const todayStr = format(now, 'yyyy-MM-dd')
@@ -171,6 +184,49 @@ export default function HabitsPage() {
     }
     return rates
   }, [habits, completions])
+
+  // Sections par membre (vue « Tous » avec ≥ 2 membres)
+  const grouped = (!filterMemberId && members.length > 1)
+    ? (() => {
+        const known = new Set(members.map(m => m.id))
+        const gs = members
+          .map(m => ({ member: m, items: displayed.filter(h => h.member_id === m.id) }))
+          .filter(g => g.items.length > 0)
+        const others = displayed.filter(h => !h.member_id || !known.has(h.member_id))
+        if (others.length) gs.push({ member: { id: '__foyer', display_name: 'Foyer' }, items: others })
+        return gs
+      })()
+    : null
+
+  function renderRow(habit: Habit, i: number, list: Habit[]) {
+    const idx    = memberIdx(habit)
+    const color  = idx >= 0 ? memberColor(idx) : 'var(--accent)'
+    const streak = calcStreak(habit.id, completions)
+    const weekDone = thisWeek.filter(d => isApplicable(habit, d) && isDone(habit.id, d)).length
+    return (
+      <HabitRow
+        key={habit.id}
+        habit={habit}
+        color={color}
+        streak={streak}
+        monthlyRate={monthlyRates[habit.id]}
+        weekDone={weekDone}
+        done={isDone(habit.id, selectedDate)}
+        hasNote={!!getNote(habit.id, selectedDate)}
+        onToggle={() => handleToggle(habit.id)}
+        onNote={() => openNote(habit.id)}
+        onDelete={() => setConfirmDeleteId(habit.id)}
+        onEdit={() => openEdit(habit)}
+        onStats={() => { setStatsHabitId(habit.id); setShowStats(true) }}
+        onArchive={() => archiveHabit.mutate(habit.id)}
+        canReorder={!filterMemberId}
+        isFirst={i === 0}
+        isLast={i === list.length - 1}
+        onMoveUp={() => moveHabit(habit.id, -1)}
+        onMoveDown={() => moveHabit(habit.id, 1)}
+      />
+    )
+  }
 
   function handleToggle(habitId: string) {
     if (selectedDate > today) return
@@ -358,34 +414,15 @@ export default function HabitsPage() {
 
       {!isLoading && displayed.length > 0 && (
         <div className={styles.habitList}>
-          {displayed.map((habit, i) => {
-            const idx    = memberIdx(habit)
-            const color  = idx >= 0 ? memberColor(idx) : 'var(--accent)'
-            const streak = calcStreak(habit.id, completions)
-            const weekDone = thisWeek.filter(d => isApplicable(habit, d) && isDone(habit.id, d)).length
-            const canReorder = !filterMemberId  // réordonnancement seulement en vue « Tous »
-            return (
-              <HabitRow
-                key={habit.id}
-                habit={habit}
-                color={color}
-                streak={streak}
-                monthlyRate={monthlyRates[habit.id]}
-                weekDone={weekDone}
-                done={isDone(habit.id, selectedDate)}
-                onToggle={() => handleToggle(habit.id)}
-                onDelete={() => setConfirmDeleteId(habit.id)}
-                onEdit={() => openEdit(habit)}
-                onStats={() => { setStatsHabitId(habit.id); setShowStats(true) }}
-                onArchive={() => archiveHabit.mutate(habit.id)}
-                canReorder={canReorder}
-                isFirst={i === 0}
-                isLast={i === displayed.length - 1}
-                onMoveUp={() => moveHabit(habit.id, -1)}
-                onMoveDown={() => moveHabit(habit.id, 1)}
-              />
-            )
-          })}
+          {grouped
+            ? grouped.map(g => (
+                <div key={g.member.id} className={styles.memberSection}>
+                  <p className={styles.memberSectionLabel}>{g.member.display_name}</p>
+                  {g.items.map((h, i) => renderRow(h, i, g.items))}
+                </div>
+              ))
+            : displayed.map((h, i) => renderRow(h, i, displayed))
+          }
         </div>
       )}
 
@@ -415,6 +452,35 @@ export default function HabitsPage() {
             </div>
           )}
         </div>
+      )}
+
+      {/* ── Note modal ────────────────────────────────────────────────── */}
+      {noteTarget && (
+        <SlideUpModal title="Note du jour" onClose={() => setNoteTarget(null)}>
+          <div className={styles.form}>
+            <div className={styles.fieldGroup}>
+              <label className={styles.fieldLabel}>Note sur cette réalisation</label>
+              <textarea
+                className={styles.noteArea}
+                value={noteDraft}
+                onChange={e => setNoteDraft(e.target.value)}
+                placeholder="Ex : 3 séries × 15 reps, 30 min de course…"
+                rows={4}
+                autoFocus
+              />
+            </div>
+            <button
+              className={styles.submitBtn}
+              onClick={async () => {
+                await updateNote.mutateAsync({ habitId: noteTarget.habitId, date: noteTarget.date, note: noteDraft || null })
+                setNoteTarget(null)
+              }}
+              disabled={updateNote.isPending}
+            >
+              {updateNote.isPending ? 'Enregistrement…' : 'Enregistrer la note'}
+            </button>
+          </div>
+        </SlideUpModal>
       )}
 
       {/* ── Add habit modal ───────────────────────────────────────────── */}
@@ -657,14 +723,16 @@ function HabitForm({ draft, setDraft, members, isPending, submitLabel }: {
 
 // ── Habit row ─────────────────────────────────────────────────────────────────
 
-function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, onToggle, onDelete, onEdit, onStats, onArchive, canReorder, isFirst, isLast, onMoveUp, onMoveDown }: {
+function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, hasNote, onToggle, onNote, onDelete, onEdit, onStats, onArchive, canReorder, isFirst, isLast, onMoveUp, onMoveDown }: {
   habit: Habit
   color: string
   streak: number
   monthlyRate?: number
   weekDone: number
   done: boolean
+  hasNote: boolean
   onToggle: () => void
+  onNote: () => void
   onDelete: () => void
   onEdit: () => void
   onStats: () => void
@@ -711,6 +779,7 @@ function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, onToggle,
                 {monthlyRate}%
               </span>
             )}
+            {hasNote && <StickyNote size={11} strokeWidth={2} className={styles.noteIndicator} />}
           </div>
         </div>
         <button
@@ -750,6 +819,10 @@ function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, onToggle,
                 </button>
               </>
             )}
+            <button className={styles.habitSheetAction} onClick={() => { onNote(); setShowSheet(false) }}>
+              <StickyNote size={18} strokeWidth={2} />
+              <span>{hasNote ? 'Modifier la note du jour' : 'Ajouter une note'}</span>
+            </button>
             <button className={styles.habitSheetAction} onClick={() => { onStats(); setShowSheet(false) }}>
               <BarChart2 size={18} strokeWidth={2} />
               <span>Statistiques</span>

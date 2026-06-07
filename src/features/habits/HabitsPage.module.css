@@ -331,6 +331,23 @@
   margin: 0;
 }
 
+.memberSection {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.memberSection + .memberSection { margin-top: 14px; }
+.memberSectionLabel {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  margin: 2px 2px 0;
+}
+
+.noteIndicator { color: var(--text-muted); flex-shrink: 0; }
+
 /* ── Modal / overlay ─────────────────────────────────────────────────────── */
 
 .overlay {
