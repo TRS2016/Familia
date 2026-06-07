@@ -1197,6 +1197,21 @@
 
 .input:focus { border-color: var(--accent); }
 
+/* Case « charge fixe » */
+.recurRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13.5px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  padding: 4px 2px;
+}
+.recurRow input { width: 18px; height: 18px; accent-color: var(--accent); flex-shrink: 0; }
+
+.entryRecur { font-size: 11px; }
+
 /* Ligne nom + budget côte à côte dans les paramètres */
 .catEditRow { display: flex; gap: 8px; }
 .catEditRow > input:first-child { flex: 2; }

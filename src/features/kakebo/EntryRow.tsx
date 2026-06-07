@@ -23,7 +23,10 @@ export default function EntryRow({ entry, showBorder, onEdit, onDelete, onReplay
         </span>
       </div>
       <div className={styles.entryBody}>
-        <p className={styles.entryDesc}>{entry.description ?? cat?.name ?? '—'}</p>
+        <p className={styles.entryDesc}>
+          {entry.description ?? cat?.name ?? '—'}
+          {entry.recurring && <span className={styles.entryRecur} title="Charge fixe mensuelle"> 🔁</span>}
+        </p>
         <p className={styles.entryMeta}>{cat?.name}{entry.member?.display_name ? ` · ${entry.member.display_name}` : ''}</p>
         {(entry.tags ?? []).length > 0 && (
           <div className={styles.entryTags}>

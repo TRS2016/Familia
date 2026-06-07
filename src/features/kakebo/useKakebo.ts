@@ -25,6 +25,8 @@ export interface KakeboEntry {
   date: string
   description: string | null
   tags: string[]
+  recurring: boolean
+  series_id: string | null
   created_at: string
   category: KakeboCategory | null
   member: { display_name: string } | null
@@ -37,6 +39,7 @@ export interface NewEntryInput {
   description: string
   member_id: string | null // null = dépense commune (foyer)
   tags: string[]
+  recurring: boolean
 }
 
 export interface EditEntryInput {
@@ -47,6 +50,8 @@ export interface EditEntryInput {
   description: string
   member_id: string | null
   tags: string[]
+  recurring: boolean
+  series_id: string | null
 }
 
 // ── Query keys ────────────────────────────────────────────────────────────────
@@ -143,6 +148,80 @@ export function useKakeboEntries(year: number, month: number) {
   })
 }
 
+// ── Récurrences : génère les occurrences manquantes du mois affiché ─────────────
+
+export function useMaterializeRecurring(year: number, month: number) {
+  const queryClient = useQueryClient()
+  return useQuery({
+    queryKey: ['kakebo-materialize', HOUSEHOLD_ID, year, month],
+    queryFn: async (): Promise<number> => {
+      const { data, error } = await supabase
+        .from('kakebo_entries')
+        .select('*')
+        .eq('household_id', HOUSEHOLD_ID)
+        .not('series_id', 'is', null)
+        .order('date', { ascending: true })
+      if (error) throw error
+      const rows = (data ?? []) as unknown as KakeboEntry[]
+
+      const bySeries = new Map<string, KakeboEntry[]>()
+      for (const r of rows) {
+        const k = r.series_id as string
+        const arr = bySeries.get(k) ?? []
+        arr.push(r); bySeries.set(k, arr)
+      }
+
+      const targetKey = `${year}-${String(month).padStart(2, '0')}`
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const toInsert: any[] = []
+
+      for (const [sid, occ] of bySeries) {
+        occ.sort((a, b) => a.date.localeCompare(b.date))
+        const latest = occ[occ.length - 1]
+        if (!latest.recurring) continue // série arrêtée (décochée)
+        const latestKey = latest.date.slice(0, 7)
+        if (targetKey <= latestKey) continue // déjà à jour jusqu'au mois affiché
+
+        const existingMonths = new Set(occ.map(o => o.date.slice(0, 7)))
+        const day = Number(latest.date.slice(8, 10))
+        let [y, m] = latest.date.split('-').map(Number)
+        let guard = 0
+        while (guard++ < 24) {
+          m++; if (m > 12) { m = 1; y++ }
+          const mk = `${y}-${String(m).padStart(2, '0')}`
+          if (!existingMonths.has(mk)) {
+            const lastDay = new Date(y, m, 0).getDate()
+            const d = Math.min(day, lastDay)
+            toInsert.push({
+              household_id: HOUSEHOLD_ID,
+              category_id: latest.category_id,
+              member_id: latest.member_id,
+              amount: latest.amount,
+              date: `${mk}-${String(d).padStart(2, '0')}`,
+              description: latest.description,
+              tags: latest.tags ?? [],
+              recurring: true,
+              series_id: sid,
+            })
+          }
+          if (mk >= targetKey) break
+        }
+      }
+
+      if (toInsert.length > 0) {
+        const { error: insErr } = await supabase
+          .from('kakebo_entries')
+          .upsert(toInsert as never, { onConflict: 'series_id,date', ignoreDuplicates: true })
+        if (insErr) throw insErr
+        queryClient.invalidateQueries({ queryKey: kakeboEntriesKey(year, month) })
+        queryClient.invalidateQueries({ queryKey: ['kakebo-trend', HOUSEHOLD_ID] })
+      }
+      return toInsert.length
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 export function useAddEntry(year: number, month: number) {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
@@ -151,6 +230,7 @@ export function useAddEntry(year: number, month: number) {
 
   return useMutation({
     mutationFn: async (input: NewEntryInput): Promise<KakeboEntry> => {
+      const seriesId = input.recurring ? (crypto.randomUUID() as string) : null
       const { data, error } = await supabase
         .from('kakebo_entries')
         .insert({
@@ -161,7 +241,9 @@ export function useAddEntry(year: number, month: number) {
           date: input.date,
           description: input.description.trim() || null,
           tags: input.tags,
-        })
+          recurring: input.recurring,
+          series_id: seriesId,
+        } as never)
         .select(`*, category:kakebo_categories(*), member:members(display_name)`)
         .single()
       if (error) throw error
@@ -180,6 +262,8 @@ export function useAddEntry(year: number, month: number) {
         date: input.date,
         description: input.description.trim() || null,
         tags: input.tags,
+        recurring: input.recurring,
+        series_id: null,
         created_at: new Date().toISOString(),
         category: categories.find(c => c.id === input.category_id) ?? null,
         member: (input.member_id && member && input.member_id === member.id)
@@ -208,6 +292,8 @@ export function useEditEntry(year: number, month: number) {
 
   return useMutation({
     mutationFn: async (input: EditEntryInput): Promise<KakeboEntry> => {
+      // Si on rend l'opération récurrente et qu'elle n'a pas encore de série, on lui en crée une.
+      const seriesId = input.recurring ? (input.series_id ?? (crypto.randomUUID() as string)) : input.series_id
       const { data, error } = await supabase
         .from('kakebo_entries')
         .update({
@@ -217,7 +303,9 @@ export function useEditEntry(year: number, month: number) {
           description: input.description.trim() || null,
           member_id: input.member_id,
           tags: input.tags,
-        })
+          recurring: input.recurring,
+          series_id: seriesId,
+        } as never)
         .eq('id', input.id)
         .select(`*, category:kakebo_categories(*), member:members(display_name)`)
         .single()
@@ -237,6 +325,7 @@ export function useEditEntry(year: number, month: number) {
           description: input.description.trim() || null,
           member_id: input.member_id,
           tags: input.tags,
+          recurring: input.recurring,
           category: categories.find(c => c.id === input.category_id) ?? e.category,
         })
       )

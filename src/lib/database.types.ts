@@ -524,6 +524,8 @@ export type Database = {
           household_id: string
           id: string
           member_id: string | null
+          recurring: boolean
+          series_id: string | null
           tags: string[]
         }
         Insert: {
@@ -535,6 +537,8 @@ export type Database = {
           household_id: string
           id?: string
           member_id?: string | null
+          recurring?: boolean
+          series_id?: string | null
           tags?: string[]
         }
         Update: {
@@ -546,6 +550,8 @@ export type Database = {
           household_id?: string
           id?: string
           member_id?: string | null
+          recurring?: boolean
+          series_id?: string | null
           tags?: string[]
         }
         Relationships: [

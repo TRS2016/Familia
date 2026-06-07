@@ -22,6 +22,7 @@ import {
   useUpdateMemberBudget,
   useUpdateMemberObjectif,
   useRenameCategory,
+  useMaterializeRecurring,
 } from './useKakebo'
 import { useKakeboRealtime } from './useKakeboRealtime'
 import type { KakeboEntry } from './useKakebo'
@@ -50,6 +51,7 @@ export default function KakeboPage() {
   const { objectif, update: updateObjectif } = useKakeboObjectif()
   const { data: trendEntries = [], isLoading: trendLoading } = useKakeboTrend(12)
   const { data: members = [] } = useKakeboMembers()
+  useMaterializeRecurring(year, month) // génère les occurrences récurrentes manquantes du mois
   useKakeboRealtime()
 
   const { showToast } = useToast()
@@ -83,7 +85,7 @@ export default function KakeboPage() {
 
   // Edit entry state
   const [editTarget, setEditTarget] = useState<KakeboEntry | null>(null)
-  const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '', member_id: null as string | null, tags: [] as string[] })
+  const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '', member_id: null as string | null, tags: [] as string[], recurring: false, series_id: null as string | null })
 
   // Add form state
   const firstCatId = categories.find(c => c.type !== 'income')?.id ?? ''
@@ -94,6 +96,7 @@ export default function KakeboPage() {
     date: format(new Date(), 'yyyy-MM-dd'),
     member_id: null as string | null,
     tags: [] as string[],
+    recurring: false,
   })
 
   // Ouvre le modal d'ajout en pré-affectant à la vue courante (Foyer ou membre)
@@ -201,6 +204,8 @@ export default function KakeboPage() {
       date: entry.date,
       member_id: entry.member_id,
       tags: entry.tags ?? [],
+      recurring: entry.recurring ?? false,
+      series_id: entry.series_id ?? null,
     })
     setEditTarget(entry)
   }
@@ -218,6 +223,8 @@ export default function KakeboPage() {
       description: editDraft.description,
       member_id: editDraft.member_id,
       tags: editDraft.tags,
+      recurring: editDraft.recurring,
+      series_id: editDraft.series_id,
     })
     setEditTarget(null)
   }
@@ -232,6 +239,7 @@ export default function KakeboPage() {
         description: entry.description ?? '',
         member_id: entry.member_id,
         tags: entry.tags ?? [],
+        recurring: false,
       },
       { onSuccess: () => showToast({ type: 'success', message: 'Opération dupliquée pour aujourd\'hui.' }) }
     )
@@ -315,8 +323,9 @@ export default function KakeboPage() {
       description: draft.description,
       member_id: draft.member_id,
       tags: draft.tags,
+      recurring: draft.recurring,
     })
-    setDraft({ category_id: draft.category_id, amount: '', description: '', date: draft.date, member_id: draft.member_id, tags: [] })
+    setDraft({ category_id: draft.category_id, amount: '', description: '', date: draft.date, member_id: draft.member_id, tags: [], recurring: false })
     setShowAdd(false)
   }
 
@@ -614,6 +623,16 @@ export default function KakeboPage() {
                 />
               </div>
 
+              {/* Récurrence */}
+              <label className={styles.recurRow}>
+                <input
+                  type="checkbox"
+                  checked={draft.recurring}
+                  onChange={e => setDraft(d => ({ ...d, recurring: e.target.checked }))}
+                />
+                <span>🔁 Charge fixe — revient chaque mois à la même date</span>
+              </label>
+
               <button
                 type="submit"
                 className={styles.submitBtn}
@@ -722,6 +741,14 @@ export default function KakeboPage() {
                   required
                 />
               </div>
+              <label className={styles.recurRow}>
+                <input
+                  type="checkbox"
+                  checked={editDraft.recurring}
+                  onChange={e => setEditDraft(d => ({ ...d, recurring: e.target.checked }))}
+                />
+                <span>🔁 Charge fixe — revient chaque mois{editDraft.recurring ? '' : ' (décocher arrête la série)'}</span>
+              </label>
               <button
                 type="submit"
                 className={styles.submitBtn}
