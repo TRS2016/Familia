@@ -12,15 +12,32 @@ function parisDate(d: Date): string {
   return d.toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' })
 }
 
-function parisMinutesSinceMidnight(d: Date): number {
-  const str = d.toLocaleTimeString('fr-FR', {
-    timeZone: 'Europe/Paris',
-    hour: '2-digit',
-    minute: '2-digit',
-    hour12: false,
-  })
-  const [h, m] = str.split(':').map(Number)
-  return h * 60 + m
+// Décalage (en minutes) de Paris par rapport à UTC à l'instant donné (gère l'heure d'été).
+function parisOffsetMinutes(d: Date): number {
+  const s = d.toLocaleString('en-US', { timeZone: 'Europe/Paris', timeZoneName: 'longOffset' })
+  const m = s.match(/GMT([+-])(\d{2}):(\d{2})/)
+  if (!m) return 0
+  const sign = m[1] === '-' ? -1 : 1
+  return sign * (Number(m[2]) * 60 + Number(m[3]))
+}
+
+// Convertit une date+heure « murale » Paris (YYYY-MM-DD, HH:MM[:SS]) en epoch UTC (ms).
+function parisWallToUtcMs(dateStr: string, timeStr: string): number {
+  const [Y, M, D] = dateStr.split('-').map(Number)
+  const [h, mi] = timeStr.split(':').map(Number)
+  const guess = Date.UTC(Y, M - 1, D, h, mi)
+  const offset = parisOffsetMinutes(new Date(guess))
+  return guess - offset * 60000
+}
+
+function reminderLabel(mins: number): string {
+  if (mins % 1440 === 0) {
+    const days = mins / 1440
+    if (days === 7) return '1 semaine'
+    return days === 1 ? '1 jour' : `${days} jours`
+  }
+  if (mins >= 60 && mins % 60 === 0) return `${mins / 60}h`
+  return `${mins} min`
 }
 
 Deno.serve(async (req: Request) => {
@@ -30,17 +47,20 @@ Deno.serve(async (req: Request) => {
   )
 
   const now = new Date()
+  const nowMs = now.getTime()
   const todayStr = parisDate(now)
-  const nowMinutes = parisMinutesSinceMidnight(now)
+  // Le rappel le plus long est « 1 semaine » : on regarde jusqu'à 8 jours devant (marge).
+  const maxStr = parisDate(new Date(nowMs + 8 * 24 * 60 * 60 * 1000))
 
-  console.log(`[remind-events] Now: ${todayStr} ${nowMinutes}min since midnight (Paris)`)
+  console.log(`[remind-events] Now: ${now.toISOString()} — window ${todayStr} → ${maxStr} (Paris)`)
 
-  // ── Fetch today's timed events that have a reminder set ────────────────────
+  // ── Fetch upcoming timed events that have a reminder set ────────────────────
   const { data: events, error: eventsErr } = await supabase
     .from('events')
     .select('id, title, date, start_time, household_id, location, reminder_minutes')
     .eq('all_day', false)
-    .eq('date', todayStr)
+    .gte('date', todayStr)
+    .lte('date', maxStr)
     .not('start_time', 'is', null)
     .not('reminder_minutes', 'is', null)
 
@@ -54,12 +74,11 @@ Deno.serve(async (req: Request) => {
     return json({ reminders_sent: 0 })
   }
 
-  // ── Filter events whose reminder window matches now (±5 min) ───────────────
+  // ── Filter events whose reminder instant matches now (±5 min) ──────────────
   const candidates = events.filter((e) => {
-    const ev = e as { start_time: string; reminder_minutes: number }
-    const [h, m] = ev.start_time.split(':').map(Number)
-    const triggerMins = h * 60 + m - ev.reminder_minutes
-    return Math.abs(nowMinutes - triggerMins) <= 5
+    const ev = e as { date: string; start_time: string; reminder_minutes: number }
+    const triggerMs = parisWallToUtcMs(ev.date, ev.start_time) - ev.reminder_minutes * 60000
+    return Math.abs(nowMs - triggerMs) <= 5 * 60000
   })
 
   if (candidates.length === 0) {
@@ -121,13 +140,11 @@ Deno.serve(async (req: Request) => {
 
     if (!subscriptions || subscriptions.length === 0) continue
 
-    const reminderLabel = ev.reminder_minutes >= 60
-      ? `${ev.reminder_minutes / 60}h`
-      : `${ev.reminder_minutes} min`
+    const label = reminderLabel(ev.reminder_minutes)
 
     const payload = JSON.stringify({
       title: `⏰ Rappel : ${ev.title}`,
-      body: `Dans ${reminderLabel}${ev.location ? ` · ${ev.location}` : ''} à ${ev.start_time}`,
+      body: `Dans ${label}${ev.location ? ` · ${ev.location}` : ''} à ${ev.start_time}`,
       module: 'calendar',
     })
 
@@ -157,7 +174,7 @@ Deno.serve(async (req: Request) => {
       .from('event_reminders_sent')
       .upsert({ event_id: ev.id }, { onConflict: 'event_id', ignoreDuplicates: true })
 
-    console.log(`[remind-events] Reminded "${ev.title}" (${reminderLabel} before) → ${totalSent} push(es) sent.`)
+    console.log(`[remind-events] Reminded "${ev.title}" (${label} before) → ${totalSent} push(es) sent.`)
   }
 
   return json({ reminders_sent: totalSent, events_processed: toRemind.length })

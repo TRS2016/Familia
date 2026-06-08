@@ -19,8 +19,12 @@ const REMINDER_OPTIONS: { value: number | null; label: string }[] = [
   { value: 10,   label: '10 min avant' },
   { value: 15,   label: '15 min avant' },
   { value: 30,   label: '30 min avant' },
-  { value: 60,   label: '1h avant'     },
-  { value: 120,  label: '2h avant'     },
+  { value: 60,    label: '1h avant'      },
+  { value: 120,   label: '2h avant'      },
+  { value: 1440,  label: '1 jour avant'  },
+  { value: 2880,  label: '2 jours avant' },
+  { value: 4320,  label: '3 jours avant' },
+  { value: 10080, label: '1 semaine avant' },
 ]
 
 interface EventFormModalProps {
