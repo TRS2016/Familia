@@ -52,7 +52,7 @@ const persister = createSyncStoragePersister({
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <PersistQueryClientProvider client={queryClient} persistOptions={{ persister, buster: 'v2', maxAge: 1000 * 60 * 60 * 24 }}>
+      <PersistQueryClientProvider client={queryClient} persistOptions={{ persister, buster: 'v3', maxAge: 1000 * 60 * 60 * 24 }}>
         <ToastProvider>
           <AuthProvider>
             <App />
