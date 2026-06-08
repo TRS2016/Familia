@@ -148,6 +148,7 @@ export default function HomePage() {
         .from('kakebo_entries')
         .select('amount, category:kakebo_categories(type)')
         .eq('household_id', HOUSEHOLD_ID)
+        .is('member_id', null) // budget du foyer uniquement (opérations communes), pas les dépenses perso des membres
         .gte('date', from)
         .lte('date', to)
       if (error) throw error
