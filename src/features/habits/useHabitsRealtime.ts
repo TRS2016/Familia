@@ -1,23 +1,9 @@
-import { useEffect } from 'react'
-import { useQueryClient } from '@tanstack/react-query'
-import { supabase } from '../../lib/supabase'
+import { useRealtimeInvalidation } from '../../lib/useRealtimeInvalidation'
 import { HABITS_KEY, completionsKey } from './useHabits'
 
 export function useHabitsRealtime() {
-  const queryClient = useQueryClient()
-
-  useEffect(() => {
-    const channel = supabase
-      .channel('habits-changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'habits' }, () => {
-        queryClient.invalidateQueries({ queryKey: HABITS_KEY })
-      })
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'habit_completions' }, () => {
-        queryClient.invalidateQueries({ queryKey: completionsKey('recent') })
-        queryClient.invalidateQueries({ queryKey: ['habit-completions'] })
-      })
-      .subscribe()
-
-    return () => { supabase.removeChannel(channel) }
-  }, [queryClient])
+  useRealtimeInvalidation('habits-changes', [
+    { table: 'habits', keys: [HABITS_KEY] },
+    { table: 'habit_completions', keys: [completionsKey('recent'), ['habit-completions']] },
+  ])
 }
