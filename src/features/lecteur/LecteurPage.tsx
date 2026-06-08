@@ -1,11 +1,11 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Upload, Link as LinkIcon, Trash2, Plus, X,
   ListMusic, Search, Pencil, MoreHorizontal, Play,
 } from 'lucide-react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { QK } from '../../lib/query-keys'
@@ -13,7 +13,7 @@ import { memberColor } from '../../lib/constants'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
-import MediaPlayer from '../media/MediaPlayer'
+import MediaPlayer, { mediaFileUrlKey, signMediaFileUrl } from '../media/MediaPlayer'
 import {
   useMediaFiles, useAddMediaFile, useDeleteMediaFile, useUploadMediaFile,
   useEditMediaFile,
@@ -90,6 +90,18 @@ export default function LecteurPage() {
   const playingFile = queue[queueIndex] ?? null
   const hasPrev = queueIndex > 0
   const hasNext = queueIndex < queue.length - 1
+
+  // Précharge l'URL signée de la piste suivante pour lisser l'auto-advance.
+  const queryClient = useQueryClient()
+  useEffect(() => {
+    const nextPath = queue[queueIndex + 1]?.file_path
+    if (!nextPath) return
+    queryClient.prefetchQuery({
+      queryKey: mediaFileUrlKey(nextPath),
+      queryFn: () => signMediaFileUrl(nextPath),
+      staleTime: 90 * 60 * 1000,
+    })
+  }, [queue, queueIndex, queryClient])
 
   function playFiles(fileList: MediaFile[], startIndex = 0) {
     if (fileList.length === 0) return

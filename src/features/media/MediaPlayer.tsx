@@ -4,6 +4,18 @@ import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import styles from './MediaPlayer.module.css'
 
+// URL signée d'un fichier du bucket privé family-media. Exporté pour permettre
+// le préchargement (ex. piste suivante de la file d'attente du Lecteur).
+export const mediaFileUrlKey = (filePath: string) => ['media-file-url', filePath] as const
+export const MEDIA_FILE_URL_TTL = 7200
+export async function signMediaFileUrl(filePath: string): Promise<string> {
+  const { data, error } = await supabase.storage
+    .from('family-media')
+    .createSignedUrl(filePath, MEDIA_FILE_URL_TTL)
+  if (error) throw error
+  return data.signedUrl
+}
+
 // ── Custom audio player ───────────────────────────────────────────────────────
 
 function fmtTime(s: number): string {
@@ -199,14 +211,8 @@ interface Props {
 
 export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay, muted, loop }: Props) {
   const { data: signedUrl, isLoading } = useQuery({
-    queryKey: ['media-file-url', filePath],
-    queryFn: async () => {
-      const { data, error } = await supabase.storage
-        .from('family-media')
-        .createSignedUrl(filePath!, 7200)
-      if (error) throw error
-      return data.signedUrl
-    },
+    queryKey: mediaFileUrlKey(filePath ?? ''),
+    queryFn: () => signMediaFileUrl(filePath!),
     enabled: !!filePath,
     staleTime: 90 * 60 * 1000,
     gcTime:   120 * 60 * 1000,
