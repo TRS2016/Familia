@@ -85,9 +85,10 @@ export default function MediaPage() {
              !(i.genre ?? '').toLowerCase().includes(q)) return false
     return true
   })
-  const sorted = sortItems(filtered, sortBy)
-  const active = sorted.filter(i => i.status !== 'terminé')
-  const done   = sorted.filter(i => i.status === 'terminé')
+  const sorted    = sortItems(filtered, sortBy)
+  const active    = sorted.filter(i => i.status === 'à voir' || i.status === 'en cours')
+  const done      = sorted.filter(i => i.status === 'terminé')
+  const abandoned = sorted.filter(i => i.status === 'abandonné')
 
   const detailItem = detailItemId ? (items.find(i => i.id === detailItemId) ?? null) : null
 
@@ -220,6 +221,28 @@ export default function MediaPage() {
               </div>
               <ul className={styles.list}>
                 {done.map(item => (
+                  <MediaRow
+                    key={item.id}
+                    item={item}
+                    members={members}
+                    done
+                    onCycleStatus={() => handleCycleStatus(item)}
+                    onOpen={() => setDetailItemId(item.id)}
+                  />
+                ))}
+              </ul>
+            </>
+          )}
+
+          {abandoned.length > 0 && (
+            <>
+              <div className={styles.separator}>
+                <div className={styles.separatorLine} />
+                <span className={styles.separatorLabel}>Abandonné · {abandoned.length}</span>
+                <div className={styles.separatorLine} />
+              </div>
+              <ul className={styles.list}>
+                {abandoned.map(item => (
                   <MediaRow
                     key={item.id}
                     item={item}

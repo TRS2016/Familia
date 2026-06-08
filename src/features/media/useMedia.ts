@@ -8,7 +8,7 @@ import { useToast } from '../../components/useToast'
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type MediaType   = 'film' | 'série' | 'livre' | 'jeu'
-export type MediaStatus = 'à voir' | 'en cours' | 'terminé'
+export type MediaStatus = 'à voir' | 'en cours' | 'terminé' | 'abandonné'
 
 export interface MediaItem {
   id: string
@@ -46,6 +46,7 @@ export interface UpdateMediaInput {
   id: string
   title?: string
   type?: MediaType
+  status?: MediaStatus
   author_director?: string | null
   release_year?: number | null
   genre?: string | null
@@ -60,10 +61,13 @@ export const MEDIA_KEY = ['media-items', HOUSEHOLD_ID] as const
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
+// Cycle du bouton de statut (le row ne passe pas par « abandonné », qui se
+// définit explicitement depuis le détail). Depuis « abandonné » on revient à « à voir ».
 export const NEXT_STATUS: Record<MediaStatus, MediaStatus> = {
-  'à voir':   'en cours',
-  'en cours': 'terminé',
-  'terminé':  'à voir',
+  'à voir':    'en cours',
+  'en cours':  'terminé',
+  'terminé':   'à voir',
+  'abandonné': 'à voir',
 }
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────

@@ -571,6 +571,27 @@
   border-top: 1px solid var(--border-subtle);
 }
 
+.detailStatusRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.abandonBtn {
+  font-size: 12px;
+  font-weight: 700;
+  font-family: var(--font-family);
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  padding: 5px 11px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.abandonBtn:hover { color: #c0392b; border-color: rgba(192,57,43,0.5); }
+
 .editBtn {
   display: flex;
   align-items: center;

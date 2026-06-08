@@ -169,13 +169,30 @@ export default function MediaDetailModal({ item, members, onClose, onCycleStatus
         <div className={styles.detailView}>
 
           {/* Status */}
-          <button
-            className={styles.statusBtn}
-            style={STATUS_STYLE[item.status]}
-            onClick={onCycleStatus}
-          >
-            {item.status}
-          </button>
+          <div className={styles.detailStatusRow}>
+            <button
+              className={styles.statusBtn}
+              style={STATUS_STYLE[item.status]}
+              onClick={onCycleStatus}
+            >
+              {item.status}
+            </button>
+            {item.status !== 'abandonné' ? (
+              <button
+                className={styles.abandonBtn}
+                onClick={() => onUpdate({ status: 'abandonné' })}
+              >
+                Abandonner
+              </button>
+            ) : (
+              <button
+                className={styles.abandonBtn}
+                onClick={() => onUpdate({ status: 'à voir' })}
+              >
+                Reprendre
+              </button>
+            )}
+          </div>
 
           {/* Metadata */}
           {(item.author_director || item.release_year || item.genre) && (
