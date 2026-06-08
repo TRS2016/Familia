@@ -85,6 +85,81 @@ function buildOccurrences(
   }))
 }
 
+// ── Récurrences : régénère les occurrences manquantes jusqu'à la plage affichée ──
+// Les séries sont créées en lots finis (52 sem. / 12 mois / 3 ans). Pour qu'un
+// événement récurrent ne s'arrête jamais, on prolonge chaque série à la volée
+// quand l'utilisateur navigue au-delà de sa dernière occurrence.
+const RECUR_ADVANCE: Record<string, (d: Date, n: number) => Date> = {
+  weekly: (d, n) => addWeeks(d, n),
+  monthly: (d, n) => addMonths(d, n),
+  yearly: (d, n) => addYears(d, n),
+}
+
+export function useMaterializeRecurringEvents(rangeEnd: string) {
+  const queryClient = useQueryClient()
+  return useQuery({
+    queryKey: ['events-materialize', HOUSEHOLD_ID, rangeEnd],
+    queryFn: async (): Promise<number> => {
+      const { data, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('household_id', HOUSEHOLD_ID)
+        .not('recurrence_group_id', 'is', null)
+        .order('date', { ascending: true })
+      if (error) throw error
+      const rows = (data ?? []) as unknown as CalendarEvent[]
+
+      // Dernière occurrence connue par série
+      const latestByGroup = new Map<string, CalendarEvent>()
+      for (const r of rows) {
+        const g = r.recurrence_group_id as string
+        const prev = latestByGroup.get(g)
+        if (!prev || r.date > prev.date) latestByGroup.set(g, r)
+      }
+
+      const toInsert: Record<string, unknown>[] = []
+      for (const latest of latestByGroup.values()) {
+        const advance = RECUR_ADVANCE[latest.recurrence_type ?? '']
+        if (!advance) continue
+        if (latest.date >= rangeEnd) continue // série déjà couverte
+
+        const [y, m, d] = latest.date.split('-').map(Number)
+        const base = new Date(y, m - 1, d)
+        // Génère en avant jusqu'à couvrir rangeEnd (cap de sécurité anti-runaway)
+        for (let i = 1; i <= 520; i++) {
+          const next = format(advance(base, i), 'yyyy-MM-dd')
+          toInsert.push({
+            household_id: HOUSEHOLD_ID,
+            created_by: latest.created_by,
+            recurrence_group_id: latest.recurrence_group_id,
+            recurrence_type: latest.recurrence_type,
+            title: latest.title,
+            date: next,
+            start_time: latest.start_time,
+            end_time: latest.end_time,
+            all_day: latest.all_day,
+            member_id: latest.member_id,
+            location: latest.location,
+            description: latest.description,
+            reminder_minutes: latest.reminder_minutes,
+          })
+          if (next >= rangeEnd) break
+        }
+      }
+
+      if (toInsert.length > 0) {
+        const { error: insErr } = await supabase
+          .from('events')
+          .upsert(toInsert as never, { onConflict: 'recurrence_group_id,date', ignoreDuplicates: true })
+        if (insErr) throw insErr
+        queryClient.invalidateQueries({ queryKey: EVENTS_KEY_PREFIX })
+      }
+      return toInsert.length
+    },
+    staleTime: 5 * 60 * 1000,
+  })
+}
+
 export function useEvents(rangeStart: string, rangeEnd: string) {
   const queryClient = useQueryClient()
   const { data: member } = useMember()

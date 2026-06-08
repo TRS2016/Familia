@@ -14,7 +14,7 @@ import EmptyState from '../../components/EmptyState'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
-import { useEvents } from './useEvents'
+import { useEvents, useMaterializeRecurringEvents } from './useEvents'
 import { useEventsRealtime } from './useEventsRealtime'
 import type { CalendarEvent, NewEventInput } from './useEvents'
 import { MEMBER_PALETTE } from '../../lib/constants'
@@ -189,6 +189,8 @@ export default function CalendarPage() {
 
   // ── Data ─────────────────────────────────────────────────────────────────
   const { query, addEvent, updateEvent, deleteEvent } = useEvents(rangeStart, rangeEnd)
+  // Prolonge les séries récurrentes à la volée pour qu'elles ne s'arrêtent jamais.
+  useMaterializeRecurringEvents(rangeEnd)
   const allEvents = query.data ?? []
 
   const filteredEvents = filterMemberId
