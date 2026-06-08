@@ -756,6 +756,7 @@ export type Database = {
           display_name: string
           email: string | null
           household_id: string
+          ical_token: string
           id: string
           kakebo_objectif_epargne: number | null
           notifications_enabled: boolean
@@ -766,6 +767,7 @@ export type Database = {
           display_name: string
           email?: string | null
           household_id: string
+          ical_token?: string
           id?: string
           kakebo_objectif_epargne?: number | null
           notifications_enabled?: boolean
@@ -776,6 +778,7 @@ export type Database = {
           display_name?: string
           email?: string | null
           household_id?: string
+          ical_token?: string
           id?: string
           kakebo_objectif_epargne?: number | null
           notifications_enabled?: boolean

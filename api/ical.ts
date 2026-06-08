@@ -27,9 +27,8 @@ function nextDayStr(dateStr: string): string {
 export default async function handler(req: IncomingMessage, res: ServerResponse) {
   const url = new URL(req.url ?? '/', 'http://localhost')
   const token = url.searchParams.get('token')
-  const secret = process.env.VITE_CAL_SECRET
 
-  if (!secret || token !== secret) {
+  if (!token) {
     res.writeHead(401, { 'Content-Type': 'text/plain' })
     res.end('Unauthorized')
     return
@@ -41,6 +40,19 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
     { auth: { persistSession: false } }
   )
 
+  // Le token identifie un membre (révocable) → on en déduit le foyer.
+  const { data: tokenMember } = await supabase
+    .from('members')
+    .select('household_id')
+    .eq('ical_token', token)
+    .maybeSingle()
+
+  if (!tokenMember) {
+    res.writeHead(401, { 'Content-Type': 'text/plain' })
+    res.end('Unauthorized')
+    return
+  }
+
   const today = new Date()
   const from = new Date(today)
   from.setMonth(from.getMonth() - 3)
@@ -50,7 +62,7 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   const { data: events, error } = await supabase
     .from('events')
     .select('*, member:members!events_member_id_fkey(display_name)')
-    .eq('household_id', process.env.VITE_HOUSEHOLD_ID!)
+    .eq('household_id', tokenMember.household_id)
     .gte('date', from.toISOString().slice(0, 10))
     .lte('date', to.toISOString().slice(0, 10))
     .order('date', { ascending: true })

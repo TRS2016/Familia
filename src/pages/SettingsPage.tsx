@@ -82,12 +82,32 @@ export default function SettingsPage() {
     },
   })
 
-  // ── iCal subscription ────────────────────────────────────────────────────
-  const calSecret = import.meta.env.VITE_CAL_SECRET as string | undefined
-  const icalUrl = calSecret
-    ? `${window.location.origin}/api/ical?token=${calSecret}`
+  // ── iCal subscription (token par membre, révocable) ───────────────────────
+  const icalToken = member?.ical_token
+  const icalUrl = icalToken
+    ? `${window.location.origin}/api/ical?token=${icalToken}`
     : null
   const [copied, setCopied] = useState(false)
+  const [regenerating, setRegenerating] = useState(false)
+
+  async function handleRegenerateIcal() {
+    if (!member) return
+    setRegenerating(true)
+    const newToken = crypto.randomUUID()
+    const { error } = await supabase
+      .from('members')
+      .update({ ical_token: newToken })
+      .eq('id', member.id)
+    setRegenerating(false)
+    if (error) {
+      showToast({ type: 'error', message: 'Impossible de régénérer le lien.' })
+      return
+    }
+    queryClient.setQueryData<Member>(QK.member(session!.user.id), old =>
+      old ? { ...old, ical_token: newToken } : old!
+    )
+    showToast({ type: 'success', message: 'Lien régénéré. L\'ancien ne fonctionne plus.' })
+  }
 
   function handleCopyUrl() {
     if (!icalUrl) return
@@ -270,10 +290,17 @@ export default function SettingsPage() {
             <p className={styles.helpText}>
               Dans Google Calendar : + → "À partir d'une URL" → coller l'URL.
             </p>
+            <button
+              className={styles.btnSecondary}
+              onClick={handleRegenerateIcal}
+              disabled={regenerating}
+            >
+              {regenerating ? 'Régénération…' : 'Régénérer le lien (révoque l\'ancien)'}
+            </button>
           </>
         ) : (
           <p className={styles.helpText}>
-            Ajoute <code>VITE_CAL_SECRET</code> et <code>SUPABASE_SERVICE_ROLE_KEY</code> dans les variables d'environnement Vercel pour activer cette fonctionnalité.
+            Lien d'abonnement indisponible — recharge la page une fois connecté.
           </p>
         )}
       </section>
