@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
+import type { Json } from '../../lib/database.types'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useToast } from '../../components/useToast'
@@ -15,14 +16,13 @@ export function useTrainingPresets() {
   return useQuery({
     queryKey: TRAINING_PRESETS_KEY,
     queryFn: async (): Promise<TrainingPreset[]> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('training_presets')
         .select('*')
         .eq('household_id', HOUSEHOLD_ID)
         .order('created_at', { ascending: false })
       if (error) throw error
-      return data as TrainingPreset[]
+      return data as unknown as TrainingPreset[]
     },
   })
 }
@@ -34,20 +34,19 @@ export function useAddTrainingPreset() {
 
   return useMutation({
     mutationFn: async (input: { name: string; mode: TrainingMode; config: TrainingConfig }): Promise<TrainingPreset> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('training_presets')
         .insert({
           household_id: HOUSEHOLD_ID,
           member_id:    member?.id ?? null,
           name:         input.name.trim(),
           mode:         input.mode,
-          config:       input.config,
+          config:       input.config as unknown as Json,
         })
         .select('*')
         .single()
       if (error) throw error
-      return data as TrainingPreset
+      return data as unknown as TrainingPreset
     },
     onSuccess: (p) => {
       queryClient.setQueryData<TrainingPreset[]>(TRAINING_PRESETS_KEY, old => [p, ...(old ?? [])])
@@ -62,10 +61,9 @@ export function useUpdateTrainingPreset() {
 
   return useMutation({
     mutationFn: async (input: { id: string; name: string; mode: TrainingMode; config: TrainingConfig }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('training_presets')
-        .update({ name: input.name.trim(), mode: input.mode, config: input.config })
+        .update({ name: input.name.trim(), mode: input.mode, config: input.config as unknown as Json })
         .eq('id', input.id)
       if (error) throw error
     },
@@ -89,8 +87,7 @@ export function useDeleteTrainingPreset() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('training_presets').delete().eq('id', id)
+      const { error } = await supabase.from('training_presets').delete().eq('id', id)
       if (error) throw error
     },
     onMutate: async (id) => {
@@ -111,8 +108,7 @@ export function useTrainingSessions(limit = 20) {
   return useQuery({
     queryKey: [...TRAINING_SESSIONS_KEY, limit],
     queryFn: async (): Promise<TrainingSession[]> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('training_sessions')
         .select('*, member:members(display_name)')
         .eq('household_id', HOUSEHOLD_ID)
@@ -130,8 +126,7 @@ export function useLogTrainingSession() {
 
   return useMutation({
     mutationFn: async (input: { name: string; mode: TrainingMode; duration_seconds: number; focus?: string | null }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('training_sessions')
         .insert({
           household_id:     HOUSEHOLD_ID,
@@ -155,8 +150,7 @@ export function useDeleteTrainingSession() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('training_sessions').delete().eq('id', id)
+      const { error } = await supabase.from('training_sessions').delete().eq('id', id)
       if (error) throw error
     },
     onSuccess: () => {
@@ -196,8 +190,7 @@ export function useTrainingStats() {
     queryFn: async (): Promise<TrainingStats> => {
       const since = new Date()
       since.setDate(since.getDate() - 120)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('training_sessions')
         .select('duration_seconds, completed_at, focus')
         .eq('household_id', HOUSEHOLD_ID)
@@ -248,8 +241,7 @@ export function useTrainingRecords() {
   return useQuery({
     queryKey: [...TRAINING_SESSIONS_KEY, 'records'],
     queryFn: async (): Promise<Map<string, number>> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('training_sessions')
         .select('name, duration_seconds')
         .eq('household_id', HOUSEHOLD_ID)

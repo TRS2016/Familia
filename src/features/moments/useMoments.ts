@@ -81,8 +81,7 @@ export function useMoments(limit = 20) {
   return useQuery({
     queryKey: [...MOMENTS_KEY, limit],
     queryFn: async (): Promise<Moment[]> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('moments')
         .select(MOMENTS_SELECT)
         .eq('household_id', HOUSEHOLD_ID)
@@ -102,8 +101,7 @@ export function useTodayLastYear() {
   return useQuery({
     queryKey: ['moments-today-last-year', HOUSEHOLD_ID, format(d, 'yyyy-MM-dd')],
     queryFn: async (): Promise<Moment[]> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('moments')
         .select(MOMENTS_SELECT)
         .eq('household_id', HOUSEHOLD_ID)
@@ -122,8 +120,7 @@ export function useComments(momentId: string | null) {
   return useQuery({
     queryKey: momentId ? commentsKey(momentId) : ['moment-comments-none'],
     queryFn: async (): Promise<MomentComment[]> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('moment_comments')
         .select('id, moment_id, member_id, text, created_at, member:members(id, display_name)')
         .eq('moment_id', momentId!)
@@ -198,9 +195,7 @@ export function useAddMoment() {
         if (uploadErr) throw uploadErr
         uploadedPaths.push(path)
       }
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('moments')
         .insert({
           household_id: HOUSEHOLD_ID,
@@ -214,7 +209,7 @@ export function useAddMoment() {
 
       if (uploadedPaths.length > 0) {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { error: photoErr } = await (supabase as any)
+        const { error: photoErr } = await supabase
           .from('moment_photos')
           .insert(uploadedPaths.map((path, i) => ({
             moment_id: data.id,
@@ -317,8 +312,7 @@ export function useEditMomentText() {
 
   return useMutation({
     mutationFn: async ({ id, text }: { id: string; text: string }): Promise<Moment> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('moments')
         .update({ text: text.trim() || null })
         .eq('id', id)
@@ -360,8 +354,7 @@ export function useAddComment() {
 
   return useMutation({
     mutationFn: async ({ momentId, text }: { momentId: string; text: string }): Promise<MomentComment> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('moment_comments')
         .insert({ moment_id: momentId, member_id: member!.id, text: text.trim() })
         .select('id, moment_id, member_id, text, created_at, member:members(id, display_name)')
@@ -403,8 +396,7 @@ export function useDeleteComment() {
 
   return useMutation({
     mutationFn: async ({ id }: { id: string; momentId: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('moment_comments').delete().eq('id', id)
+      const { error } = await supabase.from('moment_comments').delete().eq('id', id)
       if (error) throw error
     },
     onMutate: async ({ id, momentId }) => {
@@ -464,9 +456,7 @@ export function useAddPhotoToMoment() {
         .from('family-moments')
         .upload(path, toUpload, { contentType: toUpload.type })
       if (uploadErr) throw uploadErr
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('moment_photos')
         .insert({ moment_id: momentId, photo_path: path, position: nextPosition })
         .select('id, moment_id, photo_path, position, created_at')
@@ -495,8 +485,7 @@ export function useRemovePhotoFromMoment() {
   return useMutation({
     mutationFn: async ({ photoId, photoPath }: { photoId: string; momentId: string; photoPath: string }) => {
       await supabase.storage.from('family-moments').remove([photoPath])
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('moment_photos').delete().eq('id', photoId)
+      const { error } = await supabase.from('moment_photos').delete().eq('id', photoId)
       if (error) throw error
     },
     onMutate: async ({ photoId, momentId }) => {

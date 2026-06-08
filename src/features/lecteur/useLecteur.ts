@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
+import type { Json } from '../../lib/database.types'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useToast } from '../../components/useToast'
@@ -210,8 +211,7 @@ export function useLecteurPlaylists() {
   return useQuery({
     queryKey: LECTEUR_PL_KEY,
     queryFn: async (): Promise<LecteurPlaylist[]> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('playlists')
         .select('*')
         .eq('household_id', HOUSEHOLD_ID)
@@ -229,15 +229,14 @@ export function useAddLecteurPlaylist() {
 
   return useMutation({
     mutationFn: async (input: { name: string; type: 'manual' | 'smart'; smart_filters?: LecteurSmartFilters }): Promise<LecteurPlaylist> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('playlists')
         .insert({
           household_id:  HOUSEHOLD_ID,
           member_id:     member?.id ?? null,
           name:          input.name.trim(),
           type:          input.type,
-          smart_filters: input.smart_filters ?? null,
+          smart_filters: (input.smart_filters ?? null) as unknown as Json,
         })
         .select('*')
         .single()
@@ -257,8 +256,7 @@ export function useDeleteLecteurPlaylist() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('playlists').delete().eq('id', id)
+      const { error } = await supabase.from('playlists').delete().eq('id', id)
       if (error) throw error
     },
     onMutate: async (id) => {
@@ -277,8 +275,7 @@ export function useLecteurPlaylistItems(playlistId: string | null) {
   return useQuery({
     queryKey: playlistId ? lecteurPlItemsKey(playlistId) : ['lecteur-pl-items-none'],
     queryFn: async (): Promise<LecteurPlaylistItem[]> => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase as any)
+      const { data, error } = await supabase
         .from('playlist_items')
         .select('*, media_file:media_files(*, member:members(display_name))')
         .eq('playlist_id', playlistId!)
@@ -298,8 +295,7 @@ export function useAddToLecteurPlaylist() {
     mutationFn: async ({ playlistId, mediaFileId }: { playlistId: string; mediaFileId: string }) => {
       const key   = lecteurPlItemsKey(playlistId)
       const items = queryClient.getQueryData<LecteurPlaylistItem[]>(key) ?? []
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
+      const { error } = await supabase
         .from('playlist_items')
         .insert({ playlist_id: playlistId, media_file_id: mediaFileId, position: items.length })
       if (error) throw error
@@ -317,8 +313,7 @@ export function useRemoveFromLecteurPlaylist() {
 
   return useMutation({
     mutationFn: async ({ itemId }: { itemId: string; playlistId: string }) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any).from('playlist_items').delete().eq('id', itemId)
+      const { error } = await supabase.from('playlist_items').delete().eq('id', itemId)
       if (error) throw error
     },
     onMutate: async ({ itemId, playlistId }) => {
