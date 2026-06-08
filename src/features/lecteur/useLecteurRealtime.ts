@@ -1,0 +1,17 @@
+import { useRealtimeInvalidation } from '../../lib/useRealtimeInvalidation'
+import { MEDIA_FILES_KEY, LECTEUR_PL_KEY, lecteurPlItemsKey } from './useLecteur'
+
+export function useLecteurRealtime() {
+  useRealtimeInvalidation('lecteur-changes', [
+    { table: 'media_files', keys: [MEDIA_FILES_KEY] },
+    { table: 'playlists', keys: [LECTEUR_PL_KEY] },
+    {
+      table: 'playlist_items',
+      keysFromPayload: (payload) => {
+        const playlistId = (payload.new as { playlist_id?: string })?.playlist_id
+          ?? (payload.old as { playlist_id?: string })?.playlist_id
+        return playlistId ? [lecteurPlItemsKey(playlistId)] : []
+      },
+    },
+  ])
+}

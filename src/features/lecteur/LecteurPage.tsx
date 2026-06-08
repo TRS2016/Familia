@@ -22,6 +22,7 @@ import {
   detectKind, applyLecteurFilters,
 } from './useLecteur'
 import type { MediaFile, LecteurPlaylist, LecteurSmartFilters, MediaFileKind } from './useLecteur'
+import { useLecteurRealtime } from './useLecteurRealtime'
 import styles from './LecteurPage.module.css'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -47,6 +48,7 @@ function EqBars({ small = false }: { small?: boolean }) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function LecteurPage() {
+  useLecteurRealtime()
   const { data: files = [], isLoading } = useMediaFiles()
   const { data: playlists = [] }        = useLecteurPlaylists()
   const addFile    = useAddMediaFile()
