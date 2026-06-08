@@ -71,7 +71,8 @@ export default function OnboardingPage() {
       .single()
 
     if (error) {
-      setErrorMsg(error.message)
+      console.error('[onboarding] member insert failed:', error.message)
+      setErrorMsg('Impossible de créer ton profil. Vérifie ta connexion et réessaie.')
       setSubmitting(false)
       return
     }

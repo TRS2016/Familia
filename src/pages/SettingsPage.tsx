@@ -121,6 +121,8 @@ export default function SettingsPage() {
   async function handleDeleteAccount() {
     if (!member) return
     setDeleting(true)
+    // Nettoie d'abord les abonnements push du membre (sinon lignes orphelines).
+    await supabase.from('push_subscriptions').delete().eq('member_id', member.id)
     const { error } = await supabase.from('members').delete().eq('id', member.id)
     if (error) {
       setDeleting(false)
