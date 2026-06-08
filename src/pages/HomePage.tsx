@@ -162,7 +162,7 @@ export default function HomePage() {
   })
 
   const { data: habitsToday } = useQuery({
-    queryKey: QK.homeHabits,
+    queryKey: [...QK.homeHabits, member?.id],
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd')
       const dow   = new Date().getDay() === 0 ? 7 : new Date().getDay() // 1=lun…7=dim
@@ -170,6 +170,7 @@ export default function HomePage() {
         supabase.from('habits')
           .select('id, name, emoji, frequency_days, start_date')
           .eq('household_id', HOUSEHOLD_ID)
+          .eq('member_id', member!.id) // uniquement les habitudes du membre connecté
           .is('archived_at', null)
           .order('created_at', { ascending: true }),
         supabase.from('habit_completions').select('habit_id').eq('date', today).eq('completed', true),
