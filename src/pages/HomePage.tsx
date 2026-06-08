@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react'
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, useMemo } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ShoppingCart, Settings, Flame, Bell, Camera } from 'lucide-react'
 import { useSignedPhotoUrls } from '../features/moments/useMoments'
+import { quoteOfTheDay } from '../data/quotes'
 import SlideUpModal from '../components/SlideUpModal'
 import { format, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -97,7 +98,7 @@ export default function HomePage() {
   const { data: member } = useMember()
   const { showToast } = useToast()
   const queryClient = useQueryClient()
-  const [noteText, setNoteText] = useState('')
+  const quote = quoteOfTheDay()
 
   // Notification manuelle au foyer
   const NOTIFY_PRESETS = ['J\'ai ajouté une ligne 📝', 'Je suis en route 🚗', 'À table ! 🍽️', 'Appelle-moi 📞', 'Pense aux courses 🛒']
@@ -280,28 +281,7 @@ export default function HomePage() {
     enabled: !!member,
   })
 
-  // Sync note text when household loads (async — must stay in effect)
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    if (householdDetails?.note != null) setNoteText(householdDetails.note)
-  }, [householdDetails?.note])
-  /* eslint-enable react-hooks/set-state-in-effect */
-
   const toggleHabit = useToggleCompletion()
-
-  const saveNote = useMutation({
-    mutationFn: async (note: string) => {
-      const { error } = await supabase.from('households').update({ note: note || null }).eq('id', member!.household_id)
-      if (error) throw error
-    },
-    onSuccess: (_, note) => {
-      queryClient.setQueryData(
-        QK.householdDetails(member!.household_id),
-        (old: HouseholdDetails | undefined) => old ? { ...old, note: note || null } : old
-      )
-    },
-    onError: () => showToast({ type: 'error', message: 'Impossible de sauvegarder la note.' }),
-  })
 
   if (!member) return <LoadingPage />
 
@@ -589,25 +569,15 @@ export default function HomePage() {
         )
       })()}
 
-      {/* Widget — Mémo partagé */}
+      {/* Widget — Souffle du jour */}
       <div className={styles.widget}>
         <div className={styles.widgetHead}>
-          <span className={styles.widgetLabel}>Mémo du foyer</span>
-          {saveNote.isPending && <span className={styles.noteSaving}>enregistrement…</span>}
+          <span className={styles.widgetLabel}>Souffle du jour</span>
         </div>
-        <div className={styles.card}>
-          <textarea
-            className={styles.noteTextarea}
-            value={noteText}
-            onChange={e => setNoteText(e.target.value)}
-            onBlur={() => {
-              const trimmed = noteText.trim()
-              const current = householdDetails?.note ?? ''
-              if (trimmed !== current) saveNote.mutate(trimmed)
-            }}
-            placeholder="Laissez un message pour toute la famille…"
-            rows={3}
-          />
+        <div className={[styles.card, styles.quoteCard].join(' ')}>
+          <span className={styles.quoteMark} aria-hidden="true">“</span>
+          <p className={styles.quoteText}>{quote.text}</p>
+          <p className={styles.quoteAuthor}>— {quote.author}</p>
         </div>
       </div>
 
