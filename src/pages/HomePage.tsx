@@ -5,13 +5,14 @@ import { ShoppingCart, Settings, Flame, Bell, Camera } from 'lucide-react'
 import { useSignedPhotoUrls } from '../features/moments/useMoments'
 import { quoteOfTheDay } from '../data/quotes'
 import SlideUpModal from '../components/SlideUpModal'
-import { format, addDays } from 'date-fns'
+import { format, addDays, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
 import { HOUSEHOLD_ID } from '../lib/config'
 import { useMember } from '../auth/useMember'
 import { GROCERIES_KEY } from '../features/groceries/useGroceries'
-import { useToggleCompletion, completionsKey } from '../features/habits/useHabits'
+import { useToggleCompletion, completionsKey, calcStreak } from '../features/habits/useHabits'
+import type { HabitCompletion } from '../features/habits/useHabits'
 import { QK } from '../lib/query-keys'
 import { useToast } from '../components/useToast'
 import LoadingPage from '../components/LoadingPage'
@@ -169,6 +170,7 @@ export default function HomePage() {
     queryKey: [...QK.homeHabits, member?.id],
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd')
+      const since = format(subDays(new Date(), 35), 'yyyy-MM-dd') // fenêtre pour le streak
       const dow   = new Date().getDay() === 0 ? 7 : new Date().getDay() // 1=lun…7=dim
       const [habitsRes, completionsRes] = await Promise.all([
         supabase.from('habits')
@@ -177,18 +179,21 @@ export default function HomePage() {
           .eq('member_id', member!.id) // uniquement les habitudes du membre connecté
           .is('archived_at', null)
           .order('created_at', { ascending: true }),
-        supabase.from('habit_completions').select('habit_id').eq('date', today).eq('completed', true),
+        supabase.from('habit_completions').select('habit_id, date, completed').gte('date', since).lte('date', today),
       ])
       if (habitsRes.error) throw habitsRes.error
       const all = (habitsRes.data ?? []) as HabitPreview[]
+      const completions = (completionsRes.data ?? []) as HabitCompletion[]
       // filter to habits applicable today
       const applicable = all.filter(h => {
         if (h.start_date && today < h.start_date) return false
         if (h.frequency_days && h.frequency_days.length > 0) return h.frequency_days.includes(dow)
         return true
       })
-      const doneIds = new Set((completionsRes.data ?? []).map((c: { habit_id: string }) => c.habit_id))
-      const pending = applicable.filter(h => !doneIds.has(h.id))
+      const doneIds = new Set(completions.filter(c => c.date === today && c.completed).map(c => c.habit_id))
+      const pending = applicable
+        .filter(h => !doneIds.has(h.id))
+        .map(h => ({ ...h, streak: calcStreak(h.id, completions) }))
       return { total: applicable.length, done: applicable.length - pending.length, pending }
     },
     enabled: !!member,
@@ -507,6 +512,7 @@ export default function HomePage() {
                     }}
                   >
                     {h.emoji} {h.name}
+                    {h.streak > 1 && <span className={styles.habitStreak}>🔥{h.streak}</span>}
                   </button>
                 ))}
                 {habitsToday.pending.length > 4 && (
