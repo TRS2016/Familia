@@ -17,8 +17,6 @@ export interface MediaItem {
   title: string
   type: MediaType
   status: MediaStatus
-  rating: number | null
-  comment: string | null
   author_director: string | null
   release_year: number | null
   genre: string | null
@@ -50,8 +48,6 @@ export interface UpdateMediaInput {
   author_director?: string | null
   release_year?: number | null
   genre?: string | null
-  rating?: number | null
-  comment?: string | null
   external_url?: string | null
 }
 
@@ -134,8 +130,6 @@ export function useAddMediaItem() {
         title:           input.title.trim(),
         type:            input.type,
         status:          'à voir',
-        rating:          null,
-        comment:         null,
         author_director: input.author_director ?? null,
         release_year:    input.release_year ?? null,
         genre:           input.genre ?? null,

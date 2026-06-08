@@ -678,7 +678,6 @@ export type Database = {
       media_items: {
         Row: {
           author_director: string | null
-          comment: string | null
           created_at: string
           external_url: string | null
           file_path: string | null
@@ -688,7 +687,6 @@ export type Database = {
           id: string
           member_id: string | null
           mime_type: string | null
-          rating: number | null
           release_year: number | null
           started_at: string | null
           status: string
@@ -697,7 +695,6 @@ export type Database = {
         }
         Insert: {
           author_director?: string | null
-          comment?: string | null
           created_at?: string
           external_url?: string | null
           file_path?: string | null
@@ -707,7 +704,6 @@ export type Database = {
           id?: string
           member_id?: string | null
           mime_type?: string | null
-          rating?: number | null
           release_year?: number | null
           started_at?: string | null
           status?: string
@@ -716,7 +712,6 @@ export type Database = {
         }
         Update: {
           author_director?: string | null
-          comment?: string | null
           created_at?: string
           external_url?: string | null
           file_path?: string | null
@@ -726,7 +721,6 @@ export type Database = {
           id?: string
           member_id?: string | null
           mime_type?: string | null
-          rating?: number | null
           release_year?: number | null
           started_at?: string | null
           status?: string

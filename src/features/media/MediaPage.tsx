@@ -92,7 +92,7 @@ export default function MediaPage() {
   const filtered = items.filter(i => {
     if (filterType     && i.type      !== filterType)     return false
     if (filterMemberId && i.member_id !== filterMemberId) return false
-    if (filterTopRated && (i.rating ?? 0) < 4)           return false
+    if (filterTopRated && (avgByItem[i.id] ?? 0) < 4)    return false
     if (q && !i.title.toLowerCase().includes(q) &&
              !(i.author_director ?? '').toLowerCase().includes(q) &&
              !(i.genre ?? '').toLowerCase().includes(q)) return false
