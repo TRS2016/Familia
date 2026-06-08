@@ -32,6 +32,7 @@ export default function MediaDetailModal({ item, members, onClose, onCycleStatus
   const deleteItem = useDeleteMediaItem()
 
   const [editMode, setEditMode]     = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [commentText, setCommentText] = useState(item.comment ?? '')
   const [editDraft, setEditDraft]   = useState<EditDraft>({
     title:           item.title,
@@ -247,14 +248,25 @@ export default function MediaDetailModal({ item, members, onClose, onCycleStatus
           </div>
 
           {/* Actions */}
-          <div className={styles.detailActions}>
-            <button className={styles.editBtn} onClick={() => setEditMode(true)}>
-              <Pencil size={13} /> Modifier
-            </button>
-            <button className={styles.deleteActionBtn} onClick={handleDelete}>
-              <Trash2 size={13} /> Supprimer
-            </button>
-          </div>
+          {confirmDelete ? (
+            <div className={styles.detailActions}>
+              <button className={styles.editBtn} onClick={() => setConfirmDelete(false)}>
+                Annuler
+              </button>
+              <button className={styles.deleteActionBtn} onClick={handleDelete}>
+                <Trash2 size={13} /> Confirmer la suppression
+              </button>
+            </div>
+          ) : (
+            <div className={styles.detailActions}>
+              <button className={styles.editBtn} onClick={() => setEditMode(true)}>
+                <Pencil size={13} /> Modifier
+              </button>
+              <button className={styles.deleteActionBtn} onClick={() => setConfirmDelete(true)}>
+                <Trash2 size={13} /> Supprimer
+              </button>
+            </div>
+          )}
         </div>
       )}
     </SlideUpModal>

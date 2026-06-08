@@ -81,7 +81,8 @@ export default function MediaPage() {
     if (filterMemberId && i.member_id !== filterMemberId) return false
     if (filterTopRated && (i.rating ?? 0) < 4)           return false
     if (q && !i.title.toLowerCase().includes(q) &&
-             !(i.author_director ?? '').toLowerCase().includes(q)) return false
+             !(i.author_director ?? '').toLowerCase().includes(q) &&
+             !(i.genre ?? '').toLowerCase().includes(q)) return false
     return true
   })
   const sorted = sortItems(filtered, sortBy)
@@ -142,7 +143,7 @@ export default function MediaPage() {
         <input
           type="text" value={search} autoComplete="off"
           onChange={e => setSearch(e.target.value)}
-          placeholder="Titre, auteur…"
+          placeholder="Titre, auteur, genre…"
           className={styles.searchInput}
         />
         {search && (
