@@ -96,9 +96,8 @@ export function useReorderHabits() {
   return useMutation({
     // orderedIds = liste complète des habitudes dans le nouvel ordre
     mutationFn: async (orderedIds: string[]) => {
-      await Promise.all(orderedIds.map((id, i) =>
-        supabase.from('habits').update({ position: i + 1 } as never).eq('id', id)
-      ))
+      const { error } = await supabase.rpc('reorder_habits', { p_ids: orderedIds as unknown as string })
+      if (error) throw error
     },
     onMutate: async (orderedIds: string[]) => {
       await queryClient.cancelQueries({ queryKey: HABITS_KEY })
