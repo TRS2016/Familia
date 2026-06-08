@@ -1,7 +1,8 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ShoppingCart, Settings, Flame, Bell } from 'lucide-react'
+import { ShoppingCart, Settings, Flame, Bell, Camera } from 'lucide-react'
+import { useSignedPhotoUrls } from '../features/moments/useMoments'
 import SlideUpModal from '../components/SlideUpModal'
 import { format, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -52,13 +53,15 @@ interface GroceryPreview {
   name: string
 }
 
-interface MomentPreview {
+interface HomeMoment {
   id: string
   member_id: string
   text: string | null
   photo_path: string | null
+  photo_archived: boolean
   created_at: string
-  member: { id: string; display_name: string } | null
+  member: { display_name: string } | null
+  photos: { photo_path: string; position: number }[]
 }
 
 interface HabitPreview {
@@ -223,20 +226,32 @@ export default function HomePage() {
     enabled: !!member,
   })
 
-  const { data: recentMoments } = useQuery({
+  const { data: lastMoment } = useQuery({
     queryKey: QK.homeMoments,
-    queryFn: async (): Promise<MomentPreview[]> => {
+    queryFn: async (): Promise<HomeMoment | null> => {
       const { data, error } = await supabase
         .from('moments')
-        .select('id, member_id, text, photo_path, created_at, member:members(id, display_name)')
+        .select('id, member_id, text, photo_path, photo_archived, created_at, member:members(display_name), photos:moment_photos(photo_path, position)')
         .eq('household_id', HOUSEHOLD_ID)
         .order('created_at', { ascending: false })
-        .limit(3)
+        .limit(1)
+        .maybeSingle()
       if (error) throw error
-      return data as unknown as MomentPreview[]
+      return data as unknown as HomeMoment | null
     },
     enabled: !!member,
   })
+
+  // Photos du dernier moment : album trié, sinon photo_path legacy. Puis signed URLs.
+  const momentPhotoPaths = useMemo(() => {
+    if (!lastMoment) return []
+    const album = (lastMoment.photos ?? []).slice().sort((a, b) => a.position - b.position).map(p => p.photo_path)
+    if (album.length > 0) return album
+    if (lastMoment.photo_path && !lastMoment.photo_archived) return [lastMoment.photo_path]
+    return []
+  }, [lastMoment])
+
+  const { data: momentUrlMap = {} } = useSignedPhotoUrls(momentPhotoPaths)
 
   const { data: householdDetails, isLoading: householdLoading } = useQuery({
     queryKey: QK.householdDetails(member?.household_id ?? ''),
@@ -533,34 +548,46 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* Widget — Moments récents */}
-      {recentMoments && recentMoments.length > 0 && (
-        <div className={styles.widget}>
-          <div className={styles.widgetHead}>
-            <span className={styles.widgetLabel}>Moments</span>
-            <Link to="/moments" className={styles.widgetLink}>Voir tout</Link>
+      {/* Widget — Dernier moment */}
+      {lastMoment && (() => {
+        const photoCount = momentPhotoPaths.length
+        const heroUrl    = photoCount > 0 ? momentUrlMap[momentPhotoPaths[0]] : undefined
+        const author     = lastMoment.member?.display_name ?? '?'
+        const members     = householdDetails?.members ?? []
+        const memberIdx   = members.findIndex(hm => hm.id === lastMoment.member_id)
+        const authorColor = MEMBER_PALETTE[memberIdx >= 0 ? memberIdx % MEMBER_PALETTE.length : 0]
+        return (
+          <div className={styles.widget}>
+            <div className={styles.widgetHead}>
+              <span className={styles.widgetLabel}>Dernier moment</span>
+              <Link to="/moments" className={styles.widgetLink}>Voir tout</Link>
+            </div>
+            <Link to="/moments" className={[styles.card, styles.cardLink, styles.momentCard].join(' ')}>
+              {photoCount > 0 && (
+                <div className={styles.momentMedia}>
+                  {photoCount > 1 && <span className={styles.momentStackBack2} />}
+                  {photoCount > 1 && <span className={styles.momentStackBack1} />}
+                  {heroUrl
+                    ? <img src={heroUrl} className={styles.momentHero} alt="" loading="lazy" />
+                    : <div className={styles.momentHeroSkeleton} />}
+                  {photoCount > 1 && (
+                    <span className={styles.momentCountBadge}>
+                      <Camera size={12} strokeWidth={2.5} /> {photoCount}
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className={styles.momentFooter}>
+                <span className={styles.momentDot} style={{ background: authorColor }} />
+                <span className={styles.momentAuthor}>{author}</span>
+                <span className={styles.momentPreview}>
+                  {lastMoment.text ?? (photoCount > 0 ? '📸 Photo' : '')}
+                </span>
+              </div>
+            </Link>
           </div>
-          <div className={styles.card}>
-            <ul className={styles.momentsList}>
-              {recentMoments.map((m, i) => {
-                const members    = householdDetails?.members ?? []
-                const memberIdx  = members.findIndex(hm => hm.id === m.member_id)
-                const color      = MEMBER_PALETTE[memberIdx >= 0 ? memberIdx % MEMBER_PALETTE.length : 0]
-                const preview    = m.text
-                  ? (m.text.length > 55 ? m.text.slice(0, 52) + '…' : m.text)
-                  : '📸 Photo'
-                return (
-                  <li key={m.id} className={[styles.momentRow, i === 0 ? styles.momentRowFirst : ''].join(' ')}>
-                    <span className={styles.momentDot} style={{ background: color }} />
-                    <span className={styles.momentAuthor}>{m.member?.display_name ?? '?'}</span>
-                    <span className={styles.momentPreview}>{preview}</span>
-                  </li>
-                )
-              })}
-            </ul>
-          </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Widget — Mémo partagé */}
       <div className={styles.widget}>
