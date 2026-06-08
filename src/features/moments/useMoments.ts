@@ -67,6 +67,14 @@ function sortPhotos(m: Moment): Moment {
   return { ...m, photos: (m.photos ?? []).sort((a, b) => a.position - b.position) }
 }
 
+/** Chemins photos d'un moment : album trié, sinon photo_path legacy non archivée. */
+export function getMomentPhotoPaths(m: Moment): string[] {
+  const album = (m.photos ?? []).slice().sort((a, b) => a.position - b.position).map(p => p.photo_path)
+  if (album.length > 0) return album
+  if (m.photo_path && !m.photo_archived) return [m.photo_path]
+  return []
+}
+
 // ── Hooks ─────────────────────────────────────────────────────────────────────
 
 export function useMoments(limit = 20) {

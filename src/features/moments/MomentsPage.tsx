@@ -11,6 +11,7 @@ import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import {
   useMoments, useTodayLastYear, useSignedPhotoUrls, useToggleReaction,
+  getMomentPhotoPaths,
   useAddMoment, useDeleteMoment, useEditMomentText,
   useAddPhotoToMoment, useRemovePhotoFromMoment,
   useComments, useAddComment, useDeleteComment,
@@ -541,10 +542,11 @@ function EditMomentModal({ moment, onClose }: { moment: Moment; onClose: () => v
 
 // ── MomentCard ────────────────────────────────────────────────────────────────
 
-function MomentCard({ moment, currentMemberId, memberMap, onDelete, onEdit, onOpenPhoto }: {
+function MomentCard({ moment, currentMemberId, memberMap, urlMap, onDelete, onEdit, onOpenPhoto }: {
   moment: Moment
   currentMemberId: string
   memberMap: Record<string, string>
+  urlMap: Record<string, string>
   onDelete: (m: Moment) => void
   onEdit: (m: Moment) => void
   onOpenPhoto: (urls: string[], index: number) => void
@@ -556,14 +558,7 @@ function MomentCard({ moment, currentMemberId, memberMap, onDelete, onEdit, onOp
   const name         = moment.member?.display_name ?? '?'
   const colorIndex   = name.charCodeAt(0) % 4
 
-  const photoPaths = useMemo(() => {
-    const photos = moment.photos ?? []
-    if (photos.length > 0) return photos.map(p => p.photo_path)
-    if (moment.photo_path && !moment.photo_archived) return [moment.photo_path]
-    return []
-  }, [moment.photos, moment.photo_path, moment.photo_archived])
-
-  const { data: urlMap = {} } = useSignedPhotoUrls(photoPaths)
+  const photoPaths = useMemo(() => getMomentPhotoPaths(moment), [moment])
 
   function handlePhotoOpen(index: number) {
     const urls = photoPaths.map(p => urlMap[p]).filter(Boolean)
@@ -701,6 +696,16 @@ export default function MomentsPage() {
     [moments, filterMemberId],
   )
 
+  // Signed URLs batchées pour toute la galerie (1 appel au lieu d'un par carte).
+  const allPhotoPaths = useMemo(() => {
+    const set = new Set<string>()
+    for (const m of [...displayMoments, ...lastYear]) {
+      for (const p of getMomentPhotoPaths(m)) set.add(p)
+    }
+    return [...set]
+  }, [displayMoments, lastYear])
+  const { data: urlMap = {} } = useSignedPhotoUrls(allPhotoPaths)
+
   function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files ?? [])
     if (!files.length) return
@@ -817,6 +822,7 @@ export default function MomentsPage() {
                   moment={m}
                   currentMemberId={member?.id ?? ''}
                   memberMap={memberMap}
+                  urlMap={urlMap}
                   onDelete={setConfirmDelete}
                   onEdit={m => setEditTargetId(m.id)}
                   onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
@@ -855,6 +861,7 @@ export default function MomentsPage() {
                     moment={m}
                     currentMemberId={member?.id ?? ''}
                     memberMap={memberMap}
+                    urlMap={urlMap}
                     onDelete={setConfirmDelete}
                     onEdit={m => setEditTargetId(m.id)}
                     onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
