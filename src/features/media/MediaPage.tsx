@@ -7,8 +7,8 @@ import { HOUSEHOLD_ID } from '../../lib/config'
 import { QK } from '../../lib/query-keys'
 import { memberColor } from '../../lib/constants'
 import EmptyState from '../../components/EmptyState'
-import { useMediaItems, useUpdateMediaStatus, NEXT_STATUS } from './useMedia'
-import type { MediaType, MediaItem } from './useMedia'
+import { useMediaItems, useUpdateMediaStatus, useMediaRatings, NEXT_STATUS } from './useMedia'
+import type { MediaType, MediaItem, MediaRating } from './useMedia'
 import { useMediaRealtime } from './useMediaRealtime'
 import MediaRow, { TYPE_META } from './MediaRow'
 import MediaDetailModal from './MediaDetailModal'
@@ -29,11 +29,11 @@ const SORT_LABELS: Record<SortBy, string> = {
   finished: 'Terminé',
 }
 
-function sortItems(items: MediaItem[], sort: SortBy): MediaItem[] {
+function sortItems(items: MediaItem[], sort: SortBy, avg: Record<string, number | null>): MediaItem[] {
   if (sort === 'added') return items
   return [...items].sort((a, b) => {
     if (sort === 'title')    return a.title.localeCompare(b.title, 'fr')
-    if (sort === 'rating')   return (b.rating ?? 0) - (a.rating ?? 0)
+    if (sort === 'rating')   return (avg[b.id] ?? 0) - (avg[a.id] ?? 0)
     if (sort === 'finished') return (b.finished_at ?? '').localeCompare(a.finished_at ?? '')
     return 0
   })
@@ -45,7 +45,20 @@ export default function MediaPage() {
   useMediaRealtime()
 
   const { data: items = [], isLoading } = useMediaItems()
+  const { data: ratings = [] } = useMediaRatings()
   const updateStatus = useUpdateMediaStatus()
+
+  // Notes par média + moyenne (pour les lignes et le tri).
+  const ratingsByItem = ratings.reduce((acc, r) => {
+    (acc[r.media_item_id] ??= []).push(r)
+    return acc
+  }, {} as Record<string, MediaRating[]>)
+  const avgByItem = Object.fromEntries(
+    Object.entries(ratingsByItem).map(([id, rs]) => {
+      const vals = rs.map(r => r.rating).filter((n): n is number => n != null)
+      return [id, vals.length ? vals.reduce((s, n) => s + n, 0) / vals.length : null]
+    })
+  ) as Record<string, number | null>
 
   const { data: members = [] } = useQuery({
     queryKey: QK.membersList,
@@ -85,7 +98,7 @@ export default function MediaPage() {
              !(i.genre ?? '').toLowerCase().includes(q)) return false
     return true
   })
-  const sorted    = sortItems(filtered, sortBy)
+  const sorted    = sortItems(filtered, sortBy, avgByItem)
   const active    = sorted.filter(i => i.status === 'à voir' || i.status === 'en cours')
   const done      = sorted.filter(i => i.status === 'terminé')
   const abandoned = sorted.filter(i => i.status === 'abandonné')
@@ -205,6 +218,7 @@ export default function MediaPage() {
                   key={item.id}
                   item={item}
                   members={members}
+                  avgRating={avgByItem[item.id] ?? null}
                   onCycleStatus={() => handleCycleStatus(item)}
                   onOpen={() => setDetailItemId(item.id)}
                 />
@@ -225,6 +239,7 @@ export default function MediaPage() {
                     key={item.id}
                     item={item}
                     members={members}
+                    avgRating={avgByItem[item.id] ?? null}
                     done
                     onCycleStatus={() => handleCycleStatus(item)}
                     onOpen={() => setDetailItemId(item.id)}
@@ -247,6 +262,7 @@ export default function MediaPage() {
                     key={item.id}
                     item={item}
                     members={members}
+                    avgRating={avgByItem[item.id] ?? null}
                     done
                     onCycleStatus={() => handleCycleStatus(item)}
                     onOpen={() => setDetailItemId(item.id)}
@@ -276,6 +292,7 @@ export default function MediaPage() {
         <MediaDetailModal
           item={detailItem}
           members={members}
+          ratings={ratingsByItem[detailItem.id] ?? []}
           onClose={() => setDetailItemId(null)}
           onCycleStatus={() => handleCycleStatus(detailItem)}
         />

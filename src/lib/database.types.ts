@@ -750,6 +750,51 @@ export type Database = {
           },
         ]
       }
+      media_ratings: {
+        Row: {
+          comment: string | null
+          household_id: string
+          id: string
+          media_item_id: string
+          member_id: string
+          rating: number | null
+          updated_at: string
+        }
+        Insert: {
+          comment?: string | null
+          household_id: string
+          id?: string
+          media_item_id: string
+          member_id: string
+          rating?: number | null
+          updated_at?: string
+        }
+        Update: {
+          comment?: string | null
+          household_id?: string
+          id?: string
+          media_item_id?: string
+          member_id?: string
+          rating?: number | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_ratings_media_item_id_fkey"
+            columns: ["media_item_id"]
+            isOneToOne: false
+            referencedRelation: "media_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_ratings_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       members: {
         Row: {
           created_at: string

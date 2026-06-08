@@ -55,9 +55,21 @@ export interface UpdateMediaInput {
   external_url?: string | null
 }
 
+export interface MediaRating {
+  id: string
+  media_item_id: string
+  member_id: string
+  household_id: string
+  rating: number | null
+  comment: string | null
+  updated_at: string
+  member: { display_name: string } | null
+}
+
 // ── Query keys ────────────────────────────────────────────────────────────────
 
 export const MEDIA_KEY = ['media-items', HOUSEHOLD_ID] as const
+export const MEDIA_RATINGS_KEY = ['media-ratings', HOUSEHOLD_ID] as const
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -227,5 +239,72 @@ export function useDeleteMediaItem() {
       queryClient.setQueryData(MEDIA_KEY, ctx?.previous ?? [])
       showToast({ type: 'error', message: "Impossible de supprimer l'élément." })
     },
+  })
+}
+
+// ── Notes par membre ────────────────────────────────────────────────────────────
+
+export function useMediaRatings() {
+  return useQuery({
+    queryKey: MEDIA_RATINGS_KEY,
+    queryFn: async (): Promise<MediaRating[]> => {
+      const { data, error } = await supabase
+        .from('media_ratings')
+        .select('*, member:members(display_name)')
+        .eq('household_id', HOUSEHOLD_ID)
+      if (error) throw error
+      return data as unknown as MediaRating[]
+    },
+  })
+}
+
+/** Insère/maj la note+commentaire du membre connecté pour un média (upsert). */
+export function useUpsertMyRating() {
+  const queryClient = useQueryClient()
+  const { data: member } = useMember()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ mediaItemId, rating, comment }: {
+      mediaItemId: string; rating: number | null; comment: string | null
+    }) => {
+      const { error } = await supabase
+        .from('media_ratings')
+        .upsert({
+          media_item_id: mediaItemId,
+          member_id:     member!.id,
+          household_id:  HOUSEHOLD_ID,
+          rating,
+          comment,
+          updated_at:    new Date().toISOString(),
+        } as never, { onConflict: 'media_item_id,member_id' })
+      if (error) throw error
+    },
+    onMutate: async ({ mediaItemId, rating, comment }) => {
+      await queryClient.cancelQueries({ queryKey: MEDIA_RATINGS_KEY })
+      const previous = queryClient.getQueryData<MediaRating[]>(MEDIA_RATINGS_KEY) ?? []
+      const mine = previous.find(r => r.media_item_id === mediaItemId && r.member_id === member?.id)
+      const optimistic: MediaRating = {
+        id:            mine?.id ?? `optimistic-${Date.now()}`,
+        media_item_id: mediaItemId,
+        member_id:     member?.id ?? '',
+        household_id:  HOUSEHOLD_ID,
+        rating,
+        comment,
+        updated_at:    new Date().toISOString(),
+        member:        mine?.member ?? (member ? { display_name: member.display_name } : null),
+      }
+      queryClient.setQueryData<MediaRating[]>(MEDIA_RATINGS_KEY,
+        mine
+          ? previous.map(r => r === mine ? optimistic : r)
+          : [...previous, optimistic]
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      queryClient.setQueryData(MEDIA_RATINGS_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de sauvegarder ta note.' })
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: MEDIA_RATINGS_KEY }),
   })
 }

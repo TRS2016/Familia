@@ -577,6 +577,32 @@
   gap: 10px;
 }
 
+.otherRatingRow {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 5px 0;
+  border-top: 1px solid var(--border-subtle);
+  font-size: 13px;
+}
+
+.otherRatingName {
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.otherRatingStars {
+  color: #E8B84B;
+  letter-spacing: 1px;
+  flex-shrink: 0;
+}
+
+.otherRatingComment {
+  color: var(--text-muted);
+  font-style: italic;
+  min-width: 0;
+}
+
 .abandonBtn {
   font-size: 12px;
   font-weight: 700;

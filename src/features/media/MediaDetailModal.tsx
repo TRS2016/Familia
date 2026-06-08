@@ -5,8 +5,9 @@ import { fr } from 'date-fns/locale'
 import { Pencil, Trash2, ExternalLink } from 'lucide-react'
 import { memberColor } from '../../lib/constants'
 import SlideUpModal from '../../components/SlideUpModal'
-import { useUpdateMediaItem, useDeleteMediaItem } from './useMedia'
-import type { MediaItem, MediaType, UpdateMediaInput } from './useMedia'
+import { useMember } from '../../auth/useMember'
+import { useUpdateMediaItem, useDeleteMediaItem, useUpsertMyRating } from './useMedia'
+import type { MediaItem, MediaType, UpdateMediaInput, MediaRating } from './useMedia'
 import { TYPE_META, STATUS_STYLE } from './MediaRow'
 import styles from './MediaPage.module.css'
 
@@ -22,18 +23,24 @@ type EditDraft = {
   author_director: string; release_year: string; genre: string; external_url: string
 }
 
-export default function MediaDetailModal({ item, members, onClose, onCycleStatus }: {
+export default function MediaDetailModal({ item, members, ratings, onClose, onCycleStatus }: {
   item: MediaItem
   members: { id: string; display_name: string }[]
+  ratings: MediaRating[]
   onClose: () => void
   onCycleStatus: () => void
 }) {
+  const { data: member } = useMember()
   const updateItem = useUpdateMediaItem()
   const deleteItem = useDeleteMediaItem()
+  const upsertRating = useUpsertMyRating()
+
+  const myRating = ratings.find(r => r.member_id === member?.id) ?? null
+  const othersRatings = ratings.filter(r => r.member_id !== member?.id && (r.rating != null || r.comment))
 
   const [editMode, setEditMode]     = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [commentText, setCommentText] = useState(item.comment ?? '')
+  const [commentText, setCommentText] = useState(myRating?.comment ?? '')
   const [editDraft, setEditDraft]   = useState<EditDraft>({
     title:           item.title,
     type:            item.type,
@@ -43,7 +50,7 @@ export default function MediaDetailModal({ item, members, onClose, onCycleStatus
     external_url:    item.external_url ?? '',
   })
 
-  useEffect(() => { setCommentText(item.comment ?? '') }, [item.comment])
+  useEffect(() => { setCommentText(myRating?.comment ?? '') }, [myRating?.comment])
   useEffect(() => {
     setEditDraft({
       title:           item.title,
@@ -233,36 +240,58 @@ export default function MediaDetailModal({ item, members, onClose, onCycleStatus
             </div>
           )}
 
-          {/* Rating */}
+          {/* Ma note */}
           <div className={styles.detailSection}>
-            <span className={styles.detailSectionLabel}>Note</span>
+            <span className={styles.detailSectionLabel}>Ma note</span>
             <div className={styles.starRow}>
               {[1, 2, 3, 4, 5].map(n => (
                 <button
                   key={n}
-                  className={[styles.star, (item.rating ?? 0) >= n ? styles.starFilled : ''].join(' ')}
-                  onClick={() => onUpdate({ rating: item.rating === n ? null : n })}
+                  className={[styles.star, (myRating?.rating ?? 0) >= n ? styles.starFilled : ''].join(' ')}
+                  onClick={() => upsertRating.mutate({
+                    mediaItemId: item.id,
+                    rating: myRating?.rating === n ? null : n,
+                    comment: myRating?.comment ?? null,
+                  })}
                   aria-label={`${n} étoile${n > 1 ? 's' : ''}`}
                 >★</button>
               ))}
             </div>
-          </div>
-
-          {/* Commentaire */}
-          <div className={styles.detailSection}>
-            <span className={styles.detailSectionLabel}>Note personnelle</span>
             <textarea
               className={styles.commentInput}
               value={commentText}
               onChange={e => setCommentText(e.target.value)}
               onBlur={() => {
                 const trimmed = commentText.trim()
-                if (trimmed !== (item.comment ?? '')) onUpdate({ comment: trimmed || null })
+                if (trimmed !== (myRating?.comment ?? '')) {
+                  upsertRating.mutate({ mediaItemId: item.id, rating: myRating?.rating ?? null, comment: trimmed || null })
+                }
               }}
               placeholder="Ajouter une note…"
               rows={3}
             />
           </div>
+
+          {/* Notes des autres membres */}
+          {othersRatings.length > 0 && (
+            <div className={styles.detailSection}>
+              <span className={styles.detailSectionLabel}>Notes du foyer</span>
+              {othersRatings.map(r => {
+                const idx = members.findIndex(m => m.id === r.member_id)
+                return (
+                  <div key={r.id} className={styles.otherRatingRow}>
+                    <span className={styles.otherRatingName} style={{ color: idx >= 0 ? memberColor(idx) : 'var(--text-muted)' }}>
+                      {r.member?.display_name ?? '?'}
+                    </span>
+                    {r.rating != null && (
+                      <span className={styles.otherRatingStars}>{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
+                    )}
+                    {r.comment && <span className={styles.otherRatingComment}>{r.comment}</span>}
+                  </div>
+                )
+              })}
+            </div>
+          )}
 
           {/* Actions */}
           {confirmDelete ? (

@@ -17,9 +17,10 @@ export const STATUS_STYLE: Record<string, { background: string; color: string; b
   'abandonné':{ background: 'rgba(192,57,43,0.10)',     color: '#c0392b',           borderColor: 'rgba(192,57,43,0.5)' },
 }
 
-export default function MediaRow({ item, members, done = false, onCycleStatus, onOpen }: {
+export default function MediaRow({ item, members, avgRating = null, done = false, onCycleStatus, onOpen }: {
   item: MediaItem
   members: { id: string; display_name: string }[]
+  avgRating?: number | null
   done?: boolean
   onCycleStatus: () => void
   onOpen: () => void
@@ -52,9 +53,9 @@ export default function MediaRow({ item, members, done = false, onCycleStatus, o
             <span className={styles.itemMemberDot} style={{ background: memberColor(memberIdx) }} />
           )}
         </div>
-        {done && item.rating && item.rating > 0 && (
+        {avgRating != null && avgRating > 0 && (
           <div className={styles.itemRatingMini}>
-            {'★'.repeat(item.rating)}{'☆'.repeat(5 - item.rating)}
+            {'★'.repeat(Math.round(avgRating))}{'☆'.repeat(5 - Math.round(avgRating))}
           </div>
         )}
       </div>
