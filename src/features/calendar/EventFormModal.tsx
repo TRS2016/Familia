@@ -35,7 +35,7 @@ interface EventFormModalProps {
   householdMembers: { id: string; display_name: string }[]
   isPending: boolean
   onClose: () => void
-  onSubmit: (input: NewEventInput, editScope: 'one' | 'series') => void
+  onSubmit: (input: NewEventInput, editScope: 'one' | 'series' | 'following') => void
   onDelete: (id: string, groupId?: string | null) => void
 }
 
@@ -50,7 +50,7 @@ export function EventFormModal({
   onSubmit,
   onDelete,
 }: EventFormModalProps) {
-  const [editScope, setEditScope] = useState<'one' | 'series'>('one')
+  const [editScope, setEditScope] = useState<'one' | 'series' | 'following'>('one')
   const [formTitle, setFormTitle] = useState('')
   const [formDate, setFormDate] = useState(format(new Date(), 'yyyy-MM-dd'))
   const [formStartTime, setFormStartTime] = useState('')
@@ -317,6 +317,11 @@ export function EventFormModal({
                   className={[styles.recurrenceBtn, editScope === 'one' ? styles.recurrenceBtnActive : ''].join(' ')}
                   onClick={() => setEditScope('one')}>
                   Cet événement
+                </button>
+                <button type="button"
+                  className={[styles.recurrenceBtn, editScope === 'following' ? styles.recurrenceBtnActive : ''].join(' ')}
+                  onClick={() => setEditScope('following')}>
+                  Celui-ci et les suivants
                 </button>
                 <button type="button"
                   className={[styles.recurrenceBtn, editScope === 'series' ? styles.recurrenceBtnActive : ''].join(' ')}

@@ -266,10 +266,32 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
   const updateEvent = useMutation({
     mutationFn: async (vars: NewEventInput & {
       id: string
-      scope: 'one' | 'series'
+      scope: 'one' | 'series' | 'following'
       recurrenceGroupId: string | null
+      occurrenceDate?: string
     }): Promise<CalendarEvent | null> => {
-      const { id, scope, recurrenceGroupId, ...input } = vars
+      const { id, scope, recurrenceGroupId, occurrenceDate, ...input } = vars
+
+      // « Celui-ci et les suivants » : met à jour les champs des occurrences à partir
+      // de la date de l'occurrence éditée (sans toucher aux dates ni à la cadence).
+      if (scope === 'following' && recurrenceGroupId) {
+        const { error } = await supabase
+          .from('events')
+          .update({
+            title: input.title.trim(),
+            start_time: input.start_time || null,
+            end_time: input.end_time || null,
+            all_day: input.all_day,
+            member_id: input.member_id,
+            location: input.location?.trim() || null,
+            description: input.description?.trim() || null,
+            reminder_minutes: input.reminder_minutes,
+          })
+          .eq('recurrence_group_id', recurrenceGroupId)
+          .gte('date', occurrenceDate ?? input.date)
+        if (error) throw error
+        return null
+      }
 
       if (scope === 'series' && recurrenceGroupId) {
         const { error } = await supabase
@@ -310,7 +332,7 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
       return data as unknown as CalendarEvent
     },
     onMutate: async ({ id, scope, ...input }) => {
-      if (scope === 'series') return
+      if (scope !== 'one') return
 
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<CalendarEvent[]>(key) ?? []
@@ -334,13 +356,13 @@ export function useEvents(rangeStart: string, rangeEnd: string) {
       return { previous }
     },
     onError: (_err, vars, context) => {
-      if (vars.scope !== 'series') {
+      if (vars.scope === 'one') {
         queryClient.setQueryData(key, context?.previous ?? [])
       }
       showToast({ type: 'error', message: 'Impossible de mettre à jour l\'événement.' })
     },
     onSuccess: (updated, vars) => {
-      if (vars.scope === 'series') {
+      if (vars.scope !== 'one') {
         queryClient.invalidateQueries({ queryKey: EVENTS_KEY_PREFIX })
       } else if (updated) {
         queryClient.setQueryData<CalendarEvent[]>(key, (old = []) =>

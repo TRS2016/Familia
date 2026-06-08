@@ -232,9 +232,9 @@ export default function CalendarPage() {
     setEditingEvent(null)
   }
 
-  function handleFormSubmit(input: NewEventInput, editScope: 'one' | 'series') {
+  function handleFormSubmit(input: NewEventInput, editScope: 'one' | 'series' | 'following') {
     if (editingEvent) {
-      updateEvent.mutate({ id: editingEvent.id, ...input, scope: editScope, recurrenceGroupId: editingEvent.recurrence_group_id })
+      updateEvent.mutate({ id: editingEvent.id, ...input, scope: editScope, recurrenceGroupId: editingEvent.recurrence_group_id, occurrenceDate: editingEvent.date })
     } else {
       addEvent.mutate(input)
     }
