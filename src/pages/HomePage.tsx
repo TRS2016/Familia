@@ -367,6 +367,18 @@ export default function HomePage() {
       {/* Dashboard widgets — masonry 2 colonnes sur desktop */}
       <div className={styles.dashboard}>
 
+      {/* Widget — Souffle du jour */}
+      <div className={styles.widget}>
+        <div className={styles.widgetHead}>
+          <span className={styles.widgetLabel}>Souffle du jour</span>
+        </div>
+        <div className={[styles.card, styles.quoteCard].join(' ')}>
+          <span className={styles.quoteMark} aria-hidden="true">“</span>
+          <p className={styles.quoteText}>{quote.text}</p>
+          <p className={styles.quoteAuthor}>— {quote.author}</p>
+        </div>
+      </div>
+
       {/* Widget — Événements à venir */}
       {upcomingEvents && upcomingEvents.length > 0 && (
         <div className={styles.widget}>
@@ -568,18 +580,6 @@ export default function HomePage() {
           </div>
         )
       })()}
-
-      {/* Widget — Souffle du jour */}
-      <div className={styles.widget}>
-        <div className={styles.widgetHead}>
-          <span className={styles.widgetLabel}>Souffle du jour</span>
-        </div>
-        <div className={[styles.card, styles.quoteCard].join(' ')}>
-          <span className={styles.quoteMark} aria-hidden="true">“</span>
-          <p className={styles.quoteText}>{quote.text}</p>
-          <p className={styles.quoteAuthor}>— {quote.author}</p>
-        </div>
-      </div>
 
       </div>{/* /dashboard */}
 
