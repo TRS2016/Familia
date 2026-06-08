@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ShoppingCart, Calendar, Settings, BookOpen, Flame, Tv, Camera, Music, Bell } from 'lucide-react'
+import { ShoppingCart, Settings, Flame, Bell } from 'lucide-react'
 import SlideUpModal from '../components/SlideUpModal'
 import { format, addDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -366,77 +366,6 @@ export default function HomePage() {
           </div>
         </SlideUpModal>
       )}
-
-      {/* Nav cards */}
-      <p className={styles.sectionLabel}>Accès rapide</p>
-      <div className={styles.navGrid}>
-        <Link to="/groceries" className={styles.navCard}>
-          <div className={styles.navIconWrap} style={{ background: 'rgba(91,158,143,0.15)' }}>
-            <ShoppingCart size={22} color="#5B9E8F" strokeWidth={2} />
-          </div>
-          <div className={styles.navText}>
-            <div className={styles.navLabel}>Courses</div>
-            <div className={styles.navSub}>Liste partagée</div>
-          </div>
-        </Link>
-        <Link to="/calendar" className={styles.navCard}>
-          <div className={styles.navIconWrap} style={{ background: 'rgba(224,123,84,0.15)', position: 'relative' }}>
-            <Calendar size={22} color="var(--accent)" strokeWidth={2} />
-            {upcomingEvents && upcomingEvents.length > 0 && (
-              <span className={styles.navBadge}>{upcomingEvents.length}</span>
-            )}
-          </div>
-          <div className={styles.navText}>
-            <div className={styles.navLabel}>Calendrier</div>
-            <div className={styles.navSub}>Agenda familial</div>
-          </div>
-        </Link>
-        <Link to="/kakebo" className={styles.navCard}>
-          <div className={styles.navIconWrap} style={{ background: 'rgba(155,122,196,0.15)' }}>
-            <BookOpen size={22} color="#9B7AC4" strokeWidth={2} />
-          </div>
-          <div className={styles.navText}>
-            <div className={styles.navLabel}>Budget</div>
-            <div className={styles.navSub}>Kakebo familial</div>
-          </div>
-        </Link>
-        <Link to="/habits" className={styles.navCard}>
-          <div className={styles.navIconWrap} style={{ background: 'rgba(232,184,75,0.15)' }}>
-            <Flame size={22} color="#E8B84B" strokeWidth={2} />
-          </div>
-          <div className={styles.navText}>
-            <div className={styles.navLabel}>Habitudes</div>
-            <div className={styles.navSub}>Suivi quotidien</div>
-          </div>
-        </Link>
-        <Link to="/media" className={styles.navCard}>
-          <div className={styles.navIconWrap} style={{ background: 'rgba(224,123,84,0.15)' }}>
-            <Tv size={22} color="var(--accent)" strokeWidth={2} />
-          </div>
-          <div className={styles.navText}>
-            <div className={styles.navLabel}>Médias</div>
-            <div className={styles.navSub}>Films · Séries · Livres</div>
-          </div>
-        </Link>
-        <Link to="/lecteur" className={styles.navCard}>
-          <div className={styles.navIconWrap} style={{ background: 'rgba(155,122,196,0.15)' }}>
-            <Music size={22} color="#9B7AC4" strokeWidth={2} />
-          </div>
-          <div className={styles.navText}>
-            <div className={styles.navLabel}>Lecteur</div>
-            <div className={styles.navSub}>Audio · Vidéo · Maison</div>
-          </div>
-        </Link>
-        <Link to="/moments" className={styles.navCard}>
-          <div className={styles.navIconWrap} style={{ background: 'rgba(212,119,138,0.15)' }}>
-            <Camera size={22} color="#D4778A" strokeWidth={2} />
-          </div>
-          <div className={styles.navText}>
-            <div className={styles.navLabel}>Moments</div>
-            <div className={styles.navSub}>Journal photo</div>
-          </div>
-        </Link>
-      </div>
 
       {/* Dashboard widgets — masonry 2 colonnes sur desktop */}
       <div className={styles.dashboard}>
