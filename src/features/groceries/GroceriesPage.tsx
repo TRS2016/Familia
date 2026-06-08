@@ -17,7 +17,7 @@ import { GroceryItem } from './GroceryItem'
 import { CatalogPickerModal } from './CatalogPickerModal'
 import { LoadListModal } from './LoadListModal'
 import { useCatalog } from './useCatalog'
-import { useShoppingHistory, useSaveSession, useSessionSuggestions } from './useShoppingHistory'
+import { useShoppingHistory, useSaveSession, useSessionSuggestions, useAddGroceryExpense } from './useShoppingHistory'
 import type { SessionItem } from './useShoppingHistory'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
@@ -144,6 +144,8 @@ export default function GroceriesPage() {
   const catalog = useCatalog()
   const { showToast } = useToast()
   const saveSession = useSaveSession()
+  const addGroceryExpense = useAddGroceryExpense()
+  const [addToKakebo, setAddToKakebo] = useState(true)
 
   const [showCatalogPicker, setShowCatalogPicker] = useState(false)
 
@@ -526,6 +528,9 @@ export default function GroceriesPage() {
       const total = computeTotal(done)
       try {
         await saveSession.mutateAsync({ items, total: total > 0 ? total : null })
+        if (addToKakebo && total > 0) {
+          await addGroceryExpense.mutateAsync({ amount: total, itemCount: done.length })
+        }
         showToast({ type: 'success', message: 'Session de courses archivée !' })
       } catch { /* onError handles toast */ }
     }
@@ -1024,7 +1029,9 @@ export default function GroceriesPage() {
         <ArchivePromptModal
           checkedCount={shoppingItems.filter(g => g.checked).length}
           total={computeTotal(shoppingItems.filter(g => g.checked))}
-          isPending={saveSession.isPending}
+          isPending={saveSession.isPending || addGroceryExpense.isPending}
+          addToKakebo={addToKakebo}
+          onToggleKakebo={() => setAddToKakebo(v => !v)}
           onSave={() => handleArchiveDecision(true)}
           onSkip={() => handleArchiveDecision(false)}
         />
@@ -1221,10 +1228,12 @@ function SaveListModal({ uncheckedCount, isPending, onClose, onSave }: {
   )
 }
 
-function ArchivePromptModal({ checkedCount, total, isPending, onSave, onSkip }: {
+function ArchivePromptModal({ checkedCount, total, isPending, addToKakebo, onToggleKakebo, onSave, onSkip }: {
   checkedCount: number
   total: number
   isPending: boolean
+  addToKakebo: boolean
+  onToggleKakebo: () => void
   onSave: () => void
   onSkip: () => void
 }) {
@@ -1235,6 +1244,12 @@ function ArchivePromptModal({ checkedCount, total, isPending, onSave, onSkip }: 
           🛒 <strong>{checkedCount}</strong> article{checkedCount > 1 ? 's' : ''} cochés
           {total > 0 && <> · <strong>{formatPrice(total)}</strong></>}
         </p>
+        {total > 0 && (
+          <label className={styles.kakeboBridgeRow}>
+            <input type="checkbox" checked={addToKakebo} onChange={onToggleKakebo} />
+            <span>Ajouter {formatPrice(total)} aux dépenses du foyer (Kakebo)</span>
+          </label>
+        )}
         <button className={styles.archiveBtn} onClick={onSave} disabled={isPending}>
           {isPending ? 'Archivage…' : 'Archiver cette session'}
         </button>

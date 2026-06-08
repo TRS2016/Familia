@@ -1441,6 +1441,23 @@
   gap: 10px;
 }
 
+.kakeboBridgeRow {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  color: var(--text);
+  cursor: pointer;
+  padding: 2px 0 6px;
+}
+
+.kakeboBridgeRow input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+  flex-shrink: 0;
+}
+
 .archivePromptSummary {
   font-size: 15px;
   color: var(--text);

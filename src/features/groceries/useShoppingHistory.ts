@@ -76,6 +76,34 @@ export function useShoppingHistory(opts?: { enabled?: boolean }) {
   })
 }
 
+/** Pont Courses → Kakebo : enregistre le total d'une session comme dépense du foyer. */
+export function useAddGroceryExpense() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ amount, itemCount }: { amount: number; itemCount: number }) => {
+      const today = new Date().toISOString().slice(0, 10)
+      const { error } = await supabase.from('kakebo_entries').insert({
+        household_id: HOUSEHOLD_ID,
+        category_id: null,
+        member_id: null, // dépense commune du foyer
+        amount,
+        date: today,
+        description: `Courses — ${itemCount} article${itemCount > 1 ? 's' : ''}`,
+        tags: [],
+        recurring: false,
+      } as never)
+      if (error) throw error
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['kakebo-entries', HOUSEHOLD_ID] })
+      queryClient.invalidateQueries({ queryKey: ['home-kakebo', HOUSEHOLD_ID] })
+    },
+    onError: () => showToast({ type: 'error', message: 'Impossible d\'ajouter la dépense au Kakebo.' }),
+  })
+}
+
 export function useSaveSession() {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
