@@ -1273,6 +1273,7 @@ export type Database = {
     }
     Functions: {
       get_my_household_id: { Args: never; Returns: string }
+      reorder_habits: { Args: { p_ids: string[] }; Returns: undefined }
       replace_groceries_with_list: {
         Args: { p_household_id: string; p_items: Json; p_member_id: string }
         Returns: undefined

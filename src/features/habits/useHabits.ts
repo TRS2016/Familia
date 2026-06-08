@@ -96,7 +96,7 @@ export function useReorderHabits() {
   return useMutation({
     // orderedIds = liste complète des habitudes dans le nouvel ordre
     mutationFn: async (orderedIds: string[]) => {
-      const { error } = await supabase.rpc('reorder_habits', { p_ids: orderedIds as unknown as string })
+      const { error } = await supabase.rpc('reorder_habits', { p_ids: orderedIds })
       if (error) throw error
     },
     onMutate: async (orderedIds: string[]) => {

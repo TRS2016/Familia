@@ -47,7 +47,6 @@ export function useRealtimeInvalidation(channelName: string, subs: RealtimeSub[]
     let channel = supabase.channel(channelName)
     for (const sub of subsRef.current) {
       channel = channel.on(
-        // @ts-expect-error — surcharge générique de .on() pour postgres_changes
         'postgres_changes',
         { event: sub.event ?? '*', schema: 'public', table: sub.table },
         (payload: Payload) => {
