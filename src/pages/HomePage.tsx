@@ -39,7 +39,6 @@ function Avatar({ name, index, size = 36 }: { name: string; index: number; size?
 interface HouseholdDetails {
   name: string
   members: { id: string; display_name: string }[]
-  note: string | null
   kakebo_objectif_epargne: number | null
 }
 
@@ -265,7 +264,7 @@ export default function HomePage() {
       const [householdRes, membersRes] = await Promise.all([
         supabase
           .from('households')
-          .select('name, note, kakebo_objectif_epargne')
+          .select('name, kakebo_objectif_epargne')
           .eq('id', member!.household_id)
           .single(),
         supabase
@@ -275,10 +274,9 @@ export default function HomePage() {
       ])
       if (householdRes.error) throw householdRes.error
       if (membersRes.error) throw membersRes.error
-      const hd = householdRes.data as { name: string; note: string | null; kakebo_objectif_epargne: number | null }
+      const hd = householdRes.data as { name: string; kakebo_objectif_epargne: number | null }
       return {
         name: hd.name,
-        note: hd.note,
         kakebo_objectif_epargne: hd.kakebo_objectif_epargne,
         members: membersRes.data as { id: string; display_name: string }[],
       }
