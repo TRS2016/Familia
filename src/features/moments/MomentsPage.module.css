@@ -149,7 +149,7 @@
 /* ── Content ─────────────────────────────────────────────────────────────── */
 
 .text {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 500;
   color: var(--text);
   line-height: 1.55;
@@ -210,7 +210,7 @@
   background: var(--bg-input);
   color: var(--text);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 500;
   padding: 12px 14px;
   resize: none;
@@ -313,7 +313,7 @@
 }
 
 .confirmText {
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text-sub);
   line-height: 1.5;
   margin: 0;
@@ -343,7 +343,7 @@
   cursor: pointer;
   font-family: var(--font-family);
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text-sub);
   transition: all 0.15s;
 }

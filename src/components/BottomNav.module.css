@@ -114,7 +114,7 @@
   color: var(--text-muted);
   text-decoration: none;
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   transition: background 0.15s, color 0.15s;
   -webkit-tap-highlight-color: transparent;

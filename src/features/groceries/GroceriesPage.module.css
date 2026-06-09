@@ -187,7 +187,7 @@
   border: none;
   background: transparent;
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text);
   outline: none;
   padding: 9px 0;
@@ -526,7 +526,7 @@
 }
 
 .itemName {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--text);
   transition: color 0.15s;
@@ -904,7 +904,7 @@
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--border);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   background: var(--bg-input);
   color: var(--text);
@@ -940,7 +940,7 @@
 }
 
 .loadModalEmpty {
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text-muted);
   font-weight: 600;
   text-align: center;
@@ -981,7 +981,7 @@
 
 .loadModalName {
   display: block;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--text);
 }
@@ -1067,7 +1067,7 @@
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--border);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   background: var(--bg-input);
   color: var(--text);
@@ -1178,7 +1178,7 @@
   color: #fff;
   border: none;
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 800;
   padding: 11px 20px;
   border-radius: var(--radius-md);
@@ -1211,7 +1211,7 @@
 
 .loadModalCurrentTitle {
   display: block;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--accent);
 }
@@ -1368,7 +1368,7 @@
 
 .catalogPickerName {
   display: block;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--text);
   transition: color 0.15s;
@@ -1420,7 +1420,7 @@
 }
 
 .catalogPickerEmpty p {
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text-muted);
   font-weight: 600;
   margin: 0 0 8px;
@@ -1446,7 +1446,7 @@
   display: flex;
   align-items: center;
   gap: 9px;
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text);
   cursor: pointer;
   padding: 2px 0 6px;
@@ -1492,7 +1492,7 @@
   border-radius: var(--radius-md);
   font-family: var(--font-family);
   font-weight: 700;
-  font-size: 14px;
+  font-size: var(--text-md);
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
   margin-bottom: 4px;
@@ -1507,7 +1507,7 @@
 }
 
 .historyEmpty {
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text-muted);
   font-weight: 600;
   text-align: center;
@@ -1540,7 +1540,7 @@
 }
 
 .historyDate {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--text);
 }
@@ -1595,7 +1595,7 @@
   border: none;
   background: transparent;
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text);
   outline: none;
   padding: 2px 0;
@@ -1765,7 +1765,7 @@
   box-sizing: border-box;
   padding: 10px 12px;
   font-family: inherit;
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text);
   background: var(--bg-card);
   border: 1.5px solid var(--border);
@@ -1783,7 +1783,7 @@
   color: #fff;
   border: none;
   border-radius: var(--radius-sm);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   cursor: pointer;
   transition: opacity 0.15s;

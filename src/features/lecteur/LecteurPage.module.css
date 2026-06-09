@@ -354,7 +354,7 @@
 }
 
 .fileTitle {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--text);
   white-space: nowrap;
@@ -447,7 +447,7 @@
   background: var(--bg-input);
   color: var(--text);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   outline: none;
   transition: border-color 0.15s;
   width: 100%;
@@ -463,7 +463,7 @@
   background: var(--accent);
   color: #fff;
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   cursor: pointer;
   transition: opacity 0.15s;
@@ -543,7 +543,7 @@
 
 .playlistName {
   flex: 1;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--text);
 }
@@ -675,7 +675,7 @@
 .playlistPickerName {
   flex: 1;
   text-align: left;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
 }
 
@@ -840,7 +840,7 @@
 }
 
 .nowPlayingTitle {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--text);
   white-space: nowrap;
@@ -967,7 +967,7 @@
   border: none;
   color: var(--text);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   outline: none;
 }
 

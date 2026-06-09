@@ -144,7 +144,7 @@
   border: 1.5px solid var(--border);
   border-radius: var(--radius-md);
   color: var(--accent);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   font-family: var(--font-family);
   text-decoration: none;

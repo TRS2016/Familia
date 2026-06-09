@@ -107,7 +107,7 @@
   border: none;
   background: transparent;
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   color: var(--text);
   padding: 10px 0;
   outline: none;
@@ -203,7 +203,7 @@
 
 .itemTitle {
   display: block;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--text);
   white-space: nowrap;
@@ -302,7 +302,7 @@
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--border);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   background: var(--bg-input);
   color: var(--text);
   outline: none;
@@ -669,7 +669,7 @@
   border: 1.5px solid var(--border);
   color: var(--text-muted);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   padding: 12px;
   border-radius: var(--radius-md);
@@ -762,7 +762,7 @@
   border: none;
   cursor: pointer;
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 800;
   color: #fff;
   transition: opacity 0.15s;
@@ -928,7 +928,7 @@
 .playlistRowBody { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 
 .playlistName {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 800;
   color: var(--text);
 }
@@ -1172,7 +1172,7 @@
 
 .playlistPickerName {
   flex: 1;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--text);
   text-align: left;

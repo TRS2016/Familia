@@ -339,7 +339,7 @@
 }
 
 .heroSavingsEur {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   margin-left: 3px;
 }
@@ -403,7 +403,7 @@
   margin-top: 8px;
 }
 
-.moodEmoji { font-size: 14px; }
+.moodEmoji { font-size: var(--text-md); }
 
 .moodLabel {
   font-size: var(--text-2xs);
@@ -878,7 +878,7 @@
 }
 
 .detailGroupTotal {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 800;
 }
 
@@ -983,7 +983,7 @@
 }
 
 .catDetailStatValue {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 800;
   color: var(--text);
   margin: 2px 0 0;
@@ -1187,7 +1187,7 @@
   border-radius: var(--radius-sm);
   border: 1.5px solid var(--border);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   background: var(--bg-input);
   color: var(--text);
   outline: none;
@@ -1322,7 +1322,7 @@
 }
 
 .catPillGlyph {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-family: 'Nunito Sans', serif;
 }
 

@@ -196,7 +196,7 @@
 .presetInfo { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
 
 .presetName {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   color: var(--tr-ink);
   white-space: nowrap;
@@ -612,7 +612,7 @@
   text-align: center;
 }
 
-.exName { flex: 1; font-size: 14px; font-weight: 600; color: var(--tr-ink); min-width: 0; }
+.exName { flex: 1; font-size: var(--text-md); font-weight: 600; color: var(--tr-ink); min-width: 0; }
 
 .exNameInput {
   flex: 1;
@@ -620,7 +620,7 @@
   border: none;
   background: transparent;
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--tr-ink);
   outline: none;
@@ -669,7 +669,7 @@
   background: var(--bg-input);
   color: var(--text-sub);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 700;
   cursor: pointer;
 }
@@ -787,7 +787,7 @@
 
 .circuitName {
   flex: 1;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--tr-paper);
 }
@@ -842,7 +842,7 @@
   background: var(--tr-paper);
   color: var(--tr-ink);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   outline: none;
 }
 .exInput:focus { border-color: var(--tr-accent); }
@@ -917,7 +917,7 @@
   background: var(--tr-paper2);
   color: var(--tr-ink2);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
 }
@@ -1239,7 +1239,7 @@
   background: rgba(244, 240, 230, 0.1);
   color: var(--tr-paper);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
   justify-content: center;
@@ -1318,7 +1318,7 @@
   margin: 2px 0 0;
 }
 
-.exitText { font-size: 14px; color: var(--tr-ink3); margin: 0 0 8px; }
+.exitText { font-size: var(--text-md); color: var(--tr-ink3); margin: 0 0 8px; }
 
 .exitContinue {
   padding: 16px;
@@ -1339,7 +1339,7 @@
   background: transparent;
   color: var(--tr-accent);
   font-family: var(--font-family);
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
 }
