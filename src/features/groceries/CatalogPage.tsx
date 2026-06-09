@@ -230,8 +230,9 @@ export default function CatalogPage() {
         >
           <form onSubmit={handleAdd} className={styles.modalForm}>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Nom *</label>
+              <label htmlFor="catalog-add-name" className={styles.fieldLabel}>Nom *</label>
               <input
+                id="catalog-add-name"
                 type="text" value={addName} onChange={e => setAddName(e.target.value)}
                 className={styles.input} placeholder="Ex : Lait entier" autoFocus autoComplete="off" required
               />
@@ -239,16 +240,18 @@ export default function CatalogPage() {
 
             <div className={styles.row}>
               <div className={styles.field} style={{ flex: 1 }}>
-                <label className={styles.fieldLabel}>Prix (€)</label>
+                <label htmlFor="catalog-add-price" className={styles.fieldLabel}>Prix (€)</label>
                 <input
+                  id="catalog-add-price"
                   type="text" inputMode="decimal" value={addPrice}
                   onChange={e => setAddPrice(e.target.value)}
                   className={styles.input} placeholder="Ex : 1,99" autoComplete="off"
                 />
               </div>
               <div className={styles.field} style={{ flex: 1 }}>
-                <label className={styles.fieldLabel}>Quantité par défaut</label>
+                <label htmlFor="catalog-add-qty" className={styles.fieldLabel}>Quantité par défaut</label>
                 <input
+                  id="catalog-add-qty"
                   type="text" value={addQty} onChange={e => setAddQty(e.target.value)}
                   className={styles.input} placeholder="Ex : 1 kg, 6…" autoComplete="off"
                 />
@@ -256,8 +259,9 @@ export default function CatalogPage() {
             </div>
 
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Enseigne habituelle</label>
+              <label htmlFor="catalog-add-store" className={styles.fieldLabel}>Enseigne habituelle</label>
               <input
+                id="catalog-add-store"
                 type="text" value={addStore} onChange={e => setAddStore(e.target.value)}
                 className={styles.input} placeholder="Ex : Carrefour, Bio c'bon…" autoComplete="off"
               />
@@ -294,8 +298,9 @@ export default function CatalogPage() {
         <SlideUpModal title="Modifier l'article" onClose={() => setEditingItem(null)}>
           <form onSubmit={handleSaveEdit} className={styles.modalForm}>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Nom *</label>
+              <label htmlFor="catalog-edit-name" className={styles.fieldLabel}>Nom *</label>
               <input
+                id="catalog-edit-name"
                 type="text" value={editName} onChange={e => setEditName(e.target.value)}
                 className={styles.input} placeholder="Ex : Lait entier" autoFocus autoComplete="off" required
               />
@@ -303,16 +308,18 @@ export default function CatalogPage() {
 
             <div className={styles.row}>
               <div className={styles.field} style={{ flex: 1 }}>
-                <label className={styles.fieldLabel}>Prix (€)</label>
+                <label htmlFor="catalog-edit-price" className={styles.fieldLabel}>Prix (€)</label>
                 <input
+                  id="catalog-edit-price"
                   type="text" inputMode="decimal" value={editPrice}
                   onChange={e => setEditPrice(e.target.value)}
                   className={styles.input} placeholder="Ex : 1,99" autoComplete="off"
                 />
               </div>
               <div className={styles.field} style={{ flex: 1 }}>
-                <label className={styles.fieldLabel}>Quantité par défaut</label>
+                <label htmlFor="catalog-edit-qty" className={styles.fieldLabel}>Quantité par défaut</label>
                 <input
+                  id="catalog-edit-qty"
                   type="text" value={editQty} onChange={e => setEditQty(e.target.value)}
                   className={styles.input} placeholder="Ex : 1 kg, 6…" autoComplete="off"
                 />
@@ -320,8 +327,9 @@ export default function CatalogPage() {
             </div>
 
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>Enseigne habituelle</label>
+              <label htmlFor="catalog-edit-store" className={styles.fieldLabel}>Enseigne habituelle</label>
               <input
+                id="catalog-edit-store"
                 type="text" value={editStore} onChange={e => setEditStore(e.target.value)}
                 className={styles.input} placeholder="Ex : Carrefour, Bio c'bon…" autoComplete="off"
               />

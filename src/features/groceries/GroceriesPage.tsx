@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom'
 import {
   ChevronLeft, Plus, SlidersHorizontal, ShoppingCart,
   MapPin, Bookmark, FolderOpen, AlignJustify, LayoutList,
-  Search, X, Clock, Send,
+  Search, X, Clock, Send, ClipboardList,
 } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
@@ -649,6 +649,7 @@ export default function GroceriesPage() {
               value={newName}
               onChange={e => handleNameChange(e.target.value)}
               placeholder="Ajouter un article..."
+              aria-label="Nom de l'article à ajouter"
               disabled={addGrocery.isPending}
               className={styles.addInput}
               autoComplete="off"
@@ -660,8 +661,8 @@ export default function GroceriesPage() {
               type="button"
               className={[styles.expandBtn, formExpanded ? styles.expandBtnActive : ''].join(' ')}
               onClick={() => setFormExpanded(x => !x)}
-              aria-label="Détails"
-              tabIndex={-1}
+              aria-label="Détails (quantité, prix, enseigne, rayon)"
+              aria-expanded={formExpanded}
             >
               <SlidersHorizontal size={15} strokeWidth={2.5} />
             </button>
@@ -715,7 +716,7 @@ export default function GroceriesPage() {
                   autoComplete="off"
                 />
                 {newStore && (
-                  <button type="button" className={styles.storeClear} onClick={() => setNewStore('')}>
+                  <button type="button" className={styles.storeClear} onClick={() => setNewStore('')} aria-label="Effacer l'enseigne">
                     ×
                   </button>
                 )}
@@ -767,7 +768,8 @@ export default function GroceriesPage() {
       {!shoppingMode && (
         <div className={styles.catalogLink}>
           <button className={styles.catalogLinkBtn} onClick={() => setShowCatalogPicker(true)}>
-            📋 Depuis le catalogue
+            <ClipboardList size={14} strokeWidth={2.5} aria-hidden="true" />
+            Depuis le catalogue
           </button>
         </div>
       )}
@@ -821,6 +823,7 @@ export default function GroceriesPage() {
             value={filterText}
             onChange={e => setFilterText(e.target.value)}
             placeholder={shoppingMode ? 'Rechercher…' : 'Filtrer la liste…'}
+            aria-label={shoppingMode ? 'Rechercher un article' : 'Filtrer la liste'}
             className={styles.searchInput}
           />
           {filterText && (
@@ -960,7 +963,7 @@ export default function GroceriesPage() {
                 <div className={styles.budgetTrack}>
                   <div
                     className={styles.budgetFill}
-                    style={{ width: `${budgetProgress * 100}%`, background: overBudget ? 'var(--danger)' : '#5B9E8F' }}
+                    style={{ width: `${budgetProgress * 100}%`, background: overBudget ? 'var(--danger)' : 'var(--positive)' }}
                   />
                 </div>
               )}
@@ -970,7 +973,7 @@ export default function GroceriesPage() {
                     <input
                       type="text" inputMode="decimal" value={budget}
                       onChange={e => setBudget(e.target.value)}
-                      placeholder="Budget en €" className={styles.budgetInput} autoFocus
+                      placeholder="Budget en €" aria-label="Budget en euros" className={styles.budgetInput} autoFocus
                     />
                     <button type="submit" className={styles.budgetSaveBtn}>OK</button>
                     {budget && (
@@ -1132,23 +1135,26 @@ function EditGroceryModal({ item, storeOptions, isPending, onClose, onSave }: {
     <SlideUpModal title="Modifier l'article" onClose={onClose}>
       <form onSubmit={handleSubmit} className={styles.editForm}>
         <div className={styles.editField}>
-          <label className={styles.editLabel}>Nom</label>
+          <label htmlFor="edit-grocery-name" className={styles.editLabel}>Nom</label>
           <input
+            id="edit-grocery-name"
             type="text" value={name} onChange={e => setName(e.target.value)}
             className={styles.editInput} placeholder="Ex : Pommes" autoFocus autoComplete="off" required
           />
         </div>
         <div className={styles.editRow}>
           <div className={styles.editField} style={{ flex: 1 }}>
-            <label className={styles.editLabel}>Quantité</label>
+            <label htmlFor="edit-grocery-qty" className={styles.editLabel}>Quantité</label>
             <input
+              id="edit-grocery-qty"
               type="text" value={qty} onChange={e => setQty(e.target.value)}
               className={styles.editInput} placeholder="Ex : 1 kg, 3…" autoComplete="off"
             />
           </div>
           <div className={styles.editField} style={{ flex: 1 }}>
-            <label className={styles.editLabel}>Prix unitaire (€)</label>
+            <label htmlFor="edit-grocery-price" className={styles.editLabel}>Prix unitaire (€)</label>
             <input
+              id="edit-grocery-price"
               type="text" inputMode="decimal" value={price}
               onChange={e => setPrice(e.target.value)}
               className={styles.editInput} placeholder="Ex : 1,99" autoComplete="off"
@@ -1156,8 +1162,9 @@ function EditGroceryModal({ item, storeOptions, isPending, onClose, onSave }: {
           </div>
         </div>
         <div className={styles.editField}>
-          <label className={styles.editLabel}>Enseigne</label>
+          <label htmlFor="edit-grocery-store" className={styles.editLabel}>Enseigne</label>
           <input
+            id="edit-grocery-store"
             type="text" value={store} onChange={e => setStore(e.target.value)}
             className={styles.editInput} placeholder="Ex : Carrefour, Bio c'bon…" autoComplete="off"
           />
@@ -1218,6 +1225,7 @@ function SaveListModal({ uncheckedCount, isPending, onClose, onSave }: {
         <input
           type="text" value={name} onChange={e => setName(e.target.value)}
           placeholder="Nom de la liste (ex : Courses hebdo)"
+          aria-label="Nom de la liste"
           className={styles.saveModalInput} autoFocus autoComplete="off"
         />
         <button type="submit" disabled={!name.trim() || isPending} className={styles.saveModalBtn}>
@@ -1302,6 +1310,7 @@ function NotifyModal({ uncheckedItems, message, onMessageChange, notifying, onCl
           value={message}
           onChange={e => onMessageChange(e.target.value)}
           placeholder="Ajouter un message… ex : tu peux t'occuper de ça ?"
+          aria-label="Message à joindre à la notification"
           rows={3}
           autoFocus
         />
