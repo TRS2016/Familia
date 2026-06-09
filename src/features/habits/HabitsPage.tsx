@@ -135,6 +135,9 @@ export default function HabitsPage() {
   const isToday        = selectedDate === today
   // eslint-disable-next-line react-hooks/purity
   const MIN_DATE       = format(addDays(new Date(), -60), 'yyyy-MM-dd')
+  // eslint-disable-next-line react-hooks/purity
+  const MAX_DATE       = format(addDays(new Date(), 60), 'yyyy-MM-dd')
+  const isFuture       = selectedDate > today
   const dayNavLabel    = isToday ? 'Aujourd\'hui'
     : selectedDate === yesterday ? 'Hier'
     : capitalize(format(new Date(selectedDate + 'T12:00'), 'EEEE d MMM', { locale: fr }))
@@ -220,6 +223,7 @@ export default function HabitsPage() {
         count={getCount(habit.id, selectedDate)}
         target={habit.target_count ?? 1}
         hasNote={!!getNote(habit.id, selectedDate)}
+        readOnly={isFuture}
         onToggle={() => handleToggle(habit.id)}
         onNote={() => openNote(habit.id)}
         onDelete={() => setConfirmDeleteId(habit.id)}
@@ -375,7 +379,7 @@ export default function HabitsPage() {
         <button
           className={styles.weekNavBtn}
           onClick={() => setSelectedDate(d => format(addDays(new Date(d + 'T12:00'), 1), 'yyyy-MM-dd'))}
-          disabled={isToday}
+          disabled={selectedDate >= MAX_DATE}
           aria-label="Jour suivant"
         >
           <ChevronRight size={14} strokeWidth={2.5} />
@@ -779,7 +783,7 @@ function HabitForm({ draft, setDraft, members, isPending, submitLabel }: {
 
 // ── Habit row ─────────────────────────────────────────────────────────────────
 
-function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, count, target, hasNote, onToggle, onNote, onDelete, onEdit, onStats, onArchive, canReorder, isFirst, isLast, onMoveUp, onMoveDown }: {
+function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, count, target, hasNote, readOnly = false, onToggle, onNote, onDelete, onEdit, onStats, onArchive, canReorder, isFirst, isLast, onMoveUp, onMoveDown }: {
   habit: Habit
   color: string
   streak: number
@@ -789,6 +793,7 @@ function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, count, ta
   count: number
   target: number
   hasNote: boolean
+  readOnly?: boolean
   onToggle: () => void
   onNote: () => void
   onDelete: () => void
@@ -859,6 +864,7 @@ function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, count, ta
             style={done ? { background: checkColor, borderColor: checkColor }
                         : count > 0 ? { borderColor: checkColor, color: checkColor } : {}}
             onClick={onToggle}
+            disabled={readOnly}
             aria-label={`Progression ${count} sur ${target}`}
           >
             {done ? <span className={styles.checkMark}>✓</span> : <span className={styles.habitCountText}>{count}/{target}</span>}
@@ -868,6 +874,7 @@ function HabitRow({ habit, color, streak, monthlyRate, weekDone, done, count, ta
             className={[styles.habitCheck, done ? styles.habitCheckDone : ''].join(' ')}
             style={done ? { background: checkColor, borderColor: checkColor } : {}}
             onClick={onToggle}
+            disabled={readOnly}
             aria-label={done ? (isAvoid ? 'Annuler « tenu »' : 'Décocher') : (isAvoid ? 'Marquer tenu' : 'Cocher')}
             aria-pressed={done}
           >
