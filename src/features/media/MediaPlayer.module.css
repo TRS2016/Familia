@@ -108,11 +108,11 @@
   min-width: 0;
 }
 
-/* zone de clic plus haute que la barre visible */
+/* zone de clic/tap plus haute que la barre visible (~44px au total) */
 .audioTrack::before {
   content: '';
   position: absolute;
-  inset: -8px 0;
+  inset: -19px 0;
 }
 
 .audioFill {

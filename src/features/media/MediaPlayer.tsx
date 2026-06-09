@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Play, Pause } from 'lucide-react'
+import { Play, Pause, ExternalLink } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import styles from './MediaPlayer.module.css'
@@ -51,6 +51,20 @@ function CustomAudio({ src, autoPlay, onEnded }: {
     setCurrent(el.currentTime)
   }
 
+  function seekKey(e: React.KeyboardEvent<HTMLDivElement>) {
+    const el = ref.current
+    if (!el || !duration) return
+    let next: number | null = null
+    if (e.key === 'ArrowRight' || e.key === 'ArrowUp')   next = Math.min(duration, el.currentTime + 5)
+    else if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') next = Math.max(0, el.currentTime - 5)
+    else if (e.key === 'Home') next = 0
+    else if (e.key === 'End')  next = duration
+    if (next === null) return
+    e.preventDefault()
+    el.currentTime = next
+    setCurrent(next)
+  }
+
   const pct = duration ? (current / duration) * 100 : 0
 
   return (
@@ -77,7 +91,18 @@ function CustomAudio({ src, autoPlay, onEnded }: {
           : <Play size={18} strokeWidth={2.5} fill="currentColor" />}
       </button>
       <span className={styles.audioTime}>{fmtTime(current)}</span>
-      <div className={styles.audioTrack} onClick={seek}>
+      <div
+        className={styles.audioTrack}
+        onClick={seek}
+        onKeyDown={seekKey}
+        role="slider"
+        tabIndex={0}
+        aria-label="Position de lecture"
+        aria-valuemin={0}
+        aria-valuemax={Math.floor(duration)}
+        aria-valuenow={Math.floor(current)}
+        aria-valuetext={`${fmtTime(current)} sur ${fmtTime(duration)}`}
+      >
         <div className={styles.audioFill} style={{ width: `${pct}%` }}>
           <span className={styles.audioThumb} />
         </div>
@@ -281,7 +306,8 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
 
   return (
     <a href={url} target="_blank" rel="noopener noreferrer" className={styles.externalLink}>
-      Ouvrir ↗
+      <ExternalLink size={16} strokeWidth={2.5} aria-hidden="true" />
+      Ouvrir
     </a>
   )
 }

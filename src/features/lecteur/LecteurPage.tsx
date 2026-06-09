@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Upload, Link as LinkIcon, Trash2, Plus, X,
-  ListMusic, Search, Pencil, MoreHorizontal, Play,
+  ListMusic, Search, Pencil, MoreHorizontal, Play, Sparkles,
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -107,7 +107,8 @@ export default function LecteurPage() {
     if (fileList.length === 0) return
     setQueue(fileList)
     setQueueIndex(Math.max(0, Math.min(startIndex, fileList.length - 1)))
-    window.scrollTo({ top: 0, behavior: 'smooth' })
+    const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' })
   }
 
   function stop() {
@@ -208,7 +209,7 @@ export default function LecteurPage() {
         <div className={styles.playerDock}>
           <div className={styles.nowPlaying}>
             <div className={styles.nowPlayingArt}>
-              <span className={styles.nowPlayingArtEmoji}>{KIND_META[detectKind(playingFile)].emoji}</span>
+              <span className={styles.nowPlayingArtEmoji} aria-hidden="true">{KIND_META[detectKind(playingFile)].emoji}</span>
               <span className={styles.nowPlayingArtEq}><EqBars small /></span>
             </div>
             <div className={styles.nowPlayingInfo}>
@@ -433,15 +434,19 @@ function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, m
       <div
         className={[styles.fileRow, isPlaying ? styles.fileRowPlaying : ''].join(' ')}
         onClick={!showActions ? onPlay : undefined}
+        onKeyDown={!showActions ? (e => {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlay() }
+        }) : undefined}
         role="button"
         tabIndex={0}
+        aria-label={`Lire ${file.title}`}
       >
         <div className={[styles.kindIcon, isPlaying ? styles.kindIconPlaying : ''].join(' ')}>
           {isPlaying ? (
             <EqBars small />
           ) : (
             <>
-              <span className={styles.kindEmoji}>{meta.emoji}</span>
+              <span className={styles.kindEmoji} aria-hidden="true">{meta.emoji}</span>
               <span className={styles.kindPlay}><Play size={16} strokeWidth={2} fill="currentColor" /></span>
             </>
           )}
@@ -540,6 +545,7 @@ function TagInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) 
         type="text"
         className={styles.input}
         value={input}
+        aria-label="Ajouter un tag"
         onChange={e => setInput(e.target.value)}
         onKeyDown={e => {
           if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(input) }
@@ -586,7 +592,7 @@ function PlaylistsPane({ playlists, allFiles, selectedId, onSelect, onBack, onNe
           <Plus size={13} strokeWidth={2.5} /> Nouvelle liste
         </button>
         <button className={styles.newSmartBtn} onClick={onNewSmart}>
-          ✨ Smart liste
+          <Sparkles size={13} strokeWidth={2.5} aria-hidden="true" /> Smart liste
         </button>
       </div>
 
@@ -697,13 +703,17 @@ function PlaylistDetailPane({ playlist, allFiles, onBack, onPlay, playingFileId 
               <div
                 className={[styles.playlistItemRow, playingFileId === file.id ? styles.playlistItemPlaying : ''].join(' ')}
                 onClick={() => onPlay(displayFiles, i)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlay(displayFiles, i) }
+                }}
                 role="button"
                 tabIndex={0}
+                aria-label={`Lire ${file.title}`}
               >
                 <span className={styles.playlistItemPos}>
                   {playingFileId === file.id ? <EqBars small /> : i + 1}
                 </span>
-                <span style={{ fontSize: 18 }}>{KIND_META[detectKind(file)].emoji}</span>
+                <span style={{ fontSize: 18 }} aria-hidden="true">{KIND_META[detectKind(file)].emoji}</span>
                 <div className={styles.fileBody} style={{ flex: 1 }}>
                   <div className={styles.fileTitle}>{file.title}</div>
                   {file.member && <div className={styles.fileMeta}>{file.member.display_name}</div>}
@@ -985,8 +995,9 @@ function EditFileModal({ file, onClose }: { file: MediaFile; onClose: () => void
     <SlideUpModal title="Modifier" onClose={onClose}>
       <form onSubmit={handleSubmit} className={styles.form}>
         <div className={styles.fieldGroup}>
-          <label className={styles.fieldLabel}>Titre</label>
+          <label htmlFor="edit-file-title" className={styles.fieldLabel}>Titre</label>
           <input
+            id="edit-file-title"
             type="text"
             value={title}
             onChange={e => setTitle(e.target.value)}

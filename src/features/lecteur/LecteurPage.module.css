@@ -1046,3 +1046,23 @@
   .fileRow              { padding: 12px 14px; }
   .playlistRow          { padding: 14px; }
 }
+
+/* ── Zones de tap ≥44px (a11y touch-target) ──────────────────────────────────
+   Extension verticale uniquement : les boutons icônes du player et des lignes
+   sont groupés horizontalement (gap faible), élargir en largeur créerait des
+   chevauchements de hit-zones → mauvais taps. La hauteur est libre. */
+.backBtn, .deleteListBtn, .removeFromListBtn, .fileMoreBtn,
+.fileActionBtn, .nowPlayingNavBtn, .nowPlayingStopBtn, .searchClear {
+  position: relative;
+}
+.backBtn::before, .deleteListBtn::before, .removeFromListBtn::before,
+.fileMoreBtn::before, .fileActionBtn::before, .nowPlayingNavBtn::before,
+.nowPlayingStopBtn::before, .searchClear::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+}
