@@ -58,6 +58,8 @@ export default function CalendarPage() {
   )
   const [agendaStart, setAgendaStart] = useState(() => startOfDay(new Date()))
   const [agendaDaysCount, setAgendaDaysCount] = useState(60)
+  // Mois actuellement visible dans l'agenda (suit le scroll) pour l'en-tête.
+  const [agendaMonth, setAgendaMonth] = useState<Date | null>(null)
   const [selectedMonthDay, setSelectedMonthDay] = useState<string | null>(null)
 
   // ── Filters ──────────────────────────────────────────────────────────────
@@ -109,6 +111,40 @@ export default function CalendarPage() {
     if (el) observer.observe(el)
     return () => observer.disconnect()
   }, [view])
+
+  // ── Agenda : mois visible suit le scroll ─────────────────────────────────
+  useEffect(() => {
+    if (view !== 'agenda') return
+    let raf = 0
+    const update = () => {
+      raf = 0
+      const groups = document.querySelectorAll<HTMLElement>('[data-agenda-date]')
+      let currentKey: string | null = null
+      for (const g of groups) {
+        const top = g.getBoundingClientRect().top
+        if (top <= 160) currentKey = g.dataset.agendaDate ?? currentKey // dernier groupe passé sous l'en-tête
+        else break
+      }
+      if (!currentKey && groups.length > 0) currentKey = groups[0].dataset.agendaDate ?? null
+      if (!currentKey) return
+      const [y, mo] = currentKey.split('-').map(Number)
+      setAgendaMonth(prev =>
+        prev && prev.getFullYear() === y && prev.getMonth() === mo - 1
+          ? prev
+          : new Date(y, mo - 1, 1)
+      )
+    }
+    const onScroll = () => { if (!raf) raf = requestAnimationFrame(update) }
+    // Léger délai initial : laisse les groupes se monter avant le 1er calcul.
+    const t = setTimeout(update, 0)
+    // capture: true → attrape le scroll quel que soit le conteneur (l'event scroll ne bulle pas)
+    window.addEventListener('scroll', onScroll, true)
+    return () => {
+      clearTimeout(t)
+      window.removeEventListener('scroll', onScroll, true)
+      if (raf) cancelAnimationFrame(raf)
+    }
+  }, [view, agendaDaysCount, agendaStart])
 
   const weekEnd = addDays(weekStart, 6)
   const monthFirst = startOfMonth(monthCursor)
@@ -179,7 +215,7 @@ export default function CalendarPage() {
     ? `${capitalize(format(weekStart, 'd MMM', { locale: fr }))} – ${capitalize(format(threeDayEnd, 'd MMM yyyy', { locale: fr }))}`
     : view === 'month'
     ? capitalize(format(monthCursor, 'MMMM yyyy', { locale: fr }))
-    : `${capitalize(format(agendaStart, 'd MMM', { locale: fr }))} – ${capitalize(format(agendaEnd, 'd MMM yyyy', { locale: fr }))}`
+    : capitalize(format(agendaMonth ?? agendaStart, 'MMMM yyyy', { locale: fr }))
 
   const showsTodayIndicator =
     (view === 'week' && format(weekStart, 'yyyy-MM-dd') <= todayStr && todayStr <= format(weekEnd, 'yyyy-MM-dd')) ||
@@ -363,7 +399,7 @@ export default function CalendarPage() {
                 const [y, mo, d] = dateStr.split('-').map(Number)
                 const date = new Date(y, mo - 1, d)
                 return (
-                  <div key={dateStr} className={styles.agendaGroup}>
+                  <div key={dateStr} data-agenda-date={dateStr} className={styles.agendaGroup}>
                     <div className={[styles.agendaDateCol, isToday ? styles.agendaDateToday : ''].join(' ')}>
                       <span className={styles.agendaDayName}>
                         {capitalize(format(date, 'EEE', { locale: fr }))}
