@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Play, Pause, ExternalLink } from 'lucide-react'
+import { Play, Pause, ExternalLink, Volume2, VolumeX } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import styles from './MediaPlayer.module.css'
@@ -34,6 +34,7 @@ function CustomAudio({ src, autoPlay, onEnded }: {
   const [playing,  setPlaying]  = useState(false)
   const [current,  setCurrent]  = useState(0)
   const [duration, setDuration] = useState(0)
+  const [muted,    setMuted]    = useState(false)
 
   function toggle() {
     const el = ref.current
@@ -41,6 +42,43 @@ function CustomAudio({ src, autoPlay, onEnded }: {
     if (el.paused) el.play().catch(() => { /* autoplay bloqué */ })
     else el.pause()
   }
+
+  function toggleMute() {
+    const el = ref.current
+    if (!el) return
+    el.muted = !el.muted
+    setMuted(el.muted)
+  }
+
+  // Alimente le scrubber de l'écran verrouillé (MediaSession position state).
+  function syncPositionState() {
+    if (!('mediaSession' in navigator) || !navigator.mediaSession.setPositionState) return
+    const el = ref.current
+    if (!el || !isFinite(el.duration) || el.duration <= 0) return
+    try {
+      navigator.mediaSession.setPositionState({
+        duration: el.duration,
+        position: Math.min(el.currentTime, el.duration),
+        playbackRate: el.playbackRate || 1,
+      })
+    } catch { /* valeurs invalides ignorées */ }
+  }
+
+  // Handler « seekto » natif (glissement du scrubber sur l'écran verrouillé).
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    const ms = navigator.mediaSession
+    try {
+      ms.setActionHandler('seekto', (d: MediaSessionActionDetails) => {
+        const el = ref.current
+        if (!el || d.seekTime == null) return
+        el.currentTime = d.seekTime
+        setCurrent(d.seekTime)
+        syncPositionState()
+      })
+    } catch { /* action non supportée */ }
+    return () => { try { ms.setActionHandler('seekto', null) } catch { /* ignore */ } }
+  }, [])
 
   function seek(e: React.MouseEvent<HTMLDivElement>) {
     const el = ref.current
@@ -74,10 +112,17 @@ function CustomAudio({ src, autoPlay, onEnded }: {
         src={src}
         autoPlay={autoPlay}
         preload="metadata"
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
+        onPlay={() => {
+          setPlaying(true)
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'
+          syncPositionState()
+        }}
+        onPause={() => {
+          setPlaying(false)
+          if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'
+        }}
         onTimeUpdate={e => setCurrent(e.currentTarget.currentTime)}
-        onLoadedMetadata={e => setDuration(e.currentTarget.duration)}
+        onLoadedMetadata={e => { setDuration(e.currentTarget.duration); syncPositionState() }}
         onCanPlay={e => { if (autoPlay) e.currentTarget.play().catch(() => { /* bloqué */ }) }}
         onEnded={onEnded}
       />
@@ -108,6 +153,16 @@ function CustomAudio({ src, autoPlay, onEnded }: {
         </div>
       </div>
       <span className={styles.audioTime}>{fmtTime(duration)}</span>
+      <button
+        className={styles.audioMuteBtn}
+        onClick={toggleMute}
+        aria-label={muted ? 'Réactiver le son' : 'Couper le son'}
+        aria-pressed={muted}
+      >
+        {muted
+          ? <VolumeX size={17} strokeWidth={2.5} />
+          : <Volume2 size={17} strokeWidth={2.5} />}
+      </button>
     </div>
   )
 }

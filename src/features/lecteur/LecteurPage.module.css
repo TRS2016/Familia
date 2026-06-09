@@ -1008,6 +1008,35 @@
 
 .playAllBtn:hover { opacity: 0.85; }
 
+.shuffleBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.shuffleBtn:hover { color: var(--accent); border-color: var(--accent); }
+
+/* Zone de tap ≥44px en hauteur (a11y touch-target) */
+.shuffleBtn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+}
+
 /* ── Playlist item playing state ─────────────────────────────────────────────── */
 
 .playlistItemPlaying {

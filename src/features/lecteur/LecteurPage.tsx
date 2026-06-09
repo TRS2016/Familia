@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Upload, Link as LinkIcon, Trash2, Plus, X,
-  ListMusic, Search, Pencil, MoreHorizontal, Play, Sparkles,
+  ListMusic, Search, Pencil, MoreHorizontal, Play, Sparkles, Shuffle,
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -102,6 +102,37 @@ export default function LecteurPage() {
       staleTime: 90 * 60 * 1000,
     })
   }, [queue, queueIndex, queryClient])
+
+  // ── MediaSession : contrôles natifs (écran verrouillé, casque BT, centre de
+  // contrôle). Métadonnées + précédent/suivant/stop câblés sur la queue.
+  // Play/pause + seek sont gérés nativement par le navigateur pour les éléments
+  // <audio>/<video> ; les embeds YouTube/Spotify gèrent les leurs.
+  useEffect(() => {
+    if (!('mediaSession' in navigator)) return
+    const ms = navigator.mediaSession
+
+    if (!playingFile) {
+      ms.metadata = null
+      ms.playbackState = 'none'
+      return
+    }
+
+    ms.metadata = new MediaMetadata({
+      title:  playingFile.title,
+      artist: playingFile.member?.display_name ?? 'Familia',
+      album:  queue.length > 1 ? `Familia · ${queueIndex + 1}/${queue.length}` : 'Familia · Lecteur',
+    })
+    ms.playbackState = 'playing'
+    ms.setActionHandler('previoustrack', hasPrev ? () => setQueueIndex(i => Math.max(0, i - 1)) : null)
+    ms.setActionHandler('nexttrack',     hasNext ? () => setQueueIndex(i => i + 1) : null)
+    ms.setActionHandler('stop', () => stop())
+
+    return () => {
+      ms.setActionHandler('previoustrack', null)
+      ms.setActionHandler('nexttrack', null)
+      ms.setActionHandler('stop', null)
+    }
+  }, [playingFile, hasPrev, hasNext, queue.length, queueIndex])
 
   function playFiles(fileList: MediaFile[], startIndex = 0) {
     if (fileList.length === 0) return
@@ -640,6 +671,16 @@ function smartFilterLabel(f: LecteurSmartFilters): string {
   return parts.length > 0 ? parts.join(' · ') : 'Tous les médias'
 }
 
+// Mélange Fisher-Yates (copie, ne mute pas l'original).
+function shuffleArray<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
 // ── PlaylistDetailPane ────────────────────────────────────────────────────────
 
 function PlaylistDetailPane({ playlist, allFiles, onBack, onPlay, playingFileId }: {
@@ -671,6 +712,16 @@ function PlaylistDetailPane({ playlist, allFiles, onBack, onPlay, playingFileId 
             <div className={styles.playlistDetailFilters}>{smartFilterLabel(playlist.smart_filters)}</div>
           )}
         </div>
+        {displayFiles.length > 1 && (
+          <button
+            className={styles.shuffleBtn}
+            onClick={() => onPlay(shuffleArray(displayFiles), 0)}
+            aria-label="Lecture aléatoire"
+            title="Lecture aléatoire"
+          >
+            <Shuffle size={14} strokeWidth={2.5} />
+          </button>
+        )}
         {displayFiles.length > 0 && (
           <button
             className={styles.playAllBtn}
