@@ -68,6 +68,7 @@ export default function CalendarPage() {
   function switchView(newView: View) {
     if (newView === 'agenda') {
       setAgendaStart(startOfDay(new Date()))
+      setAgendaMonth(startOfMonth(new Date()))
       setAgendaDaysCount(60)
     }
     if (newView === '3day') {
@@ -135,16 +136,15 @@ export default function CalendarPage() {
       )
     }
     const onScroll = () => { if (!raf) raf = requestAnimationFrame(update) }
-    // Léger délai initial : laisse les groupes se monter avant le 1er calcul.
-    const t = setTimeout(update, 0)
+    // Pas de calcul initial : le mois est fixé par les flèches (goAgendaMonth) ;
+    // le suivi ne raffine que pendant un scroll réel de l'utilisateur.
     // capture: true → attrape le scroll quel que soit le conteneur (l'event scroll ne bulle pas)
     window.addEventListener('scroll', onScroll, true)
     return () => {
-      clearTimeout(t)
       window.removeEventListener('scroll', onScroll, true)
       if (raf) cancelAnimationFrame(raf)
     }
-  }, [view, agendaDaysCount, agendaStart])
+  }, [view])
 
   const weekEnd = addDays(weekStart, 6)
   const monthFirst = startOfMonth(monthCursor)
@@ -181,23 +181,31 @@ export default function CalendarPage() {
     monthWeeks.push(gridDays.slice(i, i + 7))
   }
 
+  // Agenda : navigation par mois civil (l'en-tête suit aussi le scroll).
+  function goAgendaMonth(delta: number) {
+    const target = addMonths(startOfMonth(agendaMonth ?? agendaStart), delta)
+    setAgendaMonth(target)
+    setAgendaStart(target)
+    setAgendaDaysCount(60)
+  }
   function goBack() {
     if (view === 'week') setWeekStart(w => addWeeks(w, -1))
     else if (view === '3day') setWeekStart(w => addDays(w, -3))
     else if (view === 'month') setMonthCursor(m => addMonths(m, -1))
-    else { setAgendaDaysCount(60); setAgendaStart(d => addDays(d, -30)) }
+    else goAgendaMonth(-1)
   }
   function goForward() {
     if (view === 'week') setWeekStart(w => addWeeks(w, 1))
     else if (view === '3day') setWeekStart(w => addDays(w, 3))
     else if (view === 'month') setMonthCursor(m => addMonths(m, 1))
-    else { setAgendaDaysCount(60); setAgendaStart(d => addDays(d, 30)) }
+    else goAgendaMonth(1)
   }
   function goToday() {
     if (view === '3day') setWeekStart(startOfDay(new Date()))
     else setWeekStart(startOfWeek(new Date(), { weekStartsOn: 1 }))
     setMonthCursor(startOfMonth(new Date()))
     setAgendaStart(startOfDay(new Date()))
+    setAgendaMonth(startOfMonth(new Date()))
     setAgendaDaysCount(60)
   }
 
