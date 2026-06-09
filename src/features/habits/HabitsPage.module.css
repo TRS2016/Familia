@@ -390,7 +390,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
-  z-index: 100;
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
   animation: overlayIn 0.2s ease;
@@ -409,8 +409,17 @@
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 12px 20px 32px;
   animation: slideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1);
-  max-height: 88vh;
+  max-height: 88dvh;
   overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+@media (min-width: 768px) {
+  .overlay { align-items: center; }
+  .modal {
+    border-radius: var(--radius-xl);
+    max-height: min(85dvh, 720px);
+  }
 }
 
 @keyframes slideUp {

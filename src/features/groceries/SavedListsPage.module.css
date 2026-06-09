@@ -474,7 +474,7 @@
   border-radius: var(--radius-pill);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.2);
   white-space: nowrap;
-  z-index: 999;
+  z-index: var(--z-toast);
 }
 
 /* ── Déplacer vers une autre liste ───────────────────────────────────────── */

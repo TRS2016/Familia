@@ -73,6 +73,14 @@
 
   /* Scrollbar */
   --scrollbar-thumb: #D0C8BF;
+
+  /* Échelle de z-index (couches transverses) — évite que les pop-ups
+     passent sous la navigation. Les z-index locaux (1,2,3…) restent internes
+     à leurs composants. */
+  --z-nav:      200;   /* BottomNav / sidebar */
+  --z-modal:    1000;  /* overlays + bottom sheets (dialogues) */
+  --z-lightbox: 1100;  /* visionneuses plein écran (photos) */
+  --z-toast:    1200;  /* toasts + bandeaux (toujours au-dessus) */
 }
 
 @media (prefers-color-scheme: dark) {

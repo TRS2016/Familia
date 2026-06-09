@@ -744,7 +744,7 @@
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
-  z-index: 100;
+  z-index: var(--z-modal);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -756,10 +756,21 @@
   border-radius: var(--radius-xl) var(--radius-xl) 0 0;
   width: 100%;
   max-width: 480px;
-  max-height: 92vh;
+  max-height: 92dvh;
   overflow-y: auto;
   padding-bottom: max(40px, env(safe-area-inset-bottom));
   animation: slideUp 0.28s ease;
+}
+
+@media (min-width: 768px) {
+  .overlay { align-items: center; }
+  .sheet {
+    border-radius: var(--radius-xl);
+    max-height: min(88dvh, 760px);
+    padding-bottom: 28px;
+    animation: overlayIn 0.18s ease;
+  }
+  .sheetHandle { display: none; }
 }
 
 .sheetHandle {

@@ -93,12 +93,17 @@ export function EventFormModal({
   }, [isOpen, editingEvent, addDefaults, currentMemberId])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Fermeture au clavier (Échap), cohérent avec le clic sur le backdrop.
+  // Fermeture au clavier (Échap) + verrou du scroll de la page sous la modale.
   useEffect(() => {
     if (!isOpen) return
     function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    const prevOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = prevOverflow
+    }
   }, [isOpen, onClose])
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -125,10 +130,16 @@ export function EventFormModal({
 
   return (
     <div className={styles.overlay} onClick={onClose}>
-      <div className={styles.sheet} onClick={e => e.stopPropagation()}>
+      <div
+        className={styles.sheet}
+        onClick={e => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="event-form-title"
+      >
         <div className={styles.sheetHandle} />
         <div className={styles.sheetHeader}>
-          <h2 className={styles.sheetTitle}>
+          <h2 id="event-form-title" className={styles.sheetTitle}>
             {editingId ? 'Modifier l\'événement' : 'Nouvel événement'}
           </h2>
           <button className={styles.sheetClose} onClick={onClose} aria-label="Fermer">
