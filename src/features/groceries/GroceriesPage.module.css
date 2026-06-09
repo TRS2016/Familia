@@ -74,7 +74,7 @@
 .progressChip {
   font-size: var(--text-2xs);
   font-weight: 800;
-  color: #5B9E8F;
+  color: var(--positive);
   background: rgba(91, 158, 143, 0.12);
   border-radius: var(--radius-pill);
   padding: 2px 8px;
@@ -113,9 +113,9 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: 1.5px solid #5B9E8F;
+  border: 1.5px solid var(--positive);
   background: rgba(91, 158, 143, 0.1);
-  color: #5B9E8F;
+  color: var(--positive);
   border-radius: var(--radius-sm);
   cursor: pointer;
   transition: opacity 0.15s;
@@ -141,9 +141,9 @@
 }
 
 .shoppingToggleActive {
-  border-color: #5B9E8F;
+  border-color: var(--positive);
   background: rgba(91, 158, 143, 0.1);
-  color: #5B9E8F;
+  color: var(--positive);
 }
 
 /* ── Shopping progress track ─────────────────────────────────────────────── */
@@ -156,7 +156,7 @@
 
 .shoppingProgressFill {
   height: 100%;
-  background: #5B9E8F;
+  background: var(--positive);
   border-radius: 0 2px 2px 0;
   transition: width 0.4s ease;
   animation: progressIn 0.4s ease;
@@ -586,7 +586,7 @@
 /* Vert + plus grand en mode shopping */
 .priceBadgeShopping {
   font-size: var(--text-sm);
-  color: #5B9E8F;
+  color: var(--positive);
   background: rgba(91, 158, 143, 0.1);
   border-color: rgba(91, 158, 143, 0.25);
 }
@@ -759,7 +759,7 @@
 .shoppingBudgetAmount {
   font-size: 16px;
   font-weight: 800;
-  color: #5B9E8F;
+  color: var(--positive);
   letter-spacing: -0.3px;
   line-height: 1;
 }
@@ -832,11 +832,11 @@
   transition: border-color 0.15s;
 }
 
-.budgetInput:focus { border-color: #5B9E8F; }
+.budgetInput:focus { border-color: var(--positive); }
 
 .budgetSaveBtn {
   border: none;
-  background: #5B9E8F;
+  background: var(--positive);
   color: #fff;
   font-family: var(--font-family);
   font-size: var(--text-xs);
@@ -994,7 +994,7 @@
   margin-top: 2px;
 }
 
-.loadModalItemActive .loadModalName { color: #5B9E8F; }
+.loadModalItemActive .loadModalName { color: var(--positive); }
 
 .loadModalCheck {
   width: 22px;
@@ -1009,8 +1009,8 @@
 }
 
 .loadModalCheckActive {
-  background: #5B9E8F;
-  border-color: #5B9E8F;
+  background: var(--positive);
+  border-color: var(--positive);
 }
 
 .loadModalAction {
@@ -1020,7 +1020,7 @@
 .loadModalBtn {
   width: 100%;
   padding: 13px;
-  background: #5B9E8F;
+  background: var(--positive);
   color: #fff;
   border: none;
   border-radius: var(--radius-md);
@@ -1149,9 +1149,9 @@
 }
 
 .memberFilterChipActive {
-  border-color: #5B9E8F;
+  border-color: var(--positive);
   background: rgba(91, 158, 143, 0.1);
-  color: #5B9E8F;
+  color: var(--positive);
 }
 
 /* ── Mode compact ────────────────────────────────────────────────────────── */
@@ -1174,7 +1174,7 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  background: #5B9E8F;
+  background: var(--positive);
   color: #fff;
   border: none;
   font-family: var(--font-family);
@@ -1342,7 +1342,7 @@
 
 .catalogPickerItem:last-child { border-bottom: none; }
 
-.catalogPickerItemSelected .catalogPickerName { color: #5B9E8F; }
+.catalogPickerItemSelected .catalogPickerName { color: var(--positive); }
 
 .catalogPickerCheck {
   width: 22px;
@@ -1357,8 +1357,8 @@
 }
 
 .catalogPickerCheckActive {
-  background: #5B9E8F;
-  border-color: #5B9E8F;
+  background: var(--positive);
+  border-color: var(--positive);
 }
 
 .catalogPickerInfo {
@@ -1385,7 +1385,7 @@
 .catalogPickerPrice {
   font-size: var(--text-sm);
   font-weight: 800;
-  color: #5B9E8F;
+  color: var(--positive);
   background: rgba(91, 158, 143, 0.1);
   border: 1px solid rgba(91, 158, 143, 0.25);
   border-radius: 6px;
@@ -1401,7 +1401,7 @@
 .catalogPickerBtn {
   width: 100%;
   padding: 13px;
-  background: #5B9E8F;
+  background: var(--positive);
   color: #fff;
   border: none;
   border-radius: var(--radius-md);
@@ -1470,7 +1470,7 @@
 .archiveBtn {
   width: 100%;
   padding: 13px;
-  background: #5B9E8F;
+  background: var(--positive);
   color: #fff;
   border: none;
   border-radius: var(--radius-md);
@@ -1568,7 +1568,7 @@
 .historyTotal {
   font-size: var(--text-md);
   font-weight: 900;
-  color: #5B9E8F;
+  color: var(--positive);
   letter-spacing: -0.3px;
 }
 
@@ -1645,7 +1645,7 @@
 .statValue {
   font-size: var(--text-lg);
   font-weight: 900;
-  color: #5B9E8F;
+  color: var(--positive);
   letter-spacing: -0.3px;
   line-height: 1;
 }

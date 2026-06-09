@@ -21,10 +21,11 @@
   --border-subtle: #F0EBE3;
 
   /* Couleurs sémantiques */
-  --danger:  #C0392B;
-  --success: #4F7D3A;
-  --info:    #3D80B8;
-  --warning: #E8B84B;
+  --danger:   #C0392B;
+  --success:  #4F7D3A;
+  --info:     #3D80B8;
+  --warning:  #E8B84B;
+  --positive: #5B9E8F;   /* vert « positif » : épargne, budget OK, terminé, revenu */
 
   /* Member palette — source unique : src/lib/constants.ts (MEMBER_PALETTE).
      Gardée en phase ici pour usage CSS éventuel. */

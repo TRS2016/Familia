@@ -272,7 +272,7 @@
 
 .successMsg {
   font-size: var(--text-sm);
-  color: #5B9E8F;
+  color: var(--positive);
   font-weight: 600;
   background: rgba(91, 158, 143, 0.1);
   border-radius: var(--radius-sm);

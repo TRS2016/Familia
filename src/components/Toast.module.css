@@ -41,7 +41,7 @@
 }
 
 .toastError   { background: #E07B54; }
-.toastSuccess { background: #5B9E8F; }
+.toastSuccess { background: var(--positive); }
 .toastInfo    { background: #7A6A60; }
 
 .icon {

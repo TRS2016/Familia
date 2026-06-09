@@ -781,7 +781,7 @@
 }
 
 .entryRow:hover .replayBtn { opacity: 1; }
-.replayBtn:hover { color: #5B9E8F; }
+.replayBtn:hover { color: var(--positive); }
 
 .entryRow:hover .editBtn  { opacity: 1; }
 .entryRow:hover .deleteBtn { opacity: 1; }
@@ -1392,7 +1392,7 @@
 
 .trendBarRev {
   width: 100%;
-  background: #5B9E8F;
+  background: var(--positive);
   border-radius: 3px 3px 0 0;
   opacity: 0.5;
   min-height: 2px;
@@ -1453,7 +1453,7 @@
   width: 8px;
   height: 8px;
   border-radius: 2px;
-  background: #5B9E8F;
+  background: var(--positive);
   opacity: 0.6;
   display: inline-block;
 }

@@ -952,7 +952,7 @@
 }
 
 .rowFreqDone {
-  color: #5B9E8F;
+  color: var(--positive);
   background: rgba(91, 158, 143, 0.12);
 }
 

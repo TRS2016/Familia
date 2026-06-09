@@ -48,8 +48,16 @@
 - **Lot B** : **corps 14px → `--text-md` (15px)** (91 occurrences) — le bump de lisibilité voulu par l'audit.
 - *Restent quelques tailles « edge » volontairement littérales* : 9/9.5/10/10.5/12.5/13.5/14.5/16/17/20/24/26px et les grands nombres d'affichage (44/64/80px) — micro-badges, inputs 16px (anti-zoom iOS), gros compteurs. À tokeniser au cas par cas si besoin.
 
-### 🟡 À poursuivre
-- **Migration de l'espacement** : `gap`/`padding`/`margin` toujours en px arbitraires ; tokens `--space-*` prêts à être adoptés.
+### ✅ Couleur sémantique « positive » tokenisée (2026-06-09)
+- Le teal `#5B9E8F` servait de **vert positif** (épargne, budget OK, statut « terminé », revenu) — pas de couleur membre. Ajout du token **`--positive #5B9E8F`** et migration des **33 occurrences en CSS modules** → `var(--positive)`.
+- *Laissé littéral à dessein côté TSX* : graphiques (SVG `stroke`/`fill` dans TrendView), icônes lucide (`color=`) et certains `style` de charts — les **attributs SVG et le prop `color` de lucide ne résolvent pas les variables CSS**. Y mettre `var()` casserait le rendu.
+
+### ⛔ Décision : pas de migration de l'espacement en masse
+Analyse chiffrée : les valeurs réelles de `gap/padding/margin` sont majoritairement **hors-échelle** (`6px` ×115, `10px` ×91, `2px` ×60, `5px` ×52, `14px`, `3px`…) et **79% des paddings sont des raccourcis** (`padding: 14px 16px`). Conséquences :
+- *Exact-match seul* → code à moitié tokenisé (moins cohérent qu'aujourd'hui), gain ~nul.
+- *Snap vers le token proche* → des centaines de marges décalées de 1-2px sur toute l'app → **risque de régression visuelle élevé pour un bénéfice cosmétique**.
+
+**Verdict : pire ratio valeur/risque du rapport.** Les tokens `--space-*` restent disponibles **pour le nouveau code** ; l'existant sera migré **opportunément** (au fil des touches de chaque composant), pas en masse.
 
 ### 🟠 À traiter
 - **Couleurs membres en inline** : `#5B9E8F` (×25), `#E07B54` (×16), `#E8B84B`… injectées en styles inline depuis `MEMBER_PALETTE` (`src/lib/constants.ts`). Source unique JS conservée (acceptable), mais ces hex restent dispersés ; envisager un helper `memberColor()` partout plutôt que des littéraux, et brancher les tokens `--member-*` (sinon les supprimer).

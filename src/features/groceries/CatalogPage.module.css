@@ -152,7 +152,7 @@
 .priceBadge {
   font-size: var(--text-sm);
   font-weight: 800;
-  color: #5B9E8F;
+  color: var(--positive);
   background: rgba(91, 158, 143, 0.1);
   border: 1px solid rgba(91, 158, 143, 0.25);
   border-radius: 6px;
