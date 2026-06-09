@@ -51,7 +51,7 @@
 
 .message {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 700;
   color: #fff;
   line-height: 1.4;

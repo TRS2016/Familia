@@ -87,7 +87,7 @@
 
 .sidebarBrandSub {
   display: block;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-muted);
   font-weight: 600;
   margin-top: 3px;
@@ -169,7 +169,7 @@
 }
 
 .moreLabel {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: var(--text);
   font-family: var(--font-family);

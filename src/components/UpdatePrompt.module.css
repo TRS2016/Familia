@@ -21,7 +21,7 @@
 
 .text {
   flex: 1;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   color: #FAF5EE;
 }
@@ -38,7 +38,7 @@
   border: 1.5px solid rgba(250, 245, 238, 0.35);
   background: transparent;
   color: #FAF5EE;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   font-family: var(--font-family);
@@ -55,7 +55,7 @@
   border: none;
   background: #E07B54;
   color: #fff;
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 700;
   cursor: pointer;
   font-family: var(--font-family);

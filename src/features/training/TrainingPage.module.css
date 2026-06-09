@@ -66,7 +66,7 @@
   flex: 1;
   font-family: var(--tr-display);
   font-weight: 600;
-  font-size: 22px;
+  font-size: var(--text-xl);
   letter-spacing: -0.02em;
   margin: 0;
   color: var(--tr-ink);
@@ -110,7 +110,7 @@
   background: var(--tr-paper2);
   color: var(--tr-ink2);
   font-family: var(--font-family);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
@@ -124,7 +124,7 @@
   border-color: var(--tr-ink);
 }
 
-.modeTabEmoji { font-size: 15px; line-height: 1; }
+.modeTabEmoji { font-size: var(--text-md); line-height: 1; }
 
 /* ── Filtre & chips de zone ─────────────────────────────────────────────────── */
 
@@ -143,7 +143,7 @@
   padding: 6px 12px;
   border: 1px solid var(--tr-line);
   border-radius: 999px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
   color: var(--tr-ink2);
   background: transparent;
@@ -289,7 +289,7 @@
 
 .historyMember {
   font-family: var(--tr-mono);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   color: var(--tr-ink4);
   text-transform: none;
@@ -300,7 +300,7 @@
   font-family: var(--tr-display);
   font-weight: 600;
   font-feature-settings: "tnum";
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--tr-accent);
 }
 
@@ -378,19 +378,19 @@
   font-family: var(--tr-display);
   font-weight: 700;
   font-feature-settings: "tnum";
-  font-size: 15px;
+  font-size: var(--text-md);
   line-height: 1;
 }
 .goalRingDen { font-size: 9px; opacity: 0.7; margin-left: 1px; }
 
 .goalForm { display: flex; flex-direction: column; gap: 14px; padding: 0 16px 16px; }
-.goalHint { font-size: 13px; color: var(--tr-ink3); margin: 0; }
+.goalHint { font-size: var(--text-sm); color: var(--tr-ink3); margin: 0; }
 
 .statValue {
   font-family: var(--tr-display);
   font-weight: 700;
   font-feature-settings: "tnum";
-  font-size: 22px;
+  font-size: var(--text-xl);
   line-height: 1;
   color: var(--tr-ink);
 }
@@ -489,7 +489,7 @@
 /* ── Config ─────────────────────────────────────────────────────────────────── */
 
 .configHint {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: var(--tr-ink3);
   padding: 6px 22px 16px;
@@ -604,7 +604,7 @@
 
 .exIdx {
   font-family: var(--tr-mono);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   color: var(--tr-ink4);
   width: 16px;
@@ -685,7 +685,7 @@
   border: none;
   color: var(--danger);
   font-family: var(--font-family);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 700;
   cursor: pointer;
 }
@@ -702,7 +702,7 @@
   background: rgba(244, 240, 230, 0.08);
   color: var(--tr-paper);
   font-family: var(--font-family);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 700;
   cursor: pointer;
 }
@@ -880,7 +880,7 @@
   font-family: var(--tr-display);
   font-weight: 600;
   font-feature-settings: "tnum";
-  font-size: 22px;
+  font-size: var(--text-xl);
   letter-spacing: -0.02em;
   text-transform: none;
 }
@@ -931,7 +931,7 @@
   background: var(--bg-input);
   color: var(--text);
   font-family: var(--font-family);
-  font-size: 15px;
+  font-size: var(--text-md);
   outline: none;
 }
 .saveInput:focus { border-color: var(--accent); }
@@ -943,7 +943,7 @@
   background: var(--bg-input);
   color: var(--text);
   font-family: var(--font-family);
-  font-size: 15px;
+  font-size: var(--text-md);
   outline: none;
   cursor: pointer;
 }
@@ -1032,7 +1032,7 @@
 
 .runEyebrow {
   font-family: var(--tr-mono);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: rgba(244, 240, 230, 0.55);
@@ -1113,7 +1113,7 @@
 
 .runPhase {
   font-family: var(--tr-mono);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin-bottom: 2px;
@@ -1131,7 +1131,7 @@
 
 .runSub {
   font-family: var(--tr-mono);
-  font-size: 12px;
+  font-size: var(--text-xs);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: rgba(244, 240, 230, 0.55);
@@ -1142,13 +1142,13 @@
 .runRecord {
   font-family: var(--tr-display);
   font-weight: 700;
-  font-size: 15px;
+  font-size: var(--text-md);
   color: #E8B84B;
   margin-top: 4px;
 }
 .runRecordPrev {
   font-family: var(--tr-mono);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(244, 240, 230, 0.5);
@@ -1187,12 +1187,12 @@
 .exerciseCurrent {
   font-family: var(--tr-display);
   font-weight: 600;
-  font-size: 22px;
+  font-size: var(--text-xl);
   letter-spacing: -0.02em;
 }
 .exerciseUpcoming {
   font-family: var(--tr-mono);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: rgba(244, 240, 230, 0.5);
@@ -1258,7 +1258,7 @@
   background: var(--tr-accent);
   color: #fff;
   font-family: var(--font-family);
-  font-size: 15px;
+  font-size: var(--text-md);
   font-weight: 700;
   cursor: pointer;
 }
@@ -1327,7 +1327,7 @@
   background: var(--tr-ink);
   color: var(--tr-paper);
   font-family: var(--font-family);
-  font-size: 15px;
+  font-size: var(--text-md);
   font-weight: 600;
   cursor: pointer;
 }

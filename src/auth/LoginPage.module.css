@@ -32,7 +32,7 @@
 }
 
 .logoSub {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-muted);
   font-weight: 600;
   margin: 0;
@@ -52,7 +52,7 @@
 }
 
 .fieldLabel {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 700;
   color: var(--text-muted);
   text-transform: uppercase;
@@ -91,7 +91,7 @@
   border-radius: var(--radius-md);
   font-family: var(--font-family);
   font-weight: 800;
-  font-size: 15px;
+  font-size: var(--text-md);
   cursor: pointer;
   box-shadow: var(--shadow-btn);
   transition: opacity 0.15s;
@@ -103,7 +103,7 @@
 }
 
 .hint {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-muted);
   line-height: 1.5;
   margin: 0;
@@ -111,7 +111,7 @@
 }
 
 .error {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--danger);
   background: rgba(192, 57, 43, 0.08);
   border-radius: var(--radius-sm);
@@ -139,14 +139,14 @@
 }
 
 .sentTitle {
-  font-size: 18px;
+  font-size: var(--text-lg);
   font-weight: 800;
   color: var(--text);
   margin: 0;
 }
 
 .sentBody {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-sub);
   line-height: 1.6;
   margin: 0;
