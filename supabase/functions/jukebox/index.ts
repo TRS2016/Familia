@@ -70,22 +70,14 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── POST : un invité ajoute un morceau ──────────────────────────────────────
+  // Body : { token, guest_name, media_file_id }  (depuis la bibliothèque)
+  //   ou  : { token, guest_name, external_url, title }  (lien YouTube/Spotify)
   if (req.method === 'POST') {
-    let body: { token?: string; media_file_id?: string; guest_name?: string }
+    let body: { token?: string; media_file_id?: string; external_url?: string; title?: string; guest_name?: string }
     try { body = await req.json() } catch { return json({ error: 'Requête invalide' }, 400) }
 
     const householdId = await resolveHousehold(body.token ?? null)
     if (!householdId) return json({ error: 'Lien invalide ou expiré' }, 404)
-    if (!body.media_file_id) return json({ error: 'Morceau manquant' }, 400)
-
-    // Le morceau doit appartenir au foyer du token.
-    const { data: file } = await supabase
-      .from('media_files')
-      .select('id')
-      .eq('id', body.media_file_id)
-      .eq('household_id', householdId)
-      .maybeSingle()
-    if (!file) return json({ error: 'Morceau introuvable' }, 404)
 
     // Garde-fou anti-spam.
     const { count } = await supabase
@@ -95,10 +87,43 @@ Deno.serve(async (req: Request) => {
       .eq('played', false)
     if ((count ?? 0) >= MAX_PENDING) return json({ error: 'File pleine' }, 429)
 
+    let mediaFileId = body.media_file_id
+
+    if (!mediaFileId) {
+      // Ajout via lien : on n'autorise que YouTube / Spotify.
+      const ext = (body.external_url ?? '').trim()
+      if (!ext) return json({ error: 'Morceau manquant' }, 400)
+      if (!/(?:youtube\.com|youtu\.be|open\.spotify\.com)/i.test(ext)) {
+        return json({ error: 'Seuls les liens YouTube ou Spotify sont acceptés.' }, 400)
+      }
+      const { data: created, error: cErr } = await supabase
+        .from('media_files')
+        .insert({
+          household_id: householdId,
+          member_id:    null,
+          title:        (body.title ?? '').trim().slice(0, 120) || 'Morceau (invité)',
+          external_url: ext,
+          tags:         [],
+        })
+        .select('id')
+        .single()
+      if (cErr || !created) return json({ error: 'Ajout impossible' }, 500)
+      mediaFileId = created.id as string
+    } else {
+      // Le morceau doit appartenir au foyer du token.
+      const { data: file } = await supabase
+        .from('media_files')
+        .select('id')
+        .eq('id', mediaFileId)
+        .eq('household_id', householdId)
+        .maybeSingle()
+      if (!file) return json({ error: 'Morceau introuvable' }, 404)
+    }
+
     const guestName = (body.guest_name ?? '').trim().slice(0, 40) || 'Invité'
     const { error } = await supabase.from('lecteur_queue').insert({
       household_id:  householdId,
-      media_file_id: body.media_file_id,
+      media_file_id: mediaFileId,
       added_by:      null,
       guest_name:    guestName,
       position:      Date.now(),

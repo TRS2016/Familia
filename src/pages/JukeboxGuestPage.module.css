@@ -72,6 +72,79 @@
 .queueBy { color: var(--text-sub); }
 .queueMore { list-style: none; color: var(--text-muted); font-style: italic; }
 
+.modeRow {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.modeBtn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 9px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-sub);
+  cursor: pointer;
+}
+.modeBtnActive { color: #fff; background: var(--accent); border-color: var(--accent); }
+
+.errLine {
+  color: var(--danger);
+  font-size: var(--text-sm);
+  margin-bottom: 10px;
+}
+
+.goBtn {
+  flex-shrink: 0;
+  margin-left: 8px;
+  padding: 0 14px;
+  height: 42px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-family);
+  font-weight: 700;
+  cursor: pointer;
+}
+.goBtn:disabled { opacity: 0.5; }
+
+.ytThumb {
+  width: 56px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.urlToggle {
+  margin-top: 14px;
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+}
+
+.urlForm {
+  display: flex;
+  align-items: center;
+  margin-top: 8px;
+}
+
 .searchWrap {
   position: relative;
   display: flex;

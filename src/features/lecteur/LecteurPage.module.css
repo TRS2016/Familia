@@ -1471,3 +1471,76 @@
 .inviteShare { color: var(--accent); font-size: var(--text-md); padding: 4px; }
 .inviteRevoke { color: var(--text-muted); font-size: var(--text-sm); padding: 4px; }
 .inviteRevoke:hover { color: var(--danger); }
+
+/* ── Recherche YouTube (membre) ──────────────────────────────────────────── */
+.ytSearchForm {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.ytSearchBtn {
+  flex-shrink: 0;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-md);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-family);
+  font-weight: 700;
+  cursor: pointer;
+}
+.ytSearchBtn:disabled { opacity: 0.5; }
+
+.ytError { color: var(--danger); font-size: var(--text-sm); margin-bottom: 10px; }
+
+.ytResults {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 60dvh;
+  overflow-y: auto;
+}
+.ytItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px;
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+}
+.ytThumb {
+  width: 64px;
+  height: 48px;
+  object-fit: cover;
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+.ytItemBody { flex: 1; min-width: 0; }
+.ytItemTitle {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.ytItemChannel { font-size: var(--text-2xs); color: var(--text-sub); }
+.addBtn2 {
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.addBtn2Done { background: var(--positive); }
+.addBtn2:disabled { cursor: default; }
