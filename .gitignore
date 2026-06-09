@@ -34,3 +34,6 @@ Familia v6.html
 # Rapport d'état local (non versionné)
 STATE.md
 ROADMAP.md
+
+# Skills Claude Code (outillage local, non versionné)
+.claude/skills/

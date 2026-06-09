@@ -23,6 +23,7 @@
   animation: slideUp 0.28s cubic-bezier(0.22, 1, 0.36, 1);
   max-height: 88vh;
   overflow-y: auto;
+  overscroll-behavior: contain; /* évite le scroll-chaining vers la page sous le modal */
 }
 
 @keyframes slideUp {

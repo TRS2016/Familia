@@ -580,6 +580,7 @@ export default function KakeboPage() {
                 <input
                   id="k-amount"
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
                   min="0.01"
                   value={draft.amount}
@@ -705,6 +706,7 @@ export default function KakeboPage() {
                 <input
                   id="e-amount"
                   type="number"
+                  inputMode="decimal"
                   step="0.01"
                   min="0.01"
                   value={editDraft.amount}
@@ -772,6 +774,7 @@ export default function KakeboPage() {
                 <input
                   id="k-objectif"
                   type="number"
+                  inputMode="numeric"
                   min="0"
                   step="1"
                   value={budgetDraft}
@@ -808,6 +811,7 @@ export default function KakeboPage() {
                     )}
                     <input
                       type="number"
+                      inputMode="numeric"
                       min="1"
                       step="1"
                       value={budgetDrafts[cat.id] ?? ''}

@@ -17,13 +17,13 @@ const MOBILE_TABS: { to: string; Icon: LucideIcon; label: string; exact: boolean
   { to: '/habits',    Icon: Flame,        label: 'Habitudes',  exact: false },
 ]
 
-const MOBILE_MORE = [
-  { to: '/kakebo',   emoji: '📒', label: 'Budget'   },
-  { to: '/moments',  emoji: '📸', label: 'Moments'  },
-  { to: '/media',    emoji: '🎬', label: 'Médias'   },
-  { to: '/lecteur',  emoji: '🎵', label: 'Lecteur'  },
-  { to: '/training', emoji: '🏋️', label: 'Training' },
-  { to: '/settings', emoji: '⚙️', label: 'Réglages' },
+const MOBILE_MORE: { to: string; Icon: LucideIcon; label: string }[] = [
+  { to: '/kakebo',   Icon: BookOpen, label: 'Budget'   },
+  { to: '/moments',  Icon: Camera,   label: 'Moments'  },
+  { to: '/media',    Icon: Tv,       label: 'Médias'   },
+  { to: '/lecteur',  Icon: Music,    label: 'Lecteur'  },
+  { to: '/training', Icon: Dumbbell, label: 'Training' },
+  { to: '/settings', Icon: Settings, label: 'Réglages' },
 ]
 
 // ── Desktop sidebar ───────────────────────────────────────────────────────────
@@ -137,7 +137,7 @@ export default function BottomNav() {
                   className={[styles.moreItem, active ? styles.moreItemActive : ''].join(' ')}
                   onClick={() => setShowMore(false)}
                 >
-                  <span className={styles.moreEmoji}>{item.emoji}</span>
+                  <item.Icon className={styles.moreIcon} size={26} strokeWidth={2} aria-hidden="true" />
                   <span className={styles.moreLabel}>{item.label}</span>
                 </Link>
               )

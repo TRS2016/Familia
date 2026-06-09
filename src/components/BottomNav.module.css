@@ -163,10 +163,12 @@
 .moreItem:active       { opacity: 0.75; }
 .moreItemActive        { border-color: var(--accent); background: rgba(224, 123, 84, 0.08); }
 
-.moreEmoji {
-  font-size: 26px;
-  line-height: 1;
+.moreIcon {
+  color: var(--text-sub);
+  transition: color 0.15s;
 }
+
+.moreItemActive .moreIcon { color: var(--accent); }
 
 .moreLabel {
   font-size: var(--text-2xs);

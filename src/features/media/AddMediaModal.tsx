@@ -100,7 +100,7 @@ export function AddMediaForm({
               Année <span className={styles.optional}>optionnel</span>
             </label>
             <input
-              id="m-year" type="number" value={draft.release_year} min={1800} max={2100}
+              id="m-year" type="number" inputMode="numeric" value={draft.release_year} min={1800} max={2100}
               onChange={e => setDraft(d => ({ ...d, release_year: e.target.value }))}
               className={styles.input} placeholder="2024"
             />

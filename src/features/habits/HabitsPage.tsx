@@ -655,6 +655,7 @@ function HabitForm({ draft, setDraft, members, isPending, submitLabel }: {
           >Simple (oui/non)</button>
           <input
             type="number"
+            inputMode="numeric"
             min={1}
             max={99}
             className={styles.timeInput}

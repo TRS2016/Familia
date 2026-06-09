@@ -137,7 +137,7 @@ export default function MediaDetailModal({ item, members, ratings, onClose, onCy
                 Année <span className={styles.optional}>optionnel</span>
               </label>
               <input
-                id="d-year" type="number" value={editDraft.release_year} min={1800} max={2100}
+                id="d-year" type="number" inputMode="numeric" value={editDraft.release_year} min={1800} max={2100}
                 onChange={e => setEditDraft(d => ({ ...d, release_year: e.target.value }))}
                 className={styles.input}
               />
