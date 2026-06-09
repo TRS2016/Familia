@@ -19,12 +19,12 @@
 | Catégorie | Avant | Après | Évolution |
 |---|---|---|---|
 | **Cohérence** | 6.5 | **7.5** | Couleurs sémantiques tokenisées, code mort retiré. |
-| **Typographie** | 5 | **6.5** | Police de titres + échelle typo en tokens ; migration des tailles à poursuivre. |
+| **Typographie** | 5 | **8** | Échelle en tokens **appliquée** (tailles dominantes migrées + corps 14→15px) ; police de titres. |
 | **Palette** | 6.5 | **8** | Contrastes texte corrigés (clair + sombre), tokens sémantiques. |
 | **Responsive** | 6 | 6 | Inchangé ce passage. |
 | **Identité** | 6.5 | **7.5** | Police éditoriale sur les titres, palette chaude assumée. |
 | **Accessibilité** *(transversal)* | ~3 | **7** | Focus clavier global rétabli. |
-| **GLOBAL** | **6.1** | **≈7.2** | Base systématisée ; reste la migration typo/espacement et le responsive. |
+| **GLOBAL** | **6.1** | **≈7.5** | Base systématisée (a11y, contraste, typo) ; reste l'espacement et le responsive. |
 
 ---
 
@@ -43,8 +43,12 @@
 
 ## 3. Problèmes restants (priorisés)
 
-### 🟡 Critiques partiellement traités
-- **Migration des tailles de police** : ~25 tailles en px encore codées **dans les composants** (`font-size: 13px/14px/...`). Les **tokens existent** désormais — reste à remplacer progressivement (`--text-md` pour le corps, etc.). C'est un refactor large à faire par lots pour éviter les régressions visuelles.
+### ✅ Migration typographique appliquée (2026-06-09)
+- **Lot A** : tailles correspondant exactement à un token (11/12/13/15/18/22px) → `var(--text-*)`, **sans changer aucune valeur** (347 remplacements).
+- **Lot B** : **corps 14px → `--text-md` (15px)** (91 occurrences) — le bump de lisibilité voulu par l'audit.
+- *Restent quelques tailles « edge » volontairement littérales* : 9/9.5/10/10.5/12.5/13.5/14.5/16/17/20/24/26px et les grands nombres d'affichage (44/64/80px) — micro-badges, inputs 16px (anti-zoom iOS), gros compteurs. À tokeniser au cas par cas si besoin.
+
+### 🟡 À poursuivre
 - **Migration de l'espacement** : `gap`/`padding`/`margin` toujours en px arbitraires ; tokens `--space-*` prêts à être adoptés.
 
 ### 🟠 À traiter
