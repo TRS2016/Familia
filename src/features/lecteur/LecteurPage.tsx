@@ -4,8 +4,9 @@ import { Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Upload, Link as LinkIcon, Trash2, Plus, X,
   ListMusic, Search, Pencil, MoreHorizontal, Play, Sparkles, Shuffle,
-  Repeat, Repeat1, Moon, Star, PartyPopper, ListPlus,
+  Repeat, Repeat1, Moon, Star, PartyPopper, ListPlus, Share2,
 } from 'lucide-react'
+import QRCode from 'qrcode'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
@@ -28,6 +29,7 @@ import {
   useLecteurQueue, useAddToQueue, useRemoveFromQueue, useMarkQueuePlayed, useClearQueue,
 } from './useLecteurQueue'
 import type { QueueItem } from './useLecteurQueue'
+import { useJukeboxToken } from './useJukeboxToken'
 import styles from './LecteurPage.module.css'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -725,9 +727,17 @@ function JukeboxPane({ queueItems, onGoToLibrary }: {
   const removeItem = useRemoveFromQueue()
   const clearQueue = useClearQueue()
   const [djMode, setDjMode] = useState(false)
+  const [showInvite, setShowInvite] = useState(false)
 
   const current = queueItems[0] ?? null
   const upNext  = queueItems.slice(1)
+
+  const inviteBtn = (
+    <button className={styles.inviteBtn} onClick={() => setShowInvite(true)}>
+      <Share2 size={14} strokeWidth={2.5} /> Inviter des amis (lien / QR)
+    </button>
+  )
+  const inviteModal = showInvite && <InviteModal onClose={() => setShowInvite(false)} />
 
   if (!current) {
     return (
@@ -735,17 +745,20 @@ function JukeboxPane({ queueItems, onGoToLibrary }: {
         <EmptyState
           emoji="🎉"
           title="La file est vide"
-          description="Chacun ajoute ses morceaux depuis la Bibliothèque (bouton « + file »). Ils s'enchaînent ici automatiquement."
+          description="Chacun ajoute ses morceaux depuis la Bibliothèque (bouton « + file ») ou via le lien d'invitation. Ils s'enchaînent ici."
         />
+        {inviteBtn}
         <button className={styles.newListBtn} onClick={onGoToLibrary}>
           <Plus size={13} strokeWidth={2.5} /> Ajouter depuis la bibliothèque
         </button>
+        {inviteModal}
       </div>
     )
   }
 
   return (
     <div className={styles.jukebox}>
+      <div className={styles.jukeboxTopBar}>{inviteBtn}</div>
       {/* En cours */}
       <div className={styles.jukeboxNow}>
         <div className={styles.jukeboxNowHead}>
@@ -763,8 +776,8 @@ function JukeboxPane({ queueItems, onGoToLibrary }: {
         </div>
 
         <div className={styles.jukeboxNowTitle}>{current.media_file?.title ?? 'Morceau supprimé'}</div>
-        {current.added_by_member && (
-          <div className={styles.jukeboxNowBy}>demandé par {current.added_by_member.display_name}</div>
+        {(current.added_by_member?.display_name ?? current.guest_name) && (
+          <div className={styles.jukeboxNowBy}>demandé par {current.added_by_member?.display_name ?? current.guest_name}</div>
         )}
 
         {djMode && current.media_file && (
@@ -801,8 +814,8 @@ function JukeboxPane({ queueItems, onGoToLibrary }: {
               <span className={styles.jukeboxPos}>{i + 1}</span>
               <div className={styles.jukeboxItemBody}>
                 <div className={styles.jukeboxItemTitle}>{item.media_file?.title ?? 'Morceau supprimé'}</div>
-                {item.added_by_member && (
-                  <div className={styles.jukeboxItemBy}>{item.added_by_member.display_name}</div>
+                {(item.added_by_member?.display_name ?? item.guest_name) && (
+                  <div className={styles.jukeboxItemBy}>{item.added_by_member?.display_name ?? item.guest_name}</div>
                 )}
               </div>
               <button
@@ -816,7 +829,62 @@ function JukeboxPane({ queueItems, onGoToLibrary }: {
           ))}
         </ul>
       )}
+      {inviteModal}
     </div>
+  )
+}
+
+// ── InviteModal (lien / QR pour inviter des non-membres) ──────────────────────
+
+function InviteModal({ onClose }: { onClose: () => void }) {
+  const { query, create, revoke } = useJukeboxToken()
+  const [qr, setQr] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+
+  const token = query.data?.token ?? null
+  const url = token ? `${window.location.origin}/soiree/${token}` : null
+
+  // Crée un lien s'il n'en existe pas encore d'actif.
+  useEffect(() => {
+    if (!query.isLoading && !token && !create.isPending && !create.isSuccess) create.mutate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query.isLoading, token])
+
+  useEffect(() => {
+    if (url) QRCode.toDataURL(url, { width: 260, margin: 1 }).then(setQr).catch(() => setQr(null))
+  }, [url])
+
+  async function copy() {
+    if (!url) return
+    try { await navigator.clipboard.writeText(url); setCopied(true); setTimeout(() => setCopied(false), 1500) } catch { /* ignore */ }
+  }
+  async function share() {
+    if (url && 'share' in navigator) { try { await navigator.share({ title: 'Demande ta musique 🎉', url }) } catch { /* annulé */ } }
+  }
+
+  return (
+    <SlideUpModal title="Inviter à la soirée" onClose={onClose}>
+      <div className={styles.inviteBody}>
+        <p className={styles.inviteHint}>
+          Tes invités scannent le QR (ou ouvrent le lien) et ajoutent des morceaux <strong>sans compte</strong>. Le lien expire après ~24 h.
+        </p>
+        {!url ? (
+          <p className={styles.jukeboxHint}>Création du lien…</p>
+        ) : (
+          <>
+            {qr && <img src={qr} alt="QR code du lien de soirée" className={styles.inviteQr} />}
+            <div className={styles.inviteUrl}>{url}</div>
+            <button className={styles.submitBtn} onClick={copy}>{copied ? 'Lien copié ✓' : 'Copier le lien'}</button>
+            {typeof navigator !== 'undefined' && 'share' in navigator && (
+              <button className={styles.inviteShare} onClick={share}>Partager…</button>
+            )}
+            <button className={styles.inviteRevoke} onClick={() => { revoke.mutate(); onClose() }}>
+              Fermer la soirée (désactiver le lien)
+            </button>
+          </>
+        )}
+      </div>
+    </SlideUpModal>
   )
 }
 

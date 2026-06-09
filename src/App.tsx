@@ -22,6 +22,7 @@ const LecteurPage     = lazy(() => import('./features/lecteur/LecteurPage'))
 const MomentsPage     = lazy(() => import('./features/moments/MomentsPage'))
 const TrainingPage    = lazy(() => import('./features/training/TrainingPage'))
 const SharedListPage  = lazy(() => import('./pages/SharedListPage'))
+const JukeboxGuestPage = lazy(() => import('./pages/JukeboxGuestPage'))
 
 function Lazy({ children }: { children: React.ReactNode }) {
   return <Suspense fallback={<LoadingPage />}>{children}</Suspense>
@@ -43,6 +44,7 @@ const router = createBrowserRouter([
   { path: '/login',        element: <LoginPage /> },
   { path: '/auth/callback', element: <AuthCallback /> },
   { path: '/share/:token',  element: <Lazy><SharedListPage /></Lazy> },
+  { path: '/soiree/:token', element: <Lazy><JukeboxGuestPage /></Lazy> },
   {
     element: <RequireAuth />,
     children: [

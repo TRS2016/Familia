@@ -11,6 +11,7 @@ export interface QueueItem {
   media_file_id: string
   position: number
   added_by: string | null
+  guest_name: string | null
   played: boolean
   created_at: string
   media_file: MediaFile | null
