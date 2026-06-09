@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Upload, Link as LinkIcon, Trash2, Plus, X,
   ListMusic, Search, Pencil, MoreHorizontal, Play, Sparkles, Shuffle,
+  Repeat, Repeat1, Moon, Star,
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -16,7 +17,7 @@ import SlideUpModal from '../../components/SlideUpModal'
 import MediaPlayer, { mediaFileUrlKey, signMediaFileUrl } from '../media/MediaPlayer'
 import {
   useMediaFiles, useAddMediaFile, useDeleteMediaFile, useUploadMediaFile,
-  useEditMediaFile,
+  useEditMediaFile, useToggleFavorite,
   useLecteurPlaylists, useAddLecteurPlaylist, useDeleteLecteurPlaylist,
   useLecteurPlaylistItems, useAddToLecteurPlaylist, useRemoveFromLecteurPlaylist,
   detectKind, applyLecteurFilters,
@@ -54,6 +55,7 @@ export default function LecteurPage() {
   const addFile    = useAddMediaFile()
   const deleteFile = useDeleteMediaFile()
   const uploadFile = useUploadMediaFile()
+  const toggleFav  = useToggleFavorite()
 
   const { data: members = [] } = useQuery({
     queryKey: QK.membersList,
@@ -76,6 +78,7 @@ export default function LecteurPage() {
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
   const [filterTag,      setFilterTag]      = useState<string | null>(null)
   const [filterTitle,    setFilterTitle]    = useState('')
+  const [filterFavorite, setFilterFavorite] = useState(false)
 
   // Tous les tags existants, triés par fréquence décroissante
   const allTags = (() => {
@@ -90,6 +93,37 @@ export default function LecteurPage() {
   const playingFile = queue[queueIndex] ?? null
   const hasPrev = queueIndex > 0
   const hasNext = queueIndex < queue.length - 1
+
+  // ── Contrôles de lecture ──
+  const [repeatMode, setRepeatMode] = useState<'off' | 'all' | 'one'>('off')
+  const [speed, setSpeed]           = useState(1)
+  const [sleepUntil, setSleepUntil] = useState<number | null>(null)  // epoch ms
+  const [sleepEndOfTrack, setSleepEndOfTrack] = useState(false)
+  const [showSleepModal, setShowSleepModal]   = useState(false)
+  const [now, setNow] = useState(Date.now())
+
+  const SPEEDS = [1, 1.25, 1.5, 2, 0.75]
+  function cycleSpeed() { setSpeed(s => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length]) }
+  function cycleRepeat() { setRepeatMode(m => m === 'off' ? 'all' : m === 'all' ? 'one' : 'off') }
+
+  const sleepActive = sleepUntil != null || sleepEndOfTrack
+  const sleepMinutesLeft = sleepUntil != null ? Math.max(0, Math.ceil((sleepUntil - now) / 60_000)) : null
+
+  // Minuteur de sommeil : coupe la lecture à l'échéance.
+  useEffect(() => {
+    if (sleepUntil == null) return
+    const tick = setInterval(() => setNow(Date.now()), 20_000)
+    const ms = sleepUntil - Date.now()
+    const timer = setTimeout(() => { stop(); setSleepUntil(null) }, Math.max(0, ms))
+    return () => { clearInterval(tick); clearTimeout(timer) }
+  }, [sleepUntil])
+
+  function setSleep(minutes: number | null, endOfTrack = false) {
+    setSleepEndOfTrack(endOfTrack)
+    setSleepUntil(minutes != null ? Date.now() + minutes * 60_000 : null)
+    setNow(Date.now())
+    setShowSleepModal(false)
+  }
 
   // Précharge l'URL signée de la piste suivante pour lisser l'auto-advance.
   const queryClient = useQueryClient()
@@ -145,6 +179,15 @@ export default function LecteurPage() {
   function stop() {
     setQueue([])
     setQueueIndex(0)
+    setSleepUntil(null)
+    setSleepEndOfTrack(false)
+  }
+
+  // Fin de piste : applique répétition / file d'attente / minuteur « fin de piste ».
+  function handleTrackEnded() {
+    if (sleepEndOfTrack) { stop(); return }
+    if (hasNext) setQueueIndex(i => i + 1)
+    else if (repeatMode === 'all') setQueueIndex(0)
   }
 
   // ── Modal state ──
@@ -156,7 +199,9 @@ export default function LecteurPage() {
   const [addToPlaylistFileId,  setAddToPlaylistFileId]  = useState<string | null>(null)
 
   // ── Derived ──
+  const favoriteCount = files.filter(f => f.is_favorite).length
   const filtered = files.filter(f => {
+    if (filterFavorite && !f.is_favorite)                                            return false
     if (filterKind     && detectKind(f) !== filterKind)                              return false
     if (filterMemberId && f.member_id   !== filterMemberId)                          return false
     if (filterTag      && !(f.tags ?? []).includes(filterTag))                       return false
@@ -273,6 +318,44 @@ export default function LecteurPage() {
               </button>
             </div>
           </div>
+
+          {/* Contrôles : répétition · vitesse · minuteur */}
+          <div className={styles.dockControls}>
+            <button
+              className={[styles.dockCtrlBtn, repeatMode !== 'off' ? styles.dockCtrlActive : ''].join(' ')}
+              onClick={cycleRepeat}
+              aria-label={`Répétition : ${repeatMode === 'off' ? 'désactivée' : repeatMode === 'all' ? 'toute la liste' : 'le titre'}`}
+              title="Répétition"
+            >
+              {repeatMode === 'one'
+                ? <Repeat1 size={16} strokeWidth={2.5} />
+                : <Repeat size={16} strokeWidth={2.5} />}
+            </button>
+
+            {playingFile.file_path && (
+              <button
+                className={[styles.dockCtrlBtn, speed !== 1 ? styles.dockCtrlActive : ''].join(' ')}
+                onClick={cycleSpeed}
+                aria-label={`Vitesse de lecture : ${speed}×`}
+                title="Vitesse de lecture"
+              >
+                <span className={styles.dockSpeedLabel}>{speed}×</span>
+              </button>
+            )}
+
+            <button
+              className={[styles.dockCtrlBtn, sleepActive ? styles.dockCtrlActive : ''].join(' ')}
+              onClick={() => setShowSleepModal(true)}
+              aria-label="Minuteur de sommeil"
+              title="Minuteur de sommeil"
+            >
+              <Moon size={15} strokeWidth={2.5} />
+              {sleepActive && (
+                <span className={styles.dockSleepLabel}>{sleepEndOfTrack ? 'fin' : `${sleepMinutesLeft}′`}</span>
+              )}
+            </button>
+          </div>
+
           <div className={styles.playerWrap}>
             <MediaPlayer
               filePath={playingFile.file_path}
@@ -280,7 +363,10 @@ export default function LecteurPage() {
               mimeType={playingFile.mime_type}
               title={playingFile.title}
               autoPlay
-              onEnded={hasNext ? () => setQueueIndex(i => i + 1) : undefined}
+              loop={repeatMode === 'one' && !sleepEndOfTrack}
+              playbackRate={speed}
+              resumeKey={playingFile.id}
+              onEnded={handleTrackEnded}
             />
           </div>
         </div>
@@ -328,6 +414,15 @@ export default function LecteurPage() {
                 </button>
               )
             })}
+            {favoriteCount > 0 && (
+              <button
+                className={[styles.filterPill, filterFavorite ? styles.filterPillActive : ''].join(' ')}
+                onClick={() => setFilterFavorite(v => !v)}
+                aria-pressed={filterFavorite}
+              >
+                <Star size={11} strokeWidth={2.5} fill={filterFavorite ? 'currentColor' : 'none'} /> Favoris · {favoriteCount}
+              </button>
+            )}
           </div>
 
           {/* Tag filters */}
@@ -397,6 +492,7 @@ export default function LecteurPage() {
                   }}
                   onEdit={() => setEditingFile(file)}
                   onAddToPlaylist={() => setAddToPlaylistFileId(file.id)}
+                  onToggleFavorite={() => toggleFav.mutate({ id: file.id, value: !file.is_favorite })}
                   manualPlaylists={playlists.filter(p => p.type === 'manual')}
                 />
               ))}
@@ -441,19 +537,49 @@ export default function LecteurPage() {
         <EditFileModal file={editingFile} onClose={() => setEditingFile(null)} />
       )}
 
+      {showSleepModal && (
+        <SlideUpModal title="Minuteur de sommeil" onClose={() => setShowSleepModal(false)}>
+          <div className={styles.sleepBody}>
+            {sleepActive && (
+              <p className={styles.sleepActiveLabel}>
+                {sleepEndOfTrack
+                  ? 'La lecture s’arrêtera à la fin de la piste.'
+                  : `Arrêt dans ${sleepMinutesLeft} min.`}
+              </p>
+            )}
+            <div className={styles.sleepGrid}>
+              {[15, 30, 45, 60].map(min => (
+                <button key={min} className={styles.sleepOption} onClick={() => setSleep(min)}>
+                  {min} min
+                </button>
+              ))}
+              <button className={styles.sleepOption} onClick={() => setSleep(null, true)}>
+                Fin de la piste
+              </button>
+              {sleepActive && (
+                <button className={[styles.sleepOption, styles.sleepCancel].join(' ')} onClick={() => setSleep(null, false)}>
+                  Annuler
+                </button>
+              )}
+            </div>
+          </div>
+        </SlideUpModal>
+      )}
+
     </div>
   )
 }
 
 // ── FileRow ───────────────────────────────────────────────────────────────────
 
-function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, manualPlaylists }: {
+function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, onToggleFavorite, manualPlaylists }: {
   file: MediaFile
   isPlaying: boolean
   onPlay: () => void
   onDelete: () => void
   onEdit: () => void
   onAddToPlaylist: () => void
+  onToggleFavorite: () => void
   manualPlaylists: LecteurPlaylist[]
 }) {
   const [showActions, setShowActions] = useState(false)
@@ -496,6 +622,16 @@ function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, m
             </div>
           )}
         </div>
+
+        <button
+          className={[styles.favBtn, file.is_favorite ? styles.favBtnActive : ''].join(' ')}
+          onClick={e => { e.stopPropagation(); onToggleFavorite() }}
+          aria-label={file.is_favorite ? `Retirer ${file.title} des favoris` : `Ajouter ${file.title} aux favoris`}
+          aria-pressed={file.is_favorite}
+          title={file.is_favorite ? 'Favori' : 'Ajouter aux favoris'}
+        >
+          <Star size={15} strokeWidth={2} fill={file.is_favorite ? 'currentColor' : 'none'} />
+        </button>
 
         {showActions ? (
           <div className={styles.fileActions} onClick={e => e.stopPropagation()}>
@@ -664,8 +800,9 @@ function PlaylistsPane({ playlists, allFiles, selectedId, onSelect, onBack, onNe
 
 function smartFilterLabel(f: LecteurSmartFilters): string {
   const parts: string[] = []
-  if (f.kind)   parts.push(KIND_META[f.kind].emoji + ' ' + f.kind)
-  if (f.tag)    parts.push('#' + f.tag)
+  if (f.kind)     parts.push(KIND_META[f.kind].emoji + ' ' + f.kind)
+  if (f.tag)      parts.push('#' + f.tag)
+  if (f.favorite) parts.push('★ Favoris')
   if (f.sort === 'az')     parts.push('A→Z')
   if (f.sort === 'oldest') parts.push('Plus anciens')
   return parts.length > 0 ? parts.join(' · ') : 'Tous les médias'
@@ -952,6 +1089,17 @@ function AddSmartPlaylistModal({ files, members, onClose }: {
               </div>
             </div>
           )}
+
+          <div className={styles.smartRow}>
+            <span className={styles.smartLabel}>Favoris</span>
+            <div className={styles.smartPills}>
+              <button type="button"
+                className={[styles.smartPill, filters.favorite ? styles.smartPillActive : ''].join(' ')}
+                onClick={() => setFilters(f => ({ ...f, favorite: f.favorite ? undefined : true }))}>
+                ★ Favoris uniquement
+              </button>
+            </div>
+          </div>
 
           <div className={styles.smartRow}>
             <span className={styles.smartLabel}>Ordre</span>

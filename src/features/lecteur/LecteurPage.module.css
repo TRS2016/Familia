@@ -1095,3 +1095,119 @@
   height: 44px;
   transform: translateY(-50%);
 }
+
+/* ── Contrôles du dock (répétition · vitesse · minuteur) ─────────────────── */
+.dockControls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 4px 2px;
+}
+
+.dockCtrlBtn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 34px;
+  height: 30px;
+  padding: 0 9px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-sub);
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.dockCtrlBtn:hover { color: var(--text); }
+
+.dockCtrlActive {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* Zone de tap ≥44px en hauteur */
+.dockCtrlBtn::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+}
+
+.dockSpeedLabel {
+  font-family: var(--font-family);
+  font-size: var(--text-xs);
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+.dockSleepLabel {
+  font-family: var(--font-family);
+  font-size: var(--text-2xs);
+  font-weight: 800;
+}
+
+/* ── Étoile favori (ligne de bibliothèque) ──────────────────────────────── */
+.favBtn {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+}
+
+.favBtn:hover { color: var(--warning); }
+.favBtnActive { color: var(--warning); }
+
+/* ── Minuteur de sommeil (modale) ───────────────────────────────────────── */
+.sleepBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0 8px;
+}
+
+.sleepActiveLabel {
+  font-size: var(--text-sm);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.sleepGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.sleepOption {
+  padding: 14px 12px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.sleepOption:hover { border-color: var(--accent); }
+
+.sleepCancel {
+  grid-column: 1 / -1;
+  color: var(--danger);
+  background: none;
+}

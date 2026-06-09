@@ -19,6 +19,7 @@ export interface MediaFile {
   external_url: string | null
   mime_type: string | null
   tags: string[]
+  is_favorite: boolean
   created_at: string
   member: { display_name: string } | null
 }
@@ -47,6 +48,7 @@ export interface LecteurSmartFilters {
   kind?:      MediaFileKind
   member_id?: string
   tag?:       string
+  favorite?:  boolean
   sort?:      'recent' | 'az' | 'oldest'
 }
 
@@ -63,6 +65,7 @@ export function applyLecteurFilters(files: MediaFile[], filters: LecteurSmartFil
     if (filters.kind      && detectKind(f) !== filters.kind)      return false
     if (filters.member_id && f.member_id   !== filters.member_id) return false
     if (filters.tag       && !(f.tags ?? []).includes(filters.tag)) return false
+    if (filters.favorite  && !f.is_favorite)                       return false
     return true
   })
   if (filters.sort === 'az')     return [...result].sort((a, b) => a.title.localeCompare(b.title))
@@ -180,6 +183,33 @@ export function useEditMediaFile() {
     onError: (_err, _vars, ctx) => {
       queryClient.setQueryData(MEDIA_FILES_KEY, ctx?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de modifier le fichier.' })
+    },
+  })
+}
+
+export function useToggleFavorite() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ id, value }: { id: string; value: boolean }) => {
+      const { error } = await supabase
+        .from('media_files')
+        .update({ is_favorite: value } as never)
+        .eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, value }) => {
+      await queryClient.cancelQueries({ queryKey: MEDIA_FILES_KEY })
+      const previous = queryClient.getQueryData<MediaFile[]>(MEDIA_FILES_KEY) ?? []
+      queryClient.setQueryData<MediaFile[]>(MEDIA_FILES_KEY,
+        previous.map(f => f.id === id ? { ...f, is_favorite: value } : f)
+      )
+      return { previous }
+    },
+    onError: (_err, _vars, ctx) => {
+      queryClient.setQueryData(MEDIA_FILES_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Action impossible.' })
     },
   })
 }

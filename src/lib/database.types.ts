@@ -629,6 +629,7 @@ export type Database = {
           file_path: string | null
           household_id: string
           id: string
+          is_favorite: boolean
           member_id: string | null
           mime_type: string | null
           tags: string[]
@@ -641,6 +642,7 @@ export type Database = {
           file_path?: string | null
           household_id: string
           id?: string
+          is_favorite?: boolean
           member_id?: string | null
           mime_type?: string | null
           tags?: string[]
@@ -653,6 +655,7 @@ export type Database = {
           file_path?: string | null
           household_id?: string
           id?: string
+          is_favorite?: boolean
           member_id?: string | null
           mime_type?: string | null
           tags?: string[]

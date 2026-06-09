@@ -25,9 +25,38 @@ function fmtTime(s: number): string {
   return `${m}:${String(sec).padStart(2, '0')}`
 }
 
-function CustomAudio({ src, autoPlay, onEnded }: {
+// ── Reprise de lecture (position mémorisée par média) ──────────────────────────
+const RESUME_STORAGE_KEY = 'familia-lecteur-resume'
+
+function getResumeMap(): Record<string, number> {
+  try { return JSON.parse(localStorage.getItem(RESUME_STORAGE_KEY) ?? '{}') }
+  catch { return {} }
+}
+function saveResume(key: string, pos: number) {
+  const m = getResumeMap()
+  m[key] = Math.floor(pos)
+  try { localStorage.setItem(RESUME_STORAGE_KEY, JSON.stringify(m)) } catch { /* quota */ }
+}
+function clearResume(key: string) {
+  const m = getResumeMap()
+  if (!(key in m)) return
+  delete m[key]
+  try { localStorage.setItem(RESUME_STORAGE_KEY, JSON.stringify(m)) } catch { /* ignore */ }
+}
+// Ne restaure que si l'on est « au milieu » (évite de reprendre tout au début/fin).
+function resumePosition(key: string | null | undefined, duration: number): number | null {
+  if (!key || !isFinite(duration) || duration < 60) return null
+  const saved = getResumeMap()[key]
+  if (saved != null && saved > 10 && saved < duration - 15) return saved
+  return null
+}
+
+function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded }: {
   src: string
   autoPlay?: boolean
+  loop?: boolean
+  playbackRate?: number
+  resumeKey?: string | null
   onEnded?: () => void
 }) {
   const ref = useRef<HTMLAudioElement>(null)
@@ -35,6 +64,12 @@ function CustomAudio({ src, autoPlay, onEnded }: {
   const [current,  setCurrent]  = useState(0)
   const [duration, setDuration] = useState(0)
   const [muted,    setMuted]    = useState(false)
+  const lastSavedRef = useRef(0)
+
+  // Applique la vitesse de lecture (et la ré-applique si elle change).
+  useEffect(() => {
+    if (ref.current && playbackRate) ref.current.playbackRate = playbackRate
+  }, [playbackRate])
 
   function toggle() {
     const el = ref.current
@@ -111,6 +146,7 @@ function CustomAudio({ src, autoPlay, onEnded }: {
         ref={ref}
         src={src}
         autoPlay={autoPlay}
+        loop={loop}
         preload="metadata"
         onPlay={() => {
           setPlaying(true)
@@ -121,10 +157,24 @@ function CustomAudio({ src, autoPlay, onEnded }: {
           setPlaying(false)
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'
         }}
-        onTimeUpdate={e => setCurrent(e.currentTarget.currentTime)}
-        onLoadedMetadata={e => { setDuration(e.currentTarget.duration); syncPositionState() }}
+        onTimeUpdate={e => {
+          const t = e.currentTarget.currentTime
+          setCurrent(t)
+          if (resumeKey && Math.abs(t - lastSavedRef.current) >= 5) {
+            lastSavedRef.current = t
+            saveResume(resumeKey, t)
+          }
+        }}
+        onLoadedMetadata={e => {
+          const el = e.currentTarget
+          setDuration(el.duration)
+          if (playbackRate) el.playbackRate = playbackRate
+          const pos = resumePosition(resumeKey, el.duration)
+          if (pos != null) { el.currentTime = pos; setCurrent(pos); lastSavedRef.current = pos }
+          syncPositionState()
+        }}
         onCanPlay={e => { if (autoPlay) e.currentTarget.play().catch(() => { /* bloqué */ }) }}
-        onEnded={onEnded}
+        onEnded={() => { if (resumeKey) clearResume(resumeKey); onEnded?.() }}
       />
       <button
         className={styles.audioPlayBtn}
@@ -287,9 +337,11 @@ interface Props {
   autoPlay?: boolean
   muted?: boolean
   loop?: boolean
+  playbackRate?: number
+  resumeKey?: string | null
 }
 
-export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay, muted, loop }: Props) {
+export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay, muted, loop, playbackRate, resumeKey }: Props) {
   const { data: signedUrl, isLoading } = useQuery({
     queryKey: mediaFileUrlKey(filePath ?? ''),
     queryFn: () => signMediaFileUrl(filePath!),
@@ -309,6 +361,13 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
       if (p && typeof p.catch === 'function') p.catch(() => { /* autoplay bloqué */ })
     }
   }, [autoPlay, muted])
+
+  // Vidéo : ref + sauvegarde de position pour la reprise.
+  const videoRef = useRef<HTMLVideoElement>(null)
+  const lastVideoSaveRef = useRef(0)
+  useEffect(() => {
+    if (videoRef.current && playbackRate) videoRef.current.playbackRate = playbackRate
+  }, [playbackRate])
 
   if (filePath && isLoading) {
     return <div className={styles.skeleton}>Chargement du média…</div>
@@ -340,6 +399,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
   if (type === 'video') {
     return (
       <video
+        ref={videoRef}
         key={url}
         src={url}
         controls
@@ -349,14 +409,27 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
         autoPlay={autoPlay}
         muted={muted}
         loop={loop}
-        onCanPlay={handleCanPlay}
-        onEnded={onEnded}
+        onCanPlay={e => { handleCanPlay(e); if (playbackRate) e.currentTarget.playbackRate = playbackRate }}
+        onLoadedMetadata={e => {
+          const el = e.currentTarget
+          if (playbackRate) el.playbackRate = playbackRate
+          const pos = resumePosition(resumeKey, el.duration)
+          if (pos != null) { el.currentTime = pos; lastVideoSaveRef.current = pos }
+        }}
+        onTimeUpdate={e => {
+          const t = e.currentTarget.currentTime
+          if (resumeKey && Math.abs(t - lastVideoSaveRef.current) >= 5) {
+            lastVideoSaveRef.current = t
+            saveResume(resumeKey, t)
+          }
+        }}
+        onEnded={() => { if (resumeKey) clearResume(resumeKey); onEnded?.() }}
       />
     )
   }
 
   if (type === 'audio') {
-    return <CustomAudio key={url} src={url} autoPlay={autoPlay} onEnded={onEnded} />
+    return <CustomAudio key={url} src={url} autoPlay={autoPlay} loop={loop} playbackRate={playbackRate} resumeKey={resumeKey} onEnded={onEnded} />
   }
 
   return (
