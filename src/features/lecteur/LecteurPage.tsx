@@ -763,7 +763,8 @@ function JukeboxPane({ queueItems, onGoToLibrary }: {
       <div className={styles.jukeboxNow}>
         <div className={styles.jukeboxNowHead}>
           <span className={styles.jukeboxNowLabel}>
-            {djMode ? <EqBars small /> : <PartyPopper size={13} strokeWidth={2.5} />} En cours
+            {djMode ? <EqBars small /> : <PartyPopper size={13} strokeWidth={2.5} />}
+            {djMode ? ' En cours' : ' Prochain morceau'}
           </span>
           <button
             className={[styles.djToggle, djMode ? styles.djToggleOn : ''].join(' ')}
