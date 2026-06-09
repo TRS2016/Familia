@@ -1211,3 +1211,192 @@
   color: var(--danger);
   background: none;
 }
+
+/* ── Soirée / Jukebox ────────────────────────────────────────────────────── */
+.jukebox {
+  padding: 14px 16px 0;
+}
+
+.jukeboxEmpty {
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+
+.jukeboxNow {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  padding: 14px 16px;
+  margin-bottom: 18px;
+}
+
+.jukeboxNowHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.jukeboxNowLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-2xs);
+  font-weight: 800;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.djToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-sub);
+  font-family: var(--font-family);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s, background 0.15s;
+}
+
+.djToggleOn {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.jukeboxNowTitle {
+  font-size: var(--text-lg);
+  font-weight: 800;
+  color: var(--text);
+  font-family: var(--font-display);
+}
+
+.jukeboxNowBy {
+  font-size: var(--text-sm);
+  color: var(--text-sub);
+  margin-top: 2px;
+}
+
+.skipBtn {
+  margin-top: 12px;
+  width: 100%;
+  padding: 10px;
+  border: 1.5px solid var(--border);
+  background: var(--bg-input);
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+.skipBtn:hover { border-color: var(--accent); }
+
+.jukeboxUpNextHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: var(--text-sm);
+  font-weight: 800;
+  color: var(--text);
+}
+
+.clearQueueBtn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 4px 6px;
+}
+.clearQueueBtn:hover { color: var(--danger); }
+
+.jukeboxHint {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  padding: 4px 2px 16px;
+}
+
+.jukeboxList {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.jukeboxItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+}
+
+.jukeboxPos {
+  width: 20px;
+  text-align: center;
+  font-size: var(--text-xs);
+  font-weight: 800;
+  color: var(--text-muted);
+  flex-shrink: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.jukeboxItemBody { flex: 1; min-width: 0; }
+
+.jukeboxItemTitle {
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.jukeboxItemBy {
+  font-size: var(--text-2xs);
+  color: var(--text-sub);
+}
+
+.jukeboxRemove {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+}
+.jukeboxRemove:hover { color: var(--danger); }
+.jukeboxRemove::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+}

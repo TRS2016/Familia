@@ -621,6 +621,51 @@ export type Database = {
           },
         ]
       }
+      lecteur_queue: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          household_id: string
+          id: string
+          media_file_id: string
+          played: boolean
+          position: number
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          household_id: string
+          id?: string
+          media_file_id: string
+          played?: boolean
+          position?: number
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          household_id?: string
+          id?: string
+          media_file_id?: string
+          played?: boolean
+          position?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lecteur_queue_media_file_id_fkey"
+            columns: ["media_file_id"]
+            isOneToOne: false
+            referencedRelation: "media_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lecteur_queue_added_by_fkey"
+            columns: ["added_by"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       media_files: {
         Row: {
           created_at: string

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Upload, Link as LinkIcon, Trash2, Plus, X,
   ListMusic, Search, Pencil, MoreHorizontal, Play, Sparkles, Shuffle,
-  Repeat, Repeat1, Moon, Star,
+  Repeat, Repeat1, Moon, Star, PartyPopper, ListPlus,
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -24,6 +24,10 @@ import {
 } from './useLecteur'
 import type { MediaFile, LecteurPlaylist, LecteurSmartFilters, MediaFileKind } from './useLecteur'
 import { useLecteurRealtime } from './useLecteurRealtime'
+import {
+  useLecteurQueue, useAddToQueue, useRemoveFromQueue, useMarkQueuePlayed, useClearQueue,
+} from './useLecteurQueue'
+import type { QueueItem } from './useLecteurQueue'
 import styles from './LecteurPage.module.css'
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -56,6 +60,8 @@ export default function LecteurPage() {
   const deleteFile = useDeleteMediaFile()
   const uploadFile = useUploadMediaFile()
   const toggleFav  = useToggleFavorite()
+  const { data: queueItems = [] } = useLecteurQueue()
+  const addToQueue = useAddToQueue()
 
   const { data: members = [] } = useQuery({
     queryKey: QK.membersList,
@@ -71,7 +77,7 @@ export default function LecteurPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   // ── Tabs ──
-  const [activeTab, setActiveTab] = useState<'bibliothèque' | 'listes'>('bibliothèque')
+  const [activeTab, setActiveTab] = useState<'bibliothèque' | 'listes' | 'soirée'>('bibliothèque')
 
   // ── Filters ──
   const [filterKind,     setFilterKind]     = useState<MediaFileKind | null>(null)
@@ -388,6 +394,14 @@ export default function LecteurPage() {
           Listes
           {playlists.length > 0 && <span className={styles.tabBadge}>{playlists.length}</span>}
         </button>
+        <button
+          className={[styles.tab, activeTab === 'soirée' ? styles.tabActive : ''].join(' ')}
+          onClick={() => setActiveTab('soirée')}
+        >
+          <PartyPopper size={13} strokeWidth={2} />
+          Soirée
+          {queueItems.length > 0 && <span className={styles.tabBadge}>{queueItems.length}</span>}
+        </button>
       </div>
 
       {/* ── Bibliothèque tab ─────────────────────────────────────── */}
@@ -493,6 +507,7 @@ export default function LecteurPage() {
                   onEdit={() => setEditingFile(file)}
                   onAddToPlaylist={() => setAddToPlaylistFileId(file.id)}
                   onToggleFavorite={() => toggleFav.mutate({ id: file.id, value: !file.is_favorite })}
+                  onQueue={() => addToQueue.mutate(file.id)}
                   manualPlaylists={playlists.filter(p => p.type === 'manual')}
                 />
               ))}
@@ -513,6 +528,14 @@ export default function LecteurPage() {
           onNewSmart={() => setShowAddSmart(true)}
           onPlay={playFiles}
           playingFileId={playingFile?.id ?? null}
+        />
+      )}
+
+      {/* ── Soirée (jukebox partagé) ─────────────────────────────── */}
+      {activeTab === 'soirée' && (
+        <JukeboxPane
+          queueItems={queueItems}
+          onGoToLibrary={() => setActiveTab('bibliothèque')}
         />
       )}
 
@@ -572,7 +595,7 @@ export default function LecteurPage() {
 
 // ── FileRow ───────────────────────────────────────────────────────────────────
 
-function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, onToggleFavorite, manualPlaylists }: {
+function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, onToggleFavorite, onQueue, manualPlaylists }: {
   file: MediaFile
   isPlaying: boolean
   onPlay: () => void
@@ -580,6 +603,7 @@ function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, o
   onEdit: () => void
   onAddToPlaylist: () => void
   onToggleFavorite: () => void
+  onQueue: () => void
   manualPlaylists: LecteurPlaylist[]
 }) {
   const [showActions, setShowActions] = useState(false)
@@ -637,6 +661,14 @@ function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, o
           <div className={styles.fileActions} onClick={e => e.stopPropagation()}>
             <button
               className={styles.fileActionBtn}
+              onClick={() => { onQueue(); setShowActions(false) }}
+              aria-label="Ajouter à la file de soirée"
+              title="Ajouter à la file"
+            >
+              <ListPlus size={15} strokeWidth={2} />
+            </button>
+            <button
+              className={styles.fileActionBtn}
               onClick={() => { onEdit(); setShowActions(false) }}
               aria-label="Modifier le titre"
               title="Modifier"
@@ -680,6 +712,111 @@ function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, o
         )}
       </div>
     </li>
+  )
+}
+
+// ── JukeboxPane (file d'attente partagée de soirée) ───────────────────────────
+
+function JukeboxPane({ queueItems, onGoToLibrary }: {
+  queueItems: QueueItem[]
+  onGoToLibrary: () => void
+}) {
+  const markPlayed = useMarkQueuePlayed()
+  const removeItem = useRemoveFromQueue()
+  const clearQueue = useClearQueue()
+  const [djMode, setDjMode] = useState(false)
+
+  const current = queueItems[0] ?? null
+  const upNext  = queueItems.slice(1)
+
+  if (!current) {
+    return (
+      <div className={styles.jukeboxEmpty}>
+        <EmptyState
+          emoji="🎉"
+          title="La file est vide"
+          description="Chacun ajoute ses morceaux depuis la Bibliothèque (bouton « + file »). Ils s'enchaînent ici automatiquement."
+        />
+        <button className={styles.newListBtn} onClick={onGoToLibrary}>
+          <Plus size={13} strokeWidth={2.5} /> Ajouter depuis la bibliothèque
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className={styles.jukebox}>
+      {/* En cours */}
+      <div className={styles.jukeboxNow}>
+        <div className={styles.jukeboxNowHead}>
+          <span className={styles.jukeboxNowLabel}>
+            {djMode ? <EqBars small /> : <PartyPopper size={13} strokeWidth={2.5} />} En cours
+          </span>
+          <button
+            className={[styles.djToggle, djMode ? styles.djToggleOn : ''].join(' ')}
+            onClick={() => setDjMode(v => !v)}
+            aria-pressed={djMode}
+          >
+            <Play size={12} strokeWidth={2.5} fill="currentColor" />
+            {djMode ? 'Lecture sur cet appareil' : 'Lire ici (je suis le DJ)'}
+          </button>
+        </div>
+
+        <div className={styles.jukeboxNowTitle}>{current.media_file?.title ?? 'Morceau supprimé'}</div>
+        {current.added_by_member && (
+          <div className={styles.jukeboxNowBy}>demandé par {current.added_by_member.display_name}</div>
+        )}
+
+        {djMode && current.media_file && (
+          <div className={styles.playerWrap}>
+            <MediaPlayer
+              key={current.id}
+              filePath={current.media_file.file_path}
+              externalUrl={current.media_file.external_url}
+              mimeType={current.media_file.mime_type}
+              title={current.media_file.title}
+              autoPlay
+              onEnded={() => markPlayed.mutate(current.id)}
+            />
+          </div>
+        )}
+        {djMode && (
+          <button className={styles.skipBtn} onClick={() => markPlayed.mutate(current.id)}>
+            Passer au suivant →
+          </button>
+        )}
+      </div>
+
+      {/* À suivre */}
+      <div className={styles.jukeboxUpNextHead}>
+        <span>À suivre{upNext.length > 0 ? ` · ${upNext.length}` : ''}</span>
+        <button className={styles.clearQueueBtn} onClick={() => clearQueue.mutate()}>Vider la file</button>
+      </div>
+      {upNext.length === 0 ? (
+        <p className={styles.jukeboxHint}>Ajoutez des morceaux depuis la Bibliothèque pour remplir la file.</p>
+      ) : (
+        <ul className={styles.jukeboxList}>
+          {upNext.map((item, i) => (
+            <li key={item.id} className={styles.jukeboxItem}>
+              <span className={styles.jukeboxPos}>{i + 1}</span>
+              <div className={styles.jukeboxItemBody}>
+                <div className={styles.jukeboxItemTitle}>{item.media_file?.title ?? 'Morceau supprimé'}</div>
+                {item.added_by_member && (
+                  <div className={styles.jukeboxItemBy}>{item.added_by_member.display_name}</div>
+                )}
+              </div>
+              <button
+                className={styles.jukeboxRemove}
+                onClick={() => removeItem.mutate(item.id)}
+                aria-label={`Retirer ${item.media_file?.title ?? ''} de la file`}
+              >
+                <X size={14} strokeWidth={2.5} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   )
 }
 
