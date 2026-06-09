@@ -44,6 +44,12 @@ function getMemberColor(
   return MEMBER_PALETTE[index >= 0 ? index % MEMBER_PALETTE.length : 0]
 }
 
+// Initiale du membre — disambiguation visuelle quand la couleur seule ne suffit
+// pas (daltonisme) dans les vues compactes semaine/mois.
+function memberInitial(name: string | null | undefined): string {
+  return name?.trim().charAt(0).toUpperCase() ?? ''
+}
+
 export default function CalendarPage() {
   const { data: member } = useMember()
   useEventsRealtime()
@@ -426,6 +432,12 @@ export default function CalendarPage() {
                             key={event.id}
                             className={[styles.agendaItem, isOptimistic ? styles.eventOptimistic : ''].join(' ')}
                             onClick={() => !isOptimistic && openEditForm(event)}
+                            onKeyDown={e => {
+                              if (!isOptimistic && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openEditForm(event) }
+                            }}
+                            role="button"
+                            tabIndex={isOptimistic ? -1 : 0}
+                            aria-label={`Modifier ${event.title}`}
                           >
                             <span className={styles.agendaBar} style={{ background: color }} />
                             <div className={styles.agendaContent}>
@@ -535,6 +547,7 @@ export default function CalendarPage() {
                           style={{ background: color + '33', borderLeft: `3px solid ${color}` }}
                           onClick={() => !isOptimistic && openEditForm(ev)}
                         >
+                          {ev.member && <span className={styles.eventInitial} aria-hidden="true">{memberInitial(ev.member.display_name)}</span>}
                           {ev.title}
                         </div>
                       )
@@ -620,6 +633,7 @@ export default function CalendarPage() {
                                 style={{ background: color + '33', borderLeft: `3px solid ${color}` }}
                                 onClick={e => { e.stopPropagation(); openEditForm(ev) }}
                               >
+                                {ev.member && <span className={styles.eventInitial} aria-hidden="true">{memberInitial(ev.member.display_name)}</span>}
                                 {ev.title}
                               </div>
                             )
@@ -655,7 +669,10 @@ export default function CalendarPage() {
                             }}
                             onClick={e => { e.stopPropagation(); if (!isOptimistic) openEditForm(ev) }}
                           >
-                            <span className={styles.weekGridEventTitle}>{ev.title}</span>
+                            <span className={styles.weekGridEventTitle}>
+                              {ev.member && <span className={styles.eventInitial} aria-hidden="true">{memberInitial(ev.member.display_name)}</span>}
+                              {ev.title}
+                            </span>
                             {!isShort && (
                               <span className={styles.weekGridEventTime}>
                                 {pgTimeToInput(ev.start_time)}
@@ -682,7 +699,7 @@ export default function CalendarPage() {
             <thead>
               <tr>
                 {WEEK_DAYS_SHORT.map(d => (
-                  <th key={d} className={styles.monthTh}>{d}</th>
+                  <th key={d} scope="col" className={styles.monthTh}>{d}</th>
                 ))}
               </tr>
             </thead>
@@ -719,6 +736,7 @@ export default function CalendarPage() {
                               className={styles.monthEventPill}
                               style={{ background: color + '28', color }}
                             >
+                              {e.member && <span className={styles.eventInitial} aria-hidden="true">{memberInitial(e.member.display_name)}</span>}
                               {e.title}
                             </div>
                           )
@@ -776,6 +794,12 @@ export default function CalendarPage() {
                       key={ev.id}
                       className={[styles.monthDayPanelItem, isOptimistic ? styles.eventOptimistic : ''].join(' ')}
                       onClick={() => !isOptimistic && openEditForm(ev)}
+                      onKeyDown={e => {
+                        if (!isOptimistic && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openEditForm(ev) }
+                      }}
+                      role="button"
+                      tabIndex={isOptimistic ? -1 : 0}
+                      aria-label={`Modifier ${ev.title}`}
                     >
                       <span className={styles.monthDayPanelBar} style={{ background: color }} />
                       <div className={styles.agendaContent}>

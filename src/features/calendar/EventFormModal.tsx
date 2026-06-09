@@ -93,6 +93,14 @@ export function EventFormModal({
   }, [isOpen, editingEvent, addDefaults, currentMemberId])
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  // Fermeture au clavier (Échap), cohérent avec le clic sur le backdrop.
+  useEffect(() => {
+    if (!isOpen) return
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [isOpen, onClose])
+
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const input: NewEventInput = {

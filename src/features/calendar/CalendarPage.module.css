@@ -449,12 +449,25 @@
   transition: opacity 0.15s, color 0.15s;
 }
 
-.eventItem:hover .eventDeleteBtn {
+.eventItem:hover .eventDeleteBtn,
+.agendaItem:hover .eventDeleteBtn {
   opacity: 1;
+}
+
+/* Sur tactile (pas de hover) : le delete reste visible plutôt que caché */
+@media (hover: none) {
+  .eventDeleteBtn { opacity: 1; }
 }
 
 .eventDeleteBtn:hover {
   color: var(--danger);
+}
+
+/* Initiale du membre dans les events compacts (anti color-only) */
+.eventInitial {
+  font-weight: 800;
+  margin-right: 4px;
+  opacity: 0.85;
 }
 
 /* ── Month view ──────────────────────────────────────────────────────────── */
@@ -591,6 +604,7 @@
 }
 
 .monthDayPanelAdd {
+  position: relative;
   width: 28px;
   height: 28px;
   border-radius: 50%;
@@ -603,6 +617,17 @@
   justify-content: center;
   flex-shrink: 0;
   transition: background 0.15s;
+}
+
+/* Zone de tap ≥44px sans changer le visuel (a11y touch-target) */
+.monthDayPanelAdd::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 44px;
+  height: 44px;
+  transform: translate(-50%, -50%);
 }
 
 .monthDayPanelAdd:hover {
@@ -666,6 +691,10 @@
 
 .monthDayPanelItem:hover .monthDayPanelDelete {
   opacity: 1;
+}
+
+@media (hover: none) {
+  .monthDayPanelDelete { opacity: 1; }
 }
 
 .monthDayPanelDelete:hover {
