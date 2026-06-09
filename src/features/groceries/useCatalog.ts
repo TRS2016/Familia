@@ -97,5 +97,52 @@ export function useCatalog() {
     },
   })
 
-  return { query, addItem, updateItem, deleteItem }
+  // Remplace tout le catalogue par les lignes importées (CSV).
+  // Stratégie : insérer les nouvelles lignes PUIS supprimer les anciennes →
+  // en cas d'échec de l'insert, les données existantes restent intactes.
+  const replaceCatalog = useMutation({
+    mutationFn: async (rows: {
+      name: string
+      price: number | null
+      quantity: string | null
+      category: string | null
+      store: string | null
+    }[]): Promise<number> => {
+      const previous = queryClient.getQueryData<CatalogItem[]>(CATALOG_KEY) ?? []
+
+      if (rows.length > 0) {
+        const { error: insErr } = await supabase
+          .from('grocery_catalog')
+          .insert(rows.map(r => ({
+            household_id: HOUSEHOLD_ID,
+            name: r.name.trim(),
+            price: r.price ?? null,
+            quantity: r.quantity?.trim() || null,
+            category: r.category?.trim() || null,
+            store: r.store?.trim() || null,
+          })))
+        if (insErr) throw insErr
+      }
+
+      if (previous.length > 0) {
+        const { error: delErr } = await supabase
+          .from('grocery_catalog')
+          .delete()
+          .in('id', previous.map(p => p.id))
+        if (delErr) throw delErr
+      }
+
+      return rows.length
+    },
+    onSuccess: (count) => {
+      queryClient.invalidateQueries({ queryKey: CATALOG_KEY })
+      showToast({ type: 'success', message: `Catalogue importé — ${count} article${count > 1 ? 's' : ''}.` })
+    },
+    onError: () => {
+      queryClient.invalidateQueries({ queryKey: CATALOG_KEY })
+      showToast({ type: 'error', message: "Échec de l'import du catalogue." })
+    },
+  })
+
+  return { query, addItem, updateItem, deleteItem, replaceCatalog }
 }

@@ -58,6 +58,98 @@
 
 .addBtn:hover { opacity: 0.85; }
 
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.headerIconBtn {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-sub);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: color 0.15s, border-color 0.15s;
+}
+
+.headerIconBtn:hover:not(:disabled) { color: var(--accent); border-color: var(--accent); }
+.headerIconBtn:disabled { opacity: 0.4; cursor: default; }
+
+/* ── Import CSV modal ────────────────────────────────────────────────────── */
+
+.importBody {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 4px 0 8px;
+}
+
+.importSummary {
+  font-size: var(--text-md);
+  color: var(--text);
+  line-height: var(--leading-body);
+}
+
+.importWarn {
+  font-size: var(--text-sm);
+  color: var(--text-sub);
+  line-height: var(--leading-body);
+}
+
+.importPreview {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+
+.importPreview li {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 7px 12px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  color: var(--text);
+}
+
+.importPrice {
+  color: var(--text-sub);
+  font-variant-numeric: tabular-nums;
+  flex-shrink: 0;
+}
+
+.importMore {
+  background: none !important;
+  color: var(--text-muted) !important;
+  font-style: italic;
+}
+
+.importCancel {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+  padding: 6px;
+}
+
 /* ── Category header ─────────────────────────────────────────────────────── */
 
 .categoryHeader {

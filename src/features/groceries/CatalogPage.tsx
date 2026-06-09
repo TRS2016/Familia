@@ -1,12 +1,14 @@
-import { useState } from 'react'
-import type { FormEvent } from 'react'
+import { useState, useRef } from 'react'
+import type { FormEvent, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Plus, Trash2, Pencil, MapPin } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, Pencil, MapPin, Download, Upload } from 'lucide-react'
 import { useCatalog } from './useCatalog'
 import type { CatalogItem } from './useCatalog'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
+import { catalogToCsv, parseCatalogCsv, downloadCsv, type CatalogCsvRow } from './catalogCsv'
+import { format } from 'date-fns'
 import styles from './CatalogPage.module.css'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
@@ -62,7 +64,11 @@ function groupByCategory(items: CatalogItem[]): Group[] {
 // ── Composant principal ───────────────────────────────────────────────────────
 
 export default function CatalogPage() {
-  const { query, addItem, updateItem, deleteItem } = useCatalog()
+  const { query, addItem, updateItem, deleteItem, replaceCatalog } = useCatalog()
+
+  // ── Import / export CSV ──
+  const fileRef = useRef<HTMLInputElement>(null)
+  const [pendingImport, setPendingImport] = useState<CatalogCsvRow[] | null>(null)
 
   const [showAddModal, setShowAddModal]   = useState(false)
   const [editingItem, setEditingItem]     = useState<CatalogItem | null>(null)
@@ -130,6 +136,22 @@ export default function CatalogPage() {
     })
   }
 
+  function handleExport() {
+    if (items.length === 0) return
+    const csv = catalogToCsv(items)
+    downloadCsv(`catalogue-courses-${format(new Date(), 'yyyy-MM-dd')}.csv`, csv)
+  }
+
+  function handleFile(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = '' // permet de re-sélectionner le même fichier
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setPendingImport(parseCatalogCsv(String(reader.result ?? '')))
+    reader.onerror = () => setPendingImport([])
+    reader.readAsText(file)
+  }
+
   return (
     <div className={styles.page}>
 
@@ -138,14 +160,41 @@ export default function CatalogPage() {
           <ChevronLeft size={22} strokeWidth={2.5} />
         </Link>
         <h1 className={styles.pageTitle}>Catalogue</h1>
-        <button
-          className={styles.addBtn}
-          onClick={() => setShowAddModal(true)}
-          aria-label="Ajouter un article"
-        >
-          <Plus size={20} strokeWidth={2.5} />
-        </button>
+        <div className={styles.headerActions}>
+          <button
+            className={styles.headerIconBtn}
+            onClick={handleExport}
+            disabled={items.length === 0}
+            aria-label="Exporter le catalogue en CSV"
+            title="Exporter en CSV"
+          >
+            <Download size={17} strokeWidth={2.5} />
+          </button>
+          <button
+            className={styles.headerIconBtn}
+            onClick={() => fileRef.current?.click()}
+            aria-label="Importer un catalogue CSV"
+            title="Importer un CSV"
+          >
+            <Upload size={17} strokeWidth={2.5} />
+          </button>
+          <button
+            className={styles.addBtn}
+            onClick={() => setShowAddModal(true)}
+            aria-label="Ajouter un article"
+          >
+            <Plus size={20} strokeWidth={2.5} />
+          </button>
+        </div>
       </header>
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".csv,text/csv"
+        style={{ display: 'none' }}
+        onChange={handleFile}
+      />
 
       {query.isLoading && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
@@ -358,6 +407,52 @@ export default function CatalogPage() {
               {updateItem.isPending ? 'Enregistrement…' : 'Enregistrer'}
             </button>
           </form>
+        </SlideUpModal>
+      )}
+
+      {/* Modal — Confirmer l'import CSV (remplace tout le catalogue) */}
+      {pendingImport !== null && (
+        <SlideUpModal title="Importer le catalogue" onClose={() => setPendingImport(null)}>
+          <div className={styles.importBody}>
+            {pendingImport.length === 0 ? (
+              <p className={styles.importWarn}>
+                Aucune ligne valide trouvée. Vérifie le format : colonnes
+                <strong> nom ; prix ; quantité ; catégorie ; magasin</strong> (la 1re ligne d'en-tête est ignorée).
+              </p>
+            ) : (
+              <>
+                <p className={styles.importSummary}>
+                  <strong>{pendingImport.length}</strong> article{pendingImport.length > 1 ? 's' : ''} dans le fichier.
+                  {items.length > 0 && (
+                    <> Cela <strong>remplacera</strong> les {items.length} article{items.length > 1 ? 's' : ''} actuels.</>
+                  )}
+                </p>
+                <ul className={styles.importPreview}>
+                  {pendingImport.slice(0, 6).map((r, i) => (
+                    <li key={i}>
+                      <span>{r.name}</span>
+                      {r.price != null && <span className={styles.importPrice}>{formatPrice(r.price)}</span>}
+                    </li>
+                  ))}
+                  {pendingImport.length > 6 && (
+                    <li className={styles.importMore}>+{pendingImport.length - 6} autres…</li>
+                  )}
+                </ul>
+                <button
+                  className={styles.submitBtn}
+                  disabled={replaceCatalog.isPending}
+                  onClick={() => replaceCatalog.mutate(pendingImport, { onSuccess: () => setPendingImport(null) })}
+                >
+                  {replaceCatalog.isPending
+                    ? 'Import…'
+                    : `Remplacer par ces ${pendingImport.length} article${pendingImport.length > 1 ? 's' : ''}`}
+                </button>
+              </>
+            )}
+            <button className={styles.importCancel} onClick={() => setPendingImport(null)}>
+              Annuler
+            </button>
+          </div>
         </SlideUpModal>
       )}
 
