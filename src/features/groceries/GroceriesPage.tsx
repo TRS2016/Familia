@@ -4,8 +4,8 @@ import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft, Plus, SlidersHorizontal, ShoppingCart,
-  MapPin, Bookmark, FolderOpen, AlignJustify, LayoutList,
-  Search, X, Clock, Send, ClipboardList,
+  MapPin, Bookmark, AlignJustify, LayoutList,
+  Search, X, Clock, Send, ClipboardList, Check,
 } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
@@ -15,7 +15,6 @@ import { CATEGORIES, CATEGORY_ORDER, getCategoryEmoji, formatPrice } from './gro
 import type { CategoryKey } from './groceries.utils'
 import { GroceryItem } from './GroceryItem'
 import { CatalogPickerModal } from './CatalogPickerModal'
-import { LoadListModal } from './LoadListModal'
 import { useCatalog } from './useCatalog'
 import { useShoppingHistory, useSaveSession, useSessionSuggestions, useAddGroceryExpense } from './useShoppingHistory'
 import type { SessionItem } from './useShoppingHistory'
@@ -161,12 +160,12 @@ export default function GroceriesPage() {
   const [editingItem, setEditingItem] = useState<Grocery | null>(null)
 
   // ── Mode shopping (persisté en sessionStorage — survit aux reloads, pas aux fermetures d'onglet)
+  // Mode shopping = simple VUE « en magasin » sur la même liste partagée
+  // (plus de copie locale : le check écrit en base → temps réel / co-shopping).
   const [shoppingMode, setShoppingMode]       = useSessionState<boolean>(`familia-shopping-mode-${HOUSEHOLD_ID}`, false)
-  const [shoppingItems, setShoppingItems]     = useSessionState<Grocery[]>(`familia-shopping-${HOUSEHOLD_ID}`, [])
   const [shoppingGroupMode, setShoppingGroupMode] = useSessionState<GroupMode>(`familia-shopping-group-${HOUSEHOLD_ID}`, 'category')
   const [budget, setBudget]               = useState(() => localStorage.getItem('familia-grocery-budget') ?? '')
   const [editingBudget, setEditingBudget] = useState(false)
-  const [showLoadModal, setShowLoadModal] = useState(false)
 
   // ── Sauvegarder liste actuelle ───────────────────────────────────────────────
   const [showSaveModal, setShowSaveModal] = useState(false)
@@ -197,11 +196,8 @@ export default function GroceriesPage() {
   const pendingDragCleanupRef = useRef<(() => void) | null>(null)
 
   // ── Données dérivées ────────────────────────────────────────────────────────
-  // En mode shopping : liste locale éphémère. En mode édition : données Supabase.
-  const allItems = useMemo(
-    () => shoppingMode ? shoppingItems : (query.data ?? []),
-    [shoppingMode, shoppingItems, query.data],
-  )
+  // Source unique : la liste partagée Supabase (les deux vues l'utilisent).
+  const allItems = query.data ?? []
   const checkedItems   = allItems.filter(g => g.checked)
   const uncheckedItems = allItems.filter(g => !g.checked)
   const checkedDisplay = useMemo(() => {
@@ -213,7 +209,7 @@ export default function GroceriesPage() {
   // En mode shopping : groupMode propre (défaut catégorie). En édition : groupMode normal.
   const effectiveGroupMode: GroupMode = shoppingMode ? shoppingGroupMode : groupMode
 
-  // En mode édition : ordre drag & drop. En shopping : ordre de shoppingItems (modifiable par DnD).
+  // Ordre drag & drop (orderedIds) appliqué dans les deux vues.
   const uncheckedFiltered = useMemo(() => {
     const unchecked = allItems.filter(g => !g.checked)
     const memberFiltered = !shoppingMode && filterMemberId
@@ -221,7 +217,6 @@ export default function GroceriesPage() {
       : unchecked
     const q = filterText.trim().toLowerCase()
     const textFiltered = q ? memberFiltered.filter(g => g.name.toLowerCase().includes(q)) : memberFiltered
-    if (shoppingMode) return textFiltered
     return applyOrder(textFiltered, orderedIds)
   }, [allItems, orderedIds, filterMemberId, shoppingMode, filterText])
 
@@ -326,37 +321,22 @@ export default function GroceriesPage() {
       }
     }
 
-    const isShoppingMode = shoppingMode
-
     function endDrag() {
       if (dragActivated) {
         const state = dragStateRef.current
         if (state?.draggingId && state?.dragOverId) {
           const { draggingId: dId, dragOverId: overId } = state
-          if (isShoppingMode) {
-            setShoppingItems(prev => {
-              const next = [...prev]
-              const from = next.findIndex(g => g.id === dId)
-              const to = next.findIndex(g => g.id === overId)
-              if (from !== -1 && to !== -1) {
-                const [moved] = next.splice(from, 1)
-                next.splice(to, 0, moved)
-              }
-              return next
-            })
-          } else {
-            setOrderedIds(prev => {
-              const next = [...prev]
-              const from = next.indexOf(dId)
-              const to = next.indexOf(overId)
-              if (from !== -1 && to !== -1) {
-                next.splice(from, 1)
-                next.splice(to, 0, dId)
-              }
-              try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch { /* ignore */ }
-              return next
-            })
-          }
+          setOrderedIds(prev => {
+            const next = [...prev]
+            const from = next.indexOf(dId)
+            const to = next.indexOf(overId)
+            if (from !== -1 && to !== -1) {
+              next.splice(from, 1)
+              next.splice(to, 0, dId)
+            }
+            try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch { /* ignore */ }
+            return next
+          })
         }
       }
       dragStateRef.current = null
@@ -376,7 +356,7 @@ export default function GroceriesPage() {
     window.addEventListener('pointermove', onMove, { passive: false })
     window.addEventListener('pointerup', endDrag)
     window.addEventListener('pointercancel', endDrag)
-  }, [shoppingMode, setShoppingItems])
+  }, [])
 
   useEffect(() => () => { pendingDragCleanupRef.current?.() }, [])
 
@@ -473,55 +453,18 @@ export default function GroceriesPage() {
     setEditingBudget(false)
   }
 
-  function loadShoppingList(savedItems: Array<{ name: string; quantity: string | null; price: number | null; category: string | null; store: string | null }>) {
-    setShoppingItems(savedItems.map((item, i) => ({
-      id: `shopping-${i}-${Date.now()}`,
-      household_id: HOUSEHOLD_ID,
-      created_by: null,
-      name: item.name,
-      quantity: item.quantity,
-      price: item.price,
-      category: item.category,
-      store: item.store,
-      checked: false,
-      checked_by: null,
-      checked_at: null,
-      created_at: new Date().toISOString(),
-      created_by_member: null,
-      checked_by_member: null,
-    })))
-    setShowLoadModal(false)
-  }
-
-  function toggleShoppingItem(id: string) {
-    setShoppingItems(prev => prev.map(g =>
-      g.id === id
-        ? { ...g, checked: !g.checked, checked_at: !g.checked ? new Date().toISOString() : null }
-        : g
-    ))
-    navigator.vibrate?.(50)
-  }
-
+  // Bascule simple Liste ⇄ En magasin (même liste partagée, juste une autre vue).
   function handleShoppingToggle() {
     setFilterText('')
-    if (!shoppingMode) {
-      setShoppingMode(true)
-      setShowLoadModal(shoppingItems.length === 0)
-      setEditingBudget(false)
-    } else {
-      const hadChecked = shoppingItems.some(g => g.checked)
-      if (hadChecked) {
-        setShowArchivePrompt(true)
-      } else {
-        setShoppingMode(false)
-        setShoppingItems([])
-      }
-    }
+    setEditingBudget(false)
+    setShoppingMode(m => !m)
   }
 
+  // Fin des courses : archive la session (historique + Kakebo) puis vide les
+  // articles cochés de la liste partagée. « Sans archiver » vide sans enregistrer.
   async function handleArchiveDecision(save: boolean) {
-    if (save) {
-      const done = shoppingItems.filter(g => g.checked)
+    const done = allItems.filter(g => g.checked)
+    if (save && done.length > 0) {
       const items: SessionItem[] = done.map(g => ({
         name: g.name, qty: g.quantity, price: g.price, store: g.store,
       }))
@@ -534,9 +477,9 @@ export default function GroceriesPage() {
         showToast({ type: 'success', message: 'Session de courses archivée !' })
       } catch { /* onError handles toast */ }
     }
+    if (done.length > 0) clearChecked.mutate()
     setShowArchivePrompt(false)
     setShoppingMode(false)
-    setShoppingItems([])
   }
 
   async function handleNotifyList(message: string) {
@@ -609,22 +552,13 @@ export default function GroceriesPage() {
               </Link>
             </>
           )}
-          {shoppingMode && (
-            <button
-              className={styles.loadListBtn}
-              onClick={() => setShowLoadModal(true)}
-              aria-label="Changer de liste"
-            >
-              <FolderOpen size={14} strokeWidth={2.5} />
-            </button>
-          )}
           <button
             className={[styles.shoppingToggle, shoppingMode ? styles.shoppingToggleActive : ''].join(' ')}
             onClick={handleShoppingToggle}
-            aria-label={shoppingMode ? 'Mode édition' : 'Mode shopping'}
+            aria-label={shoppingMode ? 'Revenir à la liste' : 'Passer en mode magasin'}
           >
             <ShoppingCart size={14} strokeWidth={2.5} />
-            <span>{shoppingMode ? 'Éditer' : 'Shop'}</span>
+            <span>{shoppingMode ? 'Liste' : 'En magasin'}</span>
           </button>
         </div>
       </header>
@@ -639,9 +573,8 @@ export default function GroceriesPage() {
         </div>
       )}
 
-      {/* Formulaire d'ajout — mode édition uniquement */}
-      {!shoppingMode && (
-        <form onSubmit={handleAdd} className={styles.addForm}>
+      {/* Formulaire d'ajout — disponible aussi en magasin (ex. « oups, le lait ») */}
+      <form onSubmit={handleAdd} className={styles.addForm}>
           <div className={styles.addRow}>
             <input
               list="grocery-names-list"
@@ -752,7 +685,6 @@ export default function GroceriesPage() {
             </>
           )}
         </form>
-      )}
 
       {/* Total estimé — mode édition, si des articles ont un prix */}
       {!shoppingMode && totalLeft > 0 && (
@@ -846,23 +778,13 @@ export default function GroceriesPage() {
       )}
 
       {!query.isLoading && allItems.length === 0 && (
-        <>
-          <EmptyState
-            emoji="🛒"
-            title={shoppingMode ? 'Aucune liste chargée' : 'La liste est vide'}
-            description={shoppingMode
-              ? 'Charge une liste pour commencer les courses.'
-              : 'Ajoute le premier article avec le champ ci-dessus.'}
-          />
-          {shoppingMode && (
-            <div style={{ display: 'flex', justifyContent: 'center', padding: '0 16px 24px' }}>
-              <button className={styles.loadListBtnLarge} onClick={() => setShowLoadModal(true)}>
-                <FolderOpen size={15} strokeWidth={2.5} />
-                Choisir une liste
-              </button>
-            </div>
-          )}
-        </>
+        <EmptyState
+          emoji="🛒"
+          title="La liste est vide"
+          description={shoppingMode
+            ? 'Ajoute des articles, puis coche-les au fur et à mesure en magasin.'
+            : 'Ajoute le premier article avec le champ ci-dessus.'}
+        />
       )}
 
       {/* Articles non cochés */}
@@ -883,7 +805,7 @@ export default function GroceriesPage() {
                 item={item}
                 shoppingMode={shoppingMode}
                 compact={compactMode}
-                onToggle={() => shoppingMode ? toggleShoppingItem(item.id) : toggleGrocery.mutate({ id: item.id, checked: true })}
+                onToggle={() => { navigator.vibrate?.(50); toggleGrocery.mutate({ id: item.id, checked: true }) }}
                 onDelete={() => deleteGrocery.mutate(item.id)}
                 onEdit={() => openEdit(item)}
                 isDragging={draggingId === item.id}
@@ -919,7 +841,7 @@ export default function GroceriesPage() {
                 item={item}
                 shoppingMode={shoppingMode}
                 compact={compactMode}
-                onToggle={() => shoppingMode ? toggleShoppingItem(item.id) : toggleGrocery.mutate({ id: item.id, checked: false })}
+                onToggle={() => toggleGrocery.mutate({ id: item.id, checked: false })}
                 onDelete={() => deleteGrocery.mutate(item.id)}
                 onEdit={() => openEdit(item)}
               />
@@ -938,54 +860,66 @@ export default function GroceriesPage() {
         </div>
       )}
 
-      {hasAnyPrice && <div style={{ height: shoppingMode ? 112 : 64 }} />}
+      {(shoppingMode || hasAnyPrice) && <div style={{ height: shoppingMode ? 150 : 64 }} />}
 
-      {/* Barre total sticky */}
-      {hasAnyPrice && (
+      {/* Barre sticky : budget + « Terminer » en magasin, total estimé en liste */}
+      {(shoppingMode || hasAnyPrice) && (
         <div className={[styles.totalBar, shoppingMode ? styles.totalBarShopping : ''].join(' ')}>
           {shoppingMode ? (
             <div className={styles.shoppingBarInner}>
-              <div className={styles.shoppingBarTop}>
-                <div className={styles.shoppingCartBlock}>
-                  <span className={styles.shoppingCartLabel}>Panier</span>
-                  <span className={styles.shoppingCartAmount}>{formatPrice(totalInCart)}</span>
-                </div>
-                {budgetNum ? (
-                  <div className={[styles.shoppingBudgetBlock, overBudget ? styles.overBudget : ''].join(' ')}>
-                    <span className={styles.shoppingBudgetLabel}>Budget</span>
-                    <span className={styles.shoppingBudgetAmount}>{formatPrice(budgetNum)}</span>
+              {hasAnyPrice && (
+                <>
+                  <div className={styles.shoppingBarTop}>
+                    <div className={styles.shoppingCartBlock}>
+                      <span className={styles.shoppingCartLabel}>Panier</span>
+                      <span className={styles.shoppingCartAmount}>{formatPrice(totalInCart)}</span>
+                    </div>
+                    {budgetNum ? (
+                      <div className={[styles.shoppingBudgetBlock, overBudget ? styles.overBudget : ''].join(' ')}>
+                        <span className={styles.shoppingBudgetLabel}>Budget</span>
+                        <span className={styles.shoppingBudgetAmount}>{formatPrice(budgetNum)}</span>
+                      </div>
+                    ) : totalLeft > 0 ? (
+                      <span className={styles.shoppingRemainder}>≈ {formatPrice(totalLeft)} restant</span>
+                    ) : null}
                   </div>
-                ) : totalLeft > 0 ? (
-                  <span className={styles.shoppingRemainder}>≈ {formatPrice(totalLeft)} restant</span>
-                ) : null}
-              </div>
-              {budgetProgress !== null && (
-                <div className={styles.budgetTrack}>
-                  <div
-                    className={styles.budgetFill}
-                    style={{ width: `${budgetProgress * 100}%`, background: overBudget ? 'var(--danger)' : 'var(--positive)' }}
-                  />
-                </div>
-              )}
-              <div className={styles.budgetEditRow}>
-                {editingBudget ? (
-                  <form onSubmit={e => { e.preventDefault(); saveBudget() }} className={styles.budgetForm}>
-                    <input
-                      type="text" inputMode="decimal" value={budget}
-                      onChange={e => setBudget(e.target.value)}
-                      placeholder="Budget en €" aria-label="Budget en euros" className={styles.budgetInput} autoFocus
-                    />
-                    <button type="submit" className={styles.budgetSaveBtn}>OK</button>
-                    {budget && (
-                      <button type="button" className={styles.budgetClearBtn} onClick={clearBudget}>Supprimer</button>
+                  {budgetProgress !== null && (
+                    <div className={styles.budgetTrack}>
+                      <div
+                        className={styles.budgetFill}
+                        style={{ width: `${budgetProgress * 100}%`, background: overBudget ? 'var(--danger)' : 'var(--positive)' }}
+                      />
+                    </div>
+                  )}
+                  <div className={styles.budgetEditRow}>
+                    {editingBudget ? (
+                      <form onSubmit={e => { e.preventDefault(); saveBudget() }} className={styles.budgetForm}>
+                        <input
+                          type="text" inputMode="decimal" value={budget}
+                          onChange={e => setBudget(e.target.value)}
+                          placeholder="Budget en €" aria-label="Budget en euros" className={styles.budgetInput} autoFocus
+                        />
+                        <button type="submit" className={styles.budgetSaveBtn}>OK</button>
+                        {budget && (
+                          <button type="button" className={styles.budgetClearBtn} onClick={clearBudget}>Supprimer</button>
+                        )}
+                      </form>
+                    ) : (
+                      <button className={styles.budgetEditBtn} onClick={() => setEditingBudget(true)}>
+                        {budget ? `Budget : ${formatPrice(parseFloat(budget.replace(',', '.')))}  ✎` : '+ Définir un budget'}
+                      </button>
                     )}
-                  </form>
-                ) : (
-                  <button className={styles.budgetEditBtn} onClick={() => setEditingBudget(true)}>
-                    {budget ? `Budget : ${formatPrice(parseFloat(budget.replace(',', '.')))}  ✎` : '+ Définir un budget'}
-                  </button>
-                )}
-              </div>
+                  </div>
+                </>
+              )}
+              <button
+                className={styles.finishShoppingBtn}
+                onClick={() => setShowArchivePrompt(true)}
+                disabled={checkedItems.length === 0}
+              >
+                <Check size={16} strokeWidth={2.5} />
+                Terminer les courses{checkedItems.length > 0 ? ` · ${checkedItems.length}` : ''}
+              </button>
             </div>
           ) : (
             <>
@@ -1016,25 +950,15 @@ export default function GroceriesPage() {
         />
       )}
 
-      {/* Modal — Choisir une liste (shopping) */}
-      {showLoadModal && (
-        <SlideUpModal title="Choisir une liste" onClose={() => setShowLoadModal(false)}>
-          <LoadListModal
-            currentItemCount={shoppingItems.filter(g => !g.checked).length}
-            onClose={() => setShowLoadModal(false)}
-            onLoad={loadShoppingList}
-          />
-        </SlideUpModal>
-      )}
-
-      {/* Modal — Archiver la session de courses */}
+      {/* Modal — Terminer / archiver la session de courses */}
       {showArchivePrompt && (
         <ArchivePromptModal
-          checkedCount={shoppingItems.filter(g => g.checked).length}
-          total={computeTotal(shoppingItems.filter(g => g.checked))}
+          checkedCount={checkedItems.length}
+          total={computeTotal(checkedItems)}
           isPending={saveSession.isPending || addGroceryExpense.isPending}
           addToKakebo={addToKakebo}
           onToggleKakebo={() => setAddToKakebo(v => !v)}
+          onClose={() => setShowArchivePrompt(false)}
           onSave={() => handleArchiveDecision(true)}
           onSkip={() => handleArchiveDecision(false)}
         />
@@ -1236,21 +1160,25 @@ function SaveListModal({ uncheckedCount, isPending, onClose, onSave }: {
   )
 }
 
-function ArchivePromptModal({ checkedCount, total, isPending, addToKakebo, onToggleKakebo, onSave, onSkip }: {
+function ArchivePromptModal({ checkedCount, total, isPending, addToKakebo, onToggleKakebo, onClose, onSave, onSkip }: {
   checkedCount: number
   total: number
   isPending: boolean
   addToKakebo: boolean
   onToggleKakebo: () => void
+  onClose: () => void
   onSave: () => void
   onSkip: () => void
 }) {
   return (
-    <SlideUpModal title="Courses terminées ?" onClose={onSkip}>
+    <SlideUpModal title="Courses terminées ?" onClose={onClose}>
       <div className={styles.archivePromptBody}>
         <p className={styles.archivePromptSummary}>
-          🛒 <strong>{checkedCount}</strong> article{checkedCount > 1 ? 's' : ''} cochés
+          🛒 <strong>{checkedCount}</strong> article{checkedCount > 1 ? 's' : ''} pris
           {total > 0 && <> · <strong>{formatPrice(total)}</strong></>}
+        </p>
+        <p className={styles.archivePromptHint}>
+          Les articles cochés seront retirés de la liste.
         </p>
         {total > 0 && (
           <label className={styles.kakeboBridgeRow}>
@@ -1259,10 +1187,10 @@ function ArchivePromptModal({ checkedCount, total, isPending, addToKakebo, onTog
           </label>
         )}
         <button className={styles.archiveBtn} onClick={onSave} disabled={isPending}>
-          {isPending ? 'Archivage…' : 'Archiver cette session'}
+          {isPending ? 'Archivage…' : 'Archiver et terminer'}
         </button>
         <button className={styles.archiveSkipBtn} onClick={onSkip} disabled={isPending}>
-          Quitter sans archiver
+          Terminer sans enregistrer
         </button>
       </div>
     </SlideUpModal>
