@@ -173,7 +173,7 @@ export default function BilanView({
           const budget = cat.monthly_budget
           const overBudget = budget != null && value > budget
           const budgetPct = budget != null ? Math.min(value / budget * 100, 100) : Math.min(pct * 100, 100)
-          const barColor = budget != null ? (overBudget ? '#c0392b' : '#5B9E8F') : catColor(cat)
+          const barColor = budget != null ? (overBudget ? 'var(--danger)' : '#5B9E8F') : catColor(cat)
           return (
             <button key={cat.id} className={styles.catCard} onClick={() => onSelectCat(cat.id)}>
               <div className={styles.catCardTop}>
@@ -187,7 +187,7 @@ export default function BilanView({
                 <span className={styles.catCardAmountVal}>{fmtEur(value)}</span>
                 <span className={styles.catCardAmountEur}>€</span>
                 {budget != null && (
-                  <span className={styles.catCardBudgetOf} style={{ color: overBudget ? '#c0392b' : 'var(--text-muted)' }}>
+                  <span className={styles.catCardBudgetOf} style={{ color: overBudget ? 'var(--danger)' : 'var(--text-muted)' }}>
                     /{fmtEur(budget)}
                   </span>
                 )}

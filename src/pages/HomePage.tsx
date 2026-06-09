@@ -431,7 +431,7 @@ export default function HomePage() {
               </div>
               <div className={styles.budgetCell}>
                 <span className={styles.budgetCellLabel}>Épargne</span>
-                <span className={styles.budgetCellValue} style={{ color: kakeboMonth.epargne >= 0 ? '#5B9E8F' : '#c0392b' }}>
+                <span className={styles.budgetCellValue} style={{ color: kakeboMonth.epargne >= 0 ? '#5B9E8F' : 'var(--danger)' }}>
                   {kakeboMonth.epargne >= 0 ? '+' : ''}{kakeboMonth.epargne.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
                 </span>
               </div>

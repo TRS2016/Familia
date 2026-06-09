@@ -960,7 +960,7 @@ export default function GroceriesPage() {
                 <div className={styles.budgetTrack}>
                   <div
                     className={styles.budgetFill}
-                    style={{ width: `${budgetProgress * 100}%`, background: overBudget ? '#c0392b' : '#5B9E8F' }}
+                    style={{ width: `${budgetProgress * 100}%`, background: overBudget ? 'var(--danger)' : '#5B9E8F' }}
                   />
                 </div>
               )}
@@ -1273,7 +1273,7 @@ function ClearConfirmModal({ count, isPending, onClose, onConfirm }: {
         <p className={styles.archivePromptSummary}>
           🗑 <strong>{count}</strong> article{count > 1 ? 's' : ''} coché{count > 1 ? 's' : ''} seront supprimés définitivement.
         </p>
-        <button className={styles.archiveBtn} style={{ background: '#c0392b' }} onClick={onConfirm} disabled={isPending}>
+        <button className={styles.archiveBtn} style={{ background: 'var(--danger)' }} onClick={onConfirm} disabled={isPending}>
           Supprimer
         </button>
         <button className={styles.archiveSkipBtn} onClick={onClose}>Annuler</button>

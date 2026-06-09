@@ -27,6 +27,7 @@
 }
 
 .pageTitle {
+  font-family: var(--font-display);
   flex: 1;
   font-size: 20px;
   font-weight: 900;
@@ -249,7 +250,7 @@
   transition: color 0.15s;
 }
 
-.deleteBtn:hover { color: #c0392b; }
+.deleteBtn:hover { color: var(--danger); }
 
 /* ── Separator ───────────────────────────────────────────────────────────── */
 
@@ -616,7 +617,7 @@
   transition: color 0.15s, border-color 0.15s;
 }
 
-.abandonBtn:hover { color: #c0392b; border-color: rgba(192,57,43,0.5); }
+.abandonBtn:hover { color: var(--danger); border-color: rgba(192,57,43,0.5); }
 
 .editBtn {
   display: flex;

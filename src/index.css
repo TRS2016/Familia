@@ -80,6 +80,21 @@ button, a {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* ── Focus clavier (a11y) ─────────────────────────────────────────────────── */
+/* Sélecteurs element:focus-visible → spécificité (0,1,1), bat les .class{outline:none}
+   des composants. Anneau visible uniquement au clavier (pas à la souris). */
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible,
+[role="button"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  border-radius: var(--radius-xs);
+}
+
 button:active:not(:disabled):not([data-no-feedback]) {
   opacity: 0.75;
   transform: scale(0.97);

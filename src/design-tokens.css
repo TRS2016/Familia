@@ -1,25 +1,33 @@
-@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap');
 
 :root {
   /* Accent */
   --accent: #E07B54;
-  --accent-shadow: rgba(224, 123, 84, 0.27); /* used for primary button glow */
+  --accent-soft: #F4E3D8;                      /* fonds teintés / hover doux */
+  --accent-shadow: rgba(224, 123, 84, 0.27);   /* used for primary button glow */
 
   /* Backgrounds */
   --bg: #F7F2EA;
   --bg-card: #FFFAF5;
   --bg-input: #FAF5EF;
 
-  /* Text */
+  /* Text — assombris pour le contraste (WCAG AA) */
   --text: #3D2B1F;
-  --text-sub: #7A6A60;
-  --text-muted: #A89F97;
+  --text-sub: #6E5D52;
+  --text-muted: #786C62;
 
   /* Borders */
   --border: #EDE5DC;
   --border-subtle: #F0EBE3;
 
-  /* Member palette */
+  /* Couleurs sémantiques */
+  --danger:  #C0392B;
+  --success: #4F7D3A;
+  --info:    #3D80B8;
+  --warning: #E8B84B;
+
+  /* Member palette — source unique : src/lib/constants.ts (MEMBER_PALETTE).
+     Gardée en phase ici pour usage CSS éventuel. */
   --member-1: #E07B54;
   --member-2: #5B9E8F;
   --member-3: #9B7AC4;
@@ -40,7 +48,27 @@
   --shadow-notif: 0 4px 20px rgba(0, 0, 0, 0.15);
 
   /* Typography */
-  --font-family: 'Nunito', system-ui, sans-serif;
+  --font-family: 'Nunito', system-ui, sans-serif;          /* corps + UI */
+  --font-display: 'Fraunces', 'Nunito', Georgia, serif;     /* titres d'écran */
+
+  /* Échelle typographique */
+  --text-2xs: 11px;   /* captions / méta (plancher) */
+  --text-xs:  12px;
+  --text-sm:  13px;
+  --text-md:  15px;   /* corps par défaut */
+  --text-lg:  18px;   /* sous-titres */
+  --text-xl:  22px;   /* titres de section */
+  --text-2xl: 28px;   /* titres d'écran */
+  --leading-tight: 1.2;
+  --leading-body:  1.5;
+
+  /* Échelle d'espacement */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
 
   /* Scrollbar */
   --scrollbar-thumb: #D0C8BF;
@@ -53,8 +81,8 @@
     --bg-input: #1A1510;
 
     --text: #F5EEE6;
-    --text-sub: #8A7A6F;
-    --text-muted: #6B6057;
+    --text-sub: #B5A89C;
+    --text-muted: #8F8175;
 
     --border: rgba(255, 255, 255, 0.07);
     --border-subtle: rgba(255, 255, 255, 0.05);
@@ -69,8 +97,8 @@
   --bg-input: #1A1510;
 
   --text: #F5EEE6;
-  --text-sub: #8A7A6F;
-  --text-muted: #6B6057;
+  --text-sub: #B5A89C;
+  --text-muted: #8F8175;
 
   --border: rgba(255, 255, 255, 0.07);
   --border-subtle: rgba(255, 255, 255, 0.05);

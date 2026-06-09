@@ -62,6 +62,7 @@
 }
 
 .pageTitle {
+  font-family: var(--font-display);
   flex: 1;
   font-family: var(--tr-display);
   font-weight: 600;
@@ -239,7 +240,7 @@
   display: flex;
   align-items: center;
 }
-.presetDelete:hover { color: #c0392b; }
+.presetDelete:hover { color: var(--danger); }
 
 .presetDuplicate {
   flex-shrink: 0;
@@ -682,7 +683,7 @@
   align-self: center;
   background: none;
   border: none;
-  color: #c0392b;
+  color: var(--danger);
   font-family: var(--font-family);
   font-size: 12px;
   font-weight: 700;
@@ -815,7 +816,7 @@
   display: flex;
   align-items: center;
 }
-.exRemove:hover { color: #c0392b; }
+.exRemove:hover { color: var(--danger); }
 
 .exMove { display: flex; flex-direction: column; flex-shrink: 0; }
 .exMoveBtn {

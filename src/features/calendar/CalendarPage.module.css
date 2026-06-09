@@ -49,6 +49,7 @@
 .backLink:hover { opacity: 0.7; }
 
 .pageTitle {
+  font-family: var(--font-display);
   flex: 1;
   font-size: 18px;
   font-weight: 900;
@@ -453,7 +454,7 @@
 }
 
 .eventDeleteBtn:hover {
-  color: #c0392b;
+  color: var(--danger);
 }
 
 /* ── Month view ──────────────────────────────────────────────────────────── */
@@ -668,7 +669,7 @@
 }
 
 .monthDayPanelDelete:hover {
-  color: #c0392b;
+  color: var(--danger);
 }
 
 /* ── FAB ─────────────────────────────────────────────────────────────────── */
@@ -901,7 +902,7 @@
   width: 100%;
   padding: 12px;
   background: transparent;
-  color: #c0392b;
+  color: var(--danger);
   border: 1.5px solid rgba(192, 57, 43, 0.3);
   border-radius: var(--radius-md);
   font-family: var(--font-family);

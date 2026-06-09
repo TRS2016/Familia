@@ -14,7 +14,7 @@ export const STATUS_STYLE: Record<string, { background: string; color: string; b
   'à voir':   { background: 'transparent',              color: 'var(--text-muted)', borderColor: 'var(--border)' },
   'en cours': { background: 'rgba(224,123,84,0.12)',    color: 'var(--accent)',     borderColor: 'var(--accent)' },
   'terminé':  { background: 'rgba(91,158,143,0.12)',    color: '#5B9E8F',           borderColor: '#5B9E8F' },
-  'abandonné':{ background: 'rgba(192,57,43,0.10)',     color: '#c0392b',           borderColor: 'rgba(192,57,43,0.5)' },
+  'abandonné':{ background: 'rgba(192,57,43,0.10)',     color: 'var(--danger)',           borderColor: 'rgba(192,57,43,0.5)' },
 }
 
 export default function MediaRow({ item, members, avgRating = null, done = false, onCycleStatus, onOpen }: {

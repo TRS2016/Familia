@@ -29,6 +29,7 @@
 }
 
 .pageTitle {
+  font-family: var(--font-display);
   flex: 1;
   font-size: 20px;
   font-weight: 900;

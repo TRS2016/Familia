@@ -112,7 +112,7 @@
 
 .error {
   font-size: 13px;
-  color: #c0392b;
+  color: var(--danger);
   background: rgba(192, 57, 43, 0.08);
   border-radius: var(--radius-sm);
   padding: 10px 12px;

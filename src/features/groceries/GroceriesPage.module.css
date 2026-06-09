@@ -63,6 +63,7 @@
 }
 
 .pageTitle {
+  font-family: var(--font-display);
   font-size: 18px;
   font-weight: 900;
   color: var(--text);
@@ -612,7 +613,7 @@
   transition: color 0.15s;
 }
 
-.deleteBtn:hover { color: #c0392b; }
+.deleteBtn:hover { color: var(--danger); }
 .deleteBtn:disabled { opacity: 0.3; cursor: not-allowed; }
 
 /* ── Checked state ───────────────────────────────────────────────────────── */
@@ -658,7 +659,7 @@
   flex-shrink: 0;
 }
 
-.clearBtn:hover { color: #c0392b; background: rgba(192, 57, 43, 0.08); }
+.clearBtn:hover { color: var(--danger); background: rgba(192, 57, 43, 0.08); }
 .clearBtn:disabled { opacity: 0.4; cursor: not-allowed; }
 
 /* ── Total bar — sticky bas ──────────────────────────────────────────────── */
@@ -763,7 +764,7 @@
   line-height: 1;
 }
 
-.overBudget .shoppingBudgetAmount { color: #c0392b; }
+.overBudget .shoppingBudgetAmount { color: var(--danger); }
 
 .shoppingRemainder {
   font-size: 12px;
@@ -851,7 +852,7 @@
   font-family: var(--font-family);
   font-size: 11px;
   font-weight: 700;
-  color: #c0392b;
+  color: var(--danger);
   cursor: pointer;
   padding: 0;
 }
@@ -1712,12 +1713,12 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  color: #c0392b;
+  color: var(--danger);
   border-color: rgba(192, 57, 43, 0.3);
 }
 
 .shareDangerBtn:hover {
-  border-color: #c0392b;
+  border-color: var(--danger);
 }
 
 /* ── Drag & drop ─────────────────────────────────────────────────────────── */
