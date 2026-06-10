@@ -13,9 +13,15 @@ export default function SlideUpModal({ title, onClose, children }: Props) {
   const titleId = useId()
   const modalRef = useRef<HTMLDivElement>(null)
 
+  // Garde une réf. à jour de onClose sans relancer l'effet de montage à chaque
+  // render (sinon le focus initial volerait le focus des champs à chaque frappe).
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+
   // Fermeture clavier (Échap) + verrou du scroll de la page sous la modale.
+  // Effet exécuté une seule fois au montage.
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
+    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onCloseRef.current() }
     window.addEventListener('keydown', onKey)
     const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
@@ -25,7 +31,7 @@ export default function SlideUpModal({ title, onClose, children }: Props) {
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = prevOverflow
     }
-  }, [onClose])
+  }, [])
 
   return (
     <div className={styles.overlay} onClick={onClose}>
