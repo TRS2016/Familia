@@ -103,7 +103,9 @@ Deno.serve(async (req: Request) => {
           member_id:    null,
           title:        (body.title ?? '').trim().slice(0, 120) || 'Morceau (invité)',
           external_url: ext,
-          tags:         [],
+          // Tag automatique : identifie les ajouts invités dans la bibliothèque
+          // et permet la purge optionnelle à la fermeture de la soirée.
+          tags:         ['soirée'],
         })
         .select('id')
         .single()

@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { Search, Plus, Check, PartyPopper, Music, ListMusic, Link as LinkIcon } from 'lucide-react'
+import { decodeHtml } from '../lib/youtube'
+import type { YtResult } from '../lib/youtube'
 import styles from './JukeboxGuestPage.module.css'
 
 const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string
@@ -10,15 +12,8 @@ const NAME_KEY = 'familia-guest-name'
 
 interface Track { id: string; title: string; by: string | null }
 interface QueueLine { title: string; by: string | null }
-interface YtResult { videoId: string; title: string; channel: string; thumbnail: string }
 
 type Mode = 'search' | 'library'
-
-function decodeHtml(s: string): string {
-  const t = document.createElement('textarea')
-  t.innerHTML = s
-  return t.value
-}
 
 export default function JukeboxGuestPage() {
   const { token } = useParams<{ token: string }>()

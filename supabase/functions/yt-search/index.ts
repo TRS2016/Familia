@@ -53,6 +53,30 @@ Deno.serve(async (req: Request) => {
   }
   if (!authorized) return json({ error: 'Non autorisé' }, 401)
 
+  // ── Cache 24 h : chaque appel API coûte 100 unités de quota (10 000/jour),
+  // soit 100 recherches/jour au total — les requêtes identiques ne doivent
+  // compter qu'une fois.
+  const qNorm = q.toLowerCase()
+  const { data: cached } = await supabase
+    .from('yt_search_cache')
+    .select('results, created_at')
+    .eq('q', qNorm)
+    .maybeSingle()
+  if (cached && Date.now() - new Date(cached.created_at as string).getTime() < 24 * 3600 * 1000) {
+    return json({ results: cached.results })
+  }
+
+  // ── Throttle global : chaque cache miss insère/rafraîchit une ligne, donc
+  // le nombre de lignes récentes ≈ le nombre d'appels API récents.
+  const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
+  const { count: recentCalls } = await supabase
+    .from('yt_search_cache')
+    .select('q', { count: 'exact', head: true })
+    .gte('created_at', tenMinAgo)
+  if ((recentCalls ?? 0) >= 30) {
+    return json({ error: 'Trop de recherches d’un coup — réessaie dans quelques minutes.' }, 429)
+  }
+
   // ── Appel YouTube Data API v3 ──
   const ytUrl = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&maxResults=12&videoEmbeddable=true&q=${encodeURIComponent(q)}&key=${apiKey}`
   const r = await fetch(ytUrl)
@@ -69,6 +93,10 @@ Deno.serve(async (req: Request) => {
       channel:   it.snippet?.channelTitle ?? '',
       thumbnail: it.snippet?.thumbnails?.medium?.url ?? it.snippet?.thumbnails?.default?.url ?? '',
     }))
+
+  await supabase
+    .from('yt_search_cache')
+    .upsert({ q: qNorm, results, created_at: new Date().toISOString() })
 
   return json({ results })
 })

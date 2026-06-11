@@ -305,6 +305,20 @@ function YouTubePlayer({ videoId, autoPlay, muted, loop, onEnded }: {
 
 // ── URL detection ─────────────────────────────────────────────────────────────
 
+// La file de soirée ne s'enchaîne toute seule que si le média émet `onEnded` :
+// fichiers uploadés, YouTube (IFrame API) et fichiers distants audio/vidéo.
+// Spotify (iframe opaque) et les simples liens demandent un skip manuel.
+export function canAutoAdvance(
+  filePath: string | null | undefined,
+  externalUrl: string | null | undefined,
+  mimeType?: string | null,
+): boolean {
+  if (filePath) return true
+  if (!externalUrl) return false
+  const t = detectType(externalUrl, mimeType)
+  return t === 'youtube' || t === 'video' || t === 'audio'
+}
+
 type PlayerType = 'youtube' | 'spotify' | 'video' | 'audio' | 'link'
 
 function detectType(url: string, mimeType?: string | null): PlayerType {

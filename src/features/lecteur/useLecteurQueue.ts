@@ -18,7 +18,8 @@ export interface QueueItem {
   added_by_member: { display_name: string } | null
 }
 
-export const LECTEUR_QUEUE_KEY = ['lecteur-queue', HOUSEHOLD_ID] as const
+export const LECTEUR_QUEUE_KEY   = ['lecteur-queue',         HOUSEHOLD_ID] as const
+export const LECTEUR_HISTORY_KEY = ['lecteur-queue-history', HOUSEHOLD_ID] as const
 
 const SELECT =
   '*, media_file:media_files(*, member:members(display_name)), added_by_member:members!lecteur_queue_added_by_fkey(display_name)'
@@ -36,6 +37,56 @@ export function useLecteurQueue() {
         .order('position', { ascending: true })
       if (error) throw error
       return data as unknown as QueueItem[]
+    },
+  })
+}
+
+// Morceaux déjà joués ces dernières 24 h (« joué ce soir »), du plus récent
+// au plus ancien (la file se joue par position croissante).
+export function useLecteurPlayedHistory() {
+  return useQuery({
+    queryKey: LECTEUR_HISTORY_KEY,
+    queryFn: async (): Promise<QueueItem[]> => {
+      const since = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
+      const { data, error } = await supabase
+        .from('lecteur_queue')
+        .select(SELECT)
+        .eq('household_id', HOUSEHOLD_ID)
+        .eq('played', true)
+        .gte('created_at', since)
+        .order('position', { ascending: false })
+        .limit(30)
+      if (error) throw error
+      return data as unknown as QueueItem[]
+    },
+  })
+}
+
+// Échange les positions de deux items adjacents (flèches ↑↓ de la file).
+export function useMoveQueueItem() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ a, b }: { a: QueueItem; b: QueueItem }) => {
+      const r1 = await supabase.from('lecteur_queue').update({ position: b.position } as never).eq('id', a.id)
+      if (r1.error) throw r1.error
+      const r2 = await supabase.from('lecteur_queue').update({ position: a.position } as never).eq('id', b.id)
+      if (r2.error) throw r2.error
+    },
+    onMutate: async ({ a, b }) => {
+      await queryClient.cancelQueries({ queryKey: LECTEUR_QUEUE_KEY })
+      const previous = queryClient.getQueryData<QueueItem[]>(LECTEUR_QUEUE_KEY) ?? []
+      queryClient.setQueryData<QueueItem[]>(LECTEUR_QUEUE_KEY,
+        previous
+          .map(q => q.id === a.id ? { ...q, position: b.position }
+                  : q.id === b.id ? { ...q, position: a.position } : q)
+          .sort((x, y) => x.position - y.position))
+      return { previous }
+    },
+    onError: (_e, _vars, ctx) => {
+      queryClient.setQueryData(LECTEUR_QUEUE_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de déplacer le morceau.' })
     },
   })
 }
@@ -116,10 +167,13 @@ export function useClearQueue() {
   const { showToast } = useToast()
   return useMutation({
     mutationFn: async () => {
+      // Ne vide que la file à venir : les lignes played=true servent
+      // d'historique « joué ce soir ».
       const { error } = await supabase
         .from('lecteur_queue')
         .delete()
         .eq('household_id', HOUSEHOLD_ID)
+        .eq('played', false)
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: LECTEUR_QUEUE_KEY }),

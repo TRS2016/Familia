@@ -1544,3 +1544,70 @@
 }
 .addBtn2Done { background: var(--positive); }
 .addBtn2:disabled { cursor: default; }
+
+/* ── Audit 2026-06-11 : réordonnancement, historique, durée, purge ───────── */
+
+.jukeboxMoveBtn {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 26px;
+  height: 30px;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: var(--radius-sm);
+  transition: color 0.15s;
+}
+.jukeboxMoveBtn:hover:not(:disabled) { color: var(--accent); }
+.jukeboxMoveBtn:disabled { opacity: 0.25; cursor: default; }
+.jukeboxMoveBtn::before {
+  content: '';
+  position: absolute;
+  left: 0; right: 0; top: 50%;
+  height: 44px;
+  transform: translateY(-50%);
+}
+
+.jukeboxItemPlayed { opacity: 0.55; }
+
+.jukeboxPlayedToggle {
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.jukeboxPlayedToggle:hover { color: var(--text-sub); }
+
+.fileDuration {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.invitePurgeRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: var(--text-sm);
+  color: var(--text-sub);
+  text-align: left;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+.invitePurgeRow input { margin-top: 2px; accent-color: var(--accent); }
+
+.inviteExpiry {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+}

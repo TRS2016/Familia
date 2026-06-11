@@ -3,6 +3,8 @@ import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useToast } from '../../components/useToast'
+import { MEDIA_FILES_KEY } from './useLecteur'
+import { LECTEUR_QUEUE_KEY } from './useLecteurQueue'
 
 export interface PartyToken {
   token: string
@@ -21,7 +23,9 @@ export function useJukeboxToken() {
   const query = useQuery({
     queryKey: KEY,
     queryFn: async (): Promise<PartyToken | null> => {
-      const { data } = await supabase
+      // Propager l'erreur : un échec réseau silencieux ferait recréer un token
+      // (et invaliderait le QR déjà affiché chez un autre membre).
+      const { data, error } = await supabase
         .from('lecteur_party_tokens')
         .select('token, expires_at')
         .eq('household_id', HOUSEHOLD_ID)
@@ -29,6 +33,7 @@ export function useJukeboxToken() {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
+      if (error) throw error
       return (data as unknown as PartyToken | null) ?? null
     },
   })
@@ -50,11 +55,27 @@ export function useJukeboxToken() {
   })
 
   const revoke = useMutation({
-    mutationFn: async () => {
+    mutationFn: async ({ purgeGuestTracks }: { purgeGuestTracks: boolean }) => {
       const { error } = await supabase.from('lecteur_party_tokens').delete().eq('household_id', HOUSEHOLD_ID)
       if (error) throw error
+      if (purgeGuestTracks) {
+        // Morceaux ajoutés par les invités : liens externes uniquement
+        // (member_id null + tag posé par l'Edge Function jukebox), donc rien
+        // à nettoyer côté Storage. La file suit par cascade.
+        const { error: purgeError } = await supabase
+          .from('media_files')
+          .delete()
+          .eq('household_id', HOUSEHOLD_ID)
+          .is('member_id', null)
+          .contains('tags', ['soirée'])
+        if (purgeError) throw purgeError
+      }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: KEY })
+      queryClient.invalidateQueries({ queryKey: MEDIA_FILES_KEY })
+      queryClient.invalidateQueries({ queryKey: LECTEUR_QUEUE_KEY })
+    },
     onError: () => showToast({ type: 'error', message: 'Impossible de fermer le lien.' }),
   })
 

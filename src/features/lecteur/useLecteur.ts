@@ -18,6 +18,7 @@ export interface MediaFile {
   file_path: string | null
   external_url: string | null
   mime_type: string | null
+  duration_seconds: number | null
   tags: string[]
   is_favorite: boolean
   created_at: string
@@ -105,7 +106,7 @@ export function useAddMediaFile() {
 
   return useMutation({
     mutationFn: async (input: {
-      title: string; file_path?: string | null; external_url?: string | null; mime_type?: string | null; description?: string | null; tags?: string[]
+      title: string; file_path?: string | null; external_url?: string | null; mime_type?: string | null; description?: string | null; tags?: string[]; duration_seconds?: number | null
     }): Promise<MediaFile> => {
       const { data, error } = await supabase
         .from('media_files')
@@ -117,6 +118,7 @@ export function useAddMediaFile() {
           file_path:    input.file_path ?? null,
           external_url: input.external_url?.trim() || null,
           mime_type:    input.mime_type ?? null,
+          duration_seconds: input.duration_seconds ?? null,
           tags:         input.tags ?? [],
         } as never)
         .select('*, member:members(display_name)')
@@ -136,16 +138,18 @@ export function useDeleteMediaFile() {
   const { showToast } = useToast()
 
   return useMutation({
-    mutationFn: async (id: string) => {
-      const files = queryClient.getQueryData<MediaFile[]>(MEDIA_FILES_KEY) ?? []
-      const file  = files.find(f => f.id === id)
-      if (file?.file_path) {
-        await supabase.storage.from('family-media').remove([file.file_path])
-      }
+    // file_path est passé par l'appelant : onMutate retire le fichier du cache
+    // avant mutationFn, donc le relire ici depuis le cache échouerait toujours.
+    // Base d'abord, Storage ensuite : un fichier orphelin dans le bucket est
+    // moins grave qu'une ligne pointant vers un fichier supprimé.
+    mutationFn: async ({ id, filePath }: { id: string; filePath: string | null }) => {
       const { error } = await supabase.from('media_files').delete().eq('id', id)
       if (error) throw error
+      if (filePath) {
+        await supabase.storage.from('family-media').remove([filePath])
+      }
     },
-    onMutate: async (id) => {
+    onMutate: async ({ id }) => {
       await queryClient.cancelQueries({ queryKey: MEDIA_FILES_KEY })
       const previous = queryClient.getQueryData<MediaFile[]>(MEDIA_FILES_KEY) ?? []
       queryClient.setQueryData<MediaFile[]>(MEDIA_FILES_KEY, previous.filter(f => f.id !== id))
@@ -323,11 +327,11 @@ export function useAddToLecteurPlaylist() {
 
   return useMutation({
     mutationFn: async ({ playlistId, mediaFileId }: { playlistId: string; mediaFileId: string }) => {
-      const key   = lecteurPlItemsKey(playlistId)
-      const items = queryClient.getQueryData<LecteurPlaylistItem[]>(key) ?? []
+      // Clé d'ordre = timestamp (comme lecteur_queue) : la longueur du cache
+      // créait des doublons de position quand le détail n'était jamais ouvert.
       const { error } = await supabase
         .from('playlist_items')
-        .insert({ playlist_id: playlistId, media_file_id: mediaFileId, position: items.length })
+        .insert({ playlist_id: playlistId, media_file_id: mediaFileId, position: Date.now() })
       if (error) throw error
     },
     onSuccess: (_d, { playlistId }) => {

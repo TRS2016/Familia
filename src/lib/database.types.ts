@@ -621,51 +621,6 @@ export type Database = {
           },
         ]
       }
-      lecteur_queue: {
-        Row: {
-          added_by: string | null
-          created_at: string
-          household_id: string
-          id: string
-          media_file_id: string
-          played: boolean
-          position: number
-        }
-        Insert: {
-          added_by?: string | null
-          created_at?: string
-          household_id: string
-          id?: string
-          media_file_id: string
-          played?: boolean
-          position?: number
-        }
-        Update: {
-          added_by?: string | null
-          created_at?: string
-          household_id?: string
-          id?: string
-          media_file_id?: string
-          played?: boolean
-          position?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "lecteur_queue_media_file_id_fkey"
-            columns: ["media_file_id"]
-            isOneToOne: false
-            referencedRelation: "media_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "lecteur_queue_added_by_fkey"
-            columns: ["added_by"]
-            isOneToOne: false
-            referencedRelation: "members"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       lecteur_party_tokens: {
         Row: {
           created_at: string
@@ -693,17 +648,72 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "lecteur_party_tokens_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "lecteur_party_tokens_household_id_fkey"
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      lecteur_queue: {
+        Row: {
+          added_by: string | null
+          created_at: string
+          guest_name: string | null
+          household_id: string
+          id: string
+          media_file_id: string
+          played: boolean
+          position: number
+        }
+        Insert: {
+          added_by?: string | null
+          created_at?: string
+          guest_name?: string | null
+          household_id: string
+          id?: string
+          media_file_id: string
+          played?: boolean
+          position?: number
+        }
+        Update: {
+          added_by?: string | null
+          created_at?: string
+          guest_name?: string | null
+          household_id?: string
+          id?: string
+          media_file_id?: string
+          played?: boolean
+          position?: number
+        }
+        Relationships: [
           {
-            foreignKeyName: "lecteur_party_tokens_created_by_fkey"
-            columns: ["created_by"]
+            foreignKeyName: "lecteur_queue_added_by_fkey"
+            columns: ["added_by"]
             isOneToOne: false
             referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lecteur_queue_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lecteur_queue_media_file_id_fkey"
+            columns: ["media_file_id"]
+            isOneToOne: false
+            referencedRelation: "media_files"
             referencedColumns: ["id"]
           },
         ]
@@ -712,6 +722,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          duration_seconds: number | null
           external_url: string | null
           file_path: string | null
           household_id: string
@@ -725,6 +736,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          duration_seconds?: number | null
           external_url?: string | null
           file_path?: string | null
           household_id: string
@@ -738,6 +750,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          duration_seconds?: number | null
           external_url?: string | null
           file_path?: string | null
           household_id?: string
@@ -1398,6 +1411,24 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      yt_search_cache: {
+        Row: {
+          created_at: string
+          q: string
+          results: Json
+        }
+        Insert: {
+          created_at?: string
+          q: string
+          results: Json
+        }
+        Update: {
+          created_at?: string
+          q?: string
+          results?: Json
+        }
+        Relationships: []
       }
     }
     Views: {
