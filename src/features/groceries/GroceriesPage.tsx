@@ -11,60 +11,29 @@ import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import type { Grocery } from './useGroceries'
-import { CATEGORIES, CATEGORY_ORDER, getCategoryEmoji, formatPrice } from './groceries.utils'
+import {
+  CATEGORIES, CATEGORY_ORDER, getCategoryEmoji, formatPrice,
+  computeTotal, getStoredNames, getStoredStores, persistName, persistStore,
+} from './groceries.utils'
 import type { CategoryKey } from './groceries.utils'
 import { GroceryItem } from './GroceryItem'
 import { CatalogPickerModal } from './CatalogPickerModal'
 import { useCatalog } from './useCatalog'
 import { useShoppingHistory, useSaveSession, useSessionSuggestions, useAddGroceryExpense } from './useShoppingHistory'
 import type { SessionItem } from './useShoppingHistory'
+import EditGroceryModal from './EditGroceryModal'
+import SaveListModal from './SaveListModal'
+import ArchivePromptModal from './ArchivePromptModal'
+import ClearConfirmModal from './ClearConfirmModal'
+import HistoryModal from './HistoryModal'
+import NotifyListModal from './NotifyListModal'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useToast } from '../../components/useToast'
 import styles from './GroceriesPage.module.css'
-import { supabase } from '../../lib/supabase'
 
-const STORES_STORAGE_KEY = 'familia-grocery-stores'
-const NAMES_STORAGE_KEY  = 'familia-grocery-names'
-const ORDER_STORAGE_KEY  = `familia-grocery-order-${HOUSEHOLD_ID}`
-
-// ── Utilitaires ───────────────────────────────────────────────────────────────
-
-function parseQtyMultiplier(qty: string | null): number {
-  if (!qty) return 1
-  const n = Number(qty.trim())
-  return Number.isFinite(n) && n > 0 ? n : 1
-}
-
-function computeTotal(items: Grocery[]): number {
-  return items
-    .filter(g => g.price !== null)
-    .reduce((sum, g) => sum + (g.price! * parseQtyMultiplier(g.quantity)), 0)
-}
-
-function getStoredStores(): string[] {
-  try { return JSON.parse(localStorage.getItem(STORES_STORAGE_KEY) ?? '[]') }
-  catch { return [] }
-}
-
-function persistStore(name: string) {
-  const existing = getStoredStores()
-  if (!existing.includes(name)) {
-    localStorage.setItem(STORES_STORAGE_KEY, JSON.stringify([...existing, name].slice(-30)))
-  }
-}
-
-function getStoredNames(): string[] {
-  try { return JSON.parse(localStorage.getItem(NAMES_STORAGE_KEY) ?? '[]') }
-  catch { return [] }
-}
-
-function persistName(name: string) {
-  const existing = getStoredNames()
-  const updated = [name, ...existing.filter(n => n !== name)].slice(0, 50)
-  localStorage.setItem(NAMES_STORAGE_KEY, JSON.stringify(updated))
-}
+const ORDER_STORAGE_KEY = `familia-grocery-order-${HOUSEHOLD_ID}`
 
 // ── Tri ───────────────────────────────────────────────────────────────────────
 
@@ -81,16 +50,6 @@ function sortChecked(items: Grocery[]): Grocery[] {
       new Date(b.checked_at ?? b.created_at).getTime() -
       new Date(a.checked_at ?? a.created_at).getTime()
     )
-}
-
-function formatSessionDate(iso: string): string {
-  const d = new Date(iso)
-  const now = new Date()
-  const diffDays = Math.floor((now.getTime() - d.getTime()) / 86_400_000)
-  if (diffDays === 0) return "Aujourd'hui"
-  if (diffDays === 1) return 'Hier'
-  if (diffDays < 7) return `Il y a ${diffDays}j`
-  return d.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
 }
 
 // ── Groupage ──────────────────────────────────────────────────────────────────
@@ -178,9 +137,7 @@ export default function GroceriesPage() {
   const [showArchivePrompt, setShowArchivePrompt] = useState(false)
   const [showHistory, setShowHistory]             = useState(false)
   const [showClearConfirm, setShowClearConfirm]   = useState(false)
-  const [notifying, setNotifying]                 = useState(false)
   const [showNotifyModal, setShowNotifyModal]     = useState(false)
-  const [notifyMessage, setNotifyMessage]         = useState('')
 
   const { data: sessions = [], isLoading: sessionsLoading } = useShoppingHistory({ enabled: showHistory })
   const { data: sessionSuggestions = [] } = useSessionSuggestions()
@@ -475,28 +432,16 @@ export default function GroceriesPage() {
           await addGroceryExpense.mutateAsync({ amount: total, itemCount: done.length })
         }
         showToast({ type: 'success', message: 'Session de courses archivée !' })
-      } catch { /* onError handles toast */ }
+      } catch {
+        // Archivage échoué (toast déjà affiché par onError) : on garde les
+        // articles cochés et la modale ouverte pour pouvoir réessayer —
+        // les vider ici perdrait la session sans trace.
+        return
+      }
     }
     if (done.length > 0) clearChecked.mutate()
     setShowArchivePrompt(false)
     setShoppingMode(false)
-  }
-
-  async function handleNotifyList(message: string) {
-    if (uncheckedItems.length === 0 || notifying) return
-    setNotifying(true)
-    try {
-      const names = uncheckedItems.slice(0, 3).map(g => g.name)
-      const extra = uncheckedItems.length > 3 ? ` +${uncheckedItems.length - 3}` : ''
-      const articleStr = names.join(', ') + extra
-      const body = message.trim() ? `${message.trim()} — ${articleStr}` : articleStr
-      await supabase.functions.invoke('notify-household', {
-        body: { title: 'Liste de courses', body, module: 'groceries' },
-      })
-      showToast({ type: 'success', message: 'Notification envoyée.' })
-    } finally {
-      setNotifying(false)
-    }
   }
 
   // ── Rendu ────────────────────────────────────────────────────────────────────
@@ -976,17 +921,10 @@ export default function GroceriesPage() {
 
       {/* Modal — Envoyer la liste par notification */}
       {showNotifyModal && (
-        <NotifyModal
-          uncheckedItems={uncheckedItems}
-          onClose={() => { setShowNotifyModal(false); setNotifyMessage('') }}
-          message={notifyMessage}
-          onMessageChange={setNotifyMessage}
-          notifying={notifying}
-          onSend={async () => {
-            await handleNotifyList(notifyMessage)
-            setShowNotifyModal(false)
-            setNotifyMessage('')
-          }}
+        <NotifyListModal
+          title="Liste de courses"
+          itemNames={uncheckedItems.map(g => g.name)}
+          onClose={() => setShowNotifyModal(false)}
         />
       )}
 
@@ -1019,306 +957,3 @@ export default function GroceriesPage() {
   )
 }
 
-// ── Sub-modals ────────────────────────────────────────────────────────────────
-
-interface EditSaveData {
-  name: string
-  quantity?: string
-  price: number | null
-  category: string | null
-  store: string | null
-}
-
-function EditGroceryModal({ item, storeOptions, isPending, onClose, onSave }: {
-  item: Grocery
-  storeOptions: string[]
-  isPending: boolean
-  onClose: () => void
-  onSave: (data: EditSaveData) => void
-}) {
-  const [name, setName]         = useState(item.name)
-  const [qty, setQty]           = useState(item.quantity ?? '')
-  const [price, setPrice]       = useState(item.price !== null ? String(item.price).replace('.', ',') : '')
-  const [store, setStore]       = useState(item.store ?? '')
-  const [category, setCategory] = useState<string | null>(item.category)
-
-  function handleSubmit(e: FormEvent<HTMLFormElement>) {
-    e.preventDefault()
-    if (!name.trim()) return
-    const parsedPrice = price.trim() ? parseFloat(price.replace(',', '.')) : null
-    onSave({
-      name: name.trim(),
-      quantity: qty.trim() || undefined,
-      price: parsedPrice && parsedPrice > 0 ? parsedPrice : null,
-      category,
-      store: store.trim() || null,
-    })
-  }
-
-  return (
-    <SlideUpModal title="Modifier l'article" onClose={onClose}>
-      <form onSubmit={handleSubmit} className={styles.editForm}>
-        <div className={styles.editField}>
-          <label htmlFor="edit-grocery-name" className={styles.editLabel}>Nom</label>
-          <input
-            id="edit-grocery-name"
-            type="text" value={name} onChange={e => setName(e.target.value)}
-            className={styles.editInput} placeholder="Ex : Pommes" autoFocus autoComplete="off" required
-          />
-        </div>
-        <div className={styles.editRow}>
-          <div className={styles.editField} style={{ flex: 1 }}>
-            <label htmlFor="edit-grocery-qty" className={styles.editLabel}>Quantité</label>
-            <input
-              id="edit-grocery-qty"
-              type="text" value={qty} onChange={e => setQty(e.target.value)}
-              className={styles.editInput} placeholder="Ex : 1 kg, 3…" autoComplete="off"
-            />
-          </div>
-          <div className={styles.editField} style={{ flex: 1 }}>
-            <label htmlFor="edit-grocery-price" className={styles.editLabel}>Prix unitaire (€)</label>
-            <input
-              id="edit-grocery-price"
-              type="text" inputMode="decimal" value={price}
-              onChange={e => setPrice(e.target.value)}
-              className={styles.editInput} placeholder="Ex : 1,99" autoComplete="off"
-            />
-          </div>
-        </div>
-        <div className={styles.editField}>
-          <label htmlFor="edit-grocery-store" className={styles.editLabel}>Enseigne</label>
-          <input
-            id="edit-grocery-store"
-            type="text" value={store} onChange={e => setStore(e.target.value)}
-            className={styles.editInput} placeholder="Ex : Carrefour, Bio c'bon…" autoComplete="off"
-          />
-          {storeOptions.length > 0 && (
-            <div className={styles.storeChips} style={{ padding: 0, marginTop: 4 }}>
-              {storeOptions.map(s => (
-                <button key={s} type="button"
-                  className={[styles.storeChip, store === s ? styles.storeChipActive : ''].join(' ')}
-                  onClick={() => setStore(x => x === s ? '' : s)}
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <div className={styles.editField}>
-          <span className={styles.editLabel}>Rayon</span>
-          <div className={styles.categoryChips} style={{ padding: 0 }}>
-            {CATEGORIES.map(c => (
-              <button key={c.key} type="button"
-                className={[styles.categoryChip, category === c.key ? styles.categoryChipActive : ''].join(' ')}
-                onClick={() => setCategory(f => f === c.key ? null : c.key)}
-              >
-                {c.emoji} {c.key}
-              </button>
-            ))}
-          </div>
-        </div>
-        <button type="submit" disabled={!name.trim() || isPending} className={styles.saveBtn}>
-          {isPending ? 'Enregistrement…' : 'Enregistrer'}
-        </button>
-      </form>
-    </SlideUpModal>
-  )
-}
-
-function SaveListModal({ uncheckedCount, isPending, onClose, onSave }: {
-  uncheckedCount: number
-  isPending: boolean
-  onClose: () => void
-  onSave: (name: string) => void
-}) {
-  const [name, setName] = useState('')
-
-  function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!name.trim()) return
-    onSave(name.trim())
-  }
-
-  return (
-    <SlideUpModal title="Sauvegarder comme modèle" onClose={onClose}>
-      <form onSubmit={handleSubmit} className={styles.saveModalForm}>
-        <p className={styles.saveModalHint}>
-          {uncheckedCount} article{uncheckedCount > 1 ? 's' : ''} non coché{uncheckedCount > 1 ? 's' : ''} seront sauvegardés.
-        </p>
-        <input
-          type="text" value={name} onChange={e => setName(e.target.value)}
-          placeholder="Nom de la liste (ex : Courses hebdo)"
-          aria-label="Nom de la liste"
-          className={styles.saveModalInput} autoFocus autoComplete="off"
-        />
-        <button type="submit" disabled={!name.trim() || isPending} className={styles.saveModalBtn}>
-          {isPending ? 'Sauvegarde…' : 'Sauvegarder'}
-        </button>
-      </form>
-    </SlideUpModal>
-  )
-}
-
-function ArchivePromptModal({ checkedCount, total, isPending, addToKakebo, onToggleKakebo, onClose, onSave, onSkip }: {
-  checkedCount: number
-  total: number
-  isPending: boolean
-  addToKakebo: boolean
-  onToggleKakebo: () => void
-  onClose: () => void
-  onSave: () => void
-  onSkip: () => void
-}) {
-  return (
-    <SlideUpModal title="Courses terminées ?" onClose={onClose}>
-      <div className={styles.archivePromptBody}>
-        <p className={styles.archivePromptSummary}>
-          🛒 <strong>{checkedCount}</strong> article{checkedCount > 1 ? 's' : ''} pris
-          {total > 0 && <> · <strong>{formatPrice(total)}</strong></>}
-        </p>
-        <p className={styles.archivePromptHint}>
-          Les articles cochés seront retirés de la liste.
-        </p>
-        {total > 0 && (
-          <label className={styles.kakeboBridgeRow}>
-            <input type="checkbox" checked={addToKakebo} onChange={onToggleKakebo} />
-            <span>Ajouter {formatPrice(total)} aux dépenses du foyer (Kakebo)</span>
-          </label>
-        )}
-        <button className={styles.archiveBtn} onClick={onSave} disabled={isPending}>
-          {isPending ? 'Archivage…' : 'Archiver et terminer'}
-        </button>
-        <button className={styles.archiveSkipBtn} onClick={onSkip} disabled={isPending}>
-          Terminer sans enregistrer
-        </button>
-      </div>
-    </SlideUpModal>
-  )
-}
-
-function ClearConfirmModal({ count, isPending, onClose, onConfirm }: {
-  count: number
-  isPending: boolean
-  onClose: () => void
-  onConfirm: () => void
-}) {
-  return (
-    <SlideUpModal title="Effacer les articles cochés ?" onClose={onClose}>
-      <div className={styles.archivePromptBody}>
-        <p className={styles.archivePromptSummary}>
-          🗑 <strong>{count}</strong> article{count > 1 ? 's' : ''} coché{count > 1 ? 's' : ''} seront supprimés définitivement.
-        </p>
-        <button className={styles.archiveBtn} style={{ background: 'var(--danger)' }} onClick={onConfirm} disabled={isPending}>
-          Supprimer
-        </button>
-        <button className={styles.archiveSkipBtn} onClick={onClose}>Annuler</button>
-      </div>
-    </SlideUpModal>
-  )
-}
-
-function NotifyModal({ uncheckedItems, message, onMessageChange, notifying, onClose, onSend }: {
-  uncheckedItems: Grocery[]
-  message: string
-  onMessageChange: (v: string) => void
-  notifying: boolean
-  onClose: () => void
-  onSend: () => void
-}) {
-  return (
-    <SlideUpModal title="Envoyer la liste" onClose={onClose}>
-      <div className={styles.notifyForm}>
-        <p className={styles.notifyArticles}>
-          {uncheckedItems.slice(0, 3).map(g => g.name).join(', ')}
-          {uncheckedItems.length > 3 && ` +${uncheckedItems.length - 3} article${uncheckedItems.length - 3 > 1 ? 's' : ''}`}
-        </p>
-        <textarea
-          className={styles.notifyTextarea}
-          value={message}
-          onChange={e => onMessageChange(e.target.value)}
-          placeholder="Ajouter un message… ex : tu peux t'occuper de ça ?"
-          aria-label="Message à joindre à la notification"
-          rows={3}
-          autoFocus
-        />
-        <button className={styles.notifySendBtn} disabled={notifying} onClick={onSend}>
-          {notifying ? 'Envoi…' : 'Envoyer la notification'}
-        </button>
-      </div>
-    </SlideUpModal>
-  )
-}
-
-type SessionStats = {
-  thisMonthCount: number
-  totalThisMonth: number
-  avg: number | null
-  top3: string[]
-}
-
-function HistoryModal({ sessions, isLoading, stats, onClose }: {
-  sessions: { id: string; created_at: string; total: number | null; item_count: number; done_by_member: { display_name: string } | null }[]
-  isLoading: boolean
-  stats: SessionStats | null
-  onClose: () => void
-}) {
-  return (
-    <SlideUpModal title="Historique des courses" onClose={onClose}>
-      <div className={styles.historyBody}>
-        {isLoading ? (
-          <p className={styles.historyEmpty}>Chargement…</p>
-        ) : sessions.length === 0 ? (
-          <p className={styles.historyEmpty}>Aucune session archivée pour l'instant.</p>
-        ) : (
-          <>
-            {stats && (
-              <div className={styles.statsGrid}>
-                <div className={styles.statCard}>
-                  <span className={styles.statValue}>{stats.thisMonthCount}</span>
-                  <span className={styles.statLabel}>sessions ce mois</span>
-                </div>
-                {stats.totalThisMonth > 0 && (
-                  <div className={styles.statCard}>
-                    <span className={styles.statValue}>{formatPrice(stats.totalThisMonth)}</span>
-                    <span className={styles.statLabel}>dépensés ce mois</span>
-                  </div>
-                )}
-                {stats.avg !== null && (
-                  <div className={styles.statCard}>
-                    <span className={styles.statValue}>{formatPrice(stats.avg)}</span>
-                    <span className={styles.statLabel}>moy. / session</span>
-                  </div>
-                )}
-                {stats.top3.length > 0 && (
-                  <div className={[styles.statCard, styles.statCardWide].join(' ')}>
-                    <span className={styles.statLabel}>Articles fréquents</span>
-                    <span className={styles.statTopItems}>{stats.top3.join(' · ')}</span>
-                  </div>
-                )}
-              </div>
-            )}
-            <ul className={styles.historyList}>
-              {sessions.map(s => (
-                <li key={s.id} className={styles.historyItem}>
-                  <div className={styles.historyItemLeft}>
-                    <span className={styles.historyDate}>{formatSessionDate(s.created_at)}</span>
-                    {s.done_by_member && (
-                      <span className={styles.historyMember}>{s.done_by_member.display_name}</span>
-                    )}
-                  </div>
-                  <div className={styles.historyItemRight}>
-                    <span className={styles.historyCount}>{s.item_count} art.</span>
-                    {s.total !== null && (
-                      <span className={styles.historyTotal}>{formatPrice(s.total)}</span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </>
-        )}
-      </div>
-    </SlideUpModal>
-  )
-}

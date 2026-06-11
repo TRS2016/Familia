@@ -1,5 +1,4 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { Json } from '../../lib/database.types'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
@@ -240,26 +239,6 @@ export function useGroceries() {
     onError: () => showToast({ type: 'error', message: 'Impossible de charger la liste.' }),
   })
 
-  // ── Replace with saved list (atomic via RPC) ─────────────────────────────
-  const replaceWithList = useMutation({
-    mutationFn: async (items: Array<{
-      name: string
-      quantity?: string | null
-      price?: number | null
-      category?: string | null
-      store?: string | null
-    }>) => {
-      const { error } = await supabase.rpc('replace_groceries_with_list', {
-        p_household_id: HOUSEHOLD_ID,
-        p_member_id: (member?.id ?? null) as unknown as string,
-        p_items: items as unknown as Json,
-      })
-      if (error) throw error
-    },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: GROCERIES_KEY }),
-    onError: () => showToast({ type: 'error', message: 'Impossible de charger la liste.' }),
-  })
-
   // ── Save current list as template ────────────────────────────────────────
   const saveCurrentList = useMutation({
     mutationFn: async ({ name, items }: {
@@ -284,5 +263,5 @@ export function useGroceries() {
     onError: () => showToast({ type: 'error', message: 'Impossible de sauvegarder la liste.' }),
   })
 
-  return { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked, loadSavedList, replaceWithList, saveCurrentList }
+  return { query, addGrocery, updateGrocery, toggleGrocery, deleteGrocery, clearChecked, loadSavedList, saveCurrentList }
 }

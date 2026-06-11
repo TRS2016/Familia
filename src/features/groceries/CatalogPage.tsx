@@ -9,30 +9,9 @@ import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import { catalogToCsv, parseCatalogCsv, downloadCsv, type CatalogCsvRow } from './catalogCsv'
 import { format } from 'date-fns'
+import { CATEGORIES, CATEGORY_ORDER, getCategoryEmoji, formatPrice } from './groceries.utils'
+import type { CategoryKey } from './groceries.utils'
 import styles from './CatalogPage.module.css'
-
-// ── Constantes ────────────────────────────────────────────────────────────────
-
-const CATEGORIES = [
-  { key: 'Fruits & légumes', emoji: '🥦' },
-  { key: 'Frais',            emoji: '🧊' },
-  { key: 'Épicerie',         emoji: '🥫' },
-  { key: 'Boissons',         emoji: '🥤' },
-  { key: 'Hygiène',          emoji: '🧴' },
-  { key: 'Autre',            emoji: '📦' },
-] as const
-
-type CategoryKey = typeof CATEGORIES[number]['key']
-const CATEGORY_ORDER = CATEGORIES.map(c => c.key)
-
-function getCategoryEmoji(key: string | null): string {
-  if (!key) return ''
-  return CATEGORIES.find(c => c.key === key)?.emoji ?? ''
-}
-
-function formatPrice(price: number): string {
-  return price.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €'
-}
 
 // ── Groupage par catégorie ────────────────────────────────────────────────────
 

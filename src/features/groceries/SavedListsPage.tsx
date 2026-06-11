@@ -6,12 +6,12 @@ import { useSavedLists, useSavedListDetail } from './useSavedLists'
 import type { SavedItem } from './useSavedLists'
 import { useGroceries } from './useGroceries'
 import { useShareToken } from './useShareToken'
+import NotifyListModal from './NotifyListModal'
 import { useToast } from '../../components/useToast'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import styles from './SavedListsPage.module.css'
-import { supabase } from '../../lib/supabase'
 
 // ── Page index ────────────────────────────────────────────────────────────────
 
@@ -164,8 +164,6 @@ function ListDetailView({
   const [editingName, setEditingName] = useState(false)
   const [showShareModal, setShowShareModal] = useState(false)
   const [showNotifyModal, setShowNotifyModal] = useState(false)
-  const [notifyMessage, setNotifyMessage] = useState('')
-  const [notifying, setNotifying] = useState(false)
 
   const [newItemName, setNewItemName] = useState('')
   const [editingItem, setEditingItem] = useState<SavedItem | null>(null)
@@ -236,23 +234,6 @@ function ListDetailView({
     }
   }
 
-  async function handleNotifyList(message: string) {
-    if (items.length === 0 || notifying) return
-    setNotifying(true)
-    try {
-      const names = items.slice(0, 3).map(i => i.name)
-      const extra = items.length > 3 ? ` +${items.length - 3}` : ''
-      const articleStr = names.join(', ') + extra
-      const body = message.trim() ? `${message.trim()} — ${articleStr}` : articleStr
-      await supabase.functions.invoke('notify-household', {
-        body: { title: name, body, module: 'groceries' },
-      })
-      showToast({ type: 'success', message: 'Notification envoyée.' })
-    } finally {
-      setNotifying(false)
-    }
-  }
-
   function handleExportList() {
     const lines = [
       `📋 ${name} (${items.length} article${items.length > 1 ? 's' : ''})`,
@@ -301,7 +282,10 @@ function ListDetailView({
               autoFocus
               onBlur={() => { setEditingName(false); setName(listName) }}
             />
-            <button type="submit" className={styles.renameOk}>
+            {/* preventDefault sur mousedown : sinon le blur de l'input ferme
+                le formulaire (et réinitialise le nom) avant que le clic
+                n'atteigne ce bouton — le renommage ne marchait qu'à Entrée. */}
+            <button type="submit" className={styles.renameOk} onMouseDown={e => e.preventDefault()}>
               <Check size={16} strokeWidth={3} />
             </button>
           </form>
@@ -416,36 +400,11 @@ function ListDetailView({
 
       {/* Modal — Envoyer la liste par notification */}
       {showNotifyModal && (
-        <SlideUpModal
-          title="Envoyer la liste"
-          onClose={() => { setShowNotifyModal(false); setNotifyMessage('') }}
-        >
-          <div className={styles.notifyForm}>
-            <p className={styles.notifyArticles}>
-              {items.slice(0, 3).map(i => i.name).join(', ')}
-              {items.length > 3 && ` +${items.length - 3} article${items.length - 3 > 1 ? 's' : ''}`}
-            </p>
-            <textarea
-              className={styles.notifyTextarea}
-              value={notifyMessage}
-              onChange={e => setNotifyMessage(e.target.value)}
-              placeholder="Ajouter un message… ex : tu peux t'occuper de ça ?"
-              rows={3}
-              autoFocus
-            />
-            <button
-              className={styles.notifySendBtn}
-              disabled={notifying}
-              onClick={async () => {
-                await handleNotifyList(notifyMessage)
-                setShowNotifyModal(false)
-                setNotifyMessage('')
-              }}
-            >
-              {notifying ? 'Envoi…' : 'Envoyer la notification'}
-            </button>
-          </div>
-        </SlideUpModal>
+        <NotifyListModal
+          title={name}
+          itemNames={items.map(i => i.name)}
+          onClose={() => setShowNotifyModal(false)}
+        />
       )}
 
       {/* Modal partage */}

@@ -19,7 +19,10 @@ export function useShareToken(listId: string) {
   const query = useQuery({
     queryKey,
     queryFn: async (): Promise<ShareToken | null> => {
-      const { data } = await supabase
+      // Propager l'erreur : un échec réseau silencieux serait pris pour
+      // « pas de token » et l'UI proposerait d'en recréer un (invalidant
+      // le lien déjà partagé).
+      const { data, error } = await supabase
         .from('shared_list_tokens')
         .select('token, expires_at')
         .eq('household_id', HOUSEHOLD_ID)
@@ -28,6 +31,7 @@ export function useShareToken(listId: string) {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
+      if (error) throw error
       return (data as unknown as ShareToken | null) ?? null
     },
   })
