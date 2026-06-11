@@ -160,7 +160,9 @@ export function useRecentCompletions(habitIds: string[]) {
   })
 }
 
-/** All completions for one habit in a given year — for heatmap in stats modal */
+/** Toutes les complétions d'une habitude sur une année — heatmap des stats.
+ *  Inclut les lignes partielles (completed=false) pour l'intensité des cases ;
+ *  les calculs de stats filtrent `completed` côté consommateur. */
 export function useYearCompletions(habitId: string | null, year: number) {
   return useQuery({
     queryKey: ['habit-completions', HOUSEHOLD_ID, habitId, 'year', year],
@@ -171,7 +173,6 @@ export function useYearCompletions(habitId: string | null, year: number) {
         .eq('habit_id', habitId!)
         .gte('date', `${year}-01-01`)
         .lte('date', `${year}-12-31`)
-        .eq('completed', true)
       if (error) throw error
       return data as HabitCompletion[]
     },
@@ -179,49 +180,8 @@ export function useYearCompletions(habitId: string | null, year: number) {
   })
 }
 
-// ── Streak helpers ────────────────────────────────────────────────────────────
-
-export function calcStreak(habitId: string, completions: HabitCompletion[]): number {
-  const doneSet = new Set(
-    completions.filter(c => c.habit_id === habitId && c.completed).map(c => c.date)
-  )
-  let streak = 0
-  let d = new Date()
-  if (!doneSet.has(format(d, 'yyyy-MM-dd'))) d = subDays(d, 1)
-  for (let i = 0; i < 60; i++) {
-    if (doneSet.has(format(d, 'yyyy-MM-dd'))) {
-      streak++
-      d = subDays(d, 1)
-    } else {
-      break
-    }
-  }
-  return streak
-}
-
-export function calcBestStreak(habitId: string, completions: HabitCompletion[]): number {
-  const dates = completions
-    .filter(c => c.habit_id === habitId)
-    .map(c => c.date)
-    .sort()
-
-  if (dates.length === 0) return 0
-
-  let best = 1
-  let current = 1
-  for (let i = 1; i < dates.length; i++) {
-    const diff = Math.round(
-      (new Date(dates[i]).getTime() - new Date(dates[i - 1]).getTime()) / 86400000
-    )
-    if (diff === 1) {
-      current++
-      if (current > best) best = current
-    } else {
-      current = 1
-    }
-  }
-  return best
-}
+// Les calculs de série (calcStreak, calcBestStreak) vivent dans habits.utils.ts
+// — ils tiennent compte des jours prévus (frequency_days) et de start_date.
 
 // ── Mutations ─────────────────────────────────────────────────────────────────
 
@@ -412,6 +372,9 @@ export function useUnarchiveHabit() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: HABITS_KEY })
       queryClient.invalidateQueries({ queryKey: ['habits-archived', HOUSEHOLD_ID] })
+      // La query « recent » n'est pas clé sur la liste d'ids : sans ça,
+      // l'historique (série, semaine) d'une habitude restaurée reste vide.
+      queryClient.invalidateQueries({ queryKey: ['habit-completions'] })
     },
     onError: () => {
       showToast({ type: 'error', message: 'Impossible de désarchiver l\'habitude.' })
@@ -511,7 +474,9 @@ export function useUpdateCompletionNote() {
         const { error } = await supabase.from('habit_completions').update({ note: note || null } as never).eq('id', existing.id)
         if (error) throw error
       } else {
-        const { error } = await supabase.from('habit_completions').insert({ habit_id: habitId, date, completed: true, count: 1, note: note || null } as never)
+        // Pas de complétion ce jour : la note ne doit PAS marquer l'habitude
+        // comme faite (« pas eu le temps » cochait le jour).
+        const { error } = await supabase.from('habit_completions').insert({ habit_id: habitId, date, completed: false, count: 0, note: note || null } as never)
         if (error) throw error
       }
     },

@@ -11,7 +11,8 @@ import { supabase } from '../lib/supabase'
 import { HOUSEHOLD_ID } from '../lib/config'
 import { useMember } from '../auth/useMember'
 import { GROCERIES_KEY } from '../features/groceries/useGroceries'
-import { useToggleCompletion, completionsKey, calcStreak } from '../features/habits/useHabits'
+import { useToggleCompletion, completionsKey } from '../features/habits/useHabits'
+import { calcStreak } from '../features/habits/habits.utils'
 import type { HabitCompletion } from '../features/habits/useHabits'
 import { QK } from '../lib/query-keys'
 import { useToast } from '../components/useToast'
@@ -192,7 +193,7 @@ export default function HomePage() {
       const doneIds = new Set(completions.filter(c => c.date === today && c.completed).map(c => c.habit_id))
       const pending = applicable
         .filter(h => !doneIds.has(h.id))
-        .map(h => ({ ...h, streak: calcStreak(h.id, completions) }))
+        .map(h => ({ ...h, streak: calcStreak(h, completions) }))
       return { total: applicable.length, done: applicable.length - pending.length, pending }
     },
     enabled: !!member,

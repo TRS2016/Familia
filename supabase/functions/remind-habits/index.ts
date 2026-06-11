@@ -43,7 +43,7 @@ Deno.serve(async (_req: Request) => {
   // Fetch active habits with a reminder time set
   const { data: habits, error: habitsErr } = await supabase
     .from('habits')
-    .select('id, name, emoji, household_id, reminder_time, frequency_days')
+    .select('id, name, emoji, household_id, member_id, reminder_time, frequency_days, start_date')
     .is('archived_at', null)
     .not('reminder_time', 'is', null)
 
@@ -58,7 +58,8 @@ Deno.serve(async (_req: Request) => {
 
   // Filter habits applicable today and whose reminder window matches now (±3 min)
   const candidates = habits.filter((h) => {
-    const habit = h as { reminder_time: string; frequency_days: number[] | null }
+    const habit = h as { reminder_time: string; frequency_days: number[] | null; start_date: string | null }
+    if (habit.start_date && todayStr < habit.start_date) return false
     if (habit.frequency_days && habit.frequency_days.length > 0) {
       if (!habit.frequency_days.includes(todayDow)) return false
     }
@@ -70,8 +71,18 @@ Deno.serve(async (_req: Request) => {
     return json({ reminders_sent: 0 })
   }
 
-  // Dedup: skip habits already reminded today
   const candidateIds = candidates.map((h: { id: string }) => h.id)
+
+  // Skip habits already completed today — pas de nag inutile.
+  const { data: doneToday } = await supabase
+    .from('habit_completions')
+    .select('habit_id')
+    .in('habit_id', candidateIds)
+    .eq('date', todayStr)
+    .eq('completed', true)
+  const doneIds = new Set((doneToday ?? []).map((r: { habit_id: string }) => r.habit_id))
+
+  // Dedup: skip habits already reminded today
   const { data: alreadySent } = await supabase
     .from('habit_reminders_sent')
     .select('habit_id')
@@ -79,7 +90,7 @@ Deno.serve(async (_req: Request) => {
     .eq('sent_date', todayStr)
 
   const sentIds = new Set((alreadySent ?? []).map((r: { habit_id: string }) => r.habit_id))
-  const toRemind = candidates.filter((h: { id: string }) => !sentIds.has(h.id))
+  const toRemind = candidates.filter((h: { id: string }) => !sentIds.has(h.id) && !doneIds.has(h.id))
 
   if (toRemind.length === 0) {
     return json({ reminders_sent: 0 })
@@ -101,13 +112,17 @@ Deno.serve(async (_req: Request) => {
   let totalSent = 0
 
   for (const habit of toRemind) {
-    const h = habit as { id: string; name: string; emoji: string; household_id: string }
+    const h = habit as { id: string; name: string; emoji: string; household_id: string; member_id: string | null }
 
-    const { data: members } = await supabase
+    // Cible le membre propriétaire de l'habitude ; fallback foyer entier si
+    // l'habitude n'a pas de propriétaire (member_id null).
+    let membersQuery = supabase
       .from('members')
       .select('id')
       .eq('household_id', h.household_id)
       .eq('notifications_enabled', true)
+    if (h.member_id) membersQuery = membersQuery.eq('id', h.member_id)
+    const { data: members } = await membersQuery
 
     if (!members || members.length === 0) continue
 
@@ -153,6 +168,10 @@ Deno.serve(async (_req: Request) => {
 
     console.log(`[remind-habits] Reminded "${h.name}" → ${totalSent} push(es)`)
   }
+
+  // Ménage : les marqueurs de déduplication de plus de 7 jours ne servent plus.
+  const purgeBefore = parisDate(new Date(now.getTime() - 7 * 24 * 3600 * 1000))
+  await supabase.from('habit_reminders_sent').delete().lt('sent_date', purgeBefore)
 
   return json({ reminders_sent: totalSent, habits_processed: toRemind.length })
 })
