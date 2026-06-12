@@ -2,6 +2,8 @@ import type { Grocery } from './useGroceries'
 
 export const CATEGORIES = [
   { key: 'Fruits & légumes', emoji: '🥦' },
+  { key: 'Boucherie',        emoji: '🥩' },
+  { key: 'Boulangerie',      emoji: '🥖' },
   { key: 'Frais',            emoji: '🧊' },
   { key: 'Épicerie',         emoji: '🥫' },
   { key: 'Boissons',         emoji: '🥤' },

@@ -7,7 +7,8 @@ import type { CatalogItem } from './useCatalog'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
-import { catalogToCsv, parseCatalogCsv, downloadCsv, type CatalogCsvRow } from './catalogCsv'
+import { parseCatalogCsv, downloadBlob, type CatalogCsvRow } from './catalogCsv'
+import { catalogToXlsxBlob, parseCatalogXlsx } from './catalogXlsx'
 import { format } from 'date-fns'
 import { CATEGORIES, CATEGORY_ORDER, getCategoryEmoji, formatPrice } from './groceries.utils'
 import type { CategoryKey } from './groceries.utils'
@@ -115,20 +116,24 @@ export default function CatalogPage() {
     })
   }
 
-  function handleExport() {
+  async function handleExport() {
     if (items.length === 0) return
-    const csv = catalogToCsv(items)
-    downloadCsv(`catalogue-courses-${format(new Date(), 'yyyy-MM-dd')}.csv`, csv)
+    const blob = await catalogToXlsxBlob(items)
+    downloadBlob(`catalogue-courses-${format(new Date(), 'yyyy-MM-dd')}.xlsx`, blob)
   }
 
-  function handleFile(e: ChangeEvent<HTMLInputElement>) {
+  async function handleFile(e: ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     e.target.value = '' // permet de re-sélectionner le même fichier
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setPendingImport(parseCatalogCsv(String(reader.result ?? '')))
-    reader.onerror = () => setPendingImport([])
-    reader.readAsText(file)
+    try {
+      const rows = file.name.toLowerCase().endsWith('.xlsx')
+        ? await parseCatalogXlsx(await file.arrayBuffer())
+        : parseCatalogCsv(await file.text())
+      setPendingImport(rows)
+    } catch {
+      setPendingImport([])
+    }
   }
 
   return (
@@ -144,16 +149,16 @@ export default function CatalogPage() {
             className={styles.headerIconBtn}
             onClick={handleExport}
             disabled={items.length === 0}
-            aria-label="Exporter le catalogue en CSV"
-            title="Exporter en CSV"
+            aria-label="Exporter le catalogue en Excel"
+            title="Exporter en Excel (.xlsx)"
           >
             <Download size={17} strokeWidth={2.5} />
           </button>
           <button
             className={styles.headerIconBtn}
             onClick={() => fileRef.current?.click()}
-            aria-label="Importer un catalogue CSV"
-            title="Importer un CSV"
+            aria-label="Importer un catalogue Excel ou CSV"
+            title="Importer un fichier Excel ou CSV"
           >
             <Upload size={17} strokeWidth={2.5} />
           </button>
@@ -170,7 +175,7 @@ export default function CatalogPage() {
       <input
         ref={fileRef}
         type="file"
-        accept=".csv,text/csv"
+        accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv"
         style={{ display: 'none' }}
         onChange={handleFile}
       />
@@ -395,7 +400,7 @@ export default function CatalogPage() {
           <div className={styles.importBody}>
             {pendingImport.length === 0 ? (
               <p className={styles.importWarn}>
-                Aucune ligne valide trouvée. Vérifie le format : colonnes
+                Aucune ligne valide trouvée. Vérifie le format : fichier Excel (.xlsx) ou CSV, colonnes
                 <strong> nom ; prix ; quantité ; catégorie ; magasin</strong> (la 1re ligne d'en-tête est ignorée).
               </p>
             ) : (
