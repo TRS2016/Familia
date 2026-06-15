@@ -1,17 +1,10 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from 'react'
 import { calculateDistance } from '../geo'
+import { DIRECTIONS } from '../navigation'
 import type { RouteStep, UserPosition } from '../types'
 
-const DIRECTION_MAP: Record<string, string> = {
-  left: 'à gauche',
-  right: 'à droite',
-  straight: 'tout droit',
-  'slight left': 'légèrement à gauche',
-  'slight right': 'légèrement à droite',
-  'sharp left': 'à gauche serré',
-  'sharp right': 'à droite serré',
-  uturn: 'faites demi-tour',
-}
+// Base partagée avec navigation.ts ; seul l'énoncé du demi-tour diffère à l'oral.
+const DIRECTION_MAP: Record<string, string> = { ...DIRECTIONS, uturn: 'faites demi-tour' }
 
 function ordinalFr(n: number): string {
   return n === 1 ? 'première' : `${n}ème`

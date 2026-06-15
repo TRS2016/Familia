@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { fetchStations } from '../api'
+import { saveSnapshot } from '../historyDB'
 import type { Station } from '../types'
 
 const CACHE_KEY = 'velov-stations-cache'
@@ -49,6 +50,9 @@ export function useStations(refreshInterval = 30000): UseStationsResult {
       setIsFromCache(false)
       setFetchedAt(new Date())
       saveToCache(data)
+      // Historique pour TOUTES les stations (la carte/les reco en dépendent), pas
+      // seulement celles dont la carte de liste est rendue. saveSnapshot déduplique.
+      for (const s of data) void saveSnapshot(s.id, s.availableBikes, s.availableStands)
     } catch (err) {
       if (err instanceof Error && err.name === 'AbortError') return
       const cached = loadFromCache()

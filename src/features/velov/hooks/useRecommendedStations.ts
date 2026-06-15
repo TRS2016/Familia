@@ -70,25 +70,44 @@ export function useRecommendedStations({
   const startWalkSeconds = useWalkSeconds(routeOrigin, recommendedStartStations[0] ?? null)
   const endWalkSeconds = useWalkSeconds(routeDestination, recommendedEndStations[0] ?? null)
 
-  const prevStartBikesRef = useRef<number | null>(null)
+  // On suit la station de tête PAR ID dans les `stations` brutes : une fois passée
+  // à 0 vélo / 0 place, elle sort de la liste recommandée (filtrée), donc surveiller
+  // la liste filtrée seule ne détecterait jamais la bascule.
+  const prevStartRef = useRef<{ id: string; bikes: number } | null>(null)
   useEffect(() => {
-    if (recommendedStartStations.length === 0) { prevStartBikesRef.current = null; return }
-    const currentBikes = recommendedStartStations[0].availableBikes
-    if (prevStartBikesRef.current !== null && prevStartBikesRef.current > 0 && currentBikes === 0 && permission === 'granted') {
-      sendNotification('Vélo pris', { body: `Le dernier vélo à ${recommendedStartStations[0].name} a été pris` })
+    const prev = prevStartRef.current
+    if (prev && permission === 'granted') {
+      const live = stations.find((s) => s.id === prev.id)
+      if (live && prev.bikes > 0 && live.availableBikes === 0) {
+        sendNotification('Vélo pris', {
+          body: `Le dernier vélo à ${live.name} a été pris`,
+          tag: `velov-start-${live.id}`,
+        })
+      }
     }
-    prevStartBikesRef.current = currentBikes
-  }, [recommendedStartStations, permission, sendNotification])
+    const top = recommendedStartStations[0]
+    if (!top) { prevStartRef.current = null; return }
+    const liveTop = stations.find((s) => s.id === top.id)
+    prevStartRef.current = { id: top.id, bikes: liveTop?.availableBikes ?? top.availableBikes }
+  }, [recommendedStartStations, stations, permission, sendNotification])
 
-  const prevEndStandsRef = useRef<number | null>(null)
+  const prevEndRef = useRef<{ id: string; stands: number } | null>(null)
   useEffect(() => {
-    if (recommendedEndStations.length === 0) { prevEndStandsRef.current = null; return }
-    const currentStands = recommendedEndStations[0].availableStands
-    if (prevEndStandsRef.current !== null && prevEndStandsRef.current === 0 && currentStands > 0 && permission === 'granted') {
-      sendNotification('Place libérée', { body: `Une place s'est libérée à ${recommendedEndStations[0].name}` })
+    const prev = prevEndRef.current
+    if (prev && permission === 'granted') {
+      const live = stations.find((s) => s.id === prev.id)
+      if (live && prev.stands > 0 && live.availableStands === 0) {
+        sendNotification('Station pleine', {
+          body: `Plus de place à ${live.name} — une autre station d'arrivée sera proposée`,
+          tag: `velov-end-${live.id}`,
+        })
+      }
     }
-    prevEndStandsRef.current = currentStands
-  }, [recommendedEndStations, permission, sendNotification])
+    const top = recommendedEndStations[0]
+    if (!top) { prevEndRef.current = null; return }
+    const liveTop = stations.find((s) => s.id === top.id)
+    prevEndRef.current = { id: top.id, stands: liveTop?.availableStands ?? top.availableStands }
+  }, [recommendedEndStations, stations, permission, sendNotification])
 
   return { recommendedStartStations, recommendedEndStations, startWalkSeconds, endWalkSeconds }
 }

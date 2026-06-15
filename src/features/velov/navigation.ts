@@ -1,6 +1,7 @@
 import type { RouteStep } from './types'
 
-const DIR_TEXT: Record<string, string> = {
+/** Libellés de direction partagés (texte affiché + base de la synthèse vocale). */
+export const DIRECTIONS: Record<string, string> = {
   left: 'à gauche',
   right: 'à droite',
   straight: 'tout droit',
@@ -10,6 +11,8 @@ const DIR_TEXT: Record<string, string> = {
   'sharp right': 'à droite serré',
   uturn: 'demi-tour',
 }
+
+const DIR_TEXT = DIRECTIONS
 
 export function maneuverIcon(step: RouteStep): string {
   const { type, modifier = '' } = step.maneuver

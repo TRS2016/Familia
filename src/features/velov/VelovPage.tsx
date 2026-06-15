@@ -32,17 +32,20 @@ import { fetchWalkRoute } from './route'
 import { calculateDistance, formatWalkTime, timeAgo } from './geo'
 import { getHourlyPattern } from './historyDB'
 import { useTheme } from '../../lib/useTheme'
-import type { FavoriteRoute, RoutePoint, SearchPlace, Station } from './types'
+import type { FavoriteRoute, GeoLineString, RoutePoint, SearchPlace, Station } from './types'
 import styles from './VelovPage.module.css'
 
 const StationMap = lazy(() => import('./components/StationMap').then((m) => ({ default: m.StationMap })))
 
 const PAGE_SIZE = 30
+// Seuils de proximité (mètres) de la machine à états trajet.
+const ARRIVAL_RADIUS = 50      // station/destination atteinte
+const DROP_BIKE_RADIUS = 100   // approche station d'arrivée à vélo
+const WALK_ANNOUNCE_FAR = 300  // 1re annonce vocale d'approche
+const WALK_ANNOUNCE_NEAR = 80  // 2e annonce vocale d'approche
 type Tab = 'stations' | 'map' | 'route'
 type JourneyPhase = 'idle' | 'walk-to-start' | 'biking' | 'walk-to-end' | 'arrived'
 type WalkTarget = Station | RoutePoint
-
-interface GeoLine { type: 'LineString'; coordinates: [number, number][] }
 
 const TABS: { id: Tab; Icon: typeof Bike; label: string }[] = [
   { id: 'stations', Icon: Bike, label: 'Stations' },
@@ -55,7 +58,7 @@ const _savedJourney: SavedJourney | null = (() => {
   try { return JSON.parse(sessionStorage.getItem('velov-journey') ?? 'null') as SavedJourney | null } catch { return null }
 })()
 
-function trimWalkGeometry(geometry: GeoLine | null, userPos: { lat: number; lng: number } | null): GeoLine | null {
+function trimWalkGeometry(geometry: GeoLineString | null, userPos: { lat: number; lng: number } | null): GeoLineString | null {
   if (!geometry?.coordinates?.length || !userPos) return geometry
   const coords = geometry.coordinates
   let minDist = Infinity, minIdx = 0
@@ -265,7 +268,9 @@ export default function VelovPage() {
       : []
   ), [mapSearch, stations])
 
-  const badgeCount = userLocation && filteredStations.length > 0 ? filteredStations[0].availableBikes : availableBikes
+  // Badge OS : vélos à la station la plus proche si localisé, sinon nb de favoris
+  // (le total de vélos sur tout Lyon n'a aucun sens en badge — saturerait à 99+).
+  const badgeCount = userLocation && filteredStations.length > 0 ? filteredStations[0].availableBikes : favorites.length
   useEffect(() => {
     if (!('setAppBadge' in navigator)) return
     navigator.setAppBadge(badgeCount).catch(() => {})
@@ -284,7 +289,7 @@ export default function VelovPage() {
       if (remaining <= 0) {
         clearInterval(id)
         setReminderEnd(null); setReminderCountdown(null)
-        sendNotification("Vélo'v — C'est l'heure !", { body: 'Il est temps de partir pour votre trajet à vélo.' })
+        sendNotification("Vélo'v — C'est l'heure !", { body: 'Il est temps de partir pour votre trajet à vélo.', tag: 'velov-reminder' })
         if ('vibrate' in navigator) navigator.vibrate([200, 100, 200])
       } else {
         const mins = Math.floor(remaining / 60000)
@@ -345,7 +350,7 @@ export default function VelovPage() {
   const distToEndStation = journeyPhase === 'biking' && endStationForJourney && userLocation
     ? calculateDistance(userLocation.lat, userLocation.lng, endStationForJourney.lat, endStationForJourney.lng) : null
   const trimmedWalkNavGeometry = useMemo(
-    () => trimWalkGeometry((walkNavRoute?.geometry as GeoLine) ?? null, userLocation),
+    () => trimWalkGeometry(walkNavRoute?.geometry ?? null, userLocation),
     [walkNavRoute, userLocation],
   )
   const liveWalkStationBikes = useMemo(() => {
@@ -356,20 +361,20 @@ export default function VelovPage() {
   const startStationEmptyNotifiedRef = useRef(false)
 
   useEffect(() => {
-    if (distToWalkNavStation === null || distToWalkNavStation > 50) return
+    if (distToWalkNavStation === null || distToWalkNavStation > ARRIVAL_RADIUS) return
     if ('vibrate' in navigator) navigator.vibrate([100, 50, 100])
     if (journeyPhase === 'walk-to-start') {
-      sendNotification('Prenez un vélo !', { body: `Station ${walkNavStationName} atteinte — votre trajet à vélo commence.` })
+      sendNotification('Prenez un vélo !', { body: `Station ${walkNavStationName} atteinte — votre trajet à vélo commence.`, tag: 'velov-journey' })
       void Promise.resolve().then(() => { setJourneyPhase('biking'); setWalkNavStation(null); setWalkNavRoute(null) })
     } else if (journeyPhase === 'walk-to-end') {
-      sendNotification('Vous êtes arrivé !', { body: 'Vous avez atteint votre destination. Bravo !' })
+      sendNotification('Vous êtes arrivé !', { body: 'Vous avez atteint votre destination. Bravo !', tag: 'velov-journey' })
       void Promise.resolve().then(() => {
         setJourneyPhase('arrived')
         setJourneyElapsedMins(journeyStartTime ? Math.round((Date.now() - journeyStartTime) / 60000) : null)
         setWalkNavStation(null); setWalkNavRoute(null)
       })
     } else {
-      sendNotification('Vous êtes arrivé !', { body: `Station ${walkNavStationName} à portée.` })
+      sendNotification('Vous êtes arrivé !', { body: `Station ${walkNavStationName} à portée.`, tag: 'velov-walk' })
       void Promise.resolve().then(() => { setWalkNavStation(null); setWalkNavRoute(null) })
     }
   }, [distToWalkNavStation, walkNavStationName, sendNotification, journeyPhase, journeyStartTime])
@@ -382,13 +387,13 @@ export default function VelovPage() {
   }, [walkNavStation])
 
   useEffect(() => {
-    if (journeyPhase !== 'biking' || distToEndStation === null || distToEndStation > 100) return
+    if (journeyPhase !== 'biking' || distToEndStation === null || distToEndStation > DROP_BIKE_RADIUS) return
     const station = endStationForJourney
     const dest = routeDestination
     const pos = userLocation
     if (!station || !dest || !pos) return
     let cancelled = false
-    sendNotification('Déposez le vélo', { body: `Station ${station.name} à portée — continuez à pied.` })
+    sendNotification('Déposez le vélo', { body: `Station ${station.name} à portée — continuez à pied.`, tag: 'velov-journey' })
     if ('vibrate' in navigator) navigator.vibrate([200, 100, 200])
     void Promise.resolve().then(() => {
       if (cancelled) return
@@ -447,11 +452,11 @@ export default function VelovPage() {
     if (!walkVoiceActive || distToWalkNavStation === null || !walkNavStation) return
     const isStation = (walkNavStation as Station).availableBikes != null
     const label = isStation ? `station ${walkNavStation.name}` : (walkNavStation.name ?? 'destination')
-    if (distToWalkNavStation <= 80 && !walkApproachAnnouncedRef.current.t80) {
+    if (distToWalkNavStation <= WALK_ANNOUNCE_NEAR && !walkApproachAnnouncedRef.current.t80) {
       walkApproachAnnouncedRef.current.t80 = true
       const dist = Math.round(distToWalkNavStation / 10) * 10
       walkVoiceSpeakFn(`${label.charAt(0).toUpperCase()}${label.slice(1)} dans ${dist} mètres.`)
-    } else if (distToWalkNavStation <= 300 && !walkApproachAnnouncedRef.current.t300) {
+    } else if (distToWalkNavStation <= WALK_ANNOUNCE_FAR && !walkApproachAnnouncedRef.current.t300) {
       walkApproachAnnouncedRef.current.t300 = true
       const dist = Math.round(distToWalkNavStation / 25) * 25
       walkVoiceSpeakFn(`Dans ${dist} mètres, ${label}.`)
@@ -464,10 +469,10 @@ export default function VelovPage() {
     const nextStation = recommendedStartStations.find((s) => s.id !== walkNavStation.id && s.availableBikes > 0)
     startStationEmptyNotifiedRef.current = true
     if (!nextStation) {
-      sendNotification('Plus de vélos !', { body: `La station ${walkNavStation.name} est vide. Aucune alternative proche.` })
+      sendNotification('Plus de vélos !', { body: `La station ${walkNavStation.name} est vide. Aucune alternative proche.`, tag: 'velov-redirect' })
       return
     }
-    sendNotification('Station vide', { body: `Redirection vers ${nextStation.name}.` })
+    sendNotification('Station vide', { body: `Redirection vers ${nextStation.name}.`, tag: 'velov-redirect' })
     const pos = { lat: userLocation.lat, lng: userLocation.lng }
     const newStation = { ...nextStation }
     void Promise.resolve().then(() => {
@@ -528,7 +533,8 @@ export default function VelovPage() {
   const handleClearAll = useCallback(() => {
     clearRoute(); setDestination(null); setProximityEnabled(false)
     setJourneyPhase('idle'); setJourneyStartTime(null); setJourneyElapsedMins(null); setWalkNavStation(null); stopWatching()
-  }, [clearRoute, stopWatching])
+    voiceNav.stopNavigation(); walkVoiceNav.stopNavigation()
+  }, [clearRoute, stopWatching, voiceNav, walkVoiceNav])
 
   const doEnableProximity = useCallback(() => {
     if (recommendedEndStations.length > 0) {
@@ -628,7 +634,7 @@ export default function VelovPage() {
 
   function handleCancelJourney() {
     setJourneyPhase('idle'); setJourneyStartTime(null); setJourneyElapsedMins(null); setWalkNavStation(null); setWalkNavRoute(null)
-    walkVoiceNav.stopNavigation()
+    walkVoiceNav.stopNavigation(); voiceNav.stopNavigation()
   }
 
   const handleExportGPX = useCallback(() => {

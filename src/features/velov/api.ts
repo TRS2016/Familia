@@ -38,9 +38,10 @@ let currentController: AbortController | null = null
 
 export async function fetchStations(): Promise<Station[]> {
   if (currentController) currentController.abort()
-  currentController = new AbortController()
-  const { signal } = currentController
-  const timer = setTimeout(() => currentController?.abort(), 20000)
+  const controller = new AbortController()
+  currentController = controller
+  const { signal } = controller
+  const timer = setTimeout(() => controller.abort(), 20000)
 
   let statusRes: Response, infoRes: Response
   try {
@@ -60,15 +61,21 @@ export async function fetchStations(): Promise<Station[]> {
   if (!statusRes.ok) throw new Error(`Status API error: ${statusRes.status}`)
   if (!infoRes.ok) throw new Error(`Info API error: ${infoRes.status}`)
 
-  const statusData = (await statusRes.json()) as { data: { stations: GbfsStationStatus[] } }
-  const infoData = (await infoRes.json()) as { data: { stations: GbfsStationInfo[] } }
+  const statusData = (await statusRes.json()) as { data?: { stations?: GbfsStationStatus[] } }
+  const infoData = (await infoRes.json()) as { data?: { stations?: GbfsStationInfo[] } }
+
+  const statusStations = statusData?.data?.stations
+  const infoStations = infoData?.data?.stations
+  if (!Array.isArray(statusStations) || !Array.isArray(infoStations)) {
+    throw new Error('Réponse GBFS inattendue — format de données invalide')
+  }
 
   const infoMap = new Map<string, GbfsStationInfo>()
-  for (const station of infoData.data.stations) {
+  for (const station of infoStations) {
     infoMap.set(station.station_id, station)
   }
 
-  return statusData.data.stations.map((status): Station => {
+  return statusStations.map((status): Station => {
     const info = infoMap.get(status.station_id)
     return {
       id: status.station_id,

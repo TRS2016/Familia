@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { Star, Navigation, BarChart3, Bell } from 'lucide-react'
 import { HistoryChart } from './HistoryChart'
-import { saveSnapshot } from '../historyDB'
 import type { Station } from '../types'
 import styles from './StationCard.module.css'
 
@@ -40,10 +39,6 @@ export function StationCard({
 
   const hasBikes = station.availableBikes > 0
   const hasStands = station.availableStands > 0
-
-  useEffect(() => {
-    void saveSnapshot(station.id, station.availableBikes, station.availableStands)
-  }, [station.id, station.availableBikes, station.availableStands])
 
   function openNavigation() {
     const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
