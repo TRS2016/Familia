@@ -20,7 +20,7 @@ import {
 import type { MediaFile, MediaFileKind } from './useLecteur'
 import { useLecteurRealtime } from './useLecteurRealtime'
 import { useLecteurQueue, useAddToQueue } from './useLecteurQueue'
-import { KIND_META, probeDuration } from './lecteur.utils'
+import { KIND_META, probeDuration, youtubeThumb } from './lecteur.utils'
 import EqBars from './EqBars'
 import FileRow from './FileRow'
 import JukeboxPane from './JukeboxPane'
@@ -98,6 +98,10 @@ export default function LecteurPage() {
   const [sleepEndOfTrack, setSleepEndOfTrack] = useState(false)
   const [showSleepModal, setShowSleepModal]   = useState(false)
   const [now, setNow] = useState(Date.now())
+  // Progression du mini-lecteur (audio/vidéo) : le scrubber complet défile hors
+  // écran, le dock collant garde un repère de position. Clé par piste pour
+  // retomber à 0 au changement sans effet (set-state-in-effect).
+  const [dockProgress, setDockProgress] = useState<{ id: string; pct: number }>({ id: '', pct: 0 })
 
   const SPEEDS = [1, 1.25, 1.5, 2, 0.75]
   function cycleSpeed() { setSpeed(s => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length]) }
@@ -311,7 +315,9 @@ export default function LecteurPage() {
         <div className={styles.playerDock}>
           <div className={styles.nowPlaying}>
             <div className={styles.nowPlayingArt}>
-              <span className={styles.nowPlayingArtEmoji} aria-hidden="true">{KIND_META[detectKind(playingFile)].emoji}</span>
+              {youtubeThumb(playingFile.external_url)
+                ? <img className={styles.nowPlayingArtImg} src={youtubeThumb(playingFile.external_url)!} alt="" />
+                : <span className={styles.nowPlayingArtEmoji} aria-hidden="true">{KIND_META[detectKind(playingFile)].emoji}</span>}
               <span className={styles.nowPlayingArtEq}><EqBars small /></span>
             </div>
             <div className={styles.nowPlayingInfo}>
@@ -382,6 +388,16 @@ export default function LecteurPage() {
             </button>
           </div>
 
+          {/* Repère de progression du mini-lecteur (audio/vidéo). Le scrubber
+              complet reste dans l'embed plus bas. */}
+          {playingFile.file_path && (
+            <div className={styles.dockProgress} aria-hidden="true">
+              <div
+                className={styles.dockProgressFill}
+                style={{ width: `${dockProgress.id === playingFile.id ? dockProgress.pct : 0}%` }}
+              />
+            </div>
+          )}
         </div>
           <div className={[styles.playerWrap, styles.dockPlayer].join(' ')}>
             <MediaPlayer
@@ -394,6 +410,7 @@ export default function LecteurPage() {
               playbackRate={speed}
               resumeKey={playingFile.id}
               onEnded={handleTrackEnded}
+              onProgress={(c, d) => setDockProgress({ id: playingFile.id, pct: d > 0 ? (c / d) * 100 : 0 })}
             />
           </div>
         </>

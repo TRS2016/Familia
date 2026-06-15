@@ -3,7 +3,7 @@ import { CornerDownRight, ListMusic, ListPlus, MoreHorizontal, Pencil, Play, Sta
 import EqBars from './EqBars'
 import { detectKind } from './useLecteur'
 import type { LecteurPlaylist, MediaFile } from './useLecteur'
-import { KIND_META, fmtDuration } from './lecteur.utils'
+import { KIND_META, fmtDuration, youtubeThumb } from './lecteur.utils'
 import styles from './LecteurPage.module.css'
 
 export default function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, onToggleFavorite, onQueue, onPlayNext, manualPlaylists }: {
@@ -21,6 +21,7 @@ export default function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onA
   const [showActions, setShowActions] = useState(false)
   const kind = detectKind(file)
   const meta = KIND_META[kind]
+  const thumb = youtubeThumb(file.external_url)
 
   return (
     <li>
@@ -39,7 +40,9 @@ export default function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onA
             <EqBars small />
           ) : (
             <>
-              <span className={styles.kindEmoji} aria-hidden="true">{meta.emoji}</span>
+              {thumb
+                ? <img className={styles.kindThumb} src={thumb} alt="" loading="lazy" />
+                : <span className={styles.kindEmoji} aria-hidden="true">{meta.emoji}</span>}
               <span className={styles.kindPlay}><Play size={16} strokeWidth={2} fill="currentColor" /></span>
             </>
           )}

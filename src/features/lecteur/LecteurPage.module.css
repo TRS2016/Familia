@@ -374,6 +374,14 @@
 
 .kindEmoji { transition: opacity 0.15s; }
 
+.kindThumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: opacity 0.15s;
+}
+.fileRow:hover .kindThumb { opacity: 0; }
+
 .kindPlay {
   position: absolute;
   inset: 0;
@@ -874,6 +882,12 @@
   font-size: var(--text-xl);
 }
 
+.nowPlayingArtImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .nowPlayingArtEq {
   position: absolute;
   bottom: 4px;
@@ -1190,6 +1204,22 @@
   top: 50%;
   height: 44px;
   transform: translateY(-50%);
+}
+
+/* Repère de progression du mini-lecteur (read-only). */
+.dockProgress {
+  height: 3px;
+  margin: 8px 2px 0;
+  border-radius: 2px;
+  background: var(--border);
+  overflow: hidden;
+}
+
+.dockProgressFill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  transition: width 0.25s linear;
 }
 
 .dockSpeedLabel {

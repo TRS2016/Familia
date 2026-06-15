@@ -6,6 +6,14 @@ export const KIND_META: Record<MediaFileKind, { emoji: string; label: string }> 
   lien:   { emoji: '🔗', label: 'Lien'   },
 }
 
+// Vignette YouTube (mqdefault) déduite de l'URL externe, ou null si non YouTube.
+// Sert d'artwork pour le now-playing et les lignes de bibliothèque.
+export function youtubeThumb(url: string | null | undefined): string | null {
+  if (!url) return null
+  const m = url.match(/(?:v=|vi=|youtu\.be\/|\/shorts\/|\/embed\/|\/live\/|\/v\/)([a-zA-Z0-9_-]{11})/)
+  return m ? `https://i.ytimg.com/vi/${m[1]}/mqdefault.jpg` : null
+}
+
 export function smartFilterLabel(f: LecteurSmartFilters): string {
   const parts: string[] = []
   if (f.kind)     parts.push(KIND_META[f.kind].emoji + ' ' + f.kind)

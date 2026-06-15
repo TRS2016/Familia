@@ -1,3 +1,6 @@
+/* eslint-disable react-refresh/only-export-components --
+   Helpers partagés (clés/URL signées/canAutoAdvance) volontairement co-localisés
+   avec le composant et importés par le Lecteur. Impact limité au fast-refresh dev. */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Play, Pause, ExternalLink, Volume2, VolumeX } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
@@ -51,13 +54,14 @@ function resumePosition(key: string | null | undefined, duration: number): numbe
   return null
 }
 
-function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded }: {
+function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded, onProgress }: {
   src: string
   autoPlay?: boolean
   loop?: boolean
   playbackRate?: number
   resumeKey?: string | null
   onEnded?: () => void
+  onProgress?: (current: number, duration: number) => void
 }) {
   const ref = useRef<HTMLAudioElement>(null)
   const [playing,  setPlaying]  = useState(false)
@@ -160,6 +164,7 @@ function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded }: 
         onTimeUpdate={e => {
           const t = e.currentTarget.currentTime
           setCurrent(t)
+          onProgress?.(t, e.currentTarget.duration)
           if (resumeKey && Math.abs(t - lastSavedRef.current) >= 5) {
             lastSavedRef.current = t
             saveResume(resumeKey, t)
@@ -168,6 +173,7 @@ function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded }: 
         onLoadedMetadata={e => {
           const el = e.currentTarget
           setDuration(el.duration)
+          onProgress?.(el.currentTime, el.duration)
           if (playbackRate) el.playbackRate = playbackRate
           const pos = resumePosition(resumeKey, el.duration)
           if (pos != null) { el.currentTime = pos; setCurrent(pos); lastSavedRef.current = pos }
@@ -353,9 +359,11 @@ interface Props {
   loop?: boolean
   playbackRate?: number
   resumeKey?: string | null
+  /** Progression (audio/vidéo uniquement) pour un mini-affichage externe. */
+  onProgress?: (current: number, duration: number) => void
 }
 
-export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay, muted, loop, playbackRate, resumeKey }: Props) {
+export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay, muted, loop, playbackRate, resumeKey, onProgress }: Props) {
   const { data: signedUrl, isLoading } = useQuery({
     queryKey: mediaFileUrlKey(filePath ?? ''),
     queryFn: () => signMediaFileUrl(filePath!),
@@ -432,6 +440,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
         }}
         onTimeUpdate={e => {
           const t = e.currentTarget.currentTime
+          onProgress?.(t, e.currentTarget.duration)
           if (resumeKey && Math.abs(t - lastVideoSaveRef.current) >= 5) {
             lastVideoSaveRef.current = t
             saveResume(resumeKey, t)
@@ -443,7 +452,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
   }
 
   if (type === 'audio') {
-    return <CustomAudio key={url} src={url} autoPlay={autoPlay} loop={loop} playbackRate={playbackRate} resumeKey={resumeKey} onEnded={onEnded} />
+    return <CustomAudio key={url} src={url} autoPlay={autoPlay} loop={loop} playbackRate={playbackRate} resumeKey={resumeKey} onEnded={onEnded} onProgress={onProgress} />
   }
 
   return (
