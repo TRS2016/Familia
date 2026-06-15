@@ -1412,6 +1412,38 @@ export type Database = {
           },
         ]
       }
+      velov_favorites: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          member_id: string
+          station_id: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          member_id: string
+          station_id: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          member_id?: string
+          station_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "velov_favorites_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       yt_search_cache: {
         Row: {
           created_at: string

@@ -11,4 +11,6 @@ export const QK = {
   homeHabits:  ['home-habits',            HOUSEHOLD_ID] as const,
   homeMedia:   ['home-media-in-progress', HOUSEHOLD_ID] as const,
   homeMoments: ['home-moments',           HOUSEHOLD_ID] as const,
+
+  velovFavorites: (memberId: string) => ['velov-favorites', memberId] as const,
 }
