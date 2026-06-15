@@ -283,8 +283,12 @@ export default function LecteurPage() {
         }}
       />
 
-      {/* ── Sticky player dock (now-playing bar + embed) ─────────── */}
+      {/* ── Sticky mini-player (now-playing bar + contrôles) ─────────
+          L'embed média est rendu SOUS le dock (et non dedans) : une vidéo
+          en lecture ne fait plus grandir le header collant ni recouvrir la
+          liste au défilement. Le bandeau compact reste toujours visible. */}
       {playingFile && (
+        <>
         <div className={styles.playerDock}>
           <div className={styles.nowPlaying}>
             <div className={styles.nowPlayingArt}>
@@ -359,7 +363,8 @@ export default function LecteurPage() {
             </button>
           </div>
 
-          <div className={styles.playerWrap}>
+        </div>
+          <div className={[styles.playerWrap, styles.dockPlayer].join(' ')}>
             <MediaPlayer
               filePath={playingFile.file_path}
               externalUrl={playingFile.external_url}
@@ -372,7 +377,7 @@ export default function LecteurPage() {
               onEnded={handleTrackEnded}
             />
           </div>
-        </div>
+        </>
       )}
 
       {/* ── Tabs ─────────────────────────────────────────────────── */}
