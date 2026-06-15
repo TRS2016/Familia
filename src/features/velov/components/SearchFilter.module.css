@@ -1,0 +1,156 @@
+.bar {
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  padding: var(--space-3) var(--space-4);
+}
+
+.row {
+  max-width: var(--page-max-w, 56rem);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+@media (min-width: 640px) {
+  .row { flex-direction: row; }
+}
+
+.searchWrap { flex: 1; }
+
+.search {
+  width: 100%;
+  padding: 8px 16px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  font-size: var(--text-sm);
+  background: var(--bg-input);
+  color: var(--text);
+}
+
+.search:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-shadow);
+}
+
+.filters {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.chip {
+  padding: 8px 16px;
+  font-size: var(--text-sm);
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  background: var(--bg-input);
+  color: var(--text-sub);
+  transition: background 0.15s ease, color 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.chip:hover { background: var(--accent-soft); }
+
+.chipActive { background: var(--accent); color: #fff; }
+.chipBikes { background: var(--success); color: #fff; }
+.chipStands { background: var(--info); color: #fff; }
+.chipFav { background: var(--warning); color: #fff; }
+
+.chipAdv {
+  position: relative;
+  padding: 8px 12px;
+}
+
+.chipAdvActive { background: var(--accent); color: #fff; }
+
+.advDot {
+  position: absolute;
+  top: -2px;
+  right: -2px;
+  width: 8px;
+  height: 8px;
+  background: var(--warning);
+  border-radius: var(--radius-pill);
+}
+
+.advanced {
+  max-width: var(--page-max-w, 56rem);
+  margin: var(--space-3) auto 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  align-items: center;
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border-subtle);
+}
+
+.advItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.advLabel {
+  font-size: var(--text-sm);
+  color: var(--text-sub);
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.checkbox {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.numInput {
+  width: 56px;
+  padding: 4px 8px;
+  font-size: var(--text-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text);
+  text-align: center;
+}
+
+.select {
+  padding: 4px 8px;
+  font-size: var(--text-sm);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  color: var(--text);
+}
+
+.sortBtn {
+  font-size: var(--text-xs);
+  padding: 4px 10px;
+  border-radius: var(--radius-sm);
+  border: none;
+  cursor: pointer;
+  background: var(--bg-input);
+  color: var(--text-sub);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.sortBtn:hover { background: var(--accent-soft); }
+.sortActive { background: var(--accent); color: #fff; }
+
+.reset {
+  font-size: var(--text-xs);
+  color: var(--danger);
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.reset:hover { text-decoration: underline; }

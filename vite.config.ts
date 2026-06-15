@@ -11,6 +11,7 @@ export default defineConfig({
           if (id.includes('node_modules/@supabase')) return 'vendor-supabase'
           if (id.includes('node_modules/@tanstack')) return 'vendor-query'
           if (id.includes('node_modules/date-fns')) return 'vendor-date'
+          if (id.includes('node_modules/leaflet') || id.includes('node_modules/react-leaflet')) return 'vendor-leaflet'
         },
       },
     },

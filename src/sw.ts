@@ -1,5 +1,9 @@
 /// <reference lib="webworker" />
 import { precacheAndRoute } from 'workbox-precaching'
+import { registerRoute } from 'workbox-routing'
+import { CacheFirst, NetworkFirst } from 'workbox-strategies'
+import { ExpirationPlugin } from 'workbox-expiration'
+import { CacheableResponsePlugin } from 'workbox-cacheable-response'
 
 // Typed as ServiceWorkerGlobalScope instead of Window — excluded from tsconfig.app.json
 // to avoid the DOM/WebWorker lib conflict. Compiled by Vite/esbuild, not tsc.
@@ -19,6 +23,44 @@ self.addEventListener('message', (event) => {
 // ── Precache ─────────────────────────────────────────────────────────────
 
 precacheAndRoute(self.__WB_MANIFEST)
+
+// ── Runtime caching (feature Vélo'v : tuiles carto + GBFS + marqueurs) ──────
+
+// Disponibilité GBFS Grand Lyon — fraîcheur prioritaire, court TTL
+registerRoute(
+  ({ url }) => url.href.startsWith('https://download.data.grandlyon.com/files/rdata/'),
+  new NetworkFirst({
+    cacheName: 'velov-gbfs',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 8, maxAgeSeconds: 120 }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
+  }),
+)
+
+// Tuiles OpenStreetMap / CARTO — cache long
+registerRoute(
+  ({ url }) => /\.tile\.openstreetmap\.org$/.test(url.hostname) || /\.basemaps\.cartocdn\.com$/.test(url.hostname),
+  new CacheFirst({
+    cacheName: 'velov-map-tiles',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 200, maxAgeSeconds: 7 * 24 * 60 * 60 }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
+  }),
+)
+
+// Marqueurs Leaflet (jsdelivr) — cache long
+registerRoute(
+  ({ url }) => url.hostname === 'cdn.jsdelivr.net' || url.hostname === 'cdnjs.cloudflare.com',
+  new CacheFirst({
+    cacheName: 'velov-markers',
+    plugins: [
+      new ExpirationPlugin({ maxEntries: 20, maxAgeSeconds: 30 * 24 * 60 * 60 }),
+      new CacheableResponsePlugin({ statuses: [0, 200] }),
+    ],
+  }),
+)
 
 // ── Types ─────────────────────────────────────────────────────────────────
 

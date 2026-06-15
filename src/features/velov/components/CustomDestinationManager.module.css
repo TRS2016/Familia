@@ -1,0 +1,37 @@
+.collapsedWrap { max-width: var(--page-max-w, 56rem); margin: 0 auto; width: 100%; padding: var(--space-2) var(--space-4) 0; }
+
+.collapsedBtn {
+  font-size: var(--text-xs);
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
+  color: var(--warning);
+  border: 1px solid color-mix(in srgb, var(--warning) 34%, transparent);
+  cursor: pointer;
+}
+
+.head { display: flex; align-items: center; justify-content: space-between; margin-bottom: var(--space-2); }
+.title { font-size: var(--text-sm); font-weight: 600; color: var(--text); }
+.headActions { display: flex; gap: var(--space-2); align-items: center; }
+.addBtn { font-size: var(--text-xs); background: color-mix(in srgb, var(--warning) 28%, transparent); color: var(--text); padding: 4px 12px; border-radius: var(--radius-sm); border: none; cursor: pointer; }
+.closeBtn { font-size: var(--text-xs); background: none; border: none; cursor: pointer; color: var(--warning); }
+
+.form { background: var(--bg-card); border-radius: var(--radius-md); padding: var(--space-3); border: 1px solid var(--border); display: flex; flex-direction: column; gap: var(--space-2); }
+.searchRow { display: flex; gap: var(--space-2); }
+.searchBtn { padding: 8px 12px; border-radius: var(--radius-sm); background: var(--accent); color: #fff; border: none; cursor: pointer; flex-shrink: 0; display: inline-flex; align-items: center; }
+.searchBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.grid { display: grid; grid-template-columns: 1fr; gap: var(--space-2); }
+@media (min-width: 640px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+
+.fieldError { font-size: var(--text-xs); color: var(--danger); margin-top: 2px; }
+
+.formActions { display: flex; gap: var(--space-2); }
+.locBtn { font-size: var(--text-xs); padding: 6px 12px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--info); border: none; cursor: pointer; }
+.saveBtn { font-size: var(--text-xs); padding: 6px 12px; border-radius: var(--radius-sm); background: var(--warning); color: #3D2B1F; border: none; cursor: pointer; font-weight: 600; }
+
+.chips { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-top: var(--space-2); }
+.chip { display: flex; align-items: center; gap: 4px; background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; }
+.chipName { font-size: var(--text-sm); color: var(--text); }
+.chipEdit { background: none; border: none; cursor: pointer; color: var(--info); font-size: var(--text-xs); }
+.chipDelete { background: none; border: none; cursor: pointer; color: var(--danger); font-size: var(--text-xs); }

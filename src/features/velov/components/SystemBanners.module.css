@@ -1,0 +1,9 @@
+.cache {
+  background: color-mix(in srgb, var(--warning) 14%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--warning) 30%, transparent);
+  color: var(--warning);
+  font-size: var(--text-xs);
+  text-align: center;
+  padding: 6px 16px;
+  flex-shrink: 0;
+}

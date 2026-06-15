@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   Home, ShoppingCart, Calendar, Flame, Grid2x2,
-  BookOpen, Camera, Tv, Music, Settings, Dumbbell,
+  BookOpen, Camera, Tv, Music, Settings, Dumbbell, Bike,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import SlideUpModal from './SlideUpModal'
@@ -23,6 +23,7 @@ const MOBILE_MORE: { to: string; Icon: LucideIcon; label: string }[] = [
   { to: '/media',    Icon: Tv,       label: 'Médias'   },
   { to: '/lecteur',  Icon: Music,    label: 'Lecteur'  },
   { to: '/training', Icon: Dumbbell, label: 'Training' },
+  { to: '/velov',    Icon: Bike,     label: "Vélo'v"   },
   { to: '/settings', Icon: Settings, label: 'Réglages' },
 ]
 
@@ -38,6 +39,7 @@ const SIDEBAR_ITEMS: { to: string; Icon: LucideIcon; label: string; exact: boole
   { to: '/media',     Icon: Tv,           label: 'Médias',     exact: false },
   { to: '/lecteur',   Icon: Music,        label: 'Lecteur',    exact: false },
   { to: '/training',  Icon: Dumbbell,     label: 'Training',   exact: false },
+  { to: '/velov',     Icon: Bike,         label: "Vélo'v",     exact: false },
 ]
 
 const SIDEBAR_FOOTER: { to: string; Icon: LucideIcon; label: string; exact: boolean }[] = [

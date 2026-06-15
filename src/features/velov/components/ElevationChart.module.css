@@ -1,0 +1,29 @@
+.wrap { margin-top: var(--space-2); }
+
+.loading {
+  margin-top: var(--space-2);
+  height: 48px;
+  background: var(--bg-input);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.loadingText { font-size: var(--text-xs); color: var(--text-muted); }
+
+.head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: var(--text-xs);
+  color: var(--text-sub);
+  margin-bottom: var(--space-1);
+}
+
+.svg {
+  width: 100%;
+  height: 48px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+}
