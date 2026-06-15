@@ -54,7 +54,7 @@ function resumePosition(key: string | null | undefined, duration: number): numbe
   return null
 }
 
-function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded, onProgress }: {
+function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded, onProgress, volume }: {
   src: string
   autoPlay?: boolean
   loop?: boolean
@@ -62,6 +62,7 @@ function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded, on
   resumeKey?: string | null
   onEnded?: () => void
   onProgress?: (current: number, duration: number) => void
+  volume?: number
 }) {
   const ref = useRef<HTMLAudioElement>(null)
   const [playing,  setPlaying]  = useState(false)
@@ -74,6 +75,11 @@ function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded, on
   useEffect(() => {
     if (ref.current && playbackRate) ref.current.playbackRate = playbackRate
   }, [playbackRate])
+
+  // Volume contrôlé en externe (slider du dock + fondu de sortie du minuteur).
+  useEffect(() => {
+    if (ref.current && volume != null) ref.current.volume = Math.min(1, Math.max(0, volume))
+  }, [volume])
 
   function toggle() {
     const el = ref.current
@@ -361,9 +367,11 @@ interface Props {
   resumeKey?: string | null
   /** Progression (audio/vidéo uniquement) pour un mini-affichage externe. */
   onProgress?: (current: number, duration: number) => void
+  /** Volume 0..1 contrôlé en externe (audio uniquement). */
+  volume?: number
 }
 
-export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay, muted, loop, playbackRate, resumeKey, onProgress }: Props) {
+export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay, muted, loop, playbackRate, resumeKey, onProgress, volume }: Props) {
   const { data: signedUrl, isLoading } = useQuery({
     queryKey: mediaFileUrlKey(filePath ?? ''),
     queryFn: () => signMediaFileUrl(filePath!),
@@ -452,7 +460,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
   }
 
   if (type === 'audio') {
-    return <CustomAudio key={url} src={url} autoPlay={autoPlay} loop={loop} playbackRate={playbackRate} resumeKey={resumeKey} onEnded={onEnded} onProgress={onProgress} />
+    return <CustomAudio key={url} src={url} autoPlay={autoPlay} loop={loop} playbackRate={playbackRate} resumeKey={resumeKey} onEnded={onEnded} onProgress={onProgress} volume={volume} />
   }
 
   return (

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Upload, Link as LinkIcon, X,
-  ListMusic, Search, Moon, Star, PartyPopper, Repeat, Repeat1,
+  ListMusic, Search, Moon, Star, PartyPopper, Repeat, Repeat1, Volume2,
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -81,6 +81,7 @@ export default function LecteurPage() {
   const playingFile = queue[queueIndex] ?? null
   const hasPrev = queueIndex > 0
   const hasNext = queueIndex < queue.length - 1
+  const isAudioTrack = playingFile ? detectKind(playingFile) === 'audio' : false
 
   // ── Mode DJ (soirée) : exclusif avec la file perso ──
   // L'état vit ici (et pas dans JukeboxPane) pour empêcher deux flux audio
@@ -99,6 +100,9 @@ export default function LecteurPage() {
   const [showSleepModal, setShowSleepModal]   = useState(false)
   const [customSleepMin, setCustomSleepMin]   = useState('')
   const [now, setNow] = useState(Date.now())
+  // Volume (audio uniquement) : slider du dock × facteur de fondu du minuteur.
+  const [userVolume, setUserVolume] = useState(1)
+  const [fadeFactor, setFadeFactor] = useState(1)
   // Progression du mini-lecteur (audio/vidéo) : le scrubber complet défile hors
   // écran, le dock collant garde un repère de position. Clé par piste pour
   // retomber à 0 au changement sans effet (set-state-in-effect).
@@ -111,19 +115,31 @@ export default function LecteurPage() {
   const sleepActive = sleepUntil != null || sleepEndOfTrack
   const sleepMinutesLeft = sleepUntil != null ? Math.max(0, Math.ceil((sleepUntil - now) / 60_000)) : null
 
-  // Minuteur de sommeil : coupe la lecture à l'échéance.
+  // Minuteur de sommeil : fondu de sortie (audio) sur les dernières secondes puis
+  // coupe la lecture à l'échéance. fadeFactor est remis à 1 par setSleep/extendSleep
+  // (pas ici, pour éviter un set-state synchrone en corps d'effet).
   useEffect(() => {
     if (sleepUntil == null) return
-    const tick = setInterval(() => setNow(Date.now()), 20_000)
-    const ms = sleepUntil - Date.now()
-    const timer = setTimeout(() => { stop(); setSleepUntil(null) }, Math.max(0, ms))
-    return () => { clearInterval(tick); clearTimeout(timer) }
+    const FADE_MS = 8000
+    const tick  = setInterval(() => setNow(Date.now()), 20_000)
+    const total = sleepUntil - Date.now()
+    let fadeInt: ReturnType<typeof setInterval> | null = null
+    const fadeStart = setTimeout(() => {
+      const start = Date.now()
+      fadeInt = setInterval(() => {
+        const p = Math.min(1, (Date.now() - start) / FADE_MS)
+        setFadeFactor(1 - p)
+      }, 200)
+    }, Math.max(0, total - FADE_MS))
+    const timer = setTimeout(() => { stop(); setSleepUntil(null); setFadeFactor(1) }, Math.max(0, total))
+    return () => { clearInterval(tick); clearTimeout(fadeStart); clearTimeout(timer); if (fadeInt) clearInterval(fadeInt) }
   }, [sleepUntil])
 
   function setSleep(minutes: number | null, endOfTrack = false) {
     setSleepEndOfTrack(endOfTrack)
     setSleepUntil(minutes != null ? Date.now() + minutes * 60_000 : null)
     setNow(Date.now())
+    setFadeFactor(1)
     setCustomSleepMin('')
     setShowSleepModal(false)
   }
@@ -133,6 +149,7 @@ export default function LecteurPage() {
     setSleepEndOfTrack(false)
     setSleepUntil(u => (u ?? Date.now()) + 5 * 60_000)
     setNow(Date.now())
+    setFadeFactor(1)
   }
 
   function startCustomSleep() {
@@ -446,6 +463,21 @@ export default function LecteurPage() {
                 <span className={styles.dockSleepLabel}>{sleepEndOfTrack ? 'fin' : `${sleepMinutesLeft}′`}</span>
               )}
             </button>
+
+            {isAudioTrack && (
+              <div className={styles.dockVolume}>
+                <Volume2 size={15} strokeWidth={2.5} aria-hidden="true" />
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={Math.round(userVolume * 100)}
+                  onChange={e => setUserVolume(Number(e.target.value) / 100)}
+                  className={styles.dockVolumeSlider}
+                  aria-label="Volume"
+                />
+              </div>
+            )}
           </div>
 
           {/* Repère de progression du mini-lecteur (audio/vidéo). Le scrubber
@@ -471,6 +503,7 @@ export default function LecteurPage() {
               resumeKey={playingFile.id}
               onEnded={handleTrackEnded}
               onProgress={(c, d) => setDockProgress({ id: playingFile.id, pct: d > 0 ? (c / d) * 100 : 0 })}
+              volume={isAudioTrack ? userVolume * fadeFactor : undefined}
             />
           </div>
         </>

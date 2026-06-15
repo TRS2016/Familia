@@ -1255,6 +1255,24 @@
   transition: width 0.25s linear;
 }
 
+/* Volume du dock (audio uniquement). */
+.dockVolume {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-sub);
+  margin-left: 2px;
+  min-width: 0;
+}
+
+.dockVolumeSlider {
+  width: 72px;
+  max-width: 28vw;
+  height: 4px;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
 .dockSpeedLabel {
   font-family: var(--font-family);
   font-size: var(--text-xs);
