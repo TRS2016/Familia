@@ -1168,8 +1168,8 @@
   transition: color 0.15s;
 }
 
-.favBtn:hover { color: var(--warning); }
-.favBtnActive { color: var(--warning); }
+.favBtn:hover { color: var(--star); }
+.favBtnActive { color: var(--star); }
 
 /* ── Minuteur de sommeil (modale) ───────────────────────────────────────── */
 .sleepBody {

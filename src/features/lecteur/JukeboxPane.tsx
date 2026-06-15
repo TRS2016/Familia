@@ -126,7 +126,11 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
           </p>
         )}
         {djMode && (
-          <button className={styles.skipBtn} onClick={() => markPlayed.mutate(current.id)}>
+          <button
+            className={styles.skipBtn}
+            onClick={() => markPlayed.mutate(current.id)}
+            disabled={markPlayed.isPending}
+          >
             Passer au suivant →
           </button>
         )}
@@ -135,7 +139,7 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
       {/* À suivre */}
       <div className={styles.jukeboxUpNextHead}>
         <span>À suivre{upNext.length > 0 ? ` · ${upNext.length}` : ''}</span>
-        <button className={styles.clearQueueBtn} onClick={() => clearQueue.mutate()}>Vider la file</button>
+        <button className={styles.clearQueueBtn} onClick={() => clearQueue.mutate()} disabled={clearQueue.isPending}>Vider la file</button>
       </div>
       {upNext.length === 0 ? (
         <p className={styles.jukeboxHint}>Ajoutez des morceaux depuis la Bibliothèque pour remplir la file.</p>
@@ -175,6 +179,7 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
                 <button
                   className={styles.jukeboxRemove}
                   onClick={() => removeItem.mutate(item.id)}
+                  disabled={removeItem.isPending}
                   aria-label={`Retirer ${title} de la file`}
                 >
                   <X size={14} strokeWidth={2.5} />

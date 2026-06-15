@@ -26,6 +26,7 @@
   --info:     #3D80B8;
   --warning:  #E8B84B;
   --positive: #5B9E8F;   /* vert « positif » : épargne, budget OK, terminé, revenu */
+  --star:     #B07A12;   /* favori : or assombri pour passer 3:1 en clair (cf. dark plus bas) */
 
   /* Member palette — source unique : src/lib/constants.ts (MEMBER_PALETTE).
      Gardée en phase ici pour usage CSS éventuel. */
@@ -97,6 +98,7 @@
     --border-subtle: rgba(255, 255, 255, 0.05);
 
     --scrollbar-thumb: #3D3028;
+    --star: #E8B84B;   /* or vif : excellent contraste sur fond sombre */
   }
 }
 
@@ -113,4 +115,5 @@
   --border-subtle: rgba(255, 255, 255, 0.05);
 
   --scrollbar-thumb: #3D3028;
+  --star: #E8B84B;
 }

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Upload, Link as LinkIcon, X,
@@ -68,11 +68,11 @@ export default function LecteurPage() {
   const [filterFavorite, setFilterFavorite] = useState(false)
 
   // Tous les tags existants, triés par fréquence décroissante
-  const allTags = (() => {
+  const allTags = useMemo(() => {
     const counts = new Map<string, number>()
     for (const f of files) for (const t of (f.tags ?? [])) counts.set(t, (counts.get(t) ?? 0) + 1)
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t)
-  })()
+  }, [files])
 
   // ── Queue + player ──
   const [queue,      setQueue]      = useState<MediaFile[]>([])
@@ -376,14 +376,22 @@ export default function LecteurPage() {
       )}
 
       {/* ── Tabs ─────────────────────────────────────────────────── */}
-      <div className={styles.tabRow}>
+      <div className={styles.tabRow} role="tablist" aria-label="Vues du lecteur">
         <button
+          role="tab"
+          id="lecteur-tab-bibliothèque"
+          aria-selected={activeTab === 'bibliothèque'}
+          aria-controls="lecteur-panel-bibliothèque"
           className={[styles.tab, activeTab === 'bibliothèque' ? styles.tabActive : ''].join(' ')}
           onClick={() => setActiveTab('bibliothèque')}
         >
           Bibliothèque
         </button>
         <button
+          role="tab"
+          id="lecteur-tab-listes"
+          aria-selected={activeTab === 'listes'}
+          aria-controls="lecteur-panel-listes"
           className={[styles.tab, activeTab === 'listes' ? styles.tabActive : ''].join(' ')}
           onClick={() => setActiveTab('listes')}
         >
@@ -392,6 +400,10 @@ export default function LecteurPage() {
           {playlists.length > 0 && <span className={styles.tabBadge}>{playlists.length}</span>}
         </button>
         <button
+          role="tab"
+          id="lecteur-tab-soirée"
+          aria-selected={activeTab === 'soirée'}
+          aria-controls="lecteur-panel-soirée"
           className={[styles.tab, activeTab === 'soirée' ? styles.tabActive : ''].join(' ')}
           onClick={() => setActiveTab('soirée')}
         >
@@ -403,7 +415,7 @@ export default function LecteurPage() {
 
       {/* ── Bibliothèque tab ─────────────────────────────────────── */}
       {activeTab === 'bibliothèque' && (
-        <>
+        <div role="tabpanel" id="lecteur-panel-bibliothèque" aria-labelledby="lecteur-tab-bibliothèque">
           {/* Type filters */}
           <div className={styles.filterRow}>
             <button
@@ -469,6 +481,7 @@ export default function LecteurPage() {
                 value={filterTitle}
                 onChange={e => setFilterTitle(e.target.value)}
                 placeholder="Rechercher dans la bibliothèque…"
+                aria-label="Rechercher dans la bibliothèque"
               />
               {filterTitle && (
                 <button className={styles.searchClear} onClick={() => setFilterTitle('')} aria-label="Effacer">
@@ -510,11 +523,12 @@ export default function LecteurPage() {
               ))}
             </ul>
           )}
-        </>
+        </div>
       )}
 
       {/* ── Listes tab ───────────────────────────────────────────── */}
       {activeTab === 'listes' && (
+        <div role="tabpanel" id="lecteur-panel-listes" aria-labelledby="lecteur-tab-listes">
         <PlaylistsPane
           playlists={playlists}
           allFiles={files}
@@ -526,16 +540,19 @@ export default function LecteurPage() {
           onPlay={playFiles}
           playingFileId={playingFile?.id ?? null}
         />
+        </div>
       )}
 
       {/* ── Soirée (jukebox partagé) ─────────────────────────────── */}
       {activeTab === 'soirée' && (
+        <div role="tabpanel" id="lecteur-panel-soirée" aria-labelledby="lecteur-tab-soirée">
         <JukeboxPane
           queueItems={queueItems}
           onGoToLibrary={() => setActiveTab('bibliothèque')}
           djMode={djMode}
           onToggleDj={toggleDj}
         />
+        </div>
       )}
 
       {/* ── Modals ───────────────────────────────────────────────── */}
