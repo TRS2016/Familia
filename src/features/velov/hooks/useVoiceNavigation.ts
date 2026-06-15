@@ -234,9 +234,8 @@ export function useVoiceNavigation({ steps, userPosition }: UseVoiceNavigationPa
     return calculateDistance(userPosition.lat, userPosition.lng, lat, lng)
   }, [userPosition, steps, currentStep])
 
-  // Web : impossible de déclencher l'installation d'une voix système (no-op conservé
-  // pour compat d'API ; sur web la voix dépend du navigateur/OS).
-  const installFrenchVoice = () => {}
+  // Note : sur le web, impossible de déclencher l'installation d'une voix système —
+  // elle dépend du navigateur/OS. On se contente de signaler son absence (frenchVoiceMissing).
 
   return {
     supported,
@@ -253,6 +252,5 @@ export function useVoiceNavigation({ steps, userPosition }: UseVoiceNavigationPa
     totalSteps: steps?.length ?? 0,
     distToNextManeuver,
     frenchVoiceMissing,
-    installFrenchVoice,
   }
 }

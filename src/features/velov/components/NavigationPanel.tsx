@@ -57,7 +57,7 @@ export function NavigationPanel({ steps, walkToStartSteps, walkFromEndSteps, rou
   const [open, setOpen] = useState(false)
   const {
     supported, active, currentStep, startNavigation, next, prev, repeatCurrent,
-    totalSteps, frenchVoiceMissing, installFrenchVoice,
+    totalSteps, frenchVoiceMissing,
   } = voiceNav
 
   const hasWalk = (walkToStartSteps?.length ?? 0) > 0 || (walkFromEndSteps?.length ?? 0) > 0
@@ -88,10 +88,7 @@ export function NavigationPanel({ steps, walkToStartSteps, walkFromEndSteps, rou
 
         {frenchVoiceMissing && (
           <div className={styles.voiceWarn}>
-            <span>Voix française non installée (audio en anglais)</span>
-            {installFrenchVoice && (
-              <button onClick={installFrenchVoice} className={styles.installLink}>Installer</button>
-            )}
+            <span>Aucune voix française détectée — l'audio utilisera la voix par défaut. Pour une voix française, ajoutez le pack de langue dans les réglages de votre système (Windows : Heure et langue ▸ Voix ; Android : Synthèse vocale).</span>
           </div>
         )}
 

@@ -118,7 +118,6 @@ export interface VoiceNavApi {
   totalSteps: number
   distToNextManeuver: number | null
   frenchVoiceMissing: boolean
-  installFrenchVoice: () => void
 }
 
 /** Trajet persisté en localStorage (cf. routeStorage). */
