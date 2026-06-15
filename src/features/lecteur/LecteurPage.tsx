@@ -97,6 +97,7 @@ export default function LecteurPage() {
   const [sleepUntil, setSleepUntil] = useState<number | null>(null)  // epoch ms
   const [sleepEndOfTrack, setSleepEndOfTrack] = useState(false)
   const [showSleepModal, setShowSleepModal]   = useState(false)
+  const [customSleepMin, setCustomSleepMin]   = useState('')
   const [now, setNow] = useState(Date.now())
   // Progression du mini-lecteur (audio/vidéo) : le scrubber complet défile hors
   // écran, le dock collant garde un repère de position. Clé par piste pour
@@ -123,7 +124,21 @@ export default function LecteurPage() {
     setSleepEndOfTrack(endOfTrack)
     setSleepUntil(minutes != null ? Date.now() + minutes * 60_000 : null)
     setNow(Date.now())
+    setCustomSleepMin('')
     setShowSleepModal(false)
+  }
+
+  // Prolonge un minuteur en cours de 5 minutes (sans fermer la modale).
+  function extendSleep() {
+    setSleepEndOfTrack(false)
+    setSleepUntil(u => (u ?? Date.now()) + 5 * 60_000)
+    setNow(Date.now())
+  }
+
+  function startCustomSleep() {
+    const m = Math.round(Number(customSleepMin))
+    if (!Number.isFinite(m) || m <= 0) return
+    setSleep(Math.min(m, 600))
   }
 
   // Précharge l'URL signée de la piste suivante pour lisser l'auto-advance.
@@ -168,6 +183,21 @@ export default function LecteurPage() {
       ms.setActionHandler('stop', null)
     }
   }, [playingFile, hasPrev, hasNext, queue.length, queueIndex])
+
+  // Raccourcis clavier (desktop) : ←/→ = piste précédente/suivante. On ignore
+  // la frappe dans un champ de saisie. (Espace play/pause viendra avec le contrôle
+  // direct de l'élément média.)
+  useEffect(() => {
+    if (!playingFile) return
+    function onKey(e: KeyboardEvent) {
+      const t = e.target as HTMLElement | null
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
+      if (e.key === 'ArrowLeft' && hasPrev)  { e.preventDefault(); setQueueIndex(i => Math.max(0, i - 1)) }
+      else if (e.key === 'ArrowRight' && hasNext) { e.preventDefault(); setQueueIndex(i => i + 1) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [playingFile, hasPrev, hasNext])
 
   function playFiles(fileList: MediaFile[], startIndex = 0) {
     if (fileList.length === 0) return
@@ -239,8 +269,38 @@ export default function LecteurPage() {
     })
   }
 
+  // ── Glisser-déposer un fichier sur la page (desktop) ──
+  const [isDragging, setIsDragging] = useState(false)
+  const dragDepth = useRef(0)
+  const hasFiles = (e: React.DragEvent) => e.dataTransfer?.types?.includes('Files')
+  function onPageDragEnter(e: React.DragEvent) { if (!hasFiles(e)) return; dragDepth.current++; setIsDragging(true) }
+  function onPageDragLeave() { dragDepth.current = Math.max(0, dragDepth.current - 1); if (dragDepth.current === 0) setIsDragging(false) }
+  function onPageDragOver(e: React.DragEvent) { if (hasFiles(e)) e.preventDefault() }
+  function onPageDrop(e: React.DragEvent) {
+    if (!hasFiles(e)) return
+    e.preventDefault()
+    dragDepth.current = 0
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file && (file.type.startsWith('audio/') || file.type.startsWith('video/'))) handleUpload(file)
+  }
+
   return (
-    <div className={styles.page}>
+    <div
+      className={styles.page}
+      onDragEnter={onPageDragEnter}
+      onDragOver={onPageDragOver}
+      onDragLeave={onPageDragLeave}
+      onDrop={onPageDrop}
+    >
+      {isDragging && (
+        <div className={styles.dropOverlay}>
+          <div className={styles.dropCard}>
+            <Upload size={28} strokeWidth={2} />
+            <p>Déposez un fichier audio ou vidéo</p>
+          </div>
+        </div>
+      )}
 
       {/* ── Header ───────────────────────────────────────────────── */}
       <header className={styles.header}>
@@ -646,11 +706,16 @@ export default function LecteurPage() {
         <SlideUpModal title="Minuteur de sommeil" onClose={() => setShowSleepModal(false)}>
           <div className={styles.sleepBody}>
             {sleepActive && (
-              <p className={styles.sleepActiveLabel}>
-                {sleepEndOfTrack
-                  ? 'La lecture s’arrêtera à la fin de la piste.'
-                  : `Arrêt dans ${sleepMinutesLeft} min.`}
-              </p>
+              <div className={styles.sleepActiveRow}>
+                <p className={styles.sleepActiveLabel}>
+                  {sleepEndOfTrack
+                    ? 'La lecture s’arrêtera à la fin de la piste.'
+                    : `Arrêt dans ${sleepMinutesLeft} min.`}
+                </p>
+                {!sleepEndOfTrack && (
+                  <button className={styles.sleepExtendBtn} onClick={extendSleep}>+5 min</button>
+                )}
+              </div>
             )}
             <div className={styles.sleepGrid}>
               {[15, 30, 45, 60].map(min => (
@@ -667,6 +732,25 @@ export default function LecteurPage() {
                 </button>
               )}
             </div>
+            <form
+              className={styles.sleepCustomRow}
+              onSubmit={e => { e.preventDefault(); startCustomSleep() }}
+            >
+              <input
+                type="number"
+                inputMode="numeric"
+                min="1"
+                max="600"
+                className={styles.sleepCustomInput}
+                value={customSleepMin}
+                onChange={e => setCustomSleepMin(e.target.value)}
+                placeholder="Durée libre (min)"
+                aria-label="Durée personnalisée en minutes"
+              />
+              <button type="submit" className={styles.sleepCustomBtn} disabled={!customSleepMin}>
+                Lancer
+              </button>
+            </form>
           </div>
         </SlideUpModal>
       )}
