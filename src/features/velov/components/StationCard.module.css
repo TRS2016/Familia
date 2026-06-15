@@ -36,10 +36,14 @@
   background: none;
   border: none;
   cursor: pointer;
+  min-width: 40px;
+  min-height: 40px;
   padding: 0;
   flex-shrink: 0;
   color: var(--text-muted);
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: color 0.15s ease;
 }
 
@@ -62,12 +66,16 @@
 
 .navBtn {
   background: color-mix(in srgb, var(--success) 14%, transparent);
-  color: var(--success);
+  color: color-mix(in srgb, var(--success) 80%, black);
+  min-width: 40px;
+  min-height: 40px;
   padding: 6px;
   border-radius: var(--radius-sm);
   border: none;
   cursor: pointer;
   display: inline-flex;
+  align-items: center;
+  justify-content: center;
   transition: background 0.15s ease;
 }
 
@@ -165,7 +173,8 @@
 }
 
 .toolBtn {
-  padding: 6px 8px;
+  min-height: 40px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   border: none;
   cursor: pointer;
@@ -213,8 +222,9 @@
 
 .thresholdInput {
   width: 56px;
+  min-height: 40px;
   font-size: var(--text-xs);
-  padding: 4px 8px;
+  padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: var(--bg-input);

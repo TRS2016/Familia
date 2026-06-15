@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Search } from 'lucide-react'
+import { Search, X, Pencil } from 'lucide-react'
 import { searchAddress, type AddressFeature } from '../api'
 import type { SearchPlace } from '../types'
 import ui from './velovUi.module.css'
@@ -138,7 +138,7 @@ export function CustomDestinationManager({ customPlaces, onChange }: CustomDesti
               className={styles.closeBtn}
               aria-label="Fermer les lieux personnalisés"
             >
-              ✕
+              <X size={16} />
             </button>
           </div>
         </div>
@@ -184,13 +184,13 @@ export function CustomDestinationManager({ customPlaces, onChange }: CustomDesti
                 {nameError && <p className={styles.fieldError}>{nameError}</p>}
               </div>
               <input
-                type="number" step="any" placeholder="Latitude"
+                type="number" inputMode="decimal" step="any" placeholder="Latitude"
                 value={lat}
                 onChange={(e) => { setLat(e.target.value); setCoordError('') }}
                 className={[ui.input, coordError ? ui.inputError : ''].join(' ')}
               />
               <input
-                type="number" step="any" placeholder="Longitude"
+                type="number" inputMode="decimal" step="any" placeholder="Longitude"
                 value={lng}
                 onChange={(e) => { setLng(e.target.value); setCoordError('') }}
                 className={[ui.input, coordError ? ui.inputError : ''].join(' ')}
@@ -209,8 +209,8 @@ export function CustomDestinationManager({ customPlaces, onChange }: CustomDesti
             {customPlaces.map((d) => (
               <div key={d.id} className={styles.chip}>
                 <span className={styles.chipName}>{d.name}</span>
-                <button onClick={() => startEdit(d)} className={styles.chipEdit} aria-label={`Modifier ${d.name}`}>✎</button>
-                <button onClick={() => handleDelete(d.id)} className={styles.chipDelete} aria-label={`Supprimer ${d.name}`}>✕</button>
+                <button onClick={() => startEdit(d)} className={styles.chipEdit} aria-label={`Modifier ${d.name}`}><Pencil size={14} /></button>
+                <button onClick={() => handleDelete(d.id)} className={styles.chipDelete} aria-label={`Supprimer ${d.name}`}><X size={14} /></button>
               </div>
             ))}
           </div>

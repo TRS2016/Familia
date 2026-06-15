@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Search, ArrowLeftRight } from 'lucide-react'
+import { Search, ArrowLeftRight, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { DESTINATIONS } from '../constants'
 import { searchAddress, type AddressFeature } from '../api'
 import type { FavoriteRoute, RoutePoint, SearchPlace } from '../types'
@@ -172,7 +172,7 @@ export function RoutePlanner({
         {favoriteRoutes.length > 0 && (
           <div>
             <button onClick={() => setShowFavorites(!showFavorites)} className={styles.favToggle}>
-              ⭐ Itinéraires favoris ({favoriteRoutes.length}){showFavorites ? ' ▲' : ' ▼'}
+              ⭐ Itinéraires favoris ({favoriteRoutes.length}) {showFavorites ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
             </button>
             {showFavorites && (
               <div className={styles.favList}>
@@ -181,7 +181,7 @@ export function RoutePlanner({
                     <button onClick={() => handleSelectFavorite(route)} className={styles.favSelect}>
                       {route.origin.name} → {route.destination.name}
                     </button>
-                    <button onClick={() => onFavoriteRemove?.(route.id)} aria-label="Supprimer cet itinéraire favori" className={styles.favRemove}>✕</button>
+                    <button onClick={() => onFavoriteRemove?.(route.id)} aria-label="Supprimer cet itinéraire favori" className={styles.favRemove}><X size={14} /></button>
                   </div>
                 ))}
               </div>
@@ -196,7 +196,7 @@ export function RoutePlanner({
           {origin ? (
             <div className={ui.pill} style={{ flex: 1 }}>
               <span className={ui.pillText}>{origin.name}</span>
-              <button onClick={() => onOriginChange(null)} aria-label="Supprimer le point de départ" className={styles.removeX}>✕</button>
+              <button onClick={() => onOriginChange(null)} aria-label="Supprimer le point de départ" className={styles.removeX}><X size={14} /></button>
             </div>
           ) : (
             <div className={ui.field}>
@@ -253,7 +253,7 @@ export function RoutePlanner({
           {destination ? (
             <div className={ui.pill} style={{ flex: 1 }}>
               <span className={ui.pillText}>{destination.name}</span>
-              <button onClick={() => onDestinationChange(null)} aria-label="Supprimer la destination" className={styles.removeX}>✕</button>
+              <button onClick={() => onDestinationChange(null)} aria-label="Supprimer la destination" className={styles.removeX}><X size={14} /></button>
             </div>
           ) : (
             <div className={ui.field}>

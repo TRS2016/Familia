@@ -12,7 +12,7 @@
   flex-shrink: 0;
 }
 
-.inner { max-width: var(--page-max-w, 56rem); margin: 0 auto; }
+.inner { max-width: var(--page-max-w, 800px); margin: 0 auto; }
 
 .enrouteRow {
   display: flex;

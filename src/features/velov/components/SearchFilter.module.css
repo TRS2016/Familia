@@ -5,7 +5,7 @@
 }
 
 .row {
-  max-width: var(--page-max-w, 56rem);
+  max-width: var(--page-max-w, 800px);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -41,6 +41,7 @@
 }
 
 .chip {
+  min-height: 44px;
   padding: 8px 16px;
   font-size: var(--text-sm);
   border-radius: var(--radius-sm);
@@ -57,9 +58,9 @@
 .chip:hover { background: var(--accent-soft); }
 
 .chipActive { background: var(--accent); color: #fff; }
-.chipBikes { background: var(--success); color: #fff; }
-.chipStands { background: var(--info); color: #fff; }
-.chipFav { background: var(--warning); color: #fff; }
+.chipBikes { background: color-mix(in srgb, var(--success) 88%, black); color: #fff; }
+.chipStands { background: color-mix(in srgb, var(--info) 80%, black); color: #fff; }
+.chipFav { background: var(--warning); color: #3D2B1F; }
 
 .chipAdv {
   position: relative;
@@ -79,7 +80,7 @@
 }
 
 .advanced {
-  max-width: var(--page-max-w, 56rem);
+  max-width: var(--page-max-w, 800px);
   margin: var(--space-3) auto 0;
   display: flex;
   flex-wrap: wrap;
@@ -110,7 +111,8 @@
 
 .numInput {
   width: 56px;
-  padding: 4px 8px;
+  min-height: 40px;
+  padding: 6px 8px;
   font-size: var(--text-sm);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -120,7 +122,8 @@
 }
 
 .select {
-  padding: 4px 8px;
+  min-height: 40px;
+  padding: 6px 8px;
   font-size: var(--text-sm);
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -130,7 +133,8 @@
 
 .sortBtn {
   font-size: var(--text-xs);
-  padding: 4px 10px;
+  min-height: 36px;
+  padding: 6px 10px;
   border-radius: var(--radius-sm);
   border: none;
   cursor: pointer;

@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
-import { Bike, Map as MapIcon, Navigation, ParkingSquare, Star, Search, MapPin, Bell, RefreshCw } from 'lucide-react'
+import { Bike, Map as MapIcon, Navigation, ParkingSquare, Star, Search, MapPin, Bell, RefreshCw, X, Check, ChevronUp, ChevronDown } from 'lucide-react'
 import { StationCard } from './components/StationCard'
 import { SearchFilter, type StationFilter, type StationSort } from './components/SearchFilter'
 import { ProximityAlertBanner } from './components/ProximityAlertBanner'
@@ -682,7 +682,9 @@ export default function VelovPage() {
           <button
             key={id}
             role="tab"
+            id={`velov-tab-${id}`}
             aria-selected={activeTab === id}
+            aria-controls={`velov-panel-${id}`}
             onClick={() => setActiveTab(id)}
             className={[styles.tab, activeTab === id ? styles.tabActive : ''].join(' ')}
           >
@@ -693,7 +695,7 @@ export default function VelovPage() {
 
       <div className={styles.content}>
         {/* ── STATIONS ── */}
-        <div className={[styles.pane, activeTab !== 'stations' ? styles.hidden : ''].join(' ')}>
+        <div role="tabpanel" id="velov-panel-stations" aria-labelledby="velov-tab-stations" className={[styles.pane, activeTab !== 'stations' ? styles.hidden : ''].join(' ')}>
           <SearchFilter
             search={search} onSearchChange={setSearch}
             filter={filter} onFilterChange={setFilter}
@@ -778,9 +780,8 @@ export default function VelovPage() {
             )}
             <div className={styles.listWrap}>
               {loading && stations.length === 0 ? (
-                <div className={styles.center}>
-                  <div className={styles.bigSpinner} />
-                  <span style={{ marginLeft: 12 }}>Chargement des stations...</span>
+                <div className={styles.grid} aria-busy="true" aria-label="Chargement des stations">
+                  {Array.from({ length: 6 }).map((_, i) => <div key={i} className={styles.skelCard} />)}
                 </div>
               ) : error ? (
                 <div role="alert" className={styles.errorCard}>
@@ -832,7 +833,7 @@ export default function VelovPage() {
         </div>
 
         {/* ── MAP ── */}
-        <div className={[styles.paneMap, activeTab !== 'map' ? styles.hidden : ''].join(' ')}>
+        <div role="tabpanel" id="velov-panel-map" aria-labelledby="velov-tab-map" className={[styles.paneMap, activeTab !== 'map' ? styles.hidden : ''].join(' ')}>
           <Suspense fallback={<div className={styles.mapLoading}><div className={styles.bigSpinner} /> Chargement de la carte…</div>}>
             <StationMap
               stations={mapFilteredStations}
@@ -942,7 +943,7 @@ export default function VelovPage() {
                   )}
                 </div>
                 <span className={styles.bannerStands}>{endStationForJourney?.availableStands ?? '?'} <ParkingSquare size={14} /></span>
-                <button onClick={handleCancelJourney} aria-label="Annuler le trajet" className={styles.bannerClose}>✕</button>
+                <button onClick={handleCancelJourney} aria-label="Annuler le trajet" className={styles.bannerClose}><X size={16} /></button>
               </div>
             </div>
           )}
@@ -994,24 +995,24 @@ export default function VelovPage() {
           <div className={styles.overlayRight}>
             {userLocation && mapPlanStep === 0 && (
               <button onClick={() => setMapFollowMode((v) => !v)} className={[styles.mapBtn, mapFollowMode ? styles.mapBtnActive : ''].join(' ')}>
-                <MapPin size={16} /> {mapFollowMode ? 'Suivi ✓' : 'Suivre'}
+                <MapPin size={16} /> {mapFollowMode ? <>Suivi <Check size={14} /></> : 'Suivre'}
               </button>
             )}
             {mapPlanStep === 0 ? (
               <button onClick={() => setMapPlanStep(1)} className={styles.mapBtn}><MapIcon size={16} /> Planifier</button>
             ) : (
-              <button onClick={() => { setMapPlanStep(0); setMapPlanOrigin(null) }} className={[styles.mapBtn, styles.mapBtnDanger].join(' ')}>✕ Annuler</button>
+              <button onClick={() => { setMapPlanStep(0); setMapPlanOrigin(null) }} className={[styles.mapBtn, styles.mapBtnDanger].join(' ')}><X size={14} /> Annuler</button>
             )}
           </div>
         </div>
 
         {/* ── ROUTE ── */}
-        <div className={[styles.paneScroll, activeTab !== 'route' ? styles.hidden : ''].join(' ')}>
+        <div role="tabpanel" id="velov-panel-route" aria-labelledby="velov-tab-route" className={[styles.paneScroll, activeTab !== 'route' ? styles.hidden : ''].join(' ')}>
           {customPlaces.length > 0 && (
             <div className={styles.routeTop}>
               <div className={styles.homeWrap}>
                 <button onClick={() => setShowHomeMenu(!showHomeMenu)} className={styles.homeBtn}>
-                  🏠 Rentrer {showHomeMenu ? '▲' : '▼'}
+                  🏠 Rentrer {showHomeMenu ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
                 {showHomeMenu && (
                   <div className={styles.homeMenu}>
@@ -1052,7 +1053,7 @@ export default function VelovPage() {
                 <span className={[styles.dot, styles.dotEnd].join(' ')} aria-hidden="true" />
                 <span className={styles.summaryText} style={{ flex: 1 }}>{routeDestination?.name}</span>
                 <button onClick={() => setShowPlannerForm(true)} className={styles.summaryEdit}>Modifier</button>
-                <button onClick={handleClearAll} aria-label="Effacer l'itinéraire" className={styles.summaryClear}>✕</button>
+                <button onClick={handleClearAll} aria-label="Effacer l'itinéraire" className={styles.summaryClear}><X size={14} /></button>
               </div>
             </div>
           )}
@@ -1126,7 +1127,7 @@ export default function VelovPage() {
                       <div className={styles.tip}>
                         <span style={{ flexShrink: 0 }}>💡</span>
                         <p className={styles.tipText}>Navigation voix complète : marche jusqu'à la station, trajet vélo, puis marche jusqu'à destination.</p>
-                        <button onClick={dismissOnboarding} aria-label="Fermer" className={styles.tipClose}>✕</button>
+                        <button onClick={dismissOnboarding} aria-label="Fermer" className={styles.tipClose}><X size={14} /></button>
                       </div>
                     )}
                     <button onClick={() => void handleStartJourney()} className={styles.journeyCta}>
@@ -1143,7 +1144,7 @@ export default function VelovPage() {
                       {journeyPhase === 'walk-to-end' && '🚶 À pied jusqu\'à la destination…'}
                       {journeyPhase === 'arrived' && '✅ Vous êtes arrivé à destination !'}
                     </p>
-                    <button onClick={handleCancelJourney} aria-label="Annuler le trajet" className={styles.journeyStatusClose}>✕</button>
+                    <button onClick={handleCancelJourney} aria-label="Annuler le trajet" className={styles.journeyStatusClose}><X size={14} /></button>
                   </div>
                 )}
               </div>
@@ -1171,7 +1172,7 @@ export default function VelovPage() {
           {routeInfo && routeOrigin && routeDestination && (
             <div className={styles.saveShare}>
               <button onClick={() => saveRoute(routeOrigin, routeDestination)} className={styles.saveBtn}><Star size={14} /> Sauvegarder</button>
-              <button onClick={() => void handleShareRoute()} className={styles.shareBtn}>{shareCopied ? '✓ Lien copié !' : '🔗 Partager'}</button>
+              <button onClick={() => void handleShareRoute()} className={styles.shareBtn}>{shareCopied ? <><Check size={14} /> Lien copié !</> : '🔗 Partager'}</button>
               <button onClick={handleExportGPX} className={styles.shareBtn}>📥 GPX</button>
             </div>
           )}

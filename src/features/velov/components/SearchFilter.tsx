@@ -113,6 +113,7 @@ export function SearchFilter({
             <span className={styles.advLabel}>Min. vélos :</span>
             <input
               type="number"
+              inputMode="numeric"
               min="0"
               max="20"
               value={minBikes}

@@ -18,9 +18,9 @@
 .dist { font-size: var(--text-md); font-weight: 700; color: var(--positive); line-height: var(--leading-tight); }
 .eta { font-size: var(--text-2xs); color: var(--text-muted); }
 
-.voiceBtn { padding: 8px; border-radius: var(--radius-md); border: none; cursor: pointer; background: var(--bg-input); color: var(--text-sub); display: inline-flex; }
+.voiceBtn { min-width: 40px; min-height: 40px; padding: 8px; border-radius: var(--radius-md); border: none; cursor: pointer; background: var(--bg-input); color: var(--text-sub); display: inline-flex; align-items: center; justify-content: center; }
 .voiceActive { background: color-mix(in srgb, var(--positive) 20%, transparent); color: var(--positive); }
-.stopBtn { padding: 8px; border-radius: var(--radius-md); border: none; cursor: pointer; background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); display: inline-flex; }
+.stopBtn { min-width: 40px; min-height: 40px; padding: 8px; border-radius: var(--radius-md); border: none; cursor: pointer; background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); display: inline-flex; align-items: center; justify-content: center; }
 
 .progressTrack { margin: 0 var(--space-4) var(--space-2); height: 4px; background: var(--bg-input); border-radius: var(--radius-pill); overflow: hidden; }
 .progressFill { height: 100%; background: var(--positive); border-radius: var(--radius-pill); transition: width 0.5s ease; }

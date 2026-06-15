@@ -104,7 +104,7 @@ export function RouteInfoBanner({
                       <p className={styles.altLabel}>{altLabels[i] ?? `Alternative ${i}`}</p>
                       <p className={styles.altMeta}>{formatRouteDistance(r.distance)} · {formatDuration(r.duration)}</p>
                     </div>
-                    {active && <span className={styles.altCheck}>✓</span>}
+                    {active && <Check size={16} className={styles.altCheck} />}
                   </button>
                 )
               })}

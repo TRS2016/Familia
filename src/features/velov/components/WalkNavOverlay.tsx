@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PersonStanding, Bike, ParkingSquare, MapPin, Volume2, VolumeX } from 'lucide-react'
+import { PersonStanding, Bike, ParkingSquare, MapPin, Volume2, VolumeX, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { maneuverIcon, maneuverLabel } from '../navigation'
 import { formatRouteDistance } from '../route'
 import type { ParsedRoute, RouteStep, VoiceNavApi } from '../types'
@@ -85,7 +85,7 @@ export function WalkNavOverlay({ station, route, loading = false, progress, dist
                 {voiceNav.active ? <Volume2 size={20} /> : <VolumeX size={20} />}
               </button>
             )}
-            <button onClick={onStop} aria-label="Arrêter la navigation" className={styles.stopBtn}>✕</button>
+            <button onClick={onStop} aria-label="Arrêter la navigation" className={styles.stopBtn}><X size={18} /></button>
           </div>
         </div>
 
@@ -109,7 +109,7 @@ export function WalkNavOverlay({ station, route, loading = false, progress, dist
             {currentStep.distance != null && currentStep.distance > 0 && (
               <span className={styles.currentDist}>{formatRouteDistance(currentStep.distance)}</span>
             )}
-            <span className={styles.chev}>{expanded ? '▲' : '▼'}</span>
+            <span className={styles.chev}>{expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}</span>
           </button>
         ) : null}
 

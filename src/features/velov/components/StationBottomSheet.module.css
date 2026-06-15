@@ -33,9 +33,9 @@
 .address { font-size: var(--text-xs); color: var(--text-sub); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .headActions { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
-.iconBtn { background: none; border: none; cursor: pointer; padding: 2px; display: inline-flex; color: var(--text-muted); transition: color 0.15s ease; }
+.iconBtn { background: none; border: none; cursor: pointer; min-width: 40px; min-height: 40px; padding: 2px; display: inline-flex; align-items: center; justify-content: center; color: var(--text-muted); transition: color 0.15s ease; }
 .favActive { color: var(--warning); }
-.closeBtn { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: var(--text-md); padding: 2px 6px; }
+.closeBtn { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: var(--text-md); min-width: 40px; min-height: 40px; padding: 2px 6px; }
 
 .stats { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); margin-bottom: var(--space-3); }
 .statBox { border-radius: var(--radius-md); padding: 10px; }
@@ -63,13 +63,13 @@
 .distChip { font-size: var(--text-xs); color: var(--text-sub); background: var(--bg-input); padding: 1px 8px; border-radius: var(--radius-pill); }
 
 .actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.toolBtn { padding: 6px 8px; border-radius: var(--radius-sm); border: none; cursor: pointer; background: var(--bg-input); color: var(--text-sub); display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); transition: background 0.15s ease; }
+.toolBtn { min-height: 40px; padding: 6px 10px; border-radius: var(--radius-sm); border: none; cursor: pointer; background: var(--bg-input); color: var(--text-sub); display: inline-flex; align-items: center; gap: 4px; font-size: var(--text-xs); transition: background 0.15s ease; }
 .toolBtn:hover { background: var(--accent-soft); }
 .toolActive { background: var(--accent-soft); color: var(--accent); }
 .alertActive { background: color-mix(in srgb, var(--info) 16%, transparent); color: var(--info); }
 .toolBtn:disabled { color: var(--text-muted); cursor: not-allowed; opacity: 0.7; }
 
-.cta { font-size: var(--text-xs); color: #fff; padding: 6px 12px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
-.ctaPlan { background: var(--info); }
-.ctaWalk { background: var(--positive); }
+.cta { font-size: var(--text-xs); color: #fff; min-height: 40px; padding: 6px 12px; border-radius: var(--radius-sm); border: none; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.ctaPlan { background: color-mix(in srgb, var(--info) 80%, black); }
+.ctaWalk { background: color-mix(in srgb, var(--positive) 72%, black); }
 .ctaGo { background: var(--accent); }

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { PersonStanding, Bike, Volume2 } from 'lucide-react'
+import { PersonStanding, Bike, Volume2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatRouteDistance } from '../route'
 import { maneuverIcon, maneuverLabel } from '../navigation'
 import type { RouteStep, VoiceNavApi } from '../types'
@@ -38,7 +38,7 @@ function WalkSection({ label, steps }: { label: string; steps?: RouteStep[] }) {
     <div className={styles.section}>
       <button onClick={() => setOpen(!open)} className={[styles.toggle, styles.toggleWalk].join(' ')}>
         <span className={styles.toggleLabel}><PersonStanding size={16} /> {label} ({steps.length} étapes)</span>
-        <span>{open ? '▲' : '▼'}</span>
+        {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
       </button>
       {open && <StepList steps={steps} walk />}
     </div>
@@ -75,7 +75,7 @@ export function NavigationPanel({ steps, walkToStartSteps, walkFromEndSteps, rou
               {hasWalk ? <><Bike size={16} /> Trajet vélo</> : 'Instructions'} ({totalSteps} étapes)
             </span>
             {routeProgress != null && !active && <span className={styles.progress}>{routeProgress}%</span>}
-            <span>{open ? '▲' : '▼'}</span>
+            {open ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
           </button>
 
           {supported && !active && (
@@ -97,9 +97,9 @@ export function NavigationPanel({ steps, walkToStartSteps, walkFromEndSteps, rou
 
         {active && (
           <div className={styles.controls}>
-            <button onClick={prev} disabled={currentStep === 0} aria-label="Étape précédente" className={styles.ctrlBtn}>◀ Préc.</button>
+            <button onClick={prev} disabled={currentStep === 0} aria-label="Étape précédente" className={styles.ctrlBtn}><ChevronLeft size={16} /> Préc.</button>
             <button onClick={repeatCurrent} aria-label="Répéter l'instruction" className={styles.ctrlBtn}><Volume2 size={16} /> Répéter</button>
-            <button onClick={next} disabled={currentStep >= totalSteps - 1} aria-label="Étape suivante" className={styles.ctrlBtn}>Suiv. ▶</button>
+            <button onClick={next} disabled={currentStep >= totalSteps - 1} aria-label="Étape suivante" className={styles.ctrlBtn}>Suiv. <ChevronRight size={16} /></button>
           </div>
         )}
 

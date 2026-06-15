@@ -131,6 +131,7 @@ export function StationCard({
           <span className={styles.thresholdLabel}>Alerter si ≤</span>
           <input
             type="number"
+            inputMode="numeric"
             min="0"
             max="30"
             value={alertThreshold ?? ''}

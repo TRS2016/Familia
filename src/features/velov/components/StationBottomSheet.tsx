@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Star, BarChart3, Bell, Map as MapIcon, PersonStanding, Navigation } from 'lucide-react'
+import { Star, BarChart3, Bell, Map as MapIcon, PersonStanding, Navigation, X } from 'lucide-react'
 import { HistoryChart } from './HistoryChart'
 import type { Station } from '../types'
 import styles from './StationBottomSheet.module.css'
@@ -95,7 +95,7 @@ export function StationBottomSheet({
             >
               <Star size={18} fill={isFavorite ? 'currentColor' : 'none'} />
             </button>
-            <button onClick={onClose} className={styles.closeBtn} aria-label="Fermer">✕</button>
+            <button onClick={onClose} className={styles.closeBtn} aria-label="Fermer"><X size={18} /></button>
           </div>
         </div>
 
