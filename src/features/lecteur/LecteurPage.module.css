@@ -280,6 +280,43 @@
 
 .tagEditChip button:hover { background: rgba(224, 123, 84, 0.2); }
 
+/* ── Tri bibliothèque ────────────────────────────────────────────────────────── */
+
+.sortRow {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 10px 16px 0;
+}
+
+.sortLabel {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+
+.sortSelect {
+  height: 34px;
+  padding: 0 10px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.sortSelect:focus { outline: none; border-color: var(--accent); }
+
+@media (min-width: 768px) {
+  .sortRow { padding: 12px 28px 0; }
+}
+
 /* ── Library list ────────────────────────────────────────────────────────────── */
 
 .list {
@@ -1319,6 +1356,14 @@
   transition: border-color 0.15s;
 }
 .skipBtn:hover { border-color: var(--accent); }
+
+.jukeboxTotals {
+  font-size: var(--text-xs);
+  font-weight: 700;
+  color: var(--text-sub);
+  margin: -6px 0 12px;
+  font-variant-numeric: tabular-nums;
+}
 
 .jukeboxUpNextHead {
   display: flex;

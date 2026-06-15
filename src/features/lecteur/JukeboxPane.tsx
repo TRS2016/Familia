@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ChevronDown, ChevronRight, ChevronUp, History, PartyPopper, Play, Plus, Share2, X } from 'lucide-react'
 import EmptyState from '../../components/EmptyState'
 import MediaPlayer, { canAutoAdvance } from '../media/MediaPlayer'
@@ -25,9 +25,23 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
   const { data: played = [] } = useLecteurPlayedHistory()
   const [showInvite, setShowInvite] = useState(false)
   const [showPlayed, setShowPlayed] = useState(false)
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 30_000)
+    return () => clearInterval(id)
+  }, [])
 
   const current = queueItems[0] ?? null
   const upNext  = queueItems.slice(1)
+
+  // Durée totale restante (en cours + à suivre) + heure de fin estimée.
+  // Les liens/embeds sans durée connue sont exclus → « ≈ au moins ».
+  const totalSec    = queueItems.reduce((s, it) => s + (it.media_file?.duration_seconds ?? 0), 0)
+  const someMissing = queueItems.some(it => !it.media_file?.duration_seconds)
+  const endsAt      = totalSec > 0 ? new Date(now + totalSec * 1000) : null
+  const totalsLabel = endsAt
+    ? `${someMissing ? '≈ au moins ' : '≈ '}${Math.round(totalSec / 60)} min · fin ~ ${endsAt.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}`
+    : null
 
   const inviteBtn = (
     <button className={styles.inviteBtn} onClick={() => setShowInvite(true)}>
@@ -135,6 +149,8 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
           </button>
         )}
       </div>
+
+      {totalsLabel && <p className={styles.jukeboxTotals}>{totalsLabel}</p>}
 
       {/* À suivre */}
       <div className={styles.jukeboxUpNextHead}>

@@ -66,6 +66,7 @@ export default function LecteurPage() {
   const [filterTag,      setFilterTag]      = useState<string | null>(null)
   const [filterTitle,    setFilterTitle]    = useState('')
   const [filterFavorite, setFilterFavorite] = useState(false)
+  const [sortBy,         setSortBy]         = useState<'recent' | 'az' | 'duration'>('recent')
 
   // Tous les tags existants, triés par fréquence décroissante
   const allTags = useMemo(() => {
@@ -180,6 +181,18 @@ export default function LecteurPage() {
     setSleepEndOfTrack(false)
   }
 
+  // « Lire ensuite » : insère le morceau juste après la piste en cours (file
+  // perso). File vide → démarre la lecture directement.
+  function playNext(file: MediaFile) {
+    if (queue.length === 0) { playFiles([file], 0); return }
+    setDjMode(false)
+    setQueue(q => {
+      const next = [...q]
+      next.splice(queueIndex + 1, 0, file)
+      return next
+    })
+  }
+
   // Fin de piste : applique répétition / file d'attente / minuteur « fin de piste ».
   function handleTrackEnded() {
     if (sleepEndOfTrack) { stop(); return }
@@ -198,14 +211,20 @@ export default function LecteurPage() {
 
   // ── Derived ──
   const favoriteCount = files.filter(f => f.is_favorite).length
-  const filtered = files.filter(f => {
-    if (filterFavorite && !f.is_favorite)                                            return false
-    if (filterKind     && detectKind(f) !== filterKind)                              return false
-    if (filterMemberId && f.member_id   !== filterMemberId)                          return false
-    if (filterTag      && !(f.tags ?? []).includes(filterTag))                       return false
-    if (filterTitle    && !f.title.toLowerCase().includes(filterTitle.toLowerCase())) return false
-    return true
-  })
+  const filtered = useMemo(() => {
+    const result = files.filter(f => {
+      if (filterFavorite && !f.is_favorite)                                            return false
+      if (filterKind     && detectKind(f) !== filterKind)                              return false
+      if (filterMemberId && f.member_id   !== filterMemberId)                          return false
+      if (filterTag      && !(f.tags ?? []).includes(filterTag))                       return false
+      if (filterTitle    && !f.title.toLowerCase().includes(filterTitle.toLowerCase())) return false
+      return true
+    })
+    // `files` arrive déjà triés par created_at desc → « recent » = ordre naturel.
+    if (sortBy === 'az') return [...result].sort((a, b) => a.title.localeCompare(b.title, 'fr'))
+    if (sortBy === 'duration') return [...result].sort((a, b) => (b.duration_seconds ?? 0) - (a.duration_seconds ?? 0))
+    return result
+  }, [files, filterFavorite, filterKind, filterMemberId, filterTag, filterTitle, sortBy])
 
   // ── Handlers ──
   async function handleUpload(file: File) {
@@ -496,6 +515,23 @@ export default function LecteurPage() {
             </div>
           )}
 
+          {/* Sort */}
+          {files.length > 1 && (
+            <div className={styles.sortRow}>
+              <label className={styles.sortLabel} htmlFor="lecteur-sort">Trier</label>
+              <select
+                id="lecteur-sort"
+                className={styles.sortSelect}
+                value={sortBy}
+                onChange={e => setSortBy(e.target.value as typeof sortBy)}
+              >
+                <option value="recent">Récents</option>
+                <option value="az">A → Z</option>
+                <option value="duration">Durée</option>
+              </select>
+            </div>
+          )}
+
           {/* List */}
           {isLoading ? (
             <div className={styles.spinnerWrap}><Spinner size={32} /></div>
@@ -523,6 +559,7 @@ export default function LecteurPage() {
                   onAddToPlaylist={() => setAddToPlaylistFileId(file.id)}
                   onToggleFavorite={() => toggleFav.mutate({ id: file.id, value: !file.is_favorite })}
                   onQueue={() => addToQueue.mutate(file.id)}
+                  onPlayNext={() => playNext(file)}
                   manualPlaylists={playlists.filter(p => p.type === 'manual')}
                 />
               ))}

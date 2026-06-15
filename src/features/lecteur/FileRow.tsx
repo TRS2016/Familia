@@ -1,12 +1,12 @@
 import { useState } from 'react'
-import { ListMusic, ListPlus, MoreHorizontal, Pencil, Play, Star, Trash2, X } from 'lucide-react'
+import { CornerDownRight, ListMusic, ListPlus, MoreHorizontal, Pencil, Play, Star, Trash2, X } from 'lucide-react'
 import EqBars from './EqBars'
 import { detectKind } from './useLecteur'
 import type { LecteurPlaylist, MediaFile } from './useLecteur'
 import { KIND_META, fmtDuration } from './lecteur.utils'
 import styles from './LecteurPage.module.css'
 
-export default function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, onToggleFavorite, onQueue, manualPlaylists }: {
+export default function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onAddToPlaylist, onToggleFavorite, onQueue, onPlayNext, manualPlaylists }: {
   file: MediaFile
   isPlaying: boolean
   onPlay: () => void
@@ -15,6 +15,7 @@ export default function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onA
   onAddToPlaylist: () => void
   onToggleFavorite: () => void
   onQueue: () => void
+  onPlayNext: () => void
   manualPlaylists: LecteurPlaylist[]
 }) {
   const [showActions, setShowActions] = useState(false)
@@ -73,6 +74,14 @@ export default function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onA
 
         {showActions ? (
           <div className={styles.fileActions} onClick={e => e.stopPropagation()}>
+            <button
+              className={styles.fileActionBtn}
+              onClick={() => { onPlayNext(); setShowActions(false) }}
+              aria-label="Lire ensuite"
+              title="Lire ensuite"
+            >
+              <CornerDownRight size={15} strokeWidth={2} />
+            </button>
             <button
               className={styles.fileActionBtn}
               onClick={() => { onQueue(); setShowActions(false) }}
