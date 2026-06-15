@@ -1,8 +1,9 @@
-import { ChevronLeft, ChevronRight, Play, Plus, Shuffle, Sparkles, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Play, Plus, Shuffle, Sparkles, Trash2, X } from 'lucide-react'
 import EmptyState from '../../components/EmptyState'
 import EqBars from './EqBars'
 import {
-  applyLecteurFilters, detectKind, useDeleteLecteurPlaylist, useLecteurPlaylistItems, useRemoveFromLecteurPlaylist,
+  applyLecteurFilters, detectKind, useDeleteLecteurPlaylist, useLecteurPlaylistItems,
+  useRemoveFromLecteurPlaylist, useReorderLecteurPlaylistItem,
 } from './useLecteur'
 import type { LecteurPlaylist, MediaFile } from './useLecteur'
 import { KIND_META, shuffleArray, smartFilterLabel } from './lecteur.utils'
@@ -88,6 +89,7 @@ function PlaylistDetailPane({ playlist, allFiles, onBack, onPlay, playingFileId 
 }) {
   const deletePlaylist     = useDeleteLecteurPlaylist()
   const removeFromPlaylist = useRemoveFromLecteurPlaylist()
+  const reorderItem        = useReorderLecteurPlaylistItem()
   const { data: rawItems = [] } = useLecteurPlaylistItems(playlist.type === 'manual' ? playlist.id : null)
 
   const displayFiles: MediaFile[] = playlist.type === 'smart' && playlist.smart_filters
@@ -166,17 +168,36 @@ function PlaylistDetailPane({ playlist, allFiles, onBack, onPlay, playingFileId 
                   {file.member && <div className={styles.fileMeta}>{file.member.display_name}</div>}
                 </div>
                 {playlist.type === 'manual' && (
-                  <button
-                    className={styles.removeFromListBtn}
-                    onClick={e => {
-                      e.stopPropagation()
-                      const ri = rawItems.find(r => r.media_file_id === file.id)
-                      if (ri) removeFromPlaylist.mutate({ itemId: ri.id, playlistId: playlist.id })
-                    }}
-                    aria-label="Retirer de la liste"
-                  >
-                    <X size={12} strokeWidth={2.5} />
-                  </button>
+                  <>
+                    {/* rawItems suit le même ordre que displayFiles (tri position). */}
+                    <button
+                      className={styles.jukeboxMoveBtn}
+                      onClick={e => { e.stopPropagation(); reorderItem.mutate({ a: rawItems[i], b: rawItems[i - 1] }) }}
+                      disabled={i === 0 || reorderItem.isPending}
+                      aria-label={`Monter ${file.title}`}
+                    >
+                      <ChevronUp size={15} strokeWidth={2.5} />
+                    </button>
+                    <button
+                      className={styles.jukeboxMoveBtn}
+                      onClick={e => { e.stopPropagation(); reorderItem.mutate({ a: rawItems[i], b: rawItems[i + 1] }) }}
+                      disabled={i === displayFiles.length - 1 || reorderItem.isPending}
+                      aria-label={`Descendre ${file.title}`}
+                    >
+                      <ChevronDown size={15} strokeWidth={2.5} />
+                    </button>
+                    <button
+                      className={styles.removeFromListBtn}
+                      onClick={e => {
+                        e.stopPropagation()
+                        const ri = rawItems.find(r => r.media_file_id === file.id)
+                        if (ri) removeFromPlaylist.mutate({ itemId: ri.id, playlistId: playlist.id })
+                      }}
+                      aria-label="Retirer de la liste"
+                    >
+                      <X size={12} strokeWidth={2.5} />
+                    </button>
+                  </>
                 )}
               </div>
             </li>

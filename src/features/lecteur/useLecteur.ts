@@ -341,6 +341,37 @@ export function useAddToLecteurPlaylist() {
   })
 }
 
+// Échange les positions de deux items de playlist manuelle (flèches ↑↓).
+// Même logique que useMoveQueueItem côté file de soirée.
+export function useReorderLecteurPlaylistItem() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ a, b }: { a: LecteurPlaylistItem; b: LecteurPlaylistItem }) => {
+      const r1 = await supabase.from('playlist_items').update({ position: b.position } as never).eq('id', a.id)
+      if (r1.error) throw r1.error
+      const r2 = await supabase.from('playlist_items').update({ position: a.position } as never).eq('id', b.id)
+      if (r2.error) throw r2.error
+    },
+    onMutate: async ({ a, b }) => {
+      const key      = lecteurPlItemsKey(a.playlist_id)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<LecteurPlaylistItem[]>(key) ?? []
+      queryClient.setQueryData<LecteurPlaylistItem[]>(key,
+        previous
+          .map(i => i.id === a.id ? { ...i, position: b.position }
+                  : i.id === b.id ? { ...i, position: a.position } : i)
+          .sort((x, y) => x.position - y.position))
+      return { previous, key }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.key) queryClient.setQueryData(ctx.key, ctx.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de déplacer le morceau.' })
+    },
+  })
+}
+
 export function useRemoveFromLecteurPlaylist() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
