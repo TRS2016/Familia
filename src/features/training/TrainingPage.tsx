@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, Play, Trash2, Bookmark, Copy } from 'lucide-react'
+import { ChevronLeft, ChevronDown, ChevronRight, Play, Trash2, Bookmark, Copy, Plus, Sparkles } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useNumPref } from '../../lib/usePrefs'
 import {
@@ -19,6 +19,7 @@ import Stepper from './Stepper'
 import StatsCard from './StatsCard'
 import ExerciseEditor from './ExerciseEditor'
 import RunScreen from './RunScreen'
+import { SUGGESTED_PRESETS, type SuggestedPreset } from './presetLibrary'
 import styles from './TrainingPage.module.css'
 
 type Screen =
@@ -55,6 +56,8 @@ export default function TrainingPage() {
   const [saveFocus, setSaveFocus]   = useState('')
   const [weeklyGoal, setWeeklyGoal] = useNumPref('training.weeklyGoal', 3)
   const [showGoal, setShowGoal]     = useState(false)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [suggestFocus, setSuggestFocus]       = useState<string | null>(null)
 
   const cfg = configs[mode]
   const set = (patch: Partial<TrainingConfig>) =>
@@ -70,6 +73,15 @@ export default function TrainingPage() {
     setConfigs(c => ({ ...c, [p.mode]: { ...p.config } }))
     setPresetName(p.name)
     setEditingPresetId(p.id)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+  // Charge une séance suggérée dans l'éditeur (non enregistrée : pas d'id) pour la
+  // tester/ajuster avant de l'enregistrer soi-même.
+  function loadSuggestion(s: SuggestedPreset) {
+    setMode(s.mode)
+    setConfigs(c => ({ ...c, [s.mode]: { ...s.config } }))
+    setPresetName(s.name)
+    setEditingPresetId(null)
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
@@ -246,6 +258,84 @@ export default function TrainingPage() {
           </div>
         </>
       )}
+
+      {/* Séances suggérées */}
+      {(() => {
+        const existingNames = new Set(presets.map(p => p.name))
+        const zones = [...new Set(SUGGESTED_PRESETS.map(s => s.config.focus).filter(Boolean))] as string[]
+        const shown = suggestFocus ? SUGGESTED_PRESETS.filter(s => s.config.focus === suggestFocus) : SUGGESTED_PRESETS
+        return (
+        <>
+          <button
+            className={styles.suggestToggle}
+            onClick={() => setShowSuggestions(v => !v)}
+            aria-expanded={showSuggestions}
+          >
+            {showSuggestions ? <ChevronDown size={15} strokeWidth={2.5} /> : <ChevronRight size={15} strokeWidth={2.5} />}
+            <Sparkles size={14} strokeWidth={2} aria-hidden="true" />
+            Séances suggérées
+          </button>
+          {showSuggestions && (
+            <>
+              {zones.length > 0 && (
+                <div className={styles.focusFilterRow}>
+                  <button
+                    className={[styles.focusChip, !suggestFocus ? styles.focusChipActive : ''].join(' ')}
+                    onClick={() => setSuggestFocus(null)}
+                  >
+                    Toutes
+                  </button>
+                  {zones.map(z => (
+                    <button
+                      key={z}
+                      className={[styles.focusChip, suggestFocus === z ? styles.focusChipActive : ''].join(' ')}
+                      onClick={() => setSuggestFocus(cur => cur === z ? null : z)}
+                    >
+                      {z}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className={styles.presetList}>
+                {shown.map(s => {
+                  const exCount = s.config.exercises?.length ?? 0
+                  const added = existingNames.has(s.name)
+                  return (
+                    <div key={s.name} className={styles.presetRow}>
+                      <button className={styles.presetMain} onClick={() => loadSuggestion(s)}>
+                        <span
+                          className={styles.presetEmoji}
+                          style={{ background: `${MODE_META[s.mode].color}33`, boxShadow: `inset 0 0 0 1.5px ${MODE_META[s.mode].color}` }}
+                        >
+                          {MODE_META[s.mode].emoji}
+                        </span>
+                        <span className={styles.presetInfo}>
+                          <span className={styles.presetName}>{s.name}</span>
+                          <span className={styles.presetSub}>
+                            {MODE_META[s.mode].label} · {configSummary(s.mode, s.config)}
+                            {exCount > 0 ? ` · ${exCount} ex.` : ''}
+                          </span>
+                        </span>
+                        {s.config.focus && <span className={styles.presetFocus}>{s.config.focus}</span>}
+                      </button>
+                      <button
+                        className={styles.suggestAddBtn}
+                        onClick={() => addPreset.mutate({ name: s.name, mode: s.mode, config: { ...s.config } })}
+                        disabled={added || addPreset.isPending}
+                        aria-label={added ? 'Déjà ajoutée' : `Ajouter ${s.name}`}
+                        title={added ? 'Déjà dans tes séances' : 'Ajouter à mes séances'}
+                      >
+                        <Plus size={15} strokeWidth={2.5} /> {added ? 'Ajoutée' : 'Ajouter'}
+                      </button>
+                    </div>
+                  )
+                })}
+              </div>
+            </>
+          )}
+        </>
+        )
+      })()}
 
       {/* Stats */}
       {stats && stats.totalCount > 0 && (

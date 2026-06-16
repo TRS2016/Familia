@@ -1357,3 +1357,44 @@
   }
   .historyCard, .statsCard, .totalLine, .subCard { margin-left: 28px; margin-right: 28px; }
 }
+
+/* ── Séances suggérées ─────────────────────────────────────────────────────── */
+
+.suggestToggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 26px 22px 4px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-family: var(--tr-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--tr-ink3);
+  cursor: pointer;
+}
+.suggestToggle:hover { color: var(--tr-accent); }
+
+.suggestAddBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--tr-accent);
+  background: color-mix(in srgb, var(--tr-accent) 12%, transparent);
+  color: var(--tr-accent);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.suggestAddBtn:disabled {
+  border-color: var(--tr-line);
+  background: none;
+  color: var(--tr-ink4);
+  cursor: default;
+}
