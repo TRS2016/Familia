@@ -1,22 +1,24 @@
-import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
+import { useState, useMemo, useRef } from 'react'
 import { useSessionState } from '../../lib/useSessionState'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft, Plus, SlidersHorizontal, ShoppingCart,
   MapPin, Bookmark, AlignJustify, LayoutList,
-  Search, X, Clock, Send, ClipboardList, Check,
+  Search, X, Clock, Send, ClipboardList,
 } from 'lucide-react'
 import { useGroceries } from './useGroceries'
 import { useGroceriesRealtime } from './useGroceriesRealtime'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import type { Grocery } from './useGroceries'
 import {
-  CATEGORIES, CATEGORY_ORDER, getCategoryEmoji, formatPrice,
+  CATEGORIES, getCategoryEmoji, formatPrice,
   computeTotal, getStoredNames, getStoredStores, persistName, persistStore,
+  applyOrder, sortChecked, groupByCategory, groupByStore,
 } from './groceries.utils'
-import type { CategoryKey } from './groceries.utils'
 import { GroceryItem } from './GroceryItem'
+import { useGroceryDragOrder } from './useGroceryDragOrder'
+import ShoppingBudgetBar from './ShoppingBudgetBar'
 import { CatalogPickerModal } from './CatalogPickerModal'
 import { useCatalog } from './useCatalog'
 import { useShoppingHistory, useSaveSession, useSessionSuggestions, useAddGroceryExpense } from './useShoppingHistory'
@@ -32,62 +34,6 @@ import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useToast } from '../../components/useToast'
 import styles from './GroceriesPage.module.css'
-
-const ORDER_STORAGE_KEY = `familia-grocery-order-${HOUSEHOLD_ID}`
-
-// ── Tri ───────────────────────────────────────────────────────────────────────
-
-function applyOrder(items: Grocery[], orderedIds: string[]): Grocery[] {
-  if (!orderedIds.length) return items
-  const rank = new Map(orderedIds.map((id, i) => [id, i]))
-  return [...items].sort((a, b) => (rank.get(a.id) ?? orderedIds.length) - (rank.get(b.id) ?? orderedIds.length))
-}
-
-function sortChecked(items: Grocery[]): Grocery[] {
-  return items
-    .filter(g => g.checked)
-    .sort((a, b) =>
-      new Date(b.checked_at ?? b.created_at).getTime() -
-      new Date(a.checked_at ?? a.created_at).getTime()
-    )
-}
-
-// ── Groupage ──────────────────────────────────────────────────────────────────
-
-type Group = { label: string | null; items: Grocery[] }
-
-function groupByCategory(items: Grocery[]): Group[] {
-  const hasAny = items.some(g => g.category)
-  if (!hasAny) return [{ label: null, items }]
-
-  const map = new Map<string | null, Grocery[]>()
-  for (const item of items) {
-    const k = item.category && CATEGORY_ORDER.includes(item.category as CategoryKey) ? item.category : null
-    if (!map.has(k)) map.set(k, [])
-    map.get(k)!.push(item)
-  }
-  const ordered: Group[] = []
-  for (const key of CATEGORY_ORDER) {
-    if (map.has(key)) ordered.push({ label: key, items: map.get(key)! })
-  }
-  if (map.has(null)) ordered.push({ label: null, items: map.get(null)! })
-  return ordered
-}
-
-function groupByStore(items: Grocery[]): Group[] {
-  const hasAny = items.some(g => g.store)
-  if (!hasAny) return [{ label: null, items }]
-
-  // Preserve items insertion order
-  const groupOrder: (string | null)[] = []
-  const map = new Map<string | null, Grocery[]>()
-  for (const item of items) {
-    const k = item.store || null
-    if (!map.has(k)) { map.set(k, []); groupOrder.push(k) }
-    map.get(k)!.push(item)
-  }
-  return groupOrder.map(k => ({ label: k, items: map.get(k)! }))
-}
 
 // ── Composant principal ───────────────────────────────────────────────────────
 
@@ -142,15 +88,8 @@ export default function GroceriesPage() {
   const { data: sessions = [], isLoading: sessionsLoading } = useShoppingHistory({ enabled: showHistory })
   const { data: sessionSuggestions = [] } = useSessionSuggestions()
 
-  // ── Ordre drag & drop ────────────────────────────────────────────────────────
-  const [orderedIds, setOrderedIds] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem(ORDER_STORAGE_KEY) ?? '[]') }
-    catch { return [] }
-  })
-  const [draggingId, setDraggingId] = useState<string | null>(null)
-  const [dragOverId, setDragOverId] = useState<string | null>(null)
-  const dragStateRef = useRef<{ draggingId: string; dragOverId: string | null } | null>(null)
-  const pendingDragCleanupRef = useRef<(() => void) | null>(null)
+  // ── Ordre drag & drop (état, persistance et pointer events extraits) ──────────
+  const { orderedIds, draggingId, dragOverId, startDrag } = useGroceryDragOrder(query.data)
 
   // ── Données dérivées ────────────────────────────────────────────────────────
   // Source unique : la liste partagée Supabase (les deux vues l'utilisent).
@@ -216,107 +155,6 @@ export default function GroceriesPage() {
     return [...new Set([...fromQuery, ...fromStorage])].sort()
   }, [allItems])
 
-  // ── Sync ordre avec les données serveur ──────────────────────────────────────
-  /* eslint-disable react-hooks/set-state-in-effect */
-  useEffect(() => {
-    const data = query.data
-    if (!data) return
-    const uncheckedIds = data.filter(g => !g.checked).map(g => g.id)
-    setOrderedIds(prev => {
-      const prevSet = new Set(prev)
-      const currentSet = new Set(uncheckedIds)
-      const newIds = uncheckedIds.filter(id => !prevSet.has(id))  // nouveaux → devant
-      const filtered = prev.filter(id => currentSet.has(id))       // retirer les supprimés
-      const next = [...newIds, ...filtered]
-      try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch { /* ignore */ }
-      return next
-    })
-  }, [query.data])
-  /* eslint-enable react-hooks/set-state-in-effect */
-
-  // ── Drag & drop (pointer events, mobile + desktop) ───────────────────────────
-  const startDrag = useCallback((itemId: string, e: React.PointerEvent<HTMLLIElement>) => {
-    const startX = e.clientX
-    const startY = e.clientY
-    const THRESHOLD = 6  // px avant d'activer le drag
-    let dragActivated = false
-    dragStateRef.current = { draggingId: itemId, dragOverId: null }
-
-    // Hit test par Y — évite le problème de elementFromPoint qui renvoie
-    // l'élément en cours de drag (même à opacity 0.3, il bloque le hit).
-    function getItemIdAtY(clientY: number): string | null {
-      const els = document.querySelectorAll<HTMLElement>('[data-grocery-id][data-draggable]')
-      for (const el of els) {
-        const rect = el.getBoundingClientRect()
-        if (clientY >= rect.top && clientY < rect.bottom) {
-          return el.dataset.groceryId ?? null
-        }
-      }
-      return null
-    }
-
-    function onMove(ev: PointerEvent) {
-      if (!dragActivated) {
-        const dx = ev.clientX - startX
-        const dy = ev.clientY - startY
-        // N'active le drag que si le mouvement est principalement vertical
-        // (évite de conflictenr avec le swipe horizontal « cocher »).
-        if (Math.sqrt(dx * dx + dy * dy) > THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
-          dragActivated = true
-          ev.preventDefault()
-          setDraggingId(itemId)
-        }
-        return
-      }
-      ev.preventDefault()
-      const state = dragStateRef.current
-      if (!state) return
-      const targetId = getItemIdAtY(ev.clientY)
-      if (targetId !== null && targetId !== state.draggingId && targetId !== state.dragOverId) {
-        state.dragOverId = targetId
-        setDragOverId(targetId)
-      }
-    }
-
-    function endDrag() {
-      if (dragActivated) {
-        const state = dragStateRef.current
-        if (state?.draggingId && state?.dragOverId) {
-          const { draggingId: dId, dragOverId: overId } = state
-          setOrderedIds(prev => {
-            const next = [...prev]
-            const from = next.indexOf(dId)
-            const to = next.indexOf(overId)
-            if (from !== -1 && to !== -1) {
-              next.splice(from, 1)
-              next.splice(to, 0, dId)
-            }
-            try { localStorage.setItem(ORDER_STORAGE_KEY, JSON.stringify(next)) } catch { /* ignore */ }
-            return next
-          })
-        }
-      }
-      dragStateRef.current = null
-      setDraggingId(null)
-      setDragOverId(null)
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', endDrag)
-      window.removeEventListener('pointercancel', endDrag)
-      pendingDragCleanupRef.current = null
-    }
-
-    pendingDragCleanupRef.current = () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', endDrag)
-      window.removeEventListener('pointercancel', endDrag)
-    }
-    window.addEventListener('pointermove', onMove, { passive: false })
-    window.addEventListener('pointerup', endDrag)
-    window.addEventListener('pointercancel', endDrag)
-  }, [])
-
-  useEffect(() => () => { pendingDragCleanupRef.current?.() }, [])
-
   // ── Handlers ────────────────────────────────────────────────────────────────
   // ── Stats sessions (Lot 6) ───────────────────────────────────────────────
   const sessionStats = useMemo(() => {
@@ -340,18 +178,19 @@ export default function GroceriesPage() {
   function handleNameChange(val: string) {
     setNewName(val)
     const lower = val.toLowerCase()
+    // Ne pré-remplit que les champs encore vides : ne pas écraser une saisie manuelle.
     const catalogMatch = catalog.query.data?.find(c => c.name.toLowerCase() === lower)
     if (catalogMatch) {
-      if (catalogMatch.price !== null) setNewPrice(String(catalogMatch.price).replace('.', ','))
-      if (catalogMatch.category) setFormCategory(catalogMatch.category)
-      if (catalogMatch.store) setNewStore(catalogMatch.store)
+      if (catalogMatch.price !== null && !newPrice.trim()) setNewPrice(String(catalogMatch.price).replace('.', ','))
+      if (catalogMatch.category && !formCategory) setFormCategory(catalogMatch.category)
+      if (catalogMatch.store && !newStore.trim()) setNewStore(catalogMatch.store)
       setFormExpanded(true)
       return
     }
     const historyMatch = sessionSuggestions.find(s => s.name.toLowerCase() === lower)
     if (historyMatch) {
-      if (historyMatch.price !== null) setNewPrice(String(historyMatch.price).replace('.', ','))
-      if (historyMatch.store) setNewStore(historyMatch.store)
+      if (historyMatch.price !== null && !newPrice.trim()) setNewPrice(String(historyMatch.price).replace('.', ','))
+      if (historyMatch.store && !newStore.trim()) setNewStore(historyMatch.store)
       setFormExpanded(true)
     }
   }
@@ -419,6 +258,11 @@ export default function GroceriesPage() {
 
   // Fin des courses : archive la session (historique + Kakebo) puis vide les
   // articles cochés de la liste partagée. « Sans archiver » vide sans enregistrer.
+  // Chaque étape est idempotente (refs) : si une étape échoue, on garde la modale
+  // ouverte et un nouvel essai ne refait QUE les étapes restantes — pas de session
+  // ni de dépense Kakebo en double.
+  const sessionSavedRef = useRef(false)
+  const kakeboAddedRef  = useRef(false)
   async function handleArchiveDecision(save: boolean) {
     const done = allItems.filter(g => g.checked)
     if (save && done.length > 0) {
@@ -427,19 +271,27 @@ export default function GroceriesPage() {
       }))
       const total = computeTotal(done)
       try {
-        await saveSession.mutateAsync({ items, total: total > 0 ? total : null })
-        if (addToKakebo && total > 0) {
+        if (!sessionSavedRef.current) {
+          await saveSession.mutateAsync({ items, total: total > 0 ? total : null })
+          sessionSavedRef.current = true
+        }
+        if (addToKakebo && total > 0 && !kakeboAddedRef.current) {
           await addGroceryExpense.mutateAsync({ amount: total, itemCount: done.length })
+          kakeboAddedRef.current = true
         }
         showToast({ type: 'success', message: 'Session de courses archivée !' })
       } catch {
-        // Archivage échoué (toast déjà affiché par onError) : on garde les
-        // articles cochés et la modale ouverte pour pouvoir réessayer —
-        // les vider ici perdrait la session sans trace.
+        // Étape échouée (toast déjà affiché) : on garde les cochés et la modale
+        // ouverte. Les refs empêchent de ré-enregistrer ce qui a déjà réussi.
         return
       }
     }
-    if (done.length > 0) clearChecked.mutate()
+    if (done.length > 0) {
+      try { await clearChecked.mutateAsync() }
+      catch { return } // session déjà sauvée : on réessaiera juste le vidage
+    }
+    sessionSavedRef.current = false
+    kakeboAddedRef.current  = false
     setShowArchivePrompt(false)
     setShoppingMode(false)
   }
@@ -809,70 +661,23 @@ export default function GroceriesPage() {
 
       {/* Barre sticky : budget + « Terminer » en magasin, total estimé en liste */}
       {(shoppingMode || hasAnyPrice) && (
-        <div className={[styles.totalBar, shoppingMode ? styles.totalBarShopping : ''].join(' ')}>
-          {shoppingMode ? (
-            <div className={styles.shoppingBarInner}>
-              {hasAnyPrice && (
-                <>
-                  <div className={styles.shoppingBarTop}>
-                    <div className={styles.shoppingCartBlock}>
-                      <span className={styles.shoppingCartLabel}>Panier</span>
-                      <span className={styles.shoppingCartAmount}>{formatPrice(totalInCart)}</span>
-                    </div>
-                    {budgetNum ? (
-                      <div className={[styles.shoppingBudgetBlock, overBudget ? styles.overBudget : ''].join(' ')}>
-                        <span className={styles.shoppingBudgetLabel}>Budget</span>
-                        <span className={styles.shoppingBudgetAmount}>{formatPrice(budgetNum)}</span>
-                      </div>
-                    ) : totalLeft > 0 ? (
-                      <span className={styles.shoppingRemainder}>≈ {formatPrice(totalLeft)} restant</span>
-                    ) : null}
-                  </div>
-                  {budgetProgress !== null && (
-                    <div className={styles.budgetTrack}>
-                      <div
-                        className={styles.budgetFill}
-                        style={{ width: `${budgetProgress * 100}%`, background: overBudget ? 'var(--danger)' : 'var(--positive)' }}
-                      />
-                    </div>
-                  )}
-                  <div className={styles.budgetEditRow}>
-                    {editingBudget ? (
-                      <form onSubmit={e => { e.preventDefault(); saveBudget() }} className={styles.budgetForm}>
-                        <input
-                          type="text" inputMode="decimal" value={budget}
-                          onChange={e => setBudget(e.target.value)}
-                          placeholder="Budget en €" aria-label="Budget en euros" className={styles.budgetInput} autoFocus
-                        />
-                        <button type="submit" className={styles.budgetSaveBtn}>OK</button>
-                        {budget && (
-                          <button type="button" className={styles.budgetClearBtn} onClick={clearBudget}>Supprimer</button>
-                        )}
-                      </form>
-                    ) : (
-                      <button className={styles.budgetEditBtn} onClick={() => setEditingBudget(true)}>
-                        {budget ? `Budget : ${formatPrice(parseFloat(budget.replace(',', '.')))}  ✎` : '+ Définir un budget'}
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-              <button
-                className={styles.finishShoppingBtn}
-                onClick={() => setShowArchivePrompt(true)}
-                disabled={checkedItems.length === 0}
-              >
-                <Check size={16} strokeWidth={2.5} />
-                Terminer les courses{checkedItems.length > 0 ? ` · ${checkedItems.length}` : ''}
-              </button>
-            </div>
-          ) : (
-            <>
-              <span className={styles.totalLabel}>Total estimé</span>
-              <span className={styles.totalAmount}>{formatPrice(totalLeft)}</span>
-            </>
-          )}
-        </div>
+        <ShoppingBudgetBar
+          shoppingMode={shoppingMode}
+          hasAnyPrice={hasAnyPrice}
+          totalInCart={totalInCart}
+          totalLeft={totalLeft}
+          budget={budget}
+          setBudget={setBudget}
+          budgetNum={budgetNum}
+          overBudget={overBudget}
+          budgetProgress={budgetProgress}
+          editingBudget={editingBudget}
+          setEditingBudget={setEditingBudget}
+          saveBudget={saveBudget}
+          clearBudget={clearBudget}
+          checkedCount={checkedItems.length}
+          onFinish={() => setShowArchivePrompt(true)}
+        />
       )}
 
       {/* Modal — Catalogue (picker) */}
@@ -900,7 +705,7 @@ export default function GroceriesPage() {
         <ArchivePromptModal
           checkedCount={checkedItems.length}
           total={computeTotal(checkedItems)}
-          isPending={saveSession.isPending || addGroceryExpense.isPending}
+          isPending={saveSession.isPending || addGroceryExpense.isPending || clearChecked.isPending}
           addToKakebo={addToKakebo}
           onToggleKakebo={() => setAddToKakebo(v => !v)}
           onClose={() => setShowArchivePrompt(false)}

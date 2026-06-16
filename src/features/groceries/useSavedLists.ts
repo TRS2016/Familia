@@ -199,15 +199,10 @@ export function useSavedListDetail(listId: string) {
 
   const moveItem = useMutation({
     mutationFn: async ({ item, toListId }: { item: SavedItem; toListId: string }) => {
-      const { error: insertErr } = await supabase
-        .from('grocery_saved_items')
-        .insert({ list_id: toListId, name: item.name, quantity: item.quantity, price: item.price, category: item.category, store: item.store })
-      if (insertErr) throw insertErr
-      const { error: deleteErr } = await supabase
-        .from('grocery_saved_items')
-        .delete()
-        .eq('id', item.id)
-      if (deleteErr) throw deleteErr
+      // RPC atomique : copie vers la liste cible + suppression de l'origine en une
+      // transaction (un échec ne duplique plus l'article dans les deux listes).
+      const { error } = await supabase.rpc('move_saved_item', { p_item: item.id, p_to_list: toListId })
+      if (error) throw error
     },
     onSuccess: (_data, { toListId }) => {
       queryClient.invalidateQueries({ queryKey: savedItemsKey(listId) })

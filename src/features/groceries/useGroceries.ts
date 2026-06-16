@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Json } from '../../lib/database.types'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
@@ -244,21 +245,15 @@ export function useGroceries() {
     mutationFn: async ({ name, items }: {
       name: string
       items: Array<{ name: string; quantity: string | null; price: number | null; category: string | null; store: string | null }>
-    }) => {
-      const { data: list, error: listErr } = await supabase
-        .from('grocery_saved_lists')
-        .insert({ household_id: HOUSEHOLD_ID, name })
-        .select()
-        .single()
-      if (listErr || !list) throw listErr ?? new Error('No list created')
-
-      if (items.length > 0) {
-        const { error: itemsErr } = await supabase
-          .from('grocery_saved_items')
-          .insert(items.map(item => ({ ...item, list_id: list.id })))
-        if (itemsErr) throw itemsErr
-      }
-      return list
+    }): Promise<string> => {
+      // RPC atomique : liste + articles en une transaction (un échec n'enregistre
+      // pas de liste vide orpheline).
+      const { data, error } = await supabase.rpc('save_grocery_list', {
+        p_name: name.trim(),
+        p_items: items as unknown as Json,
+      })
+      if (error) throw error
+      return data as string
     },
     onError: () => showToast({ type: 'error', message: 'Impossible de sauvegarder la liste.' }),
   })

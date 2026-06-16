@@ -1468,7 +1468,16 @@ export type Database = {
     }
     Functions: {
       get_my_household_id: { Args: never; Returns: string }
+      move_saved_item: {
+        Args: { p_item: string; p_to_list: string }
+        Returns: undefined
+      }
       reorder_habits: { Args: { p_ids: string[] }; Returns: undefined }
+      replace_grocery_catalog: { Args: { p_rows: Json }; Returns: number }
+      save_grocery_list: {
+        Args: { p_items: Json; p_name: string }
+        Returns: string
+      }
       swap_lecteur_queue_position: {
         Args: { a: string; b: string }
         Returns: undefined

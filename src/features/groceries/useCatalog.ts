@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { Tables } from '../../lib/database.types'
+import type { Json, Tables } from '../../lib/database.types'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useToast } from '../../components/useToast'
@@ -97,9 +97,9 @@ export function useCatalog() {
     },
   })
 
-  // Remplace tout le catalogue par les lignes importées (CSV).
-  // Stratégie : insérer les nouvelles lignes PUIS supprimer les anciennes →
-  // en cas d'échec de l'insert, les données existantes restent intactes.
+  // Remplace tout le catalogue par les lignes importées (CSV/XLSX).
+  // RPC atomique : delete + insert dans une même transaction → un échec annule
+  // tout (les données existantes restent intactes), sans dédoublement possible.
   const replaceCatalog = useMutation({
     mutationFn: async (rows: {
       name: string
@@ -108,31 +108,11 @@ export function useCatalog() {
       category: string | null
       store: string | null
     }[]): Promise<number> => {
-      const previous = queryClient.getQueryData<CatalogItem[]>(CATALOG_KEY) ?? []
-
-      if (rows.length > 0) {
-        const { error: insErr } = await supabase
-          .from('grocery_catalog')
-          .insert(rows.map(r => ({
-            household_id: HOUSEHOLD_ID,
-            name: r.name.trim(),
-            price: r.price ?? null,
-            quantity: r.quantity?.trim() || null,
-            category: r.category?.trim() || null,
-            store: r.store?.trim() || null,
-          })))
-        if (insErr) throw insErr
-      }
-
-      if (previous.length > 0) {
-        const { error: delErr } = await supabase
-          .from('grocery_catalog')
-          .delete()
-          .in('id', previous.map(p => p.id))
-        if (delErr) throw delErr
-      }
-
-      return rows.length
+      const { data, error } = await supabase.rpc('replace_grocery_catalog', {
+        p_rows: rows as unknown as Json,
+      })
+      if (error) throw error
+      return data as number
     },
     onSuccess: (count) => {
       queryClient.invalidateQueries({ queryKey: CATALOG_KEY })
