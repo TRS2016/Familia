@@ -36,6 +36,13 @@ export function exerciseHasVideo(e: Exercise | undefined): boolean {
   return !!e && (!!e.videoUrl || !!e.videoPath)
 }
 
+/** Chemins Storage des vidéos d'exercices uploadées d'une config (pour le nettoyage). */
+export function collectVideoPaths(config: TrainingConfig | null | undefined): string[] {
+  return normalizeExercises(config?.exercises)
+    .map(e => e.videoPath)
+    .filter((p): p is string => !!p)
+}
+
 // Zones d'entraînement pour catégoriser les séances
 export const FOCUS_OPTIONS = ['Full body', 'Abdos', 'Jambes', 'Haut du corps', 'Cardio', 'Mobilité'] as const
 

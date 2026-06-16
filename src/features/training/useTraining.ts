@@ -1,11 +1,19 @@
-import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import type { Json } from '../../lib/database.types'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useToast } from '../../components/useToast'
+import { useRealtimeInvalidation } from '../../lib/useRealtimeInvalidation'
+import { collectVideoPaths } from './training'
 import type { TrainingConfig, TrainingMode, TrainingPreset, TrainingSession } from './training'
+
+// Supprime des objets du bucket family-media (best effort : ne bloque pas la
+// mutation principale si le retrait échoue).
+async function removeStorage(paths: string[]) {
+  if (paths.length === 0) return
+  try { await supabase.storage.from('family-media').remove(paths) } catch { /* best effort */ }
+}
 
 export const TRAINING_PRESETS_KEY  = ['training-presets', HOUSEHOLD_ID] as const
 export const TRAINING_SESSIONS_KEY = ['training-sessions', HOUSEHOLD_ID] as const
@@ -69,11 +77,17 @@ export function useUpdateTrainingPreset() {
     },
     onMutate: async (input) => {
       const previous = queryClient.getQueryData<TrainingPreset[]>(TRAINING_PRESETS_KEY) ?? []
+      // Vidéos présentes avant mais absentes de la nouvelle config (capture AVANT
+      // l'écriture optimiste qui remplace la config en cache).
+      const oldPaths = collectVideoPaths(previous.find(p => p.id === input.id)?.config)
+      const newPaths = new Set(collectVideoPaths(input.config))
+      const droppedPaths = oldPaths.filter(p => !newPaths.has(p))
       queryClient.setQueryData<TrainingPreset[]>(TRAINING_PRESETS_KEY,
         previous.map(p => p.id === input.id ? { ...p, name: input.name.trim(), mode: input.mode, config: input.config } : p)
       )
-      return { previous }
+      return { previous, droppedPaths }
     },
+    onSuccess: (_d, _v, ctx) => { void removeStorage(ctx?.droppedPaths ?? []) },
     onError: (_e, _v, ctx) => {
       queryClient.setQueryData(TRAINING_PRESETS_KEY, ctx?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de mettre à jour le preset.' })
@@ -92,9 +106,13 @@ export function useDeleteTrainingPreset() {
     },
     onMutate: async (id) => {
       const previous = queryClient.getQueryData<TrainingPreset[]>(TRAINING_PRESETS_KEY) ?? []
+      // Capture les vidéos du preset AVANT de le retirer du cache (sinon on ne
+      // pourrait plus les retrouver pour nettoyer le Storage).
+      const paths = collectVideoPaths(previous.find(p => p.id === id)?.config)
       queryClient.setQueryData<TrainingPreset[]>(TRAINING_PRESETS_KEY, previous.filter(p => p.id !== id))
-      return { previous }
+      return { previous, paths }
     },
+    onSuccess: (_d, _id, ctx) => { void removeStorage(ctx?.paths ?? []) },
     onError: (_e, _id, ctx) => {
       queryClient.setQueryData(TRAINING_PRESETS_KEY, ctx?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de supprimer le preset.' })
@@ -123,6 +141,7 @@ export function useTrainingSessions(limit = 20) {
 export function useLogTrainingSession() {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
+  const { showToast } = useToast()
 
   return useMutation({
     mutationFn: async (input: { name: string; mode: TrainingMode; duration_seconds: number; focus?: string | null }) => {
@@ -141,6 +160,7 @@ export function useLogTrainingSession() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TRAINING_SESSIONS_KEY })
     },
+    onError: () => showToast({ type: 'error', message: "Séance non enregistrée — vérifie ta connexion." }),
   })
 }
 
@@ -259,17 +279,13 @@ export function useTrainingRecords() {
   })
 }
 
-// ── Realtime presets ─────────────────────────────────────────────────────────────
+// ── Realtime presets + sessions ──────────────────────────────────────────────────
+// Helper partagé (debounce) ; les sessions doivent être dans la publication
+// supabase_realtime (migration 20260616200000) pour que le canal les diffuse.
 
 export function useTrainingRealtime() {
-  const queryClient = useQueryClient()
-  useEffect(() => {
-    const channel = supabase
-      .channel('training-presets-rt')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'training_presets' }, () => {
-        queryClient.invalidateQueries({ queryKey: TRAINING_PRESETS_KEY })
-      })
-      .subscribe()
-    return () => { supabase.removeChannel(channel) }
-  }, [queryClient])
+  useRealtimeInvalidation('training-changes', [
+    { table: 'training_presets',  keys: [TRAINING_PRESETS_KEY] },
+    { table: 'training_sessions', keys: [TRAINING_SESSIONS_KEY] },
+  ])
 }
