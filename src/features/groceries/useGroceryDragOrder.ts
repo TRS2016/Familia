@@ -38,8 +38,14 @@ export function useGroceryDragOrder(data: Grocery[] | undefined) {
   const startDrag = useCallback((itemId: string, e: React.PointerEvent<HTMLLIElement>) => {
     const startX = e.clientX
     const startY = e.clientY
-    const THRESHOLD = 6 // px avant d'activer le drag
+    const isTouch = e.pointerType === 'touch'
+    // Tactile : appui long avant d'armer le drag (le reste = scroll/tap natif).
+    // Souris : un petit seuil de mouvement suffit (pas de conflit avec le scroll).
+    const HOLD_MS       = 250  // durée d'appui pour armer (tactile)
+    const MOVE_CANCEL   = 10   // px de déplacement qui annule l'appui long (= scroll)
+    const MOUSE_DRAG    = 6    // px de déplacement vertical qui arme (souris)
     let dragActivated = false
+    let holdTimer: ReturnType<typeof setTimeout> | null = null
     dragStateRef.current = { draggingId: itemId, dragOverId: null }
 
     // Hit test par Y — évite le souci d'elementFromPoint qui renvoie l'élément en
@@ -55,18 +61,27 @@ export function useGroceryDragOrder(data: Grocery[] | undefined) {
       return null
     }
 
+    function arm() {
+      if (dragActivated) return
+      dragActivated = true
+      try { navigator.vibrate?.(30) } catch { /* non supporté */ }
+      setDraggingId(itemId)
+    }
+
     function onMove(ev: PointerEvent) {
       if (!dragActivated) {
         const dx = ev.clientX - startX
         const dy = ev.clientY - startY
-        // N'active le drag que si le mouvement est principalement vertical
-        // (évite de entrer en conflit avec le swipe horizontal « cocher »).
-        if (Math.sqrt(dx * dx + dy * dy) > THRESHOLD && Math.abs(dy) > Math.abs(dx)) {
-          dragActivated = true
-          ev.preventDefault()
-          setDraggingId(itemId)
+        const dist = Math.hypot(dx, dy)
+        if (isTouch) {
+          // Avant l'armement : tout déplacement notable = scroll/tap → on abandonne
+          // (sans preventDefault, donc le scroll natif a lieu).
+          if (dist > MOVE_CANCEL) cancelDrag()
+          return
         }
-        return
+        // Souris : on arme dès un mouvement principalement vertical.
+        if (dist > MOUSE_DRAG && Math.abs(dy) > Math.abs(dx)) arm()
+        else return
       }
       ev.preventDefault()
       const state = dragStateRef.current
@@ -76,6 +91,22 @@ export function useGroceryDragOrder(data: Grocery[] | undefined) {
         state.dragOverId = targetId
         setDragOverId(targetId)
       }
+    }
+
+    function teardown() {
+      if (holdTimer) { clearTimeout(holdTimer); holdTimer = null }
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', endDrag)
+      window.removeEventListener('pointercancel', cancelDrag)
+      pendingDragCleanupRef.current = null
+    }
+
+    // Geste abandonné (scroll ou appui long interrompu) : aucun réordonnancement.
+    function cancelDrag() {
+      dragStateRef.current = null
+      setDraggingId(null)
+      setDragOverId(null)
+      teardown()
     }
 
     function endDrag() {
@@ -99,20 +130,15 @@ export function useGroceryDragOrder(data: Grocery[] | undefined) {
       dragStateRef.current = null
       setDraggingId(null)
       setDragOverId(null)
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', endDrag)
-      window.removeEventListener('pointercancel', endDrag)
-      pendingDragCleanupRef.current = null
+      teardown()
     }
 
-    pendingDragCleanupRef.current = () => {
-      window.removeEventListener('pointermove', onMove)
-      window.removeEventListener('pointerup', endDrag)
-      window.removeEventListener('pointercancel', endDrag)
-    }
+    pendingDragCleanupRef.current = teardown
     window.addEventListener('pointermove', onMove, { passive: false })
     window.addEventListener('pointerup', endDrag)
-    window.addEventListener('pointercancel', endDrag)
+    window.addEventListener('pointercancel', cancelDrag)
+    // Tactile : démarre le minuteur d'appui long. Un scroll annule via onMove/pointercancel.
+    if (isTouch) holdTimer = setTimeout(arm, HOLD_MS)
   }, [])
 
   useEffect(() => () => { pendingDragCleanupRef.current?.() }, [])

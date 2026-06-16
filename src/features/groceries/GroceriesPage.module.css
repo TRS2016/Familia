@@ -1754,10 +1754,11 @@
 
 /* ── Drag & drop ─────────────────────────────────────────────────────────── */
 
-/* Empêche le navigateur mobile d'intercepter le geste comme un scroll
-   avant que notre pointermove se déclenche. */
+/* Le scroll vertical natif reste possible en posant le doigt sur une ligne :
+   le drag ne s'arme que sur appui long (cf. useGroceryDragOrder). Sans pan-y le
+   moindre glissement vertical était capté comme un drag (trop sensible). */
 .itemDraggable {
-  touch-action: none;
+  touch-action: pan-y;
   -webkit-user-select: none;
   user-select: none;
   cursor: grab;
