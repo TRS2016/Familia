@@ -78,6 +78,9 @@ export default function LecteurPage() {
   // ── Queue + player ──
   const [queue,      setQueue]      = useState<MediaFile[]>([])
   const [queueIndex, setQueueIndex] = useState(0)
+  // Force le remount du lecteur pour rejouer la même piste (répétition « tout »
+  // sur une file d'un seul morceau : l'index ne change pas).
+  const [replayNonce, setReplayNonce] = useState(0)
   const playingFile = queue[queueIndex] ?? null
   const hasPrev = queueIndex > 0
   const hasNext = queueIndex < queue.length - 1
@@ -101,8 +104,24 @@ export default function LecteurPage() {
   const [customSleepMin, setCustomSleepMin]   = useState('')
   const [now, setNow] = useState(Date.now())
   // Volume (audio uniquement) : slider du dock × facteur de fondu du minuteur.
-  const [userVolume, setUserVolume] = useState(1)
+  // Persisté par appareil pour retrouver son réglage entre les sessions.
+  const VOLUME_STORAGE_KEY = 'familia-lecteur-volume'
+  const [userVolume, setUserVolume] = useState(() => {
+    const v = Number(localStorage.getItem(VOLUME_STORAGE_KEY))
+    return Number.isFinite(v) && v >= 0 && v <= 1 ? v : 1
+  })
   const [fadeFactor, setFadeFactor] = useState(1)
+  useEffect(() => {
+    try { localStorage.setItem(VOLUME_STORAGE_KEY, String(userVolume)) } catch { /* quota */ }
+  }, [userVolume])
+
+  // Volume transmis au lecteur :
+  //  - audio : slider du dock × fondu (le slider est le seul contrôle de volume) ;
+  //  - vidéo / YouTube : uniquement pendant le fondu de sortie, pour ne pas écraser
+  //    le volume natif réglé par l'utilisateur le reste du temps.
+  const playerVolume = isAudioTrack
+    ? userVolume * fadeFactor
+    : (fadeFactor < 1 ? fadeFactor : undefined)
   // Progression du mini-lecteur (audio/vidéo) : le scrubber complet défile hors
   // écran, le dock collant garde un repère de position. Clé par piste pour
   // retomber à 0 au changement sans effet (set-state-in-effect).
@@ -184,12 +203,16 @@ export default function LecteurPage() {
       return
     }
 
+    // Artwork de l'écran verrouillé : vignette YouTube si disponible.
+    const thumb = youtubeThumb(playingFile.external_url)
     ms.metadata = new MediaMetadata({
       title:  playingFile.title,
       artist: playingFile.member?.display_name ?? 'Familia',
       album:  queue.length > 1 ? `Familia · ${queueIndex + 1}/${queue.length}` : 'Familia · Lecteur',
+      artwork: thumb ? [{ src: thumb, sizes: '320x180', type: 'image/jpeg' }] : [],
     })
-    ms.playbackState = 'playing'
+    // playbackState n'est PAS forcé ici : les éléments <audio>/<video> le mettent
+    // à jour sur play/pause. Le forcer écrasait l'état réel (pause affichée « play »).
     ms.setActionHandler('previoustrack', hasPrev ? () => setQueueIndex(i => Math.max(0, i - 1)) : null)
     ms.setActionHandler('nexttrack',     hasNext ? () => setQueueIndex(i => i + 1) : null)
     ms.setActionHandler('stop', () => stop())
@@ -248,7 +271,12 @@ export default function LecteurPage() {
   function handleTrackEnded() {
     if (sleepEndOfTrack) { stop(); return }
     if (hasNext) setQueueIndex(i => i + 1)
-    else if (repeatMode === 'all') setQueueIndex(0)
+    else if (repeatMode === 'all') {
+      // File à plusieurs pistes : on revient au début. File d'une seule piste :
+      // l'index ne change pas, on force un remount pour relancer la lecture.
+      if (queue.length > 1) setQueueIndex(0)
+      else setReplayNonce(n => n + 1)
+    }
   }
 
   // ── Modal state ──
@@ -281,9 +309,15 @@ export default function LecteurPage() {
   async function handleUpload(file: File) {
     const [result, duration] = await Promise.all([uploadFile.mutateAsync(file), probeDuration(file)])
     const name = file.name.replace(/\.[^.]+$/, '')
-    await addFile.mutateAsync({
-      title: name, file_path: result.path, mime_type: result.mimeType, duration_seconds: duration,
-    })
+    try {
+      await addFile.mutateAsync({
+        title: name, file_path: result.path, mime_type: result.mimeType, duration_seconds: duration,
+      })
+    } catch {
+      // L'insert en base a échoué après l'upload : on retire l'objet du bucket
+      // pour ne pas laisser de fichier orphelin (le toast d'erreur vient du hook).
+      await supabase.storage.from('family-media').remove([result.path]).catch(() => { /* best effort */ })
+    }
   }
 
   // ── Glisser-déposer un fichier sur la page (desktop) ──
@@ -493,6 +527,7 @@ export default function LecteurPage() {
         </div>
           <div className={[styles.playerWrap, styles.dockPlayer].join(' ')}>
             <MediaPlayer
+              key={`${playingFile.id}:${replayNonce}`}
               filePath={playingFile.file_path}
               externalUrl={playingFile.external_url}
               mimeType={playingFile.mime_type}
@@ -503,7 +538,7 @@ export default function LecteurPage() {
               resumeKey={playingFile.id}
               onEnded={handleTrackEnded}
               onProgress={(c, d) => setDockProgress({ id: playingFile.id, pct: d > 0 ? (c / d) * 100 : 0 })}
-              volume={isAudioTrack ? userVolume * fadeFactor : undefined}
+              volume={playerVolume}
             />
           </div>
         </>

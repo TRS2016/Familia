@@ -1469,6 +1469,14 @@ export type Database = {
     Functions: {
       get_my_household_id: { Args: never; Returns: string }
       reorder_habits: { Args: { p_ids: string[] }; Returns: undefined }
+      swap_lecteur_queue_position: {
+        Args: { a: string; b: string }
+        Returns: undefined
+      }
+      swap_playlist_item_position: {
+        Args: { a: string; b: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

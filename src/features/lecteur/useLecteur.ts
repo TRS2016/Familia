@@ -50,7 +50,7 @@ export interface LecteurSmartFilters {
   member_id?: string
   tag?:       string
   favorite?:  boolean
-  sort?:      'recent' | 'az' | 'oldest'
+  sort?:      'recent' | 'az' | 'oldest' | 'duration'
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -69,8 +69,9 @@ export function applyLecteurFilters(files: MediaFile[], filters: LecteurSmartFil
     if (filters.favorite  && !f.is_favorite)                       return false
     return true
   })
-  if (filters.sort === 'az')     return [...result].sort((a, b) => a.title.localeCompare(b.title))
-  if (filters.sort === 'oldest') return [...result].sort((a, b) => a.created_at.localeCompare(b.created_at))
+  if (filters.sort === 'az')       return [...result].sort((a, b) => a.title.localeCompare(b.title))
+  if (filters.sort === 'oldest')   return [...result].sort((a, b) => a.created_at.localeCompare(b.created_at))
+  if (filters.sort === 'duration') return [...result].sort((a, b) => (b.duration_seconds ?? 0) - (a.duration_seconds ?? 0))
   return result
 }
 
@@ -337,7 +338,14 @@ export function useAddToLecteurPlaylist() {
     onSuccess: (_d, { playlistId }) => {
       queryClient.invalidateQueries({ queryKey: lecteurPlItemsKey(playlistId) })
     },
-    onError: () => showToast({ type: 'error', message: "Impossible d'ajouter à la liste." }),
+    onError: (err) => {
+      // 23505 = violation de UNIQUE(playlist_id, media_file_id) → déjà présent.
+      const code = (err as { code?: string })?.code
+      showToast({
+        type: 'error',
+        message: code === '23505' ? 'Ce morceau est déjà dans la liste.' : "Impossible d'ajouter à la liste.",
+      })
+    },
   })
 }
 
@@ -349,10 +357,9 @@ export function useReorderLecteurPlaylistItem() {
 
   return useMutation({
     mutationFn: async ({ a, b }: { a: LecteurPlaylistItem; b: LecteurPlaylistItem }) => {
-      const r1 = await supabase.from('playlist_items').update({ position: b.position } as never).eq('id', a.id)
-      if (r1.error) throw r1.error
-      const r2 = await supabase.from('playlist_items').update({ position: a.position } as never).eq('id', b.id)
-      if (r2.error) throw r2.error
+      // Échange atomique en base (RPC transactionnelle), cf. useMoveQueueItem.
+      const { error } = await supabase.rpc('swap_playlist_item_position', { a: a.id, b: b.id })
+      if (error) throw error
     },
     onMutate: async ({ a, b }) => {
       const key      = lecteurPlItemsKey(a.playlist_id)

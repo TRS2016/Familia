@@ -69,10 +69,10 @@ export function useMoveQueueItem() {
 
   return useMutation({
     mutationFn: async ({ a, b }: { a: QueueItem; b: QueueItem }) => {
-      const r1 = await supabase.from('lecteur_queue').update({ position: b.position } as never).eq('id', a.id)
-      if (r1.error) throw r1.error
-      const r2 = await supabase.from('lecteur_queue').update({ position: a.position } as never).eq('id', b.id)
-      if (r2.error) throw r2.error
+      // Échange atomique en base (RPC transactionnelle) : deux UPDATE séquentiels
+      // laissaient deux positions identiques si le second échouait.
+      const { error } = await supabase.rpc('swap_lecteur_queue_position', { a: a.id, b: b.id })
+      if (error) throw error
     },
     onMutate: async ({ a, b }) => {
       await queryClient.cancelQueries({ queryKey: LECTEUR_QUEUE_KEY })

@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Play, Pause, ExternalLink, Volume2, VolumeX } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
+import { youtubeId } from '../lecteur/lecteur.utils'
 import styles from './MediaPlayer.module.css'
 
 // URL signée d'un fichier du bucket privé family-media. Exporté pour permettre
@@ -251,17 +252,28 @@ function loadYouTubeApi(): Promise<void> {
   return ytApiPromise
 }
 
-function YouTubePlayer({ videoId, autoPlay, muted, loop, onEnded }: {
+function YouTubePlayer({ videoId, autoPlay, muted, loop, onEnded, volume }: {
   videoId: string
   autoPlay?: boolean
   muted?: boolean
   loop?: boolean
   onEnded?: () => void
+  /** Volume 0..1 contrôlé en externe (fondu de sortie du minuteur). */
+  volume?: number
 }) {
   const hostRef    = useRef<HTMLDivElement>(null)
   const onEndedRef = useRef(onEnded)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const playerRef  = useRef<any>(null)
 
   useEffect(() => { onEndedRef.current = onEnded }, [onEnded])
+
+  // Volume contrôlé en externe (fondu de sortie). setVolume attend 0..100.
+  useEffect(() => {
+    if (playerRef.current && volume != null) {
+      try { playerRef.current.setVolume(Math.round(Math.min(1, Math.max(0, volume)) * 100)) } catch { /* pas prêt */ }
+    }
+  }, [volume])
 
   useEffect(() => {
     let cancelled = false
@@ -282,7 +294,9 @@ function YouTubePlayer({ videoId, autoPlay, muted, loop, onEnded }: {
         events: {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           onReady: (e: any) => {
+            playerRef.current = e.target
             if (muted) e.target.mute()
+            if (volume != null) { try { e.target.setVolume(Math.round(Math.min(1, Math.max(0, volume)) * 100)) } catch { /* ignore */ } }
             if (autoPlay) e.target.playVideo()
             // Garantit que l'iframe peut passer en plein écran natif (Android/PC)
             try {
@@ -304,8 +318,11 @@ function YouTubePlayer({ videoId, autoPlay, muted, loop, onEnded }: {
 
     return () => {
       cancelled = true
+      playerRef.current = null
       try { player?.destroy?.() } catch { /* déjà détruit */ }
     }
+    // volume volontairement hors deps : géré par l'effet dédié, sans remonter le player.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [videoId, autoPlay, muted, loop])
 
   return (
@@ -339,13 +356,6 @@ function detectType(url: string, mimeType?: string | null): PlayerType {
   if (mimeType?.startsWith('video/') || /\.(mp4|mov|webm|m4v)(\?|#|$)/i.test(url)) return 'video'
   if (mimeType?.startsWith('audio/') || /\.(mp3|wav|m4a|ogg|flac|aac)(\?|#|$)/i.test(url)) return 'audio'
   return 'link'
-}
-
-// Extrait l'ID 11 caractères de toutes les formes courantes :
-// watch?v=, youtu.be/, /shorts/, /embed/, /live/, /v/ (+ sous-domaines m./www.)
-function youtubeId(url: string): string {
-  const m = url.match(/(?:v=|vi=|youtu\.be\/|\/shorts\/|\/embed\/|\/live\/|\/v\/)([a-zA-Z0-9_-]{11})/)
-  return m?.[1] ?? ''
 }
 
 function spotifyEmbedUrl(url: string): string {
@@ -399,6 +409,12 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
     if (videoRef.current && playbackRate) videoRef.current.playbackRate = playbackRate
   }, [playbackRate])
 
+  // Volume contrôlé en externe (fondu de sortie du minuteur). N'est appliqué que
+  // quand fourni, pour ne pas écraser le réglage de volume natif de la vidéo.
+  useEffect(() => {
+    if (videoRef.current && volume != null) videoRef.current.volume = Math.min(1, Math.max(0, volume))
+  }, [volume])
+
   if (filePath && isLoading) {
     return <div className={styles.skeleton}>Chargement du média…</div>
   }
@@ -409,7 +425,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
   const type = detectType(url, mimeType)
 
   if (type === 'youtube') {
-    return <YouTubePlayer videoId={youtubeId(url)} autoPlay={autoPlay} muted={muted} loop={loop} onEnded={onEnded} />
+    return <YouTubePlayer videoId={youtubeId(url)} autoPlay={autoPlay} muted={muted} loop={loop} onEnded={onEnded} volume={volume} />
   }
 
   if (type === 'spotify') {

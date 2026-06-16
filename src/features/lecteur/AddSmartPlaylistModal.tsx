@@ -114,6 +114,7 @@ export default function AddSmartPlaylistModal({ files, members, onClose }: {
                 { value: undefined,   label: 'Récent'       },
                 { value: 'az',        label: 'A → Z'        },
                 { value: 'oldest',    label: 'Plus anciens' },
+                { value: 'duration',  label: 'Durée'        },
               ] as { value: LecteurSmartFilters['sort']; label: string }[]).map(opt => (
                 <button key={opt.label} type="button"
                   className={[styles.smartPill, filters.sort === opt.value ? styles.smartPillActive : ''].join(' ')}
