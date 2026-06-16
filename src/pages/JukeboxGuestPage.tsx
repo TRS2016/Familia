@@ -22,8 +22,8 @@ export default function JukeboxGuestPage() {
 
   const [tracks, setTracks] = useState<Track[] | null>(null)
   const [queue, setQueue]   = useState<QueueLine[]>([])
-  const [error, setError]   = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [error, setError]   = useState<string | null>(token ? null : 'Lien manquant')
+  const [loading, setLoading] = useState(!!token)
   const [name, setName]     = useState(() => localStorage.getItem(NAME_KEY) ?? '')
 
   const [mode, setMode]     = useState<Mode>('search')
@@ -51,7 +51,10 @@ export default function JukeboxGuestPage() {
   }
 
   useEffect(() => {
-    if (!token) { setLoading(false); setError('Lien manquant'); return }
+    if (!token) return
+    // loadState est async : ses setState surviennent après await (polling), pas
+    // de cascade de rendu synchrone.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadState()
     const t = setInterval(loadState, 8000)
     return () => clearInterval(t)

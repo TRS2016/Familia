@@ -3,7 +3,7 @@ import { memberColor } from '../../lib/constants'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useAddMediaItem } from './useMedia'
 import type { MediaType } from './useMedia'
-import { TYPE_META } from './MediaRow'
+import { TYPE_META } from './mediaMeta'
 import styles from './MediaPage.module.css'
 
 const TYPES: MediaType[] = ['film', 'série', 'livre', 'jeu']

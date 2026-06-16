@@ -54,7 +54,7 @@ export function parsePrice(raw: string): number | null {
 
 export function parseCatalogCsv(text: string): CatalogCsvRow[] {
   // Retire un éventuel BOM
-  const clean = text.replace(/^﻿/, '')
+  const clean = text.replace(/^\uFEFF/, '')
   if (!clean.trim()) return []
 
   // Détecte le séparateur d'après la 1re ligne (; prioritaire, sinon ,)
@@ -95,3 +95,4 @@ export function downloadBlob(filename: string, blob: Blob): void {
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
 }
+

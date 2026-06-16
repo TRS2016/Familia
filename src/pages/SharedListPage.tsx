@@ -21,11 +21,11 @@ export default function SharedListPage() {
   const { token } = useParams<{ token: string }>()
   const [items, setItems] = useState<SharedItem[] | null>(null)
   const [listName, setListName] = useState<string | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(token ? null : 'Token manquant')
+  const [loading, setLoading] = useState(!!token)
 
   useEffect(() => {
-    if (!token) { setLoading(false); setError('Token manquant'); return }
+    if (!token) return
     fetch(`${SUPABASE_URL}/functions/v1/share-list-read?token=${token}`, {
       headers: { apikey: SUPABASE_KEY },
     })

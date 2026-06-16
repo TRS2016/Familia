@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import type { FormEvent } from 'react'
 import { format, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -8,7 +8,7 @@ import SlideUpModal from '../../components/SlideUpModal'
 import { useMember } from '../../auth/useMember'
 import { useUpdateMediaItem, useDeleteMediaItem, useUpsertMyRating } from './useMedia'
 import type { MediaItem, MediaType, UpdateMediaInput, MediaRating } from './useMedia'
-import { TYPE_META, STATUS_STYLE } from './MediaRow'
+import { TYPE_META, STATUS_STYLE } from './mediaMeta'
 import styles from './MediaPage.module.css'
 
 const TYPES: MediaType[] = ['film', 'série', 'livre', 'jeu']
@@ -38,29 +38,32 @@ export default function MediaDetailModal({ item, members, ratings, onClose, onCy
   const myRating = ratings.find(r => r.member_id === member?.id) ?? null
   const othersRatings = ratings.filter(r => r.member_id !== member?.id && (r.rating != null || r.comment))
 
+  const draftFromItem = (it: MediaItem): EditDraft => ({
+    title:           it.title,
+    type:            it.type,
+    author_director: it.author_director ?? '',
+    release_year:    it.release_year != null ? String(it.release_year) : '',
+    genre:           it.genre ?? '',
+    external_url:    it.external_url ?? '',
+  })
+
   const [editMode, setEditMode]     = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const [commentText, setCommentText] = useState(myRating?.comment ?? '')
-  const [editDraft, setEditDraft]   = useState<EditDraft>({
-    title:           item.title,
-    type:            item.type,
-    author_director: item.author_director ?? '',
-    release_year:    item.release_year != null ? String(item.release_year) : '',
-    genre:           item.genre ?? '',
-    external_url:    item.external_url ?? '',
-  })
+  const [editDraft, setEditDraft]   = useState<EditDraft>(() => draftFromItem(item))
 
-  useEffect(() => { setCommentText(myRating?.comment ?? '') }, [myRating?.comment])
-  useEffect(() => {
-    setEditDraft({
-      title:           item.title,
-      type:            item.type,
-      author_director: item.author_director ?? '',
-      release_year:    item.release_year != null ? String(item.release_year) : '',
-      genre:           item.genre ?? '',
-      external_url:    item.external_url ?? '',
-    })
-  }, [item.id]) // eslint-disable-line react-hooks/exhaustive-deps
+  // Resync de l'état éditable quand la prop change (ajustement pendant le rendu,
+  // pattern React recommandé plutôt qu'un setState en effet).
+  const [prevComment, setPrevComment] = useState(myRating?.comment ?? null)
+  if (prevComment !== (myRating?.comment ?? null)) {
+    setPrevComment(myRating?.comment ?? null)
+    setCommentText(myRating?.comment ?? '')
+  }
+  const [prevItemId, setPrevItemId] = useState(item.id)
+  if (prevItemId !== item.id) {
+    setPrevItemId(item.id)
+    setEditDraft(draftFromItem(item))
+  }
 
   function onUpdate(fields: Omit<UpdateMediaInput, 'id'>) {
     updateItem.mutate({ id: item.id, ...fields })

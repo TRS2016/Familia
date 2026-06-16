@@ -154,7 +154,7 @@ export default function GroceriesPage() {
 
   // ── Données dérivées ────────────────────────────────────────────────────────
   // Source unique : la liste partagée Supabase (les deux vues l'utilisent).
-  const allItems = query.data ?? []
+  const allItems = useMemo(() => query.data ?? [], [query.data])
   const checkedItems   = allItems.filter(g => g.checked)
   const uncheckedItems = allItems.filter(g => !g.checked)
   const checkedDisplay = useMemo(() => {

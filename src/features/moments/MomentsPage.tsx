@@ -377,7 +377,7 @@ function AlbumShareModal({ urls, onClose }: { urls: string[]; onClose: () => voi
   const [sharing, setSharing]   = useState(false)
 
   function toggle(i: number) {
-    setSelected(s => { const n = new Set(s); n.has(i) ? n.delete(i) : n.add(i); return n })
+    setSelected(s => { const n = new Set(s); if (n.has(i)) n.delete(i); else n.add(i); return n })
   }
 
   const allSelected = selected.size === urls.length

@@ -832,12 +832,12 @@ function RunScreen({ mode, config, title, onExit }: {
   const [videoEx, setVideoEx] = useState<Exercise | null>(null)
 
   // Record For Time : capture le meilleur temps connu AVANT cette séance
-  const prevBestRef = useRef<number | undefined>(undefined)
+  const [prevBest, setPrevBest] = useState<number | undefined>(undefined)
   const prevBestCaptured = useRef(false)
   useEffect(() => {
     if (!prevBestCaptured.current && mode === 'fortime' && records) {
       prevBestCaptured.current = true
-      prevBestRef.current = records.get(title)
+      setPrevBest(records.get(title))
     }
   }, [records, title, mode])
 
@@ -850,8 +850,13 @@ function RunScreen({ mode, config, title, onExit }: {
   // Démo affichée inline pendant l'effort (toggle « Voir la démo »).
   const [workDemo, setWorkDemo]     = useState(false)
   const [demoClosed, setDemoClosed] = useState(false) // fermée pour la phase en cours
-  // Tout se réinitialise à chaque nouvelle phase.
-  useEffect(() => { setWorkDemo(false); setDemoClosed(false) }, [view.phaseIndex])
+  // Tout se réinitialise à chaque nouvelle phase (ajustement pendant le rendu).
+  const [prevPhaseIndex, setPrevPhaseIndex] = useState(view.phaseIndex)
+  if (prevPhaseIndex !== view.phaseIndex) {
+    setPrevPhaseIndex(view.phaseIndex)
+    setWorkDemo(false)
+    setDemoClosed(false)
+  }
   const inlineDemo = exerciseHasVideo(demoEx ?? undefined) && (isRestLike || workDemo)
   const showDemo   = inlineDemo && !demoClosed
   // Démo affichée : anneau réduit, vidéo agrandie.
@@ -896,7 +901,6 @@ function RunScreen({ mode, config, title, onExit }: {
 
   // Record For Time : la séance compte si l'objectif est atteint (ou sans objectif)
   const ftCompleted = mode === 'fortime' && (!config.target || taps >= config.target)
-  const prevBest = prevBestRef.current
   const isNewRecord = done && ftCompleted && (prevBest === undefined || view.elapsedTotal < prevBest)
 
   function handleClose() {

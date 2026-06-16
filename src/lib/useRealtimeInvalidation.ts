@@ -25,7 +25,7 @@ export interface RealtimeSub {
 export function useRealtimeInvalidation(channelName: string, subs: RealtimeSub[]) {
   const queryClient = useQueryClient()
   const subsRef = useRef(subs)
-  subsRef.current = subs
+  useEffect(() => { subsRef.current = subs })
 
   useEffect(() => {
     const pending = new Map<string, QueryKey>()

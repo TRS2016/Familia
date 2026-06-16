@@ -16,7 +16,7 @@ export default function SlideUpModal({ title, onClose, children }: Props) {
   // Garde une réf. à jour de onClose sans relancer l'effet de montage à chaque
   // render (sinon le focus initial volerait le focus des champs à chaque frappe).
   const onCloseRef = useRef(onClose)
-  onCloseRef.current = onClose
+  useEffect(() => { onCloseRef.current = onClose })
 
   // Fermeture clavier (Échap) + verrou du scroll de la page sous la modale.
   // Effet exécuté une seule fois au montage.

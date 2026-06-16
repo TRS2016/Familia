@@ -103,8 +103,12 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
 
   const mutedRef = useRef(!!opts.muted)
   const voiceRef = useRef(!!opts.voice)
-  mutedRef.current = !!opts.muted
-  voiceRef.current = !!opts.voice
+  // Réf. à jour des options son/voix lues dans les callbacks/timer sans relancer
+  // d'effet (écriture en effet plutôt qu'en corps de rendu).
+  useEffect(() => {
+    mutedRef.current = !!opts.muted
+    voiceRef.current = !!opts.voice
+  })
 
   const speak = useCallback((text: string) => {
     if (!mutedRef.current && voiceRef.current) speakRaw(text)

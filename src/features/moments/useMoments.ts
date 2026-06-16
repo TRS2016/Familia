@@ -208,7 +208,6 @@ export function useAddMoment() {
       if (error) throw error
 
       if (uploadedPaths.length > 0) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const { error: photoErr } = await supabase
           .from('moment_photos')
           .insert(uploadedPaths.map((path, i) => ({
