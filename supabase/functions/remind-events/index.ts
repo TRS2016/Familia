@@ -1,15 +1,11 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import webpush from 'npm:web-push@3.6.7'
+import { configureWebPush, sendPush, cleanupAndTouch, parisDate } from '../_shared/push.ts'
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
   })
-}
-
-function parisDate(d: Date): string {
-  return d.toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' })
 }
 
 // Décalage (en minutes) de Paris par rapport à UTC à l'instant donné (gère l'heure d'été).
@@ -75,11 +71,15 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Filter events whose reminder instant matches now (±5 min) ──────────────
-  const candidates = events.filter((e) => {
-    const ev = e as { date: string; start_time: string; reminder_minutes: number }
-    const triggerMs = parisWallToUtcMs(ev.date, ev.start_time) - ev.reminder_minutes * 60000
-    return Math.abs(nowMs - triggerMs) <= 5 * 60000
-  })
+  // On garde l'instant de déclenchement : il sert de clé de dédup (re-notifie si
+  // l'événement est modifié → instant différent).
+  const candidates = events
+    .map((e) => {
+      const ev = e as { date: string; start_time: string; reminder_minutes: number }
+      const triggerMs = parisWallToUtcMs(ev.date, ev.start_time) - ev.reminder_minutes * 60000
+      return { e, triggerMs }
+    })
+    .filter(({ triggerMs }) => Math.abs(nowMs - triggerMs) <= 5 * 60000)
 
   if (candidates.length === 0) {
     console.log('[remind-events] No reminders due now.')
@@ -88,15 +88,21 @@ Deno.serve(async (req: Request) => {
 
   console.log(`[remind-events] ${candidates.length} reminder(s) due.`)
 
-  // ── Filter out already-reminded events ────────────────────────────────────
-  const candidateIds = candidates.map((e: { id: string }) => e.id)
+  // ── Filter out reminders already sent FOR THIS trigger instant ─────────────
+  const candidateIds = candidates.map(({ e }) => (e as { id: string }).id)
   const { data: alreadySent } = await supabase
     .from('event_reminders_sent')
-    .select('event_id')
+    .select('event_id, trigger_at')
     .in('event_id', candidateIds)
 
-  const sentIds = new Set((alreadySent ?? []).map((r: { event_id: string }) => r.event_id))
-  const toRemind = candidates.filter((e: { id: string }) => !sentIds.has(e.id))
+  const sentKeys = new Set(
+    (alreadySent ?? [])
+      .filter((r: { trigger_at: string | null }) => r.trigger_at != null)
+      .map((r: { event_id: string; trigger_at: string }) => `${r.event_id}|${Date.parse(r.trigger_at)}`)
+  )
+  const toRemind = candidates.filter(
+    ({ e, triggerMs }) => !sentKeys.has(`${(e as { id: string }).id}|${triggerMs}`)
+  )
 
   if (toRemind.length === 0) {
     console.log('[remind-events] All due reminders already sent.')
@@ -104,22 +110,15 @@ Deno.serve(async (req: Request) => {
   }
 
   // ── Setup web-push ─────────────────────────────────────────────────────────
-  const vapidPublicKey  = Deno.env.get('VAPID_PUBLIC_KEY')
-  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')
-  if (!vapidPublicKey || !vapidPrivateKey) {
+  if (!configureWebPush()) {
     console.error('[remind-events] Missing VAPID keys')
     return json({ error: 'Server misconfiguration' }, 500)
   }
-  webpush.setVapidDetails(
-    Deno.env.get('VAPID_CONTACT_EMAIL') ?? 'mailto:dyrecas@gmail.com',
-    vapidPublicKey,
-    vapidPrivateKey,
-  )
 
   let totalSent = 0
 
-  for (const event of toRemind) {
-    const ev = event as {
+  for (const { e, triggerMs } of toRemind) {
+    const ev = e as {
       id: string; title: string; start_time: string; reminder_minutes: number
       household_id: string; location: string | null
     }
@@ -146,33 +145,20 @@ Deno.serve(async (req: Request) => {
       title: `⏰ Rappel : ${ev.title}`,
       body: `Dans ${label}${ev.location ? ` · ${ev.location}` : ''} à ${ev.start_time}`,
       module: 'calendar',
+      tag: `event-${ev.id}`,
+      actions: [{ action: 'view', title: 'Voir' }],
     })
 
-    const deadEndpoints: string[] = []
-
-    await Promise.allSettled(
-      subscriptions.map((sub: { endpoint: string; p256dh: string; auth: string }) =>
-        webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          payload,
-        ).then(
-          () => { totalSent++ },
-          (err: { statusCode?: number }) => {
-            if (err?.statusCode === 410 || err?.statusCode === 404) {
-              deadEndpoints.push(sub.endpoint)
-            }
-          },
-        )
-      )
-    )
-
-    if (deadEndpoints.length > 0) {
-      await supabase.from('push_subscriptions').delete().in('endpoint', deadEndpoints)
-    }
+    const { sent, dead, ok } = await sendPush(subscriptions, payload)
+    totalSent += sent
+    await cleanupAndTouch(supabase, dead, ok)
 
     await supabase
       .from('event_reminders_sent')
-      .upsert({ event_id: ev.id }, { onConflict: 'event_id', ignoreDuplicates: true })
+      .upsert(
+        { event_id: ev.id, trigger_at: new Date(triggerMs).toISOString() },
+        { onConflict: 'event_id,trigger_at', ignoreDuplicates: true },
+      )
 
     console.log(`[remind-events] Reminded "${ev.title}" (${label} before) → ${totalSent} push(es) sent.`)
   }

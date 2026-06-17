@@ -64,10 +64,14 @@ registerRoute(
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
+interface NotificationAction { action: string; title: string }
+
 interface PushPayload {
   title: string
   body: string
   module?: string
+  tag?: string
+  actions?: NotificationAction[]
   data?: Record<string, unknown>
 }
 
@@ -80,6 +84,9 @@ const MODULE_ROUTES: Record<string, string> = {
   habits:    '/habits',
   media:     '/media',
   moments:   '/moments',
+  training:  '/training',
+  velov:     '/velov',
+  home:      '/',
 }
 
 // ── Push listener ─────────────────────────────────────────────────────────
@@ -95,7 +102,7 @@ self.addEventListener('push', (event) => {
     return
   }
 
-  const { title = 'Familia', body = '', module, data } = payload
+  const { title = 'Familia', body = '', module, tag, actions, data } = payload
 
   console.log('[sw] Push received — module:', module ?? 'none')
 
@@ -104,9 +111,13 @@ self.addEventListener('push', (event) => {
       body,
       icon: '/pwa-192x192.png',
       badge: '/pwa-64x64.png',
+      // tag : regroupe/remplace les rappels d'une même entité (au lieu d'empiler).
+      ...(tag ? { tag, renotify: true } : {}),
+      vibrate: [80, 40, 80],
+      actions: actions ?? [],
       // Stored in event.notification.data for the notificationclick handler
       data: { module, ...data },
-    })
+    } as NotificationOptions)
   )
 })
 

@@ -44,22 +44,25 @@ export type Database = {
           event_id: string
           id: string
           reminded_at: string | null
+          trigger_at: string | null
         }
         Insert: {
           event_id: string
           id?: string
           reminded_at?: string | null
+          trigger_at?: string | null
         }
         Update: {
           event_id?: string
           id?: string
           reminded_at?: string | null
+          trigger_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "event_reminders_sent_event_id_fkey"
             columns: ["event_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },

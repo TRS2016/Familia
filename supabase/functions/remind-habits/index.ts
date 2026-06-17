@@ -1,15 +1,11 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
-import webpush from 'npm:web-push@3.6.7'
+import { configureWebPush, sendPush, cleanupAndTouch, parisDate } from '../_shared/push.ts'
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
     status,
     headers: { 'Content-Type': 'application/json' },
   })
-}
-
-function parisDate(d: Date): string {
-  return d.toLocaleDateString('fr-CA', { timeZone: 'Europe/Paris' })
 }
 
 function parisTimeStr(d: Date): string {
@@ -97,17 +93,10 @@ Deno.serve(async (_req: Request) => {
   }
 
   // Setup web-push
-  const vapidPublicKey  = Deno.env.get('VAPID_PUBLIC_KEY')
-  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')
-  if (!vapidPublicKey || !vapidPrivateKey) {
+  if (!configureWebPush()) {
     console.error('[remind-habits] Missing VAPID keys')
     return json({ error: 'Server misconfiguration' }, 500)
   }
-  webpush.setVapidDetails(
-    Deno.env.get('VAPID_CONTACT_EMAIL') ?? 'mailto:dyrecas@gmail.com',
-    vapidPublicKey,
-    vapidPrivateKey,
-  )
 
   let totalSent = 0
 
@@ -138,29 +127,13 @@ Deno.serve(async (_req: Request) => {
       title: `${h.emoji} ${h.name}`,
       body: `C'est l'heure de ton habitude !`,
       module: 'habits',
+      tag: `habit-${h.id}`,
+      actions: [{ action: 'done', title: 'Fait ✓' }],
     })
 
-    const deadEndpoints: string[] = []
-
-    await Promise.allSettled(
-      subscriptions.map((sub: { endpoint: string; p256dh: string; auth: string }) =>
-        webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          payload,
-        ).then(
-          () => { totalSent++ },
-          (err: { statusCode?: number }) => {
-            if (err?.statusCode === 410 || err?.statusCode === 404) {
-              deadEndpoints.push(sub.endpoint)
-            }
-          },
-        )
-      )
-    )
-
-    if (deadEndpoints.length > 0) {
-      await supabase.from('push_subscriptions').delete().in('endpoint', deadEndpoints)
-    }
+    const { sent, dead, ok } = await sendPush(subscriptions, payload)
+    totalSent += sent
+    await cleanupAndTouch(supabase, dead, ok)
 
     await supabase
       .from('habit_reminders_sent')

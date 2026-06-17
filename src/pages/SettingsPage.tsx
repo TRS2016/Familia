@@ -10,6 +10,7 @@ import { QK } from '../lib/query-keys'
 import { useMember } from '../auth/useMember'
 import type { Member } from '../auth/useMember'
 import { useNotificationToggle } from '../auth/useNotificationToggle'
+import { showLocalTestNotification } from '../lib/push'
 import { useToast } from '../components/useToast'
 import { MEMBER_PALETTE } from '../lib/constants'
 import { useTheme } from '../lib/useTheme'
@@ -121,16 +122,16 @@ export default function SettingsPage() {
   const [testingNotif, setTestingNotif] = useState(false)
 
   async function handleTestNotification() {
-    if (!session) return
     setTestingNotif(true)
-    const { error } = await supabase.functions.invoke('notify-household', {
-      body: { title: 'Test Familia 🔔', body: 'Notification test — si tu vois ça, les push fonctionnent !' },
-    })
-    setTestingNotif(false)
-    if (error) {
-      showToast({ type: 'error', message: 'Échec du test : ' + (error.message ?? 'inconnu') })
-    } else {
-      showToast({ type: 'success', message: 'Envoyé ! Vérifiez les notifications sur l\'autre appareil.' })
+    try {
+      // Test local : affiche une notification sur CET appareil (notify-household
+      // exclut l'émetteur, donc inutile pour vérifier ses propres notifs).
+      await showLocalTestNotification()
+      showToast({ type: 'success', message: 'Notification affichée sur cet appareil ✅' })
+    } catch {
+      showToast({ type: 'error', message: 'Active d\'abord les notifications sur cet appareil.' })
+    } finally {
+      setTestingNotif(false)
     }
   }
 

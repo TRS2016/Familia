@@ -1,6 +1,7 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import webpush from 'npm:web-push@3.6.7'
 import { corsHeaders } from '../_shared/cors.ts'
+import { configureWebPush } from '../_shared/push.ts'
 
 // ── Types ─────────────────────────────────────────────────────────────────
 
@@ -213,21 +214,16 @@ Deno.serve(async (req: Request) => {
 
   // ── 5. Send notifications ─────────────────────────────────────────────────
 
-  const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY')
-  const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY')
-
-  if (!vapidPublicKey || !vapidPrivateKey) {
+  if (!configureWebPush()) {
     console.error('[notify-household] Missing VAPID_PUBLIC_KEY or VAPID_PRIVATE_KEY env vars')
     return err('Server misconfiguration: VAPID keys not set', 500)
   }
-
-  const vapidContact = Deno.env.get('VAPID_CONTACT_EMAIL') ?? 'mailto:dyrecas@gmail.com'
-  webpush.setVapidDetails(vapidContact, vapidPublicKey, vapidPrivateKey)
 
   console.log('[notify-household] Sending push to', subscriptions.length, 'subscription(s)...')
 
   const payloadString = JSON.stringify(payload)
   const deadEndpoints: string[] = []
+  const sentEndpoints: string[] = []
   const details: SendDetail[] = []
   let sent = 0
   let failed = 0
@@ -255,6 +251,7 @@ Deno.serve(async (req: Request) => {
         `(…${endpointHash(sub.endpoint)}) — HTTP ${statusCode}`,
       )
       sent++
+      sentEndpoints.push(sub.endpoint)
       details.push({ member_id: sub.member_id, display_name: displayName, endpoint_hash: endpointHash(sub.endpoint), status: 'sent' })
     } else {
       const { sub, error: rawError } = result.reason as { sub: PushSubscription; error: { statusCode?: number; message?: string } }
@@ -298,6 +295,14 @@ Deno.serve(async (req: Request) => {
     } else {
       removedDeadSubscriptions = count ?? 0
     }
+  }
+
+  // Rafraîchit last_used_at des abonnements ayant reçu le push (utile pour purger
+  // un jour les abonnements réellement dormants).
+  if (sentEndpoints.length > 0) {
+    await supabase.from('push_subscriptions')
+      .update({ last_used_at: new Date().toISOString() })
+      .in('endpoint', sentEndpoints)
   }
 
   console.log(

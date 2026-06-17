@@ -110,6 +110,24 @@ export async function subscribeToPush(): Promise<void> {
   if (error) throw new PushError('DB_ERROR', error.message)
 }
 
+// Notification de test affichée LOCALEMENT sur l'appareil courant. `notify-household`
+// exclut toujours l'émetteur → on ne pouvait pas vérifier ses propres notifications.
+// Ici on déclenche directement le service worker : feedback immédiat, sans serveur.
+export async function showLocalTestNotification(): Promise<void> {
+  if (!isPushSupported()) throw new PushError('NOT_SUPPORTED', 'Push not supported')
+  if (Notification.permission !== 'granted') throw new PushError('PERMISSION_DENIED', 'Permission not granted')
+  const registration = await navigator.serviceWorker.ready.catch(() => null)
+  if (!registration) throw new PushError('SW_TIMEOUT', 'Service worker not ready')
+  await registration.showNotification('Test Familia 🔔', {
+    body: 'Si tu vois ceci, les notifications fonctionnent sur cet appareil ✅',
+    icon: '/pwa-192x192.png',
+    badge: '/pwa-64x64.png',
+    tag: 'familia-self-test',
+    data: { module: 'home' },
+    vibrate: [80, 40, 80],
+  } as NotificationOptions)
+}
+
 export async function unsubscribeFromPush(): Promise<void> {
   if (!isPushSupported()) return
 
