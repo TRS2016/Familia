@@ -13,6 +13,7 @@ import { useMember } from '../auth/useMember'
 import { GROCERIES_KEY } from '../features/groceries/useGroceries'
 import { useToggleCompletion, completionsKey } from '../features/habits/useHabits'
 import { calcStreak } from '../features/habits/habits.utils'
+import ChoresHomeWidget from '../features/chores/ChoresHomeWidget'
 import type { HabitCompletion } from '../features/habits/useHabits'
 import { QK } from '../lib/query-keys'
 import { useToast } from '../components/useToast'
@@ -520,6 +521,13 @@ export default function HomePage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Widget — Tâches / gamification */}
+      {householdDetails && householdDetails.members.length > 0 && (
+        <div className={styles.widget}>
+          <ChoresHomeWidget members={householdDetails.members} />
         </div>
       )}
 

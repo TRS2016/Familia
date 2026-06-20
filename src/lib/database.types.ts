@@ -336,6 +336,50 @@ export type Database = {
           },
         ]
       }
+      family_goals: {
+        Row: {
+          active: boolean
+          created_at: string
+          household_id: string
+          id: string
+          label: string
+          period: string
+          period_start: string
+          reward_text: string | null
+          target_points: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          household_id: string
+          id?: string
+          label: string
+          period?: string
+          period_start?: string
+          reward_text?: string | null
+          target_points: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          household_id?: string
+          id?: string
+          label?: string
+          period?: string
+          period_start?: string
+          reward_text?: string | null
+          target_points?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "family_goals_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       groceries: {
         Row: {
           category: string | null
@@ -1080,6 +1124,45 @@ export type Database = {
           },
           {
             foreignKeyName: "media_ratings_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      member_achievements: {
+        Row: {
+          achievement_key: string
+          household_id: string
+          id: string
+          member_id: string
+          unlocked_at: string
+        }
+        Insert: {
+          achievement_key: string
+          household_id: string
+          id?: string
+          member_id: string
+          unlocked_at?: string
+        }
+        Update: {
+          achievement_key?: string
+          household_id?: string
+          id?: string
+          member_id?: string
+          unlocked_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "member_achievements_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "member_achievements_member_id_fkey"
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "members"
