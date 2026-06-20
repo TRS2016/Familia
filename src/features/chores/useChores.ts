@@ -192,6 +192,34 @@ export function useEditChore() {
   })
 }
 
+/** Suppression définitive d'une tâche du catalogue. Les assignations liées sont
+ *  supprimées en cascade (FK), mais les logs/points déjà gagnés sont conservés
+ *  (chore_logs.chore_id passe à NULL via ON DELETE SET NULL). */
+export function useDeleteChore() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('chores').delete().eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: CHORES_KEY })
+      const previous = queryClient.getQueryData<Chore[]>(CHORES_KEY) ?? []
+      queryClient.setQueryData<Chore[]>(CHORES_KEY, previous.filter(c => c.id !== id))
+      return { previous }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_KEY })
+      queryClient.invalidateQueries({ queryKey: LOGS_KEY })
+    },
+    onError: (_e, _id, ctx) => {
+      queryClient.setQueryData(CHORES_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de supprimer la tâche.' })
+    },
+  })
+}
+
 export function useArchiveChore() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()

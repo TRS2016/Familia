@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, addDays, startOfWeek, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Check, Undo2, Pencil, Archive } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Check, Undo2, Pencil, Trash2 } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -10,7 +10,7 @@ import { useMember } from '../../auth/useMember'
 import { memberColor } from '../../lib/constants'
 import {
   useChores, useChoreAssignments, useRecentChoreLogs, useHouseholdMembers,
-  useAddChore, useEditChore, useArchiveChore,
+  useAddChore, useEditChore, useDeleteChore,
   useMaterializeAssignments, useLogChore, useUndoChoreLog,
 } from './useChores'
 import type { Chore } from './useChores'
@@ -42,7 +42,7 @@ export default function ChoresPage() {
   const undoLog = useUndoChoreLog()
   const addChore = useAddChore()
   const editChore = useEditChore()
-  const archiveChore = useArchiveChore()
+  const deleteChore = useDeleteChore()
 
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Chore | null>(null)
@@ -209,7 +209,7 @@ export default function ChoresPage() {
                     </span>
                   </div>
                   <button className={styles.iconBtn} onClick={() => { setEditing(chore); setFormOpen(true) }} aria-label="Modifier"><Pencil size={16} /></button>
-                  <button className={styles.iconBtn} onClick={() => { if (confirm(`Archiver « ${chore.name} » ?`)) archiveChore.mutate(chore.id) }} aria-label="Archiver"><Archive size={16} /></button>
+                  <button className={styles.iconBtn} onClick={() => { if (confirm(`Supprimer « ${chore.name} » ? Les points déjà gagnés sont conservés.`)) deleteChore.mutate(chore.id) }} aria-label="Supprimer"><Trash2 size={16} /></button>
                 </li>
               )
             })}
