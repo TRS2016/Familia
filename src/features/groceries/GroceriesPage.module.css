@@ -59,6 +59,7 @@
   align-items: center;
   gap: 8px;
   flex: 1;
+  min-width: 0; /* autorise la zone centrale à rétrécir pour que les actions tiennent */
   justify-content: center;
 }
 
@@ -69,6 +70,9 @@
   color: var(--text);
   letter-spacing: -0.2px;
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .progressChip {
