@@ -86,6 +86,10 @@
   display: flex; align-items: center; justify-content: center;
   border-radius: 12px; font-size: 20px;
 }
+.rowOpen {
+  flex: 1; display: flex; align-items: center; gap: 12px; min-width: 0;
+  background: none; border: none; padding: 0; cursor: pointer; text-align: left; font-family: var(--font-family);
+}
 .rowMain { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .rowName { font-weight: 800; color: var(--text); font-size: 15px; }
 .rowMeta { display: flex; align-items: center; gap: 8px; font-size: var(--text-2xs); color: var(--text-muted, #888); flex-wrap: wrap; }
@@ -107,6 +111,26 @@
 .iconBtn { background: transparent; color: var(--text-muted, #999); width: 34px; height: 34px; }
 .iconBtn:hover { background: var(--bg-input); }
 
+/* ── Fiche de détail ─────────────────────────────────────────────────────── */
+
+.detail { display: flex; flex-direction: column; gap: 16px; padding: 4px 16px 20px; }
+.detailBlock { display: flex; flex-direction: column; gap: 8px; }
+.instructions { margin: 0; font-size: 14px; line-height: 1.5; color: var(--text); white-space: pre-wrap; }
+.stepList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.stepItem {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left;
+  padding: 10px 12px; border-radius: 12px; border: none; cursor: pointer;
+  background: var(--bg-input); color: var(--text); font-family: var(--font-family); font-size: 14px;
+}
+.stepItemDone .stepText { text-decoration: line-through; opacity: 0.6; }
+.stepCheck {
+  width: 24px; height: 24px; flex-shrink: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-card, #fff); font-size: 12px; font-weight: 800; color: var(--text-muted, #999);
+}
+.stepItemDone .stepCheck { background: var(--accent); color: #fff; }
+.stepText { flex: 1; }
+
 /* ── Form ────────────────────────────────────────────────────────────────── */
 
 .form { display: flex; flex-direction: column; gap: 16px; padding: 4px 16px 20px; }
@@ -121,6 +145,27 @@
   font-family: var(--font-family); font-size: 15px;
 }
 .input:focus { outline: none; border-color: var(--accent); }
+
+.textarea {
+  width: 100%; box-sizing: border-box; padding: 10px 12px; resize: vertical;
+  border-radius: 12px; border: 1.5px solid var(--border, #e5ddd0);
+  background: var(--bg-input); color: var(--text);
+  font-family: var(--font-family); font-size: 14px; line-height: 1.45;
+}
+.textarea:focus { outline: none; border-color: var(--accent); }
+
+.stepEditRow { display: flex; align-items: center; gap: 6px; margin-bottom: 6px; }
+.stepEditRow .input { flex: 1; }
+.stepNum {
+  width: 22px; height: 22px; flex-shrink: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-input); font-size: 12px; font-weight: 800; color: var(--text-muted, #888);
+}
+.addStepBtn {
+  align-self: flex-start; margin-top: 2px; padding: 7px 12px; border-radius: 99px;
+  border: 1.5px dashed var(--border, #d8cdb8); background: transparent; cursor: pointer;
+  font-family: var(--font-family); font-weight: 700; font-size: var(--text-2xs); color: var(--accent);
+}
 
 .chipRow { display: flex; flex-wrap: wrap; gap: 6px; }
 .chip {

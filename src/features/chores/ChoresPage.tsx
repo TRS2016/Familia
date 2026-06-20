@@ -11,9 +11,9 @@ import { memberColor } from '../../lib/constants'
 import {
   useChores, useChoreAssignments, useRecentChoreLogs, useHouseholdMembers,
   useAddChore, useEditChore, useDeleteChore,
-  useMaterializeAssignments, useLogChore, useUndoChoreLog,
+  useMaterializeAssignments, useLogChore, useUndoChoreLog, useToggleStep,
 } from './useChores'
-import type { Chore } from './useChores'
+import type { Chore, ChoreAssignment } from './useChores'
 import { useChoresRealtime } from './useChoresRealtime'
 import { isApplicable, dueMemberFor, weekDates } from './chores.utils'
 import { categoryOf } from './categories'
@@ -47,6 +47,8 @@ export default function ChoresPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Chore | null>(null)
   const [adHocOpen, setAdHocOpen] = useState(false)
+  const [detailId, setDetailId] = useState<string | null>(null)
+  const toggleStep = useToggleStep()
 
   const memberColorById = useMemo(() => {
     const m = new Map<string, string>()
@@ -163,16 +165,23 @@ export default function ChoresPage() {
                 const done = a.status === 'done' || !!logId
                 const assignee = a.member_id ? members.find(m => m.id === a.member_id) : null
                 const color = a.member_id ? memberColorById.get(a.member_id) : 'var(--accent)'
+                const hasDetail = !!chore.instructions || chore.steps.length > 0
+                const stepsTotal = chore.steps.length
+                const stepsDone = a.steps_done.filter(i => i < stepsTotal).length
                 return (
                   <li key={a.id} className={[styles.row, done ? styles.rowDone : ''].join(' ')}>
-                    <span className={styles.rowEmoji} style={{ background: (chore.color ?? categoryOf(chore.category).color) + '22' }}>{chore.emoji}</span>
-                    <div className={styles.rowMain}>
-                      <span className={styles.rowName}>{chore.name}</span>
-                      <span className={styles.rowMeta}>
-                        {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
-                        <span className={styles.points}>+{chore.points} pts</span>
-                      </span>
-                    </div>
+                    <button className={styles.rowOpen} onClick={() => setDetailId(a.id)}>
+                      <span className={styles.rowEmoji} style={{ background: (chore.color ?? categoryOf(chore.category).color) + '22' }}>{chore.emoji}</span>
+                      <div className={styles.rowMain}>
+                        <span className={styles.rowName}>{chore.name}</span>
+                        <span className={styles.rowMeta}>
+                          {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
+                          <span className={styles.points}>+{chore.points} pts</span>
+                          {stepsTotal > 0 && <span className={styles.rotBadge}>{stepsDone}/{stepsTotal} étapes</span>}
+                          {hasDetail && stepsTotal === 0 && <span className={styles.rotBadge}>consignes</span>}
+                        </span>
+                      </div>
+                    </button>
                     {done ? (
                       <button className={styles.undoBtn} disabled={!logId || logId.startsWith('opt-')} onClick={() => logId && !logId.startsWith('opt-') && undoLog.mutate(logId)} aria-label="Annuler">
                         <Undo2 size={16} />
@@ -229,6 +238,23 @@ export default function ChoresPage() {
         />
       )}
 
+      {detailId && (() => {
+        const a = dayAssignments.find(x => x.id === detailId)
+        const chore = a ? choreById.get(a.chore_id) : undefined
+        if (!a || !chore) return null
+        const logId = logByAssignment.get(a.id)
+        const done = a.status === 'done' || !!logId
+        return (
+          <TaskDetailSheet
+            chore={chore} assignment={a} done={done}
+            onToggleStep={(stepsDone) => toggleStep.mutate({ assignmentId: a.id, stepsDone })}
+            onMarkDone={() => { markDone(a.id, chore, a.member_id); setDetailId(null) }}
+            onUndo={() => { if (logId && !logId.startsWith('opt-')) undoLog.mutate(logId); setDetailId(null) }}
+            onClose={() => setDetailId(null)}
+          />
+        )
+      })()}
+
       {adHocOpen && (
         <AdHocModal
           chores={chores}
@@ -239,6 +265,63 @@ export default function ChoresPage() {
         />
       )}
     </div>
+  )
+}
+
+// ── Fiche de détail d'une tâche (consignes + étapes partagées) ────────────────
+
+interface DetailProps {
+  chore: Chore
+  assignment: ChoreAssignment
+  done: boolean
+  onToggleStep: (stepsDone: number[]) => void
+  onMarkDone: () => void
+  onUndo: () => void
+  onClose: () => void
+}
+
+function TaskDetailSheet({ chore, assignment, done, onToggleStep, onMarkDone, onUndo, onClose }: DetailProps) {
+  const doneSet = new Set(assignment.steps_done)
+  function toggle(i: number) {
+    const next = new Set(doneSet)
+    if (next.has(i)) next.delete(i); else next.add(i)
+    onToggleStep([...next].sort((a, b) => a - b))
+  }
+  const completed = chore.steps.filter((_, i) => doneSet.has(i)).length
+
+  return (
+    <SlideUpModal title={`${chore.emoji} ${chore.name}`} onClose={onClose}>
+      <div className={styles.detail}>
+        <span className={styles.points}>+{chore.points} pts</span>
+
+        {chore.instructions && (
+          <div className={styles.detailBlock}>
+            <span className={styles.label}>Consignes</span>
+            <p className={styles.instructions}>{chore.instructions}</p>
+          </div>
+        )}
+
+        {chore.steps.length > 0 && (
+          <div className={styles.detailBlock}>
+            <span className={styles.label}>Étapes · {completed}/{chore.steps.length}</span>
+            <ul className={styles.stepList}>
+              {chore.steps.map((s, i) => (
+                <li key={i}>
+                  <button type="button" className={[styles.stepItem, doneSet.has(i) ? styles.stepItemDone : ''].join(' ')} onClick={() => toggle(i)}>
+                    <span className={styles.stepCheck}>{doneSet.has(i) ? <Check size={14} /> : i + 1}</span>
+                    <span className={styles.stepText}>{s}</span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {done
+          ? <button className={styles.deleteBtn} onClick={onUndo}>Annuler « fait »</button>
+          : <button className={styles.submitBtn} onClick={onMarkDone}>Marquer fait</button>}
+      </div>
+    </SlideUpModal>
   )
 }
 

@@ -48,6 +48,7 @@ export type Database = {
           id: string
           member_id: string | null
           status: string
+          steps_done: number[]
         }
         Insert: {
           chore_id: string
@@ -57,6 +58,7 @@ export type Database = {
           id?: string
           member_id?: string | null
           status?: string
+          steps_done?: number[]
         }
         Update: {
           chore_id?: string
@@ -66,6 +68,7 @@ export type Database = {
           id?: string
           member_id?: string | null
           status?: string
+          steps_done?: number[]
         }
         Relationships: [
           {
@@ -159,6 +162,32 @@ export type Database = {
           },
         ]
       }
+      chore_reminders_sent: {
+        Row: {
+          assignment_id: string
+          id: string
+          sent_date: string
+        }
+        Insert: {
+          assignment_id: string
+          id?: string
+          sent_date?: string
+        }
+        Update: {
+          assignment_id?: string
+          id?: string
+          sent_date?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chore_reminders_sent_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "chore_assignments"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chores: {
         Row: {
           archived_at: string | null
@@ -171,12 +200,14 @@ export type Database = {
           frequency_days: number[] | null
           household_id: string
           id: string
+          instructions: string | null
           name: string
           points: number
           position: number | null
           rotation_member_ids: string[] | null
           rotation_period: string
           start_date: string | null
+          steps: string[]
         }
         Insert: {
           archived_at?: string | null
@@ -189,12 +220,14 @@ export type Database = {
           frequency_days?: number[] | null
           household_id: string
           id?: string
+          instructions?: string | null
           name: string
           points?: number
           position?: number | null
           rotation_member_ids?: string[] | null
           rotation_period?: string
           start_date?: string | null
+          steps?: string[]
         }
         Update: {
           archived_at?: string | null
@@ -207,12 +240,14 @@ export type Database = {
           frequency_days?: number[] | null
           household_id?: string
           id?: string
+          instructions?: string | null
           name?: string
           points?: number
           position?: number | null
           rotation_member_ids?: string[] | null
           rotation_period?: string
           start_date?: string | null
+          steps?: string[]
         }
         Relationships: [
           {

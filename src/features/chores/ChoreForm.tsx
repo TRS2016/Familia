@@ -23,6 +23,21 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
   const [rotation, setRotation] = useState<string[]>(initial?.rotation_member_ids ?? [])
   const [rotationPeriod, setRotationPeriod] = useState(initial?.rotation_period ?? 'week')
   const [defaultMember, setDefaultMember] = useState<string | null>(initial?.default_member_id ?? null)
+  const [instructions, setInstructions] = useState(initial?.instructions ?? '')
+  const [steps, setSteps] = useState<string[]>(initial?.steps ?? [])
+
+  function updateStep(i: number, val: string) { setSteps(prev => prev.map((s, j) => j === i ? val : s)) }
+  function addStep() { setSteps(prev => [...prev, '']) }
+  function removeStep(i: number) { setSteps(prev => prev.filter((_, j) => j !== i)) }
+  function moveStep(i: number, dir: -1 | 1) {
+    setSteps(prev => {
+      const j = i + dir
+      if (j < 0 || j >= prev.length) return prev
+      const next = prev.slice()
+      ;[next[i], next[j]] = [next[j], next[i]]
+      return next
+    })
+  }
 
   function pickCategory(value: string) {
     setCategory(value)
@@ -51,6 +66,8 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
       rotation_member_ids: rotating ? rotation : null,
       rotation_period: rotationPeriod,
       default_member_id: rotating ? null : (rotation.length === 1 ? rotation[0] : defaultMember),
+      instructions: instructions.trim() || null,
+      steps,
     })
     onClose()
   }
@@ -157,6 +174,27 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
             </div>
           </div>
         )}
+
+        <label className={styles.field}>
+          <span className={styles.label}>Consignes / recette (optionnel)</span>
+          <textarea className={styles.textarea} value={instructions} onChange={e => setInstructions(e.target.value)}
+            rows={3} placeholder="Ex. recette, remarques, produits à utiliser…" />
+        </label>
+
+        <div className={styles.field}>
+          <span className={styles.label}>Étapes à suivre (optionnel)</span>
+          {steps.map((s, i) => (
+            <div key={i} className={styles.stepEditRow}>
+              <span className={styles.stepNum}>{i + 1}</span>
+              <input className={styles.input} value={s} onChange={e => updateStep(i, e.target.value)}
+                placeholder={`Étape ${i + 1}`} />
+              <button type="button" className={styles.iconBtn} onClick={() => moveStep(i, -1)} disabled={i === 0} aria-label="Monter">↑</button>
+              <button type="button" className={styles.iconBtn} onClick={() => moveStep(i, 1)} disabled={i === steps.length - 1} aria-label="Descendre">↓</button>
+              <button type="button" className={styles.iconBtn} onClick={() => removeStep(i)} aria-label="Retirer">✕</button>
+            </div>
+          ))}
+          <button type="button" className={styles.addStepBtn} onClick={addStep}>+ Ajouter une étape</button>
+        </div>
 
         <button type="submit" className={styles.submitBtn}>
           {initial ? 'Enregistrer' : 'Créer la tâche'}

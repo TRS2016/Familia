@@ -24,6 +24,8 @@ export interface Chore {
   position: number | null
   archived_at: string | null
   created_at: string
+  instructions: string | null
+  steps: string[]
 }
 
 export interface ChoreAssignment {
@@ -34,6 +36,7 @@ export interface ChoreAssignment {
   date: string
   status: 'pending' | 'done' | 'skipped'
   created_at: string
+  steps_done: number[]
 }
 
 export interface ChoreLog {
@@ -66,6 +69,8 @@ export interface NewChoreInput {
   rotation_member_ids: string[] | null
   rotation_period: string
   default_member_id: string | null
+  instructions: string | null
+  steps: string[]
 }
 
 export interface EditChoreInput extends NewChoreInput { id: string }
@@ -258,7 +263,38 @@ function normalize(input: NewChoreInput) {
       ? input.rotation_member_ids : null,
     rotation_period: input.rotation_period,
     default_member_id: input.default_member_id,
+    instructions: input.instructions?.trim() || null,
+    steps: input.steps.map(s => s.trim()).filter(Boolean),
   }
+}
+
+/** Coche/décoche une étape pour une assignation (progression partagée). */
+export function useToggleStep() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async ({ assignmentId, stepsDone }: { assignmentId: string; stepsDone: number[] }) => {
+      const { error } = await supabase
+        .from('chore_assignments')
+        .update({ steps_done: stepsDone } as never)
+        .eq('id', assignmentId)
+      if (error) throw error
+    },
+    onMutate: async ({ assignmentId, stepsDone }) => {
+      await queryClient.cancelQueries({ queryKey: ASSIGNMENTS_KEY })
+      const snapshots = queryClient.getQueriesData<ChoreAssignment[]>({ queryKey: ASSIGNMENTS_KEY })
+      for (const [key, data] of snapshots) {
+        if (!data) continue
+        queryClient.setQueryData<ChoreAssignment[]>(key,
+          data.map(a => a.id === assignmentId ? { ...a, steps_done: stepsDone } : a))
+      }
+      return { snapshots }
+    },
+    onError: (_e, _v, ctx) => {
+      ctx?.snapshots?.forEach(([key, data]) => queryClient.setQueryData(key, data))
+      showToast({ type: 'error', message: 'Impossible de mettre à jour l\'étape.' })
+    },
+  })
 }
 
 // ── Mutations : matérialisation des assignations (rotation) ────────────────────
