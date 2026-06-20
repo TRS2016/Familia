@@ -1899,6 +1899,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      chore_counts_by_category: {
+        Args: never
+        Returns: {
+          category: string
+          cnt: number
+          member_id: string
+        }[]
+      }
       get_my_household_id: { Args: never; Returns: string }
       log_chore: {
         Args: {
@@ -1908,8 +1916,23 @@ export type Database = {
           p_label: string
           p_member_id: string
           p_note: string
+          p_points?: number
         }
         Returns: string
+      }
+      member_point_totals: {
+        Args: never
+        Returns: {
+          member_id: string
+          total: number
+        }[]
+      }
+      member_points_since: {
+        Args: { p_start: string }
+        Returns: {
+          member_id: string
+          total: number
+        }[]
       }
       move_saved_item: {
         Args: { p_item: string; p_to_list: string }

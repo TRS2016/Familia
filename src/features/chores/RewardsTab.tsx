@@ -4,7 +4,7 @@ import SlideUpModal from '../../components/SlideUpModal'
 import EmptyState from '../../components/EmptyState'
 import { memberColor } from '../../lib/constants'
 import type { HouseholdMember } from './useChores'
-import { usePointEvents } from './useGamification'
+import { useMemberTotals } from './useGamification'
 import {
   useRewards, useRedemptions, useUpsertReward, useDeleteReward,
   useRedeemReward, useResolveRedemption, spendableBalance,
@@ -22,7 +22,7 @@ const EMOJIS = ['🎁','🍕','🍿','🎮','😴','🛁','☕','🍫','🎬','�
 export default function RewardsTab({ members, currentMemberId }: Props) {
   const { data: rewards = [] } = useRewards()
   const { data: redemptions = [] } = useRedemptions()
-  const { data: events = [] } = usePointEvents()
+  const { data: totals = new Map<string, number>() } = useMemberTotals()
   const upsert = useUpsertReward()
   const del = useDeleteReward()
   const redeem = useRedeemReward()
@@ -31,7 +31,7 @@ export default function RewardsTab({ members, currentMemberId }: Props) {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Reward | null>(null)
 
-  const balance = currentMemberId ? spendableBalance(events, redemptions, currentMemberId) : 0
+  const balance = currentMemberId ? spendableBalance(totals, redemptions, currentMemberId) : 0
   const nameById = useMemo(() => new Map(members.map(m => [m.id, m.display_name])), [members])
   const colorById = useMemo(() => {
     const m = new Map<string, string>()

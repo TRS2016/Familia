@@ -46,20 +46,18 @@ export interface FamilyGoalInput {
 
 // ── Query keys ────────────────────────────────────────────────────────────────
 
+// Préfixe commun à tous les dérivés du ledger (totaux, période) → une seule
+// invalidation realtime sur POINTS_KEY rafraîchit tout.
 export const POINTS_KEY       = ['point-events', HOUSEHOLD_ID] as const
+export const COUNTS_KEY       = ['chore-counts', HOUSEHOLD_ID] as const
 export const ACHIEVEMENTS_KEY = ['member-achievements', HOUSEHOLD_ID] as const
 export const GOALS_KEY        = ['family-goals', HOUSEHOLD_ID] as const
 
+export interface MemberCount { member_id: string; category: string; cnt: number }
+
 // ── Helpers (purs) ────────────────────────────────────────────────────────────
 
-/** XP à vie par membre (somme du ledger). */
-export function totalsByMember(events: PointEvent[]): Map<string, number> {
-  const m = new Map<string, number>()
-  for (const e of events) m.set(e.member_id, (m.get(e.member_id) ?? 0) + e.points)
-  return m
-}
-
-/** Date de début (yyyy-MM-dd) de la période d'un objectif. */
+/** Date de début (yyyy-MM-dd) de la période d'un objectif (semaine/mois/ouvert). */
 export function periodStart(goal: Pick<FamilyGoal, 'period' | 'period_start'>): string {
   const now = new Date()
   if (goal.period === 'week')  return format(startOfWeek(now, { weekStartsOn: 1 }), 'yyyy-MM-dd')
@@ -67,26 +65,45 @@ export function periodStart(goal: Pick<FamilyGoal, 'period' | 'period_start'>): 
   return goal.period_start
 }
 
-/** Points du foyer cumulés depuis une date (yyyy-MM-dd). */
-export function pointsSince(events: PointEvent[], startDate: string): number {
-  return events
-    .filter(e => e.created_at.slice(0, 10) >= startDate)
-    .reduce((sum, e) => sum + e.points, 0)
+// ── Queries (agrégats serveur — pas de chargement de tout l'historique) ────────
+
+/** XP à vie par membre (Map member_id → total). */
+export function useMemberTotals() {
+  return useQuery({
+    queryKey: [...POINTS_KEY, 'totals'],
+    queryFn: async (): Promise<Map<string, number>> => {
+      const { data, error } = await supabase.rpc('member_point_totals')
+      if (error) throw error
+      const m = new Map<string, number>()
+      for (const r of (data ?? []) as { member_id: string; total: number }[]) m.set(r.member_id, Number(r.total))
+      return m
+    },
+  })
 }
 
-// ── Queries ───────────────────────────────────────────────────────────────────
-
-export function usePointEvents() {
+/** Points par membre depuis une date (Map member_id → total). */
+export function useMemberPointsSince(start: string) {
   return useQuery({
-    queryKey: POINTS_KEY,
-    queryFn: async (): Promise<PointEvent[]> => {
-      const { data, error } = await supabase
-        .from('point_events')
-        .select('*')
-        .eq('household_id', HOUSEHOLD_ID)
-        .order('created_at', { ascending: false })
+    queryKey: [...POINTS_KEY, 'since', start],
+    queryFn: async (): Promise<Map<string, number>> => {
+      const { data, error } = await supabase.rpc('member_points_since', { p_start: start })
       if (error) throw error
-      return data as unknown as PointEvent[]
+      const m = new Map<string, number>()
+      for (const r of (data ?? []) as { member_id: string; total: number }[]) m.set(r.member_id, Number(r.total))
+      return m
+    },
+  })
+}
+
+/** Compteurs de tâches à vie par membre+catégorie (pour les badges, non fenêtrés). */
+export function useChoreCounts() {
+  return useQuery({
+    queryKey: COUNTS_KEY,
+    queryFn: async (): Promise<MemberCount[]> => {
+      const { data, error } = await supabase.rpc('chore_counts_by_category')
+      if (error) throw error
+      return ((data ?? []) as { member_id: string; category: string; cnt: number }[])
+        .map(r => ({ member_id: r.member_id, category: r.category, cnt: Number(r.cnt) }))
     },
   })
 }

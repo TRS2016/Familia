@@ -51,43 +51,25 @@ export const FREQ_OPTS = [
   { value: 'none',   label: 'À la demande' },
 ]
 
-// ── Stats par membre (pour les badges) ────────────────────────────────────────
+// ── Série de jours par membre (pour les badges streak) ────────────────────────
+// Les compteurs « à vie » (total, par catégorie) viennent d'un agrégat serveur
+// (chore_counts_by_category) ; ici on n'a besoin que de la série, calculable sur
+// la fenêtre de logs récents (60 j) chargée par la page.
 
-interface LogLike { member_id: string; chore_id: string | null; done_on: string }
+interface LogLike { member_id: string; done_on: string }
 
-export interface MemberStats {
-  totalChores: number
-  byCategory: Record<string, number>
-  streakDays: number
-}
-
-/** Agrège les logs d'un membre : total, répartition par catégorie, série de jours. */
-export function memberStats(
-  logs: LogLike[],
-  categoryByChore: Map<string, string>,
-  memberId: string,
-): MemberStats {
-  const mine = logs.filter(l => l.member_id === memberId)
-  const byCategory: Record<string, number> = {}
-  const dayset = new Set<string>()
-  for (const l of mine) {
-    dayset.add(l.done_on)
-    if (l.chore_id) {
-      const cat = categoryByChore.get(l.chore_id)
-      if (cat) byCategory[cat] = (byCategory[cat] ?? 0) + 1
-    }
-  }
-  // Série : jours consécutifs avec au moins une tâche, en remontant depuis
-  // aujourd'hui (ou hier si rien aujourd'hui — pas encore pénalisant).
+/** Jours consécutifs avec au moins une tâche, en remontant depuis aujourd'hui
+ *  (ou hier si rien aujourd'hui — pas encore pénalisant). */
+export function memberStreakDays(logs: LogLike[], memberId: string): number {
+  const dayset = new Set(logs.filter(l => l.member_id === memberId).map(l => l.done_on))
   let streakDays = 0
   let d = new Date()
-  const todayStr = format(d, 'yyyy-MM-dd')
-  if (!dayset.has(todayStr)) d = addDays(d, -1)
+  if (!dayset.has(format(d, 'yyyy-MM-dd'))) d = addDays(d, -1)
   for (let i = 0; i < 366; i++) {
     const ds = format(d, 'yyyy-MM-dd')
     if (!dayset.has(ds)) break
     streakDays++
     d = addDays(d, -1)
   }
-  return { totalChores: mine.length, byCategory, streakDays }
+  return streakDays
 }

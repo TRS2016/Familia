@@ -36,6 +36,10 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
     setRotation(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
   }
 
+  // Une rotation n'a de sens qu'à partir de 2 membres. Avec 1 seul sélectionné,
+  // c'est une assignation fixe à ce membre.
+  const rotating = rotation.length >= 2
+
   function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!name.trim()) return
@@ -44,9 +48,9 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
       frequency,
       frequency_days: frequency === 'weekly' ? days : null,
       start_date: initial?.start_date ?? null,
-      rotation_member_ids: rotation.length > 0 ? rotation : null,
+      rotation_member_ids: rotating ? rotation : null,
       rotation_period: rotationPeriod,
-      default_member_id: rotation.length > 0 ? null : defaultMember,
+      default_member_id: rotating ? null : (rotation.length === 1 ? rotation[0] : defaultMember),
     })
     onClose()
   }
@@ -127,7 +131,7 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
                 onClick={() => toggleRotation(m.id)}>{m.display_name}</button>
             ))}
           </div>
-          {rotation.length >= 2 && (
+          {rotating && (
             <div className={styles.chipRow} style={{ marginTop: 8 }}>
               {[['week', 'Chaque semaine'], ['day', 'Chaque jour']].map(([v, l]) => (
                 <button type="button" key={v}
@@ -138,7 +142,7 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
           )}
         </div>
 
-        {rotation.length < 2 && (
+        {rotation.length === 0 && (
           <div className={styles.field}>
             <span className={styles.label}>Assigné à (fixe)</span>
             <div className={styles.chipRow}>

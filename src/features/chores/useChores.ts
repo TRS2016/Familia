@@ -3,6 +3,7 @@ import { format, subDays } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useToast } from '../../components/useToast'
+import { POINTS_KEY, COUNTS_KEY } from './useGamification'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -261,7 +262,10 @@ export interface LogChoreInput {
   done_on: string
   label?: string | null
   note?: string | null
+  points?: number | null   // pour les tâches ad-hoc libres (sinon dérivé du chore)
 }
+
+const RECENT_LOGS_KEY = [...LOGS_KEY, 'recent'] as const
 
 export function useLogChore() {
   const queryClient = useQueryClient()
@@ -277,16 +281,36 @@ export function useLogChore() {
         p_done_on: input.done_on,
         p_label: input.label ?? null,
         p_note: input.note ?? null,
+        p_points: input.points ?? null,
       } as never)
       if (error) throw error
       return data as string
     },
-    onSuccess: () => {
+    // U1 : optimistic — la ligne pointée bascule en « fait » immédiatement via
+    // un log temporaire dans le cache des logs récents.
+    onMutate: async (input: LogChoreInput) => {
+      if (!input.assignment_id) return { previous: undefined }
+      await queryClient.cancelQueries({ queryKey: RECENT_LOGS_KEY })
+      const previous = queryClient.getQueryData<ChoreLog[]>(RECENT_LOGS_KEY) ?? []
+      const optimistic: ChoreLog = {
+        id: `opt-${input.assignment_id}`, household_id: HOUSEHOLD_ID,
+        chore_id: input.chore_id, assignment_id: input.assignment_id, member_id: input.member_id,
+        done_on: input.done_on, label: input.label ?? null, points_awarded: 0,
+        note: input.note ?? null, created_at: new Date().toISOString(),
+      }
+      queryClient.setQueryData<ChoreLog[]>(RECENT_LOGS_KEY, [optimistic, ...previous])
+      return { previous }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(RECENT_LOGS_KEY, ctx.previous)
+      showToast({ type: 'error', message: 'Impossible d\'enregistrer la tâche.' })
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_KEY })
       queryClient.invalidateQueries({ queryKey: LOGS_KEY })
-      queryClient.invalidateQueries({ queryKey: ['point-events', HOUSEHOLD_ID] })
+      queryClient.invalidateQueries({ queryKey: POINTS_KEY })
+      queryClient.invalidateQueries({ queryKey: COUNTS_KEY })
     },
-    onError: () => showToast({ type: 'error', message: 'Impossible d\'enregistrer la tâche.' }),
   })
 }
 
@@ -298,11 +322,21 @@ export function useUndoChoreLog() {
       const { error } = await supabase.rpc('undo_chore_log', { p_log_id: logId })
       if (error) throw error
     },
-    onSuccess: () => {
+    onMutate: async (logId: string) => {
+      await queryClient.cancelQueries({ queryKey: RECENT_LOGS_KEY })
+      const previous = queryClient.getQueryData<ChoreLog[]>(RECENT_LOGS_KEY) ?? []
+      queryClient.setQueryData<ChoreLog[]>(RECENT_LOGS_KEY, previous.filter(l => l.id !== logId))
+      return { previous }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(RECENT_LOGS_KEY, ctx.previous)
+      showToast({ type: 'error', message: 'Impossible d\'annuler.' })
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_KEY })
       queryClient.invalidateQueries({ queryKey: LOGS_KEY })
-      queryClient.invalidateQueries({ queryKey: ['point-events', HOUSEHOLD_ID] })
+      queryClient.invalidateQueries({ queryKey: POINTS_KEY })
+      queryClient.invalidateQueries({ queryKey: COUNTS_KEY })
     },
-    onError: () => showToast({ type: 'error', message: 'Impossible d\'annuler.' }),
   })
 }

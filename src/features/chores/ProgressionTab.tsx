@@ -6,13 +6,14 @@ import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import type { Chore, ChoreLog, HouseholdMember } from './useChores'
 import {
-  usePointEvents, useMemberAchievements, useFamilyGoals,
+  useMemberTotals, useMemberPointsSince, useChoreCounts,
+  useMemberAchievements, useFamilyGoals,
   useUnlockAchievements, useUpsertFamilyGoal, useDeleteFamilyGoal,
-  totalsByMember, periodStart, pointsSince,
   type FamilyGoal, type FamilyGoalInput,
 } from './useGamification'
 import { ACHIEVEMENTS, levelForXp, levelEmoji, type AchievementCtx } from './achievements'
-import { memberStats } from './chores.utils'
+import { memberStreakDays } from './chores.utils'
+import { format, startOfWeek, startOfMonth } from 'date-fns'
 import styles from './ChoresPage.module.css'
 
 interface Props {
@@ -23,49 +24,64 @@ interface Props {
 
 const PERIOD_LABEL: Record<string, string> = { week: 'cette semaine', month: 'ce mois', open: 'au total' }
 
-export default function ProgressionTab({ members, chores, logs }: Props) {
-  const { data: events = [] } = usePointEvents()
+export default function ProgressionTab({ members, logs }: Props) {
+  const { data: totals = new Map<string, number>() } = useMemberTotals()
   const { data: achievements = [] } = useMemberAchievements()
   const { data: goals = [] } = useFamilyGoals()
+  const { data: counts = [] } = useChoreCounts()
   const unlock = useUnlockAchievements()
   const { showToast } = useToast()
+
+  const weekStartStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
+  const monthStartStr = format(startOfMonth(new Date()), 'yyyy-MM-dd')
+  const { data: weekPoints = new Map<string, number>() } = useMemberPointsSince(weekStartStr)
+  const { data: monthPoints = new Map<string, number>() } = useMemberPointsSince(monthStartStr)
 
   const [goalFormOpen, setGoalFormOpen] = useState(false)
   const [editingGoal, setEditingGoal] = useState<FamilyGoal | null>(null)
 
-  const categoryByChore = useMemo(() => new Map(chores.map(c => [c.id, c.category])), [chores])
-  const totals = useMemo(() => totalsByMember(events), [events])
+  const weekTotal = useMemo(() => [...weekPoints.values()].reduce((a, b) => a + b, 0), [weekPoints])
 
-  // Points de la semaine (pour la part équitable des badges).
-  const weekStartStr = periodStart({ period: 'week', period_start: '' })
-  const weekPoints = useMemo(() => {
-    const m = new Map<string, number>()
-    for (const e of events) if (e.created_at.slice(0, 10) >= weekStartStr) m.set(e.member_id, (m.get(e.member_id) ?? 0) + e.points)
-    return m
-  }, [events, weekStartStr])
-  const weekTotal = [...weekPoints.values()].reduce((a, b) => a + b, 0)
+  // Compteurs « à vie » par membre (total + par catégorie) depuis l'agrégat serveur.
+  const countsByMember = useMemo(() => {
+    const total = new Map<string, number>()
+    const byCat = new Map<string, Record<string, number>>()
+    for (const c of counts) {
+      total.set(c.member_id, (total.get(c.member_id) ?? 0) + c.cnt)
+      const rec = byCat.get(c.member_id) ?? {}
+      rec[c.category] = (rec[c.category] ?? 0) + c.cnt
+      byCat.set(c.member_id, rec)
+    }
+    return { total, byCat }
+  }, [counts])
 
   // Classement (XP décroissant).
   const ranking = useMemo(() => members
     .map((m, i) => ({ member: m, color: memberColor(i), xp: totals.get(m.id) ?? 0 }))
     .sort((a, b) => b.xp - a.xp), [members, totals])
 
-  // Contexte de badges par membre.
+  // Progression d'un objectif selon sa période.
+  function goalProgress(goal: FamilyGoal): number {
+    if (goal.period === 'week')  return weekTotal
+    if (goal.period === 'month') return [...monthPoints.values()].reduce((a, b) => a + b, 0)
+    return [...totals.values()].reduce((a, b) => a + b, 0)
+  }
+
+  // Contexte de badges par membre (compteurs non fenêtrés + série 60 j).
   const ctxByMember = useMemo(() => {
     const map = new Map<string, AchievementCtx>()
     for (const m of members) {
-      const st = memberStats(logs, categoryByChore, m.id)
       map.set(m.id, {
         totalXp: totals.get(m.id) ?? 0,
-        totalChores: st.totalChores,
-        byCategory: st.byCategory,
-        streakDays: st.streakDays,
+        totalChores: countsByMember.total.get(m.id) ?? 0,
+        byCategory: countsByMember.byCat.get(m.id) ?? {},
+        streakDays: memberStreakDays(logs, m.id),
         weekShare: weekTotal > 0 ? (weekPoints.get(m.id) ?? 0) / weekTotal : 0,
         weekHasActivity: (weekPoints.get(m.id) ?? 0) > 0,
       })
     }
     return map
-  }, [members, logs, categoryByChore, totals, weekPoints, weekTotal])
+  }, [members, logs, totals, countsByMember, weekPoints, weekTotal])
 
   // Évaluation + déblocage des badges manquants (idempotent). Une passe par
   // changement de contexte ; le toast n'annonce que les nouveautés réelles.
@@ -136,8 +152,7 @@ export default function ProgressionTab({ members, chores, logs }: Props) {
         {goals.length === 0 ? (
           <p className={styles.hint}>Aucun objectif commun. Définis une cagnotte de points à atteindre ensemble (ex. « 300 pts → soirée resto »).</p>
         ) : goals.map(goal => {
-          const start = periodStart(goal)
-          const current = pointsSince(events, start)
+          const current = goalProgress(goal)
           const pct = Math.min(100, Math.round((current / goal.target_points) * 100))
           const reached = current >= goal.target_points
           return (

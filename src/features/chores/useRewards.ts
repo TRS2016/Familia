@@ -2,7 +2,6 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useToast } from '../../components/useToast'
-import type { PointEvent } from './useGamification'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -42,9 +41,10 @@ export const REWARDS_KEY     = ['rewards', HOUSEHOLD_ID] as const
 export const REDEMPTIONS_KEY = ['reward-redemptions', HOUSEHOLD_ID] as const
 
 // ── Solde dépensable (pur) ────────────────────────────────────────────────────
-// = XP gagné − coût des échanges non refusés. L'XP à vie reste intact.
-export function spendableBalance(events: PointEvent[], redemptions: RewardRedemption[], memberId: string): number {
-  const earned = events.filter(e => e.member_id === memberId).reduce((s, e) => s + e.points, 0)
+// = XP gagné (total serveur) − coût des échanges non refusés. L'XP à vie reste
+// intact ; seul le solde dépensable baisse. Reflète spendable_balance() en SQL.
+export function spendableBalance(totals: Map<string, number>, redemptions: RewardRedemption[], memberId: string): number {
+  const earned = totals.get(memberId) ?? 0
   const spent = redemptions
     .filter(r => r.member_id === memberId && r.status !== 'declined')
     .reduce((s, r) => s + r.cost_points, 0)

@@ -55,6 +55,10 @@ export default function ChoresPage() {
   }, [members])
 
   // ── Matérialisation de la rotation sur la semaine visible (idempotent) ───────
+  // On ne crée pas d'assignations rétroactives : seules les dates ≥ aujourd'hui
+  // sont matérialisées (sinon consulter une semaine passée fabriquerait des
+  // tâches « jamais faites » a posteriori).
+  const todayMat = format(new Date(), 'yyyy-MM-dd')
   useEffect(() => {
     if (chores.length === 0) return
     const existing = new Set(assignments.map(a => `${a.chore_id}|${a.date}`))
@@ -62,6 +66,7 @@ export default function ChoresPage() {
     for (const chore of chores) {
       if (chore.frequency === 'none') continue
       for (const date of days) {
+        if (date < todayMat) continue
         if (!isApplicable(chore, date)) continue
         if (existing.has(`${chore.id}|${date}`)) continue
         missing.push({ chore_id: chore.id, member_id: dueMemberFor(chore, date), date })
@@ -169,7 +174,7 @@ export default function ChoresPage() {
                       </span>
                     </div>
                     {done ? (
-                      <button className={styles.undoBtn} onClick={() => logId && undoLog.mutate(logId)} aria-label="Annuler">
+                      <button className={styles.undoBtn} disabled={!logId || logId.startsWith('opt-')} onClick={() => logId && !logId.startsWith('opt-') && undoLog.mutate(logId)} aria-label="Annuler">
                         <Undo2 size={16} />
                       </button>
                     ) : (
@@ -244,12 +249,13 @@ interface AdHocProps {
   members: { id: string; display_name: string }[]
   defaultMemberId: string | null
   onClose: () => void
-  onSubmit: (input: { chore_id: string | null; assignment_id: null; member_id: string; done_on: string; label: string | null }) => void
+  onSubmit: (input: { chore_id: string | null; assignment_id: null; member_id: string; done_on: string; label: string | null; points: number | null }) => void
 }
 
 function AdHocModal({ chores, members, defaultMemberId, onClose, onSubmit }: AdHocProps) {
   const [choreId, setChoreId] = useState<string | null>(chores[0]?.id ?? null)
   const [label, setLabel] = useState('')
+  const [points, setPoints] = useState(10)
   const [memberId, setMemberId] = useState<string | null>(defaultMemberId)
   const useFree = choreId === '__free__'
 
@@ -262,6 +268,7 @@ function AdHocModal({ chores, members, defaultMemberId, onClose, onSubmit }: AdH
       member_id: memberId,
       done_on: format(new Date(), 'yyyy-MM-dd'),
       label: useFree ? label.trim() : null,
+      points: useFree ? points : null,
     })
   }
 
@@ -276,10 +283,17 @@ function AdHocModal({ chores, members, defaultMemberId, onClose, onSubmit }: AdH
           </select>
         </label>
         {useFree && (
-          <label className={styles.field}>
-            <span className={styles.label}>Quoi ?</span>
-            <input className={styles.input} value={label} onChange={e => setLabel(e.target.value)} placeholder="Ex. Réparé le vélo" autoFocus />
-          </label>
+          <>
+            <label className={styles.field}>
+              <span className={styles.label}>Quoi ?</span>
+              <input className={styles.input} value={label} onChange={e => setLabel(e.target.value)} placeholder="Ex. Réparé le vélo" autoFocus />
+            </label>
+            <label className={styles.field}>
+              <span className={styles.label}>Points</span>
+              <input className={styles.input} type="number" min={0} max={100} value={points}
+                onChange={e => setPoints(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} />
+            </label>
+          </>
         )}
         <div className={styles.field}>
           <span className={styles.label}>Par qui</span>
