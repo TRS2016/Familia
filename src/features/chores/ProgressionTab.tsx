@@ -9,7 +9,8 @@ import {
   useMemberTotals, useMemberPointsSince, useChoreCounts,
   useMemberAchievements, useFamilyGoals,
   useUnlockAchievements, useUpsertFamilyGoal, useDeleteFamilyGoal,
-  type FamilyGoal, type FamilyGoalInput,
+  memberPoints, sumPoints,
+  type FamilyGoal, type FamilyGoalInput, type PointMap,
 } from './useGamification'
 import { ACHIEVEMENTS, levelForXp, levelEmoji, type AchievementCtx } from './achievements'
 import { memberStreakDays } from './chores.utils'
@@ -25,7 +26,7 @@ interface Props {
 const PERIOD_LABEL: Record<string, string> = { week: 'cette semaine', month: 'ce mois', open: 'au total' }
 
 export default function ProgressionTab({ members, logs }: Props) {
-  const { data: totals = new Map<string, number>() } = useMemberTotals()
+  const { data: totals = {} as PointMap } = useMemberTotals()
   const { data: achievements = [] } = useMemberAchievements()
   const { data: goals = [] } = useFamilyGoals()
   const { data: counts = [] } = useChoreCounts()
@@ -34,13 +35,13 @@ export default function ProgressionTab({ members, logs }: Props) {
 
   const weekStartStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
   const monthStartStr = format(startOfMonth(new Date()), 'yyyy-MM-dd')
-  const { data: weekPoints = new Map<string, number>() } = useMemberPointsSince(weekStartStr)
-  const { data: monthPoints = new Map<string, number>() } = useMemberPointsSince(monthStartStr)
+  const { data: weekPoints = {} as PointMap } = useMemberPointsSince(weekStartStr)
+  const { data: monthPoints = {} as PointMap } = useMemberPointsSince(monthStartStr)
 
   const [goalFormOpen, setGoalFormOpen] = useState(false)
   const [editingGoal, setEditingGoal] = useState<FamilyGoal | null>(null)
 
-  const weekTotal = useMemo(() => [...weekPoints.values()].reduce((a, b) => a + b, 0), [weekPoints])
+  const weekTotal = useMemo(() => sumPoints(weekPoints), [weekPoints])
 
   // Compteurs « à vie » par membre (total + par catégorie) depuis l'agrégat serveur.
   const countsByMember = useMemo(() => {
@@ -57,14 +58,14 @@ export default function ProgressionTab({ members, logs }: Props) {
 
   // Classement (XP décroissant).
   const ranking = useMemo(() => members
-    .map((m, i) => ({ member: m, color: memberColor(i), xp: totals.get(m.id) ?? 0 }))
+    .map((m, i) => ({ member: m, color: memberColor(i), xp: memberPoints(totals, m.id) }))
     .sort((a, b) => b.xp - a.xp), [members, totals])
 
   // Progression d'un objectif selon sa période.
   function goalProgress(goal: FamilyGoal): number {
     if (goal.period === 'week')  return weekTotal
-    if (goal.period === 'month') return [...monthPoints.values()].reduce((a, b) => a + b, 0)
-    return [...totals.values()].reduce((a, b) => a + b, 0)
+    if (goal.period === 'month') return sumPoints(monthPoints)
+    return sumPoints(totals)
   }
 
   // Contexte de badges par membre (compteurs non fenêtrés + série 60 j).
@@ -72,12 +73,12 @@ export default function ProgressionTab({ members, logs }: Props) {
     const map = new Map<string, AchievementCtx>()
     for (const m of members) {
       map.set(m.id, {
-        totalXp: totals.get(m.id) ?? 0,
+        totalXp: memberPoints(totals, m.id),
         totalChores: countsByMember.total.get(m.id) ?? 0,
         byCategory: countsByMember.byCat.get(m.id) ?? {},
         streakDays: memberStreakDays(logs, m.id),
-        weekShare: weekTotal > 0 ? (weekPoints.get(m.id) ?? 0) / weekTotal : 0,
-        weekHasActivity: (weekPoints.get(m.id) ?? 0) > 0,
+        weekShare: weekTotal > 0 ? memberPoints(weekPoints, m.id) / weekTotal : 0,
+        weekHasActivity: memberPoints(weekPoints, m.id) > 0,
       })
     }
     return map

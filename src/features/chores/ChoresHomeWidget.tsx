@@ -2,33 +2,31 @@ import { Link } from 'react-router-dom'
 import { ListChecks } from 'lucide-react'
 import { format, startOfWeek, startOfMonth } from 'date-fns'
 import { MEMBER_PALETTE } from '../../lib/constants'
-import { useMemberTotals, useMemberPointsSince, useFamilyGoals } from './useGamification'
+import { useMemberTotals, useMemberPointsSince, useFamilyGoals, memberPoints, sumPoints, type PointMap } from './useGamification'
 import { levelForXp, levelEmoji } from './achievements'
 
 interface Props {
   members: { id: string; display_name: string }[]
 }
 
-const sumMap = (m: Map<string, number>) => [...m.values()].reduce((a, b) => a + b, 0)
-
 /** Widget Home compact : meneur du classement + progression de l'objectif. */
 export default function ChoresHomeWidget({ members }: Props) {
-  const { data: totals = new Map<string, number>() } = useMemberTotals()
+  const { data: totals = {} as PointMap } = useMemberTotals()
   const { data: goals = [] } = useFamilyGoals()
   const weekStartStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
   const monthStartStr = format(startOfMonth(new Date()), 'yyyy-MM-dd')
-  const { data: weekPoints = new Map<string, number>() } = useMemberPointsSince(weekStartStr)
-  const { data: monthPoints = new Map<string, number>() } = useMemberPointsSince(monthStartStr)
+  const { data: weekPoints = {} as PointMap } = useMemberPointsSince(weekStartStr)
+  const { data: monthPoints = {} as PointMap } = useMemberPointsSince(monthStartStr)
 
   const ranked = members
-    .map((m, i) => ({ m, color: MEMBER_PALETTE[i % MEMBER_PALETTE.length], xp: totals.get(m.id) ?? 0 }))
+    .map((m, i) => ({ m, color: MEMBER_PALETTE[i % MEMBER_PALETTE.length], xp: memberPoints(totals, m.id) }))
     .sort((a, b) => b.xp - a.xp)
   const leader = ranked[0]
   const goal = goals[0]
   const goalCurrent = !goal ? 0
-    : goal.period === 'week' ? sumMap(weekPoints)
-    : goal.period === 'month' ? sumMap(monthPoints)
-    : sumMap(totals)
+    : goal.period === 'week' ? sumPoints(weekPoints)
+    : goal.period === 'month' ? sumPoints(monthPoints)
+    : sumPoints(totals)
   const goalPct = goal ? Math.min(100, Math.round((goalCurrent / goal.target_points) * 100)) : 0
 
   return (

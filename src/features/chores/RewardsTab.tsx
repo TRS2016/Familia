@@ -22,7 +22,7 @@ const EMOJIS = ['🎁','🍕','🍿','🎮','😴','🛁','☕','🍫','🎬','�
 export default function RewardsTab({ members, currentMemberId }: Props) {
   const { data: rewards = [] } = useRewards()
   const { data: redemptions = [] } = useRedemptions()
-  const { data: totals = new Map<string, number>() } = useMemberTotals()
+  const { data: totals = {} } = useMemberTotals()
   const upsert = useUpsertReward()
   const del = useDeleteReward()
   const redeem = useRedeemReward()

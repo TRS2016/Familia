@@ -67,30 +67,40 @@ export function periodStart(goal: Pick<FamilyGoal, 'period' | 'period_start'>): 
 
 // ── Queries (agrégats serveur — pas de chargement de tout l'historique) ────────
 
-/** XP à vie par membre (Map member_id → total). */
+// On renvoie des objets simples (Record) plutôt que des Map : le cache TanStack
+// Query (structural sharing + persistance PWA) ne préserve pas les Map → au
+// rechargement la donnée redeviendrait un objet et `.get` planterait.
+export type PointMap = Record<string, number>
+
+function rowsToRecord(rows: { member_id: string; total: number }[] | null): PointMap {
+  const out: PointMap = {}
+  for (const r of rows ?? []) out[r.member_id] = Number(r.total)
+  return out
+}
+
+export const memberPoints = (m: PointMap, id: string): number => m[id] ?? 0
+export const sumPoints = (m: PointMap): number => Object.values(m).reduce((a, b) => a + b, 0)
+
+/** XP à vie par membre (Record member_id → total). */
 export function useMemberTotals() {
   return useQuery({
     queryKey: [...POINTS_KEY, 'totals'],
-    queryFn: async (): Promise<Map<string, number>> => {
+    queryFn: async (): Promise<PointMap> => {
       const { data, error } = await supabase.rpc('member_point_totals')
       if (error) throw error
-      const m = new Map<string, number>()
-      for (const r of (data ?? []) as { member_id: string; total: number }[]) m.set(r.member_id, Number(r.total))
-      return m
+      return rowsToRecord(data as { member_id: string; total: number }[] | null)
     },
   })
 }
 
-/** Points par membre depuis une date (Map member_id → total). */
+/** Points par membre depuis une date (Record member_id → total). */
 export function useMemberPointsSince(start: string) {
   return useQuery({
     queryKey: [...POINTS_KEY, 'since', start],
-    queryFn: async (): Promise<Map<string, number>> => {
+    queryFn: async (): Promise<PointMap> => {
       const { data, error } = await supabase.rpc('member_points_since', { p_start: start })
       if (error) throw error
-      const m = new Map<string, number>()
-      for (const r of (data ?? []) as { member_id: string; total: number }[]) m.set(r.member_id, Number(r.total))
-      return m
+      return rowsToRecord(data as { member_id: string; total: number }[] | null)
     },
   })
 }

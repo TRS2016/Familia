@@ -43,8 +43,8 @@ export const REDEMPTIONS_KEY = ['reward-redemptions', HOUSEHOLD_ID] as const
 // ── Solde dépensable (pur) ────────────────────────────────────────────────────
 // = XP gagné (total serveur) − coût des échanges non refusés. L'XP à vie reste
 // intact ; seul le solde dépensable baisse. Reflète spendable_balance() en SQL.
-export function spendableBalance(totals: Map<string, number>, redemptions: RewardRedemption[], memberId: string): number {
-  const earned = totals.get(memberId) ?? 0
+export function spendableBalance(totals: Record<string, number>, redemptions: RewardRedemption[], memberId: string): number {
+  const earned = totals[memberId] ?? 0
   const spent = redemptions
     .filter(r => r.member_id === memberId && r.status !== 'declined')
     .reduce((s, r) => s + r.cost_points, 0)
