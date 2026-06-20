@@ -1,0 +1,141 @@
+/* ── Page ────────────────────────────────────────────────────────────────── */
+
+.page {
+  min-height: 100vh;
+  background: var(--bg);
+  font-family: var(--font-family);
+  display: flex;
+  flex-direction: column;
+  max-width: var(--page-max-w);
+  margin: 0 auto;
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  padding: 20px 16px 14px;
+  gap: 8px;
+}
+
+.backLink { color: var(--accent); display: flex; align-items: center; text-decoration: none; flex-shrink: 0; }
+
+.pageTitle {
+  font-family: var(--font-display);
+  flex: 1; font-size: 20px; font-weight: 900;
+  color: var(--text); letter-spacing: -0.2px; margin: 0;
+}
+
+.headerActions { display: flex; gap: 6px; }
+
+.statsBtn {
+  display: flex; align-items: center; gap: 4px;
+  padding: 6px 12px; border-radius: 99px;
+  background: var(--accent); border: none; cursor: pointer;
+  font-family: var(--font-family); font-weight: 800; font-size: var(--text-2xs);
+  color: #fff; transition: filter 0.15s;
+}
+.statsBtn:hover { filter: brightness(1.05); }
+
+/* ── Tabs ────────────────────────────────────────────────────────────────── */
+
+.tabs { display: flex; gap: 6px; padding: 0 16px 12px; }
+.tab {
+  flex: 1; padding: 9px 0; border-radius: 99px; border: none; cursor: pointer;
+  background: var(--bg-input); color: var(--text-muted, var(--text));
+  font-family: var(--font-family); font-weight: 800; font-size: var(--text-xs, 13px);
+  transition: background 0.15s, color 0.15s;
+}
+.tabActive { background: var(--accent); color: #fff; }
+
+/* ── Week strip ──────────────────────────────────────────────────────────── */
+
+.weekNav { display: flex; align-items: center; gap: 4px; padding: 0 12px 12px; }
+.weekNav > button {
+  background: none; border: none; color: var(--text); cursor: pointer;
+  display: flex; align-items: center; padding: 4px;
+}
+.weekStrip { flex: 1; display: flex; justify-content: space-between; gap: 4px; }
+.dayBtn {
+  flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 6px 0; border-radius: 12px; border: none; cursor: pointer;
+  background: var(--bg-input); color: var(--text);
+  font-family: var(--font-family);
+}
+.dayName { font-size: 10px; text-transform: uppercase; opacity: 0.6; font-weight: 700; }
+.dayNum { font-size: 15px; font-weight: 800; }
+.dayBtnActive { background: var(--accent); color: #fff; }
+.dayBtnActive .dayName { opacity: 0.85; }
+.dayToday:not(.dayBtnActive) { box-shadow: inset 0 0 0 1.5px var(--accent); }
+
+/* ── List / rows ─────────────────────────────────────────────────────────── */
+
+.list { list-style: none; margin: 0; padding: 0 12px; display: flex; flex-direction: column; gap: 8px; }
+
+.row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 16px;
+  background: var(--bg-card, #fff);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.rowDone { opacity: 0.55; }
+.rowDone .rowName { text-decoration: line-through; }
+
+.rowEmoji {
+  width: 40px; height: 40px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: 12px; font-size: 20px;
+}
+.rowMain { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rowName { font-weight: 800; color: var(--text); font-size: 15px; }
+.rowMeta { display: flex; align-items: center; gap: 8px; font-size: var(--text-2xs); color: var(--text-muted, #888); flex-wrap: wrap; }
+.assignee { font-weight: 800; }
+.points { font-weight: 800; color: var(--accent); }
+.rotBadge {
+  background: var(--bg-input); border-radius: 99px; padding: 1px 8px;
+  font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px;
+}
+
+.doneBtn, .undoBtn, .iconBtn {
+  flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: none; cursor: pointer; transition: filter 0.15s, background 0.15s;
+}
+.doneBtn { background: var(--accent); color: #fff; }
+.doneBtn:hover { filter: brightness(1.05); }
+.undoBtn { background: var(--bg-input); color: var(--text); }
+.iconBtn { background: transparent; color: var(--text-muted, #999); width: 34px; height: 34px; }
+.iconBtn:hover { background: var(--bg-input); }
+
+/* ── Form ────────────────────────────────────────────────────────────────── */
+
+.form { display: flex; flex-direction: column; gap: 16px; padding: 4px 16px 20px; }
+.field { display: flex; flex-direction: column; gap: 6px; }
+.label { font-weight: 800; font-size: var(--text-xs, 13px); color: var(--text); }
+.hint { margin: 0; font-size: var(--text-2xs); color: var(--text-muted, #999); line-height: 1.4; }
+
+.input {
+  width: 100%; box-sizing: border-box; padding: 10px 12px;
+  border-radius: 12px; border: 1.5px solid var(--border, #e5ddd0);
+  background: var(--bg-input); color: var(--text);
+  font-family: var(--font-family); font-size: 15px;
+}
+.input:focus { outline: none; border-color: var(--accent); }
+
+.chipRow { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip {
+  padding: 7px 12px; border-radius: 99px; border: 1.5px solid var(--border, #e5ddd0);
+  background: var(--bg-input); color: var(--text); cursor: pointer;
+  font-family: var(--font-family); font-weight: 700; font-size: var(--text-2xs);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.emojiChip { composes: chip; font-size: 18px; padding: 5px 9px; }
+.dayChip { composes: chip; width: 34px; padding: 7px 0; text-align: center; }
+.chipActive { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+.submitBtn {
+  margin-top: 4px; padding: 12px; border-radius: 14px; border: none; cursor: pointer;
+  background: var(--accent); color: #fff;
+  font-family: var(--font-family); font-weight: 800; font-size: 15px;
+}
+.submitBtn:hover { filter: brightness(1.05); }

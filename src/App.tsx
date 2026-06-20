@@ -21,6 +21,7 @@ const MediaPage       = lazy(() => import('./features/media/MediaPage'))
 const LecteurPage     = lazy(() => import('./features/lecteur/LecteurPage'))
 const MomentsPage     = lazy(() => import('./features/moments/MomentsPage'))
 const TrainingPage    = lazy(() => import('./features/training/TrainingPage'))
+const ChoresPage      = lazy(() => import('./features/chores/ChoresPage'))
 const VelovPage       = lazy(() => import('./features/velov/VelovPage'))
 const SharedListPage  = lazy(() => import('./pages/SharedListPage'))
 const JukeboxGuestPage = lazy(() => import('./pages/JukeboxGuestPage'))
@@ -68,6 +69,7 @@ const router = createBrowserRouter([
               { path: '/lecteur',            element: <Lazy><LecteurPage /></Lazy>   },
               { path: '/moments',            element: <Lazy><MomentsPage /></Lazy>   },
               { path: '/training',           element: <Lazy><TrainingPage /></Lazy>  },
+              { path: '/chores',             element: <Lazy><ChoresPage /></Lazy>    },
               { path: '/velov',              element: <Lazy><VelovPage /></Lazy>     },
             ],
           },

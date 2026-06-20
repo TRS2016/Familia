@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   Home, ShoppingCart, Calendar, Flame, Grid2x2,
-  BookOpen, Camera, Tv, Music, Settings, Dumbbell, Bike,
+  BookOpen, Camera, Tv, Music, Settings, Dumbbell, Bike, ListChecks,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import SlideUpModal from './SlideUpModal'
@@ -18,6 +18,7 @@ const MOBILE_TABS: { to: string; Icon: LucideIcon; label: string; exact: boolean
 ]
 
 const MOBILE_MORE: { to: string; Icon: LucideIcon; label: string }[] = [
+  { to: '/chores',   Icon: ListChecks, label: 'Tâches' },
   { to: '/kakebo',   Icon: BookOpen, label: 'Budget'   },
   { to: '/moments',  Icon: Camera,   label: 'Moments'  },
   { to: '/media',    Icon: Tv,       label: 'Médias'   },
@@ -34,6 +35,7 @@ const SIDEBAR_ITEMS: { to: string; Icon: LucideIcon; label: string; exact: boole
   { to: '/groceries', Icon: ShoppingCart, label: 'Courses',    exact: false },
   { to: '/calendar',  Icon: Calendar,     label: 'Agenda',     exact: false },
   { to: '/habits',    Icon: Flame,        label: 'Habitudes',  exact: false },
+  { to: '/chores',    Icon: ListChecks,   label: 'Tâches',     exact: false },
   { to: '/kakebo',    Icon: BookOpen,     label: 'Budget',     exact: false },
   { to: '/moments',   Icon: Camera,       label: 'Moments',    exact: false },
   { to: '/media',     Icon: Tv,           label: 'Médias',     exact: false },

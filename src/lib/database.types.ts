@@ -39,6 +39,198 @@ export type Database = {
   }
   public: {
     Tables: {
+      chore_assignments: {
+        Row: {
+          chore_id: string
+          created_at: string
+          date: string
+          household_id: string
+          id: string
+          member_id: string | null
+          status: string
+        }
+        Insert: {
+          chore_id: string
+          created_at?: string
+          date: string
+          household_id: string
+          id?: string
+          member_id?: string | null
+          status?: string
+        }
+        Update: {
+          chore_id?: string
+          created_at?: string
+          date?: string
+          household_id?: string
+          id?: string
+          member_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chore_assignments_chore_id_fkey"
+            columns: ["chore_id"]
+            isOneToOne: false
+            referencedRelation: "chores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_assignments_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_assignments_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chore_logs: {
+        Row: {
+          assignment_id: string | null
+          chore_id: string | null
+          created_at: string
+          done_on: string
+          household_id: string
+          id: string
+          label: string | null
+          member_id: string
+          note: string | null
+          points_awarded: number
+        }
+        Insert: {
+          assignment_id?: string | null
+          chore_id?: string | null
+          created_at?: string
+          done_on?: string
+          household_id: string
+          id?: string
+          label?: string | null
+          member_id: string
+          note?: string | null
+          points_awarded?: number
+        }
+        Update: {
+          assignment_id?: string | null
+          chore_id?: string | null
+          created_at?: string
+          done_on?: string
+          household_id?: string
+          id?: string
+          label?: string | null
+          member_id?: string
+          note?: string | null
+          points_awarded?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chore_logs_assignment_id_fkey"
+            columns: ["assignment_id"]
+            isOneToOne: false
+            referencedRelation: "chore_assignments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_logs_chore_id_fkey"
+            columns: ["chore_id"]
+            isOneToOne: false
+            referencedRelation: "chores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_logs_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_logs_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chores: {
+        Row: {
+          archived_at: string | null
+          category: string
+          color: string | null
+          created_at: string
+          default_member_id: string | null
+          emoji: string
+          frequency: string
+          frequency_days: number[] | null
+          household_id: string
+          id: string
+          name: string
+          points: number
+          position: number | null
+          rotation_member_ids: string[] | null
+          rotation_period: string
+          start_date: string | null
+        }
+        Insert: {
+          archived_at?: string | null
+          category?: string
+          color?: string | null
+          created_at?: string
+          default_member_id?: string | null
+          emoji?: string
+          frequency?: string
+          frequency_days?: number[] | null
+          household_id: string
+          id?: string
+          name: string
+          points?: number
+          position?: number | null
+          rotation_member_ids?: string[] | null
+          rotation_period?: string
+          start_date?: string | null
+        }
+        Update: {
+          archived_at?: string | null
+          category?: string
+          color?: string | null
+          created_at?: string
+          default_member_id?: string | null
+          emoji?: string
+          frequency?: string
+          frequency_days?: number[] | null
+          household_id?: string
+          id?: string
+          name?: string
+          points?: number
+          position?: number | null
+          rotation_member_ids?: string[] | null
+          rotation_period?: string
+          start_date?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chores_default_member_id_fkey"
+            columns: ["default_member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chores_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       event_reminders_sent: {
         Row: {
           event_id: string
@@ -1184,6 +1376,54 @@ export type Database = {
           },
         ]
       }
+      point_events: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          member_id: string
+          points: number
+          reason: string
+          ref_id: string | null
+          ref_type: string | null
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          member_id: string
+          points: number
+          reason?: string
+          ref_id?: string | null
+          ref_type?: string | null
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          member_id?: string
+          points?: number
+          reason?: string
+          ref_id?: string | null
+          ref_type?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "point_events_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "point_events_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       push_subscriptions: {
         Row: {
           auth: string
@@ -1471,6 +1711,17 @@ export type Database = {
     }
     Functions: {
       get_my_household_id: { Args: never; Returns: string }
+      log_chore: {
+        Args: {
+          p_assignment_id: string
+          p_chore_id: string
+          p_done_on: string
+          p_label: string
+          p_member_id: string
+          p_note: string
+        }
+        Returns: string
+      }
       move_saved_item: {
         Args: { p_item: string; p_to_list: string }
         Returns: undefined
@@ -1489,6 +1740,7 @@ export type Database = {
         Args: { a: string; b: string }
         Returns: undefined
       }
+      undo_chore_log: { Args: { p_log_id: string }; Returns: undefined }
     }
     Enums: {
       [_ in never]: never
