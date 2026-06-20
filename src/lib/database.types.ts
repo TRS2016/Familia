@@ -1548,6 +1548,112 @@ export type Database = {
           },
         ]
       }
+      reward_redemptions: {
+        Row: {
+          cost_points: number
+          created_at: string
+          household_id: string
+          id: string
+          label: string
+          member_id: string
+          resolved_at: string | null
+          reward_id: string | null
+          status: string
+        }
+        Insert: {
+          cost_points: number
+          created_at?: string
+          household_id: string
+          id?: string
+          label: string
+          member_id: string
+          resolved_at?: string | null
+          reward_id?: string | null
+          status?: string
+        }
+        Update: {
+          cost_points?: number
+          created_at?: string
+          household_id?: string
+          id?: string
+          label?: string
+          member_id?: string
+          resolved_at?: string | null
+          reward_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reward_redemptions_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reward_redemptions_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reward_redemptions_reward_id_fkey"
+            columns: ["reward_id"]
+            isOneToOne: false
+            referencedRelation: "rewards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rewards: {
+        Row: {
+          active: boolean
+          cost_points: number
+          created_at: string
+          emoji: string
+          household_id: string
+          id: string
+          member_id: string | null
+          name: string
+        }
+        Insert: {
+          active?: boolean
+          cost_points: number
+          created_at?: string
+          emoji?: string
+          household_id: string
+          id?: string
+          member_id?: string | null
+          name: string
+        }
+        Update: {
+          active?: boolean
+          cost_points?: number
+          created_at?: string
+          emoji?: string
+          household_id?: string
+          id?: string
+          member_id?: string | null
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rewards_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rewards_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       shared_list_tokens: {
         Row: {
           created_at: string
@@ -1809,12 +1915,21 @@ export type Database = {
         Args: { p_item: string; p_to_list: string }
         Returns: undefined
       }
+      redeem_reward: {
+        Args: { p_member_id: string; p_reward_id: string }
+        Returns: string
+      }
       reorder_habits: { Args: { p_ids: string[] }; Returns: undefined }
       replace_grocery_catalog: { Args: { p_rows: Json }; Returns: number }
+      resolve_redemption: {
+        Args: { p_redemption_id: string; p_status: string }
+        Returns: undefined
+      }
       save_grocery_list: {
         Args: { p_items: Json; p_name: string }
         Returns: string
       }
+      spendable_balance: { Args: { p_member_id: string }; Returns: number }
       swap_lecteur_queue_position: {
         Args: { a: string; b: string }
         Returns: undefined

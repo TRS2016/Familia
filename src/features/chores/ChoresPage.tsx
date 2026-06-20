@@ -19,9 +19,10 @@ import { isApplicable, dueMemberFor, weekDates } from './chores.utils'
 import { categoryOf } from './categories'
 import ChoreForm from './ChoreForm'
 import ProgressionTab from './ProgressionTab'
+import RewardsTab from './RewardsTab'
 import styles from './ChoresPage.module.css'
 
-type Tab = 'todo' | 'progress' | 'catalog'
+type Tab = 'todo' | 'progress' | 'rewards' | 'catalog'
 
 export default function ChoresPage() {
   const { data: currentMember } = useMember()
@@ -118,11 +119,14 @@ export default function ChoresPage() {
       <div className={styles.tabs}>
         <button className={[styles.tab, tab === 'todo' ? styles.tabActive : ''].join(' ')} onClick={() => setTab('todo')}>À faire</button>
         <button className={[styles.tab, tab === 'progress' ? styles.tabActive : ''].join(' ')} onClick={() => setTab('progress')}>Progression</button>
+        <button className={[styles.tab, tab === 'rewards' ? styles.tabActive : ''].join(' ')} onClick={() => setTab('rewards')}>Récompenses</button>
         <button className={[styles.tab, tab === 'catalog' ? styles.tabActive : ''].join(' ')} onClick={() => setTab('catalog')}>Catalogue</button>
       </div>
 
       {isLoading ? <Spinner /> : tab === 'progress' ? (
         <ProgressionTab members={members} chores={chores} logs={logs} />
+      ) : tab === 'rewards' ? (
+        <RewardsTab members={members} currentMemberId={currentMember?.id ?? null} />
       ) : tab === 'todo' ? (
         <>
           {/* Sélecteur de semaine + jours */}
