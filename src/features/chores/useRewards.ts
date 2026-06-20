@@ -120,13 +120,23 @@ export function useRedeemReward() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   return useMutation({
-    mutationFn: async ({ rewardId, memberId }: { rewardId: string; memberId: string }) => {
+    mutationFn: async ({ rewardId, memberId }: { rewardId: string; memberId: string; label?: string; requesterName?: string }) => {
       const { error } = await supabase.rpc('redeem_reward', { p_reward_id: rewardId, p_member_id: memberId })
       if (error) throw error
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: REDEMPTIONS_KEY })
       showToast({ type: 'success', message: 'Demande envoyée 🎁' })
+      // Notifie l'autre membre qu'une récompense est à valider (broadcast hors émetteur).
+      if (vars.label) {
+        void supabase.functions.invoke('notify-household', {
+          body: {
+            title: '🎁 Récompense à valider',
+            body: `${vars.requesterName ?? 'Quelqu\'un'} demande : ${vars.label}`,
+            module: 'chores',
+          },
+        })
+      }
     },
     onError: (err: unknown) => {
       const msg = err instanceof Error && /solde insuffisant/.test(err.message)

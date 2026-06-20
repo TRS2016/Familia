@@ -86,6 +86,7 @@ const MODULE_ROUTES: Record<string, string> = {
   moments:   '/moments',
   training:  '/training',
   velov:     '/velov',
+  chores:    '/chores',
   home:      '/',
 }
 

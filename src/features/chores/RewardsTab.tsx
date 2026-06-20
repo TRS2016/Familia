@@ -110,7 +110,7 @@ export default function RewardsTab({ members, currentMemberId }: Props) {
                   <button
                     className={[styles.redeemBtn, affordable ? '' : styles.redeemDisabled].join(' ')}
                     disabled={!affordable || !currentMemberId}
-                    onClick={() => currentMemberId && redeem.mutate({ rewardId: rw.id, memberId: currentMemberId })}>
+                    onClick={() => currentMemberId && redeem.mutate({ rewardId: rw.id, memberId: currentMemberId, label: rw.name, requesterName: nameById.get(currentMemberId) })}>
                     Échanger
                   </button>
                 </li>
