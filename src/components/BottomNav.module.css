@@ -13,8 +13,11 @@
   border-top: 1px solid var(--border);
   display: flex;
   z-index: var(--z-nav);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  /* Le fond --bg-card est opaque : le backdrop-filter était invisible ici mais
+     provoquait un décrochage/saut de la barre fixe au scroll sur Android Chrome
+     (pages lourdes : Courses, Habitudes). On le retire et on promeut la barre
+     sur sa propre couche composite pour qu'elle reste collée en bas. */
+  transform: translateZ(0);
 }
 
 @media (min-width: 768px) {
