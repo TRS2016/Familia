@@ -1465,43 +1465,13 @@
   .exitStop:hover { background: var(--tr-paper2); }
 }
 
-/* ── Accessibilité : focus clavier ──────────────────────────────────────────── */
-/* Aucun état de focus n'était défini ; les fonds personnalisés masquaient le
-   contour natif. On rétablit un anneau visible (visible-only, pas au clic souris). */
-
-/* Contexte clair (page liste/config) */
-.backLink:focus-visible, .modeTab:focus-visible, .focusChip:focus-visible,
-.presetMain:focus-visible, .presetDelete:focus-visible, .presetDuplicate:focus-visible,
-.historyDelete:focus-visible, .statCellGoal:focus-visible, .stepperBtn:focus-visible,
-.exVideoBtn:focus-visible, .exAddBtn:focus-visible, .exRemove:focus-visible,
-.exMoveBtn:focus-visible, .videoUploadBtn:focus-visible, .videoRemove:focus-visible,
-.startBtn:focus-visible, .saveBtn:focus-visible, .suggestToggle:focus-visible,
-.suggestAddBtn:focus-visible, .exitContinue:focus-visible, .exitStop:focus-visible,
-.exNameInput:focus-visible, .exInput:focus-visible, .saveInput:focus-visible,
-.saveSelect:focus-visible {
-  outline: 2px solid var(--tr-accent);
-  outline-offset: 2px;
-}
-
-/* Contexte sombre (run screen) — anneau clair pour le contraste */
+/* ── Accessibilité : focus clavier (run screen sombre) ──────────────────────── */
+/* Le focus clavier clair est déjà fourni globalement (index.css, anneau accent).
+   On ne surcharge QUE le contexte sombre du run screen, où l'anneau accent orange
+   est peu lisible : on y met un anneau clair. */
 .runClose:focus-visible, .runToggle:focus-visible, .tapBtn:focus-visible,
 .runCtrlBtn:focus-visible, .runCtrlBtnPrimary:focus-visible, .demoBtn:focus-visible,
 .demoClose:focus-visible, .circuitDemo:focus-visible {
   outline: 2px solid var(--tr-paper);
   outline-offset: 2px;
-}
-
-/* ── Mouvement réduit ───────────────────────────────────────────────────────── */
-/* Coupe les transforms/transitions décoratifs (scales au tap, anneaux, barres)
-   au-delà du seul flash de phase déjà géré plus haut. */
-@media (prefers-reduced-motion: reduce) {
-  .modeTab, .modeTab:active, .focusChip, .stepperBtn, .stepperBtn:active,
-  .exVideoBtn:active, .exAddBtn:active, .startBtn:active, .saveBtn:active,
-  .runToggle, .runCtrlBtn:active, .runCtrlBtnPrimary:active, .tapBtn,
-  .ringWrap, .ringWrapCompact, .roundDot, .roundDotCurrent, .statBar,
-  .demoInline, .circuitDemo:active, .exitSheet {
-    transition: none !important;
-    animation: none !important;
-    transform: none !important;
-  }
 }
