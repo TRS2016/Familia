@@ -4,7 +4,9 @@
   --tr-display: 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
   --tr-mono: 'JetBrains Mono', ui-monospace, monospace;
   --tr-paper: #F4F0E6; --tr-paper2: #EEE9DC; --tr-paper3: #E6DFCE;
-  --tr-ink: #1B1916; --tr-ink2: #3A3631; --tr-ink3: #6B6559; --tr-ink4: #9A9485;
+  /* ink4 assombri (#9A9485 -> #6F6A5B) pour atteindre ~4.8:1 sur le crème :
+     les micro-libellés (index d'exo, jours, « · membre ») restent lisibles. */
+  --tr-ink: #1B1916; --tr-ink2: #3A3631; --tr-ink3: #6B6559; --tr-ink4: #6F6A5B;
   --tr-line: #D9D2BF; --tr-line2: #C7BFA8;
   --tr-accent: #E8643A; --tr-rest: #3D80B8; --tr-ok: #4F7D3A;
   --tr-rm: 16px; --tr-rl: 22px; --tr-rxl: 30px;
@@ -1361,6 +1363,31 @@
     padding-right: 28px;
   }
   .historyCard, .statsCard, .totalLine, .subCard { margin-left: 28px; margin-right: 28px; }
+}
+
+/* ── Desktop large : deux colonnes, exploitation de la largeur ──────────────── */
+@media (min-width: 1024px) {
+  /* Plus de largeur pour la grille (la sidebar de l'app reste à côté). */
+  .page { max-width: 960px; }
+
+  /* Config : réglages | exercices côte à côte (alignés en haut). */
+  .configMain {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    gap: 16px;
+    padding: 0 28px;
+  }
+  /* Les cartes occupent leur cellule : on neutralise marges/paddings propres. */
+  .configCard { padding: 0; }
+  .subCard { margin: 0; }
+
+  /* Listes de séances (mes séances + suggestions) en grille 2 colonnes. */
+  .presetList {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+  }
 }
 
 /* ── Séances suggérées ─────────────────────────────────────────────────────── */
