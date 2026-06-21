@@ -48,8 +48,8 @@
 }
 
 .backLink {
-  width: 36px;
-  height: 36px;
+  width: 40px;
+  height: 40px;
   border-radius: 999px;
   background: var(--tr-paper2);
   border: 1px solid var(--tr-line);
@@ -114,7 +114,7 @@
   font-weight: 600;
   cursor: pointer;
   white-space: nowrap;
-  transition: all 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s, transform 0.1s;
 }
 .modeTab:active { transform: scale(0.96); }
 
@@ -150,7 +150,7 @@
   cursor: pointer;
   white-space: nowrap;
   font-family: var(--font-family);
-  transition: all 0.15s;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
 }
 .focusChip:hover { border-color: var(--tr-ink3); }
 .focusChipActive { background: var(--tr-ink); color: var(--tr-paper); border-color: var(--tr-ink); }
@@ -313,6 +313,7 @@
 }
 
 .historyDelete {
+  position: relative;
   flex-shrink: 0;
   width: 26px;
   height: 26px;
@@ -327,6 +328,7 @@
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
 }
+.historyDelete::after { content: ''; position: absolute; inset: -9px; }
 .historyDelete:hover { color: var(--tr-accent); background: var(--tr-paper3); }
 
 /* ── Stats ──────────────────────────────────────────────────────────────────── */
@@ -535,6 +537,7 @@
 }
 
 .stepperBtn {
+  position: relative;
   width: 26px;
   height: 26px;
   border-radius: 999px;
@@ -547,6 +550,8 @@
   justify-content: center;
   flex-shrink: 0;
 }
+/* Zone de tap étendue à ~44px sans agrandir le visuel (cible tactile a11y). */
+.stepperBtn::after { content: ''; position: absolute; inset: -9px; }
 .stepperBtn:active { transform: scale(0.9); }
 
 .stepperValue {
@@ -998,8 +1003,8 @@
   position: absolute;
   top: max(16px, env(safe-area-inset-top));
   right: 16px;
-  width: 36px;
-  height: 36px;
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
   border: 1px solid rgba(244, 240, 230, 0.15);
   background: rgba(244, 240, 230, 0.1);
@@ -1045,8 +1050,8 @@
 }
 
 .runToggle {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   border-radius: 999px;
   border: 1px solid rgba(244, 240, 230, 0.15);
   background: rgba(244, 240, 230, 0.08);
@@ -1397,4 +1402,63 @@
   background: none;
   color: var(--tr-ink4);
   cursor: default;
+}
+
+/* ── Retours au survol (desktop / souris uniquement) ────────────────────────── */
+/* Beaucoup de boutons n'avaient qu'un :active (tap) ; sur desktop ils semblaient
+   inertes. @media (hover: hover) évite le hover « collant » sur tactile. */
+@media (hover: hover) {
+  .backLink:hover { border-color: var(--tr-ink3); background: var(--tr-paper3); }
+  .presetMain:hover { background: var(--tr-paper3); }
+  .stepperBtn:hover { border-color: var(--tr-ink3); background: var(--tr-paper2); }
+  .exVideoBtn:hover { border-color: var(--tr-ink3); color: var(--tr-ink2); }
+  .exAddBtn:hover { opacity: 0.9; }
+  .startBtn:hover { background: color-mix(in srgb, var(--tr-accent) 88%, #000); }
+  .saveBtn:hover { border-color: var(--tr-ink3); }
+  .suggestAddBtn:not(:disabled):hover { background: color-mix(in srgb, var(--tr-accent) 20%, transparent); }
+  .runClose:hover, .runCtrlBtn:hover { background: rgba(244, 240, 230, 0.18); }
+  .runCtrlBtnPrimary:hover { background: color-mix(in srgb, var(--tr-accent) 88%, #000); }
+  .exitContinue:hover { background: var(--tr-ink2); }
+  .exitStop:hover { background: var(--tr-paper2); }
+}
+
+/* ── Accessibilité : focus clavier ──────────────────────────────────────────── */
+/* Aucun état de focus n'était défini ; les fonds personnalisés masquaient le
+   contour natif. On rétablit un anneau visible (visible-only, pas au clic souris). */
+
+/* Contexte clair (page liste/config) */
+.backLink:focus-visible, .modeTab:focus-visible, .focusChip:focus-visible,
+.presetMain:focus-visible, .presetDelete:focus-visible, .presetDuplicate:focus-visible,
+.historyDelete:focus-visible, .statCellGoal:focus-visible, .stepperBtn:focus-visible,
+.exVideoBtn:focus-visible, .exAddBtn:focus-visible, .exRemove:focus-visible,
+.exMoveBtn:focus-visible, .videoUploadBtn:focus-visible, .videoRemove:focus-visible,
+.startBtn:focus-visible, .saveBtn:focus-visible, .suggestToggle:focus-visible,
+.suggestAddBtn:focus-visible, .exitContinue:focus-visible, .exitStop:focus-visible,
+.exNameInput:focus-visible, .exInput:focus-visible, .saveInput:focus-visible,
+.saveSelect:focus-visible {
+  outline: 2px solid var(--tr-accent);
+  outline-offset: 2px;
+}
+
+/* Contexte sombre (run screen) — anneau clair pour le contraste */
+.runClose:focus-visible, .runToggle:focus-visible, .tapBtn:focus-visible,
+.runCtrlBtn:focus-visible, .runCtrlBtnPrimary:focus-visible, .demoBtn:focus-visible,
+.demoClose:focus-visible, .circuitDemo:focus-visible {
+  outline: 2px solid var(--tr-paper);
+  outline-offset: 2px;
+}
+
+/* ── Mouvement réduit ───────────────────────────────────────────────────────── */
+/* Coupe les transforms/transitions décoratifs (scales au tap, anneaux, barres)
+   au-delà du seul flash de phase déjà géré plus haut. */
+@media (prefers-reduced-motion: reduce) {
+  .modeTab, .modeTab:active, .focusChip, .stepperBtn, .stepperBtn:active,
+  .exVideoBtn:active, .exAddBtn:active, .startBtn:active, .saveBtn:active,
+  .runToggle, .runCtrlBtn:active, .runCtrlBtnPrimary:active, .tapBtn,
+  .ringWrap, .ringWrapCompact, .roundDot, .roundDotCurrent, .statBar,
+  .demoInline, .circuitDemo:active, .exitSheet {
+    transition: none !important;
+    animation: none !important;
+    transform: none !important;
+  }
 }
