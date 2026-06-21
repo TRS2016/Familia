@@ -1,13 +1,14 @@
-import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronRight, ChevronUp, History, PartyPopper, Play, Plus, Share2, Tv, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ChevronDown, ChevronRight, ChevronUp, History, PartyPopper, Play, Plus, Share2, Tv, Volume2, X } from 'lucide-react'
 import EmptyState from '../../components/EmptyState'
 import MediaPlayer, { canAutoAdvance } from '../media/MediaPlayer'
 import EqBars from './EqBars'
 import InviteModal from './InviteModal'
 import {
-  useClearQueue, useLecteurPlayedHistory, useMarkQueuePlayed, useMoveQueueItem, useRemoveFromQueue,
+  useAddToQueue, useClearQueue, useLecteurPlayedHistory, useMarkQueuePlayed, useMoveQueueItem, useRemoveFromQueue,
 } from './useLecteurQueue'
 import type { QueueItem } from './useLecteurQueue'
+import { useLecteurPlaylists, useLecteurPlaylistItems } from './useLecteur'
 import styles from './LecteurPage.module.css'
 
 // File d'attente partagée de soirée. Le mode DJ (lecture sur cet appareil) est
@@ -34,6 +35,35 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
 
   const current = queueItems[0] ?? null
   const upNext  = queueItems.slice(1)
+
+  // ── Volume (le MediaPlayer applique le réglage à l'audio/vidéo/YouTube) ──
+  const [volume, setVolume] = useState(1)
+
+  // ── Anti-silence : quand la file se vide en mode DJ, on enchaîne sur une
+  // playlist manuelle choisie (un morceau à la fois → enchaînement perpétuel). ──
+  const [autoFill, setAutoFill] = useState(false)
+  const [fillPlaylistId, setFillPlaylistId] = useState<string | null>(null)
+  const { data: playlists = [] } = useLecteurPlaylists()
+  const manualPlaylists = playlists.filter(p => p.type === 'manual')
+  const { data: fillItems = [] } = useLecteurPlaylistItems(autoFill ? fillPlaylistId : null)
+  const addToQueue = useAddToQueue()
+  const fillingRef = useRef(false)
+
+  useEffect(() => {
+    if (!djMode || !autoFill || !fillPlaylistId) return
+    if (queueItems.length > 0 || fillItems.length === 0) return
+    if (fillingRef.current || addToQueue.isPending) return
+    // Évite de répéter ce qui vient de passer (sauf si toute la playlist est jouée).
+    const playedIds = new Set(played.map(p => p.media_file_id))
+    const fresh = fillItems.filter(it => !playedIds.has(it.media_file_id))
+    const pool = fresh.length ? fresh : fillItems
+    const pick = pool[Math.floor(Math.random() * pool.length)]
+    if (!pick) return
+    fillingRef.current = true
+    addToQueue.mutate({ mediaFileId: pick.media_file_id, silent: true }, {
+      onSettled: () => { fillingRef.current = false },
+    })
+  }, [djMode, autoFill, fillPlaylistId, queueItems.length, fillItems, played, addToQueue])
 
   // Durée totale restante (en cours + à suivre) + heure de fin estimée.
   // Les liens/embeds sans durée connue sont exclus → « ≈ au moins ».
@@ -136,9 +166,21 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
               mimeType={current.media_file.mime_type}
               title={current.media_file.title}
               autoPlay
+              volume={volume}
               onEnded={() => markPlayed.mutate(current.id)}
             />
           </div>
+        )}
+        {djMode && (
+          <label className={styles.volumeRow}>
+            <Volume2 size={15} strokeWidth={2.5} />
+            <input
+              type="range" min={0} max={1} step={0.05} value={volume}
+              onChange={e => setVolume(parseFloat(e.target.value))}
+              className={styles.volumeSlider}
+              aria-label="Volume"
+            />
+          </label>
         )}
         {djMode && current.media_file
           && !canAutoAdvance(current.media_file.file_path, current.media_file.external_url, current.media_file.mime_type) && (
@@ -164,6 +206,34 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
         <span>À suivre{upNext.length > 0 ? ` · ${upNext.length}` : ''}</span>
         <button className={styles.clearQueueBtn} onClick={() => clearQueue.mutate()} disabled={clearQueue.isPending}>Vider la file</button>
       </div>
+
+      {/* Anti-silence : enchaîne une playlist quand la file se vide (mode DJ) */}
+      {manualPlaylists.length > 0 && (
+        <div className={styles.autoFillRow}>
+          <label className={styles.autoFillToggle}>
+            <input
+              type="checkbox"
+              checked={autoFill}
+              onChange={e => {
+                setAutoFill(e.target.checked)
+                if (e.target.checked && !fillPlaylistId) setFillPlaylistId(manualPlaylists[0].id)
+              }}
+            />
+            Anti-silence
+          </label>
+          {autoFill && (
+            <select
+              className={styles.autoFillSelect}
+              value={fillPlaylistId ?? ''}
+              onChange={e => setFillPlaylistId(e.target.value || null)}
+              aria-label="Playlist d'enchaînement"
+            >
+              {manualPlaylists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select>
+          )}
+          {autoFill && !djMode && <span className={styles.autoFillNote}>actif en mode DJ</span>}
+        </div>
+      )}
       {upNext.length === 0 ? (
         <p className={styles.jukeboxHint}>Ajoutez des morceaux depuis la Bibliothèque pour remplir la file.</p>
       ) : (

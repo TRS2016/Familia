@@ -1824,6 +1824,55 @@
 }
 .screenBtn:hover { border-color: var(--accent); color: var(--accent); }
 
+/* ── Volume + anti-silence (mode DJ) ─────────────────────────────────────────── */
+.volumeRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  color: var(--text-muted);
+}
+.volumeSlider {
+  flex: 1;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+
+.autoFillRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 4px 0 10px;
+}
+.autoFillToggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text-sub);
+  cursor: pointer;
+}
+.autoFillToggle input { accent-color: var(--accent); }
+.autoFillSelect {
+  padding: 6px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: var(--text-xs);
+  outline: none;
+  cursor: pointer;
+}
+.autoFillSelect:focus { border-color: var(--accent); }
+.autoFillNote {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
 /* ── Mode écran « soirée » plein écran ───────────────────────────────────────── */
 .party {
   position: fixed;

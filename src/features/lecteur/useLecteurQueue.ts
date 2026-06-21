@@ -96,8 +96,11 @@ export function useAddToQueue() {
   const { data: member } = useMember()
   const { showToast } = useToast()
 
+  // Accepte un id simple (toast de confirmation) ou { mediaFileId, silent } pour
+  // l'auto-remplissage anti-silence (sans toast à chaque ajout).
   return useMutation({
-    mutationFn: async (mediaFileId: string) => {
+    mutationFn: async (input: string | { mediaFileId: string; silent?: boolean }) => {
+      const mediaFileId = typeof input === 'string' ? input : input.mediaFileId
       const { error } = await supabase
         .from('lecteur_queue')
         .insert({
@@ -108,9 +111,11 @@ export function useAddToQueue() {
         } as never)
       if (error) throw error
     },
-    onSuccess: () => {
+    onSuccess: (_data, input) => {
       queryClient.invalidateQueries({ queryKey: LECTEUR_QUEUE_KEY })
-      showToast({ type: 'success', message: 'Ajouté à la file 🎉' })
+      if (typeof input === 'string' || !input.silent) {
+        showToast({ type: 'success', message: 'Ajouté à la file 🎉' })
+      }
     },
     onError: () => showToast({ type: 'error', message: "Impossible d'ajouter à la file." }),
   })
