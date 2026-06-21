@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { ChevronDown, ChevronRight, ChevronUp, History, PartyPopper, Play, Plus, Share2, X } from 'lucide-react'
+import { ChevronDown, ChevronRight, ChevronUp, History, PartyPopper, Play, Plus, Share2, Tv, X } from 'lucide-react'
 import EmptyState from '../../components/EmptyState'
 import MediaPlayer, { canAutoAdvance } from '../media/MediaPlayer'
 import EqBars from './EqBars'
@@ -12,11 +12,12 @@ import styles from './LecteurPage.module.css'
 
 // File d'attente partagée de soirée. Le mode DJ (lecture sur cet appareil) est
 // remonté dans LecteurPage pour garantir l'exclusivité avec la file perso.
-export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggleDj }: {
+export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggleDj, onOpenScreen }: {
   queueItems: QueueItem[]
   onGoToLibrary: () => void
   djMode: boolean
   onToggleDj: (on: boolean) => void
+  onOpenScreen: () => void
 }) {
   const markPlayed = useMarkQueuePlayed()
   const removeItem = useRemoveFromQueue()
@@ -46,6 +47,11 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
   const inviteBtn = (
     <button className={styles.inviteBtn} onClick={() => setShowInvite(true)}>
       <Share2 size={14} strokeWidth={2.5} /> Inviter des amis (lien / QR)
+    </button>
+  )
+  const screenBtn = (
+    <button className={styles.screenBtn} onClick={onOpenScreen}>
+      <Tv size={14} strokeWidth={2.5} /> Mode écran
     </button>
   )
   const inviteModal = showInvite && <InviteModal onClose={() => setShowInvite(false)} />
@@ -86,6 +92,7 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
           description="Chacun ajoute ses morceaux depuis la Bibliothèque (bouton « + file ») ou via le lien d'invitation. Ils s'enchaînent ici."
         />
         {inviteBtn}
+        {screenBtn}
         <button className={styles.newListBtn} onClick={onGoToLibrary}>
           <Plus size={13} strokeWidth={2.5} /> Ajouter depuis la bibliothèque
         </button>
@@ -97,7 +104,7 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
 
   return (
     <div className={styles.jukebox}>
-      <div className={styles.jukeboxTopBar}>{inviteBtn}</div>
+      <div className={styles.jukeboxTopBar}>{inviteBtn}{screenBtn}</div>
       {/* En cours */}
       <div className={styles.jukeboxNow}>
         <div className={styles.jukeboxNowHead}>

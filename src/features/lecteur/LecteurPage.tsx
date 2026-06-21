@@ -24,6 +24,7 @@ import { KIND_META, probeDuration, youtubeThumb } from './lecteur.utils'
 import EqBars from './EqBars'
 import FileRow from './FileRow'
 import JukeboxPane from './JukeboxPane'
+import PartyScreen from './PartyScreen'
 import PlaylistsPane from './PlaylistsPane'
 import YouTubeSearchModal from './YouTubeSearchModal'
 import AddUrlModal from './AddUrlModal'
@@ -93,6 +94,15 @@ export default function LecteurPage() {
   function toggleDj(on: boolean) {
     if (on) stop()
     setDjMode(on)
+  }
+
+  // Mode écran « soirée » plein écran : overlay au-dessus du lecteur DJ (qui
+  // porte l'audio). L'ouvrir active le DJ pour qu'un son soit joué sur cet appareil.
+  const [partyScreen, setPartyScreen] = useState(false)
+  function openPartyScreen() {
+    stop()
+    setDjMode(true)
+    setPartyScreen(true)
   }
 
   // ── Contrôles de lecture ──
@@ -738,8 +748,13 @@ export default function LecteurPage() {
           onGoToLibrary={() => setActiveTab('bibliothèque')}
           djMode={djMode}
           onToggleDj={toggleDj}
+          onOpenScreen={openPartyScreen}
         />
         </div>
+      )}
+
+      {partyScreen && (
+        <PartyScreen queueItems={queueItems} onClose={() => setPartyScreen(false)} />
       )}
 
       {/* ── Modals ───────────────────────────────────────────────── */}
