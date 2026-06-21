@@ -1,12 +1,13 @@
 import { useState, useRef } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Plus, Trash2, Pencil, MapPin, Download, Upload } from 'lucide-react'
+import { ChevronLeft, Plus, Trash2, Pencil, MapPin, Download, Upload, ScanLine } from 'lucide-react'
 import { useCatalog } from './useCatalog'
 import type { CatalogItem } from './useCatalog'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
+import ReceiptScanModal from './ReceiptScanModal'
 import { parseCatalogCsv, downloadBlob, type CatalogCsvRow } from './catalogCsv'
 import { catalogToXlsxBlob, parseCatalogXlsx } from './catalogXlsx'
 import { format } from 'date-fns'
@@ -51,6 +52,7 @@ export default function CatalogPage() {
   const [pendingImport, setPendingImport] = useState<CatalogCsvRow[] | null>(null)
 
   const [showAddModal, setShowAddModal]   = useState(false)
+  const [showScan, setShowScan]           = useState(false)
   const [editingItem, setEditingItem]     = useState<CatalogItem | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
 
@@ -163,6 +165,14 @@ export default function CatalogPage() {
             <Upload size={17} strokeWidth={2.5} />
           </button>
           <button
+            className={styles.headerIconBtn}
+            onClick={() => setShowScan(true)}
+            aria-label="Scanner un ticket de caisse"
+            title="Scanner un ticket de caisse"
+          >
+            <ScanLine size={17} strokeWidth={2.5} />
+          </button>
+          <button
             className={styles.addBtn}
             onClick={() => setShowAddModal(true)}
             aria-label="Ajouter un article"
@@ -179,6 +189,10 @@ export default function CatalogPage() {
         style={{ display: 'none' }}
         onChange={handleFile}
       />
+
+      {showScan && (
+        <ReceiptScanModal existing={items} onClose={() => setShowScan(false)} />
+      )}
 
       {query.isLoading && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>

@@ -385,4 +385,169 @@
   margin-bottom: 8px;
 }
 
+/* ── Scan de ticket ──────────────────────────────────────────────────────────── */
+
+.receiptBody {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 0 16px 16px;
+}
+
+.receiptHint {
+  font-size: var(--text-sm);
+  color: var(--text-muted);
+  line-height: var(--leading-body);
+  margin: 0;
+}
+
+.receiptBtnRow { display: flex; gap: 8px; }
+
+.receiptUploadBtn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--radius-md);
+  border: 1.5px dashed var(--border);
+  background: var(--bg-input);
+  color: var(--text-sub);
+  font-family: var(--font-family);
+  font-size: var(--text-md);
+  font-weight: 700;
+  cursor: pointer;
+}
+.receiptUploadBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.receiptLoading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  padding: 40px 0;
+  color: var(--text-muted);
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+.receiptSpin { color: var(--accent); animation: receiptSpin 0.9s linear infinite; }
+@keyframes receiptSpin { to { transform: rotate(360deg); } }
+
+.receiptStore {
+  padding: 11px 13px;
+  border-radius: var(--radius-sm);
+  border: 1.5px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: var(--text-md);
+  outline: none;
+}
+.receiptStore:focus { border-color: var(--accent); }
+
+.receiptList {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 46vh;
+  overflow-y: auto;
+}
+
+.receiptRow {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-card);
+}
+
+.receiptCheck {
+  flex-shrink: 0;
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  border-radius: 7px;
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.receiptCheckOn { background: var(--accent); border-color: var(--accent); }
+
+.receiptFields { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.receiptName {
+  width: 100%;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: var(--text-md);
+  font-weight: 700;
+  color: var(--text);
+  outline: none;
+  padding: 0;
+}
+
+.receiptSub { display: flex; gap: 8px; }
+
+.receiptSelect {
+  flex: 1;
+  min-width: 0;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-sub);
+  font-family: var(--font-family);
+  font-size: var(--text-xs);
+  outline: none;
+  cursor: pointer;
+}
+.receiptSelect:focus { border-color: var(--accent); }
+
+.receiptPrice {
+  width: 72px;
+  flex-shrink: 0;
+  padding: 7px 9px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  text-align: right;
+  outline: none;
+}
+.receiptPrice:focus { border-color: var(--accent); }
+
+.receiptDup {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  color: var(--warning);
+}
+
+.receiptAddBtn {
+  width: 100%;
+  padding: 13px;
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: var(--text-md);
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+.receiptAddBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
 .submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
