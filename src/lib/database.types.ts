@@ -1841,6 +1841,7 @@ export type Database = {
           member_id: string | null
           mode: string
           name: string
+          rounds: number | null
         }
         Insert: {
           completed_at?: string
@@ -1851,6 +1852,7 @@ export type Database = {
           member_id?: string | null
           mode: string
           name: string
+          rounds?: number | null
         }
         Update: {
           completed_at?: string
@@ -1861,6 +1863,7 @@ export type Database = {
           member_id?: string | null
           mode?: string
           name?: string
+          rounds?: number | null
         }
         Relationships: [
           {

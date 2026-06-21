@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { X, Play, Pause, RotateCcw, SkipForward, Video, Volume2, VolumeX, Megaphone } from 'lucide-react'
+import { X, Play, Pause, RotateCcw, SkipForward, Video, Volume2, VolumeX, Megaphone, Flag } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
 import MediaPlayer from '../media/MediaPlayer'
 import { useMember } from '../../auth/useMember'
@@ -29,7 +29,7 @@ export default function RunScreen({ mode, config, title, onExit }: {
 }) {
   const [muted, setMuted] = useBoolPref('training.muted', false)
   const [voice, setVoice] = useBoolPref('training.voice', false)
-  const { view, taps, start, pause, resume, reset, skip, addTap } = useTrainingTimer(mode, config, { muted, voice })
+  const { view, taps, start, pause, resume, reset, skip, addTap, finish } = useTrainingTimer(mode, config, { muted, voice })
   useWakeLock(view.status === 'running' || view.status === 'paused')
   const logSession = useLogTrainingSession()
   const { data: member } = useMember()
@@ -82,9 +82,11 @@ export default function RunScreen({ mode, config, title, onExit }: {
   useEffect(() => {
     if (view.status === 'done' && !loggedRef.current) {
       loggedRef.current = true
-      logSession.mutate({ name: title, mode, duration_seconds: view.elapsedTotal, focus: config.focus ?? null })
+      // Les tours ne comptent que pour les modes au score (AMRAP / For Time).
+      const rounds = (mode === 'amrap' || mode === 'fortime') ? taps : null
+      logSession.mutate({ name: title, mode, duration_seconds: view.elapsedTotal, focus: config.focus ?? null, rounds })
     }
-  }, [view.status, view.elapsedTotal, title, mode, config.focus, logSession])
+  }, [view.status, view.elapsedTotal, title, mode, config.focus, taps, logSession])
 
   const color = view.status === 'done' ? PHASE_COLOR.done : (PHASE_COLOR[view.kind] ?? PHASE_COLOR.prepare)
   const done  = view.status === 'done'
@@ -118,6 +120,14 @@ export default function RunScreen({ mode, config, title, onExit }: {
     if (view.status === 'running' || view.status === 'paused') setConfirmExit(true)
     else { reset(); onExit() }
   }
+
+  // Fermeture clavier (Échap) de la confirmation de sortie.
+  useEffect(() => {
+    if (!confirmExit) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setConfirmExit(false) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [confirmExit])
 
   return (
     <div className={styles.runRoot}>
@@ -292,9 +302,18 @@ export default function RunScreen({ mode, config, title, onExit }: {
                 ? <><Pause size={20} strokeWidth={2.5} fill="currentColor" /> Pause</>
                 : <><Play size={20} strokeWidth={2.5} fill="currentColor" /> Reprendre</>}
             </button>
-            <button className={styles.runCtrlBtn} onClick={handleClose} aria-label="Terminer">
-              <X size={20} strokeWidth={2.5} />
-            </button>
+            {isCountUp(mode) ? (
+              // For Time : termine et enregistre la séance (sinon, sans plafond ni
+              // objectif, le chrono ne pourrait jamais être validé — il faut le
+              // bouton d'abandon en haut, qui lui n'enregistre rien).
+              <button className={styles.runCtrlBtn} onClick={finish} aria-label="Terminer la séance">
+                <Flag size={20} strokeWidth={2.5} />
+              </button>
+            ) : (
+              <button className={styles.runCtrlBtn} onClick={handleClose} aria-label="Quitter">
+                <X size={20} strokeWidth={2.5} />
+              </button>
+            )}
           </>
         )}
       </div>
@@ -302,7 +321,7 @@ export default function RunScreen({ mode, config, title, onExit }: {
 
       {confirmExit && (
         <div className={styles.exitOverlay} onClick={() => setConfirmExit(false)}>
-          <div className={styles.exitSheet} onClick={e => e.stopPropagation()}>
+          <div className={styles.exitSheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
             <span className={styles.exitEyebrow}>Chrono en cours</span>
             <p className={styles.exitTitle}>Arrêter le chrono ?</p>
             <p className={styles.exitText}>Le minuteur en cours sera remis à zéro.</p>

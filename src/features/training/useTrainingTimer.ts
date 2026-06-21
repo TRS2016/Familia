@@ -24,25 +24,41 @@ export interface TimerView {
 
 // ── Bips Web Audio ─────────────────────────────────────────────────────────────
 
-function useBeeper() {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const ctxRef = useRef<any>(null)
+// AudioContext partagé (singleton). iOS/Safari exige que le contexte soit créé ET
+// repris (resume) DANS un geste utilisateur ; on l'amorce donc dès le tap
+// « Démarrer » via primeTrainingAudio() plutôt qu'au montage de l'écran (effet),
+// où le geste a déjà expiré et où le son resterait muet jusqu'à pause/reprise.
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+let sharedCtx: any = null
 
-  const ensure = useCallback(() => {
-    try {
-      if (!ctxRef.current) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const AC = window.AudioContext || (window as any).webkitAudioContext
-        if (AC) ctxRef.current = new AC()
-      }
-      if (ctxRef.current?.state === 'suspended') ctxRef.current.resume()
-    } catch { /* audio indisponible */ }
-    return ctxRef.current
-  }, [])
+function getAudioCtx() {
+  try {
+    if (!sharedCtx) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const AC = window.AudioContext || (window as any).webkitAudioContext
+      if (AC) sharedCtx = new AC()
+    }
+    if (sharedCtx?.state === 'suspended') sharedCtx.resume()
+  } catch { /* audio indisponible */ }
+  return sharedCtx
+}
+
+/** Amorce audio + synthèse vocale dans un geste utilisateur (tap « Démarrer »). */
+export function primeTrainingAudio() {
+  getAudioCtx()
+  // Débloque aussi la synthèse vocale iOS via une utterance vide.
+  try {
+    const synth = window.speechSynthesis
+    if (synth) { synth.cancel(); synth.speak(new SpeechSynthesisUtterance('')) }
+  } catch { /* synthèse indisponible */ }
+}
+
+function useBeeper() {
+  const ensure = useCallback(() => getAudioCtx(), [])
 
   const beep = useCallback((freq: number, dur: number, vol = 0.3, when = 0, type: OscillatorType = 'sine') => {
     try {
-      const ctx = ctxRef.current
+      const ctx = sharedCtx
       if (!ctx) return
       const osc  = ctx.createOscillator()
       const gain = ctx.createGain()
@@ -221,7 +237,10 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
 
   const emitCountUp = useCallback(() => {
     const value = Math.floor(elapsedRef.current)
-    const progress = cap > 0 ? Math.min(1, elapsedRef.current / cap) : 0
+    // Anneau : sur le plafond si défini, sinon sur l'objectif de tours.
+    const progress = cap > 0
+      ? Math.min(1, elapsedRef.current / cap)
+      : target > 0 ? Math.min(1, tapsRef.current / target) : 0
     setView(v =>
       v.value === value && v.status === 'running'
         ? { ...v, progress }
@@ -231,7 +250,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
             exercise: '', exerciseNext: '', exerciseObj: null, exerciseNextObj: null,
           }
     )
-  }, [cap])
+  }, [cap, target])
 
   // Nom d'exercice associé à une phase (pour l'annonce vocale).
   const exNameForPhase = useCallback((ph: typeof phases[number]): string => {
@@ -280,14 +299,15 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
       elapsedRef.current   += dt
       const ph = phases[phaseIdxRef.current]
       const ceil = Math.ceil(remainingRef.current)
-      // Repère mi-parcours sur les efforts longs
-      if (ph.kind === 'work' && ph.seconds >= 40 && !halfFiredRef.current && remainingRef.current <= ph.seconds / 2) {
+      // Repère mi-parcours sur les efforts longs (pas en EMOM : chaque minute est
+      // un effort, ça déclencherait l'annonce à répétition).
+      if (mode !== 'emom' && ph.kind === 'work' && ph.seconds >= 40 && !halfFiredRef.current && remainingRef.current <= ph.seconds / 2) {
         halfFiredRef.current = true; sndMark(); speak('Mi-temps'); vibrate(80)
       }
       if (ceil !== prevCeilRef.current) {
         prevCeilRef.current = ceil
-        // Bip 10s avant la fin d'un effort suffisamment long
-        if (ph.kind === 'work' && ph.seconds >= 25 && ceil === 10) { sndMark(); speak('Dix secondes'); vibrate(60) }
+        // Bip 10s avant la fin d'un effort suffisamment long (idem : pas en EMOM)
+        if (mode !== 'emom' && ph.kind === 'work' && ph.seconds >= 25 && ceil === 10) { sndMark(); speak('Dix secondes'); vibrate(60) }
         if (ceil >= 1 && ceil <= 3) { sndTick(ph.kind === 'rest'); speak(String(ceil)); vibrate(40) }
       }
       if (remainingRef.current <= 0) {
@@ -305,7 +325,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
       }
       emitCountdown()
     }
-  }, [countUp, cap, target, phases, emitCountUp, emitCountdown, finish, sndTick, sndGo, sndBreak, sndMark, speak, exNameForPhase])
+  }, [mode, countUp, cap, target, phases, emitCountUp, emitCountdown, finish, sndTick, sndGo, sndBreak, sndMark, speak, exNameForPhase])
 
   const start = useCallback(() => {
     ensure()
@@ -384,5 +404,5 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
   // nettoyage
   useEffect(() => () => { if (intervalRef.current) clearInterval(intervalRef.current) }, [])
 
-  return { view, taps, start, pause, resume, reset, skip, addTap }
+  return { view, taps, start, pause, resume, reset, skip, addTap, finish }
 }

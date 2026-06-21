@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
@@ -19,6 +19,7 @@ import Stepper from './Stepper'
 import StatsCard from './StatsCard'
 import ExerciseEditor from './ExerciseEditor'
 import RunScreen from './RunScreen'
+import { primeTrainingAudio } from './useTrainingTimer'
 import { SUGGESTED_PRESETS, type SuggestedPreset } from './presetLibrary'
 import styles from './TrainingPage.module.css'
 
@@ -58,6 +59,14 @@ export default function TrainingPage() {
   const [showGoal, setShowGoal]     = useState(false)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [suggestFocus, setSuggestFocus]       = useState<string | null>(null)
+
+  // Fermeture clavier (Échap) de la confirmation de suppression.
+  useEffect(() => {
+    if (!confirmDel) return
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setConfirmDel(null) }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [confirmDel])
 
   const cfg = configs[mode]
   const set = (patch: Partial<TrainingConfig>) =>
@@ -186,7 +195,7 @@ export default function TrainingPage() {
       <div className={styles.configActions}>
         <button
           className={styles.startBtn}
-          onClick={() => setScreen({ name: 'run', mode, config: cfg, title })}
+          onClick={() => { primeTrainingAudio(); setScreen({ name: 'run', mode, config: cfg, title }) }}
         >
           <Play size={18} strokeWidth={2.5} fill="currentColor" /> Démarrer{startDur ? ` · ${startDur}` : ''}
         </button>
@@ -380,6 +389,9 @@ export default function TrainingPage() {
                   <span className={styles.historyEmoji}>{MODE_META[s.mode]?.emoji ?? '🏋️'}</span>
                   <span className={styles.historyName}>
                     {s.name}
+                    {(s.mode === 'amrap' || s.mode === 'fortime') && s.rounds != null && s.rounds > 0 && (
+                      <span className={styles.historyMember}> · {s.rounds} tour{s.rounds > 1 ? 's' : ''}</span>
+                    )}
                     {s.member?.display_name && <span className={styles.historyMember}> · {s.member.display_name}</span>}
                   </span>
                   <span className={styles.historyDur}>{fmtClock(s.duration_seconds)}</span>
@@ -423,7 +435,7 @@ export default function TrainingPage() {
 
       {confirmDel && (
         <div className={styles.pageOverlay} onClick={() => setConfirmDel(null)}>
-          <div className={styles.exitSheet} onClick={e => e.stopPropagation()}>
+          <div className={styles.exitSheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
             <span className={styles.exitEyebrow}>{confirmDel.kind === 'preset' ? 'Séance enregistrée' : 'Historique'}</span>
             <p className={styles.exitTitle}>
               Supprimer {confirmDel.kind === 'preset' ? 'la séance' : 'cette entrée'} ?

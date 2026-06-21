@@ -64,6 +64,7 @@ export interface TrainingSession {
   mode: TrainingMode
   duration_seconds: number
   focus?: string | null
+  rounds?: number | null  // tours réalisés (AMRAP / For Time)
   completed_at: string
   member?: { display_name: string } | null
 }
@@ -170,7 +171,11 @@ export function configSummary(mode: TrainingMode, cfg: TrainingConfig): string {
       return `${fmtClock(cfg.interval ?? 60)} × ${cfg.rounds}`
     case 'amrap':
       return `AMRAP ${fmtClock(cfg.duration ?? 0)}`
-    case 'fortime':
-      return cfg.cap && cfg.cap > 0 ? `For Time (cap ${fmtClock(cfg.cap)})` : 'For Time'
+    case 'fortime': {
+      const parts: string[] = []
+      if (cfg.target && cfg.target > 0) parts.push(`${cfg.target} tours`)
+      if (cfg.cap && cfg.cap > 0) parts.push(`cap ${fmtClock(cfg.cap)}`)
+      return parts.length ? `For Time · ${parts.join(' · ')}` : 'For Time'
+    }
   }
 }

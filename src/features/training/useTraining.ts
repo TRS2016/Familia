@@ -144,7 +144,7 @@ export function useLogTrainingSession() {
   const { showToast } = useToast()
 
   return useMutation({
-    mutationFn: async (input: { name: string; mode: TrainingMode; duration_seconds: number; focus?: string | null }) => {
+    mutationFn: async (input: { name: string; mode: TrainingMode; duration_seconds: number; focus?: string | null; rounds?: number | null }) => {
       const { error } = await supabase
         .from('training_sessions')
         .insert({
@@ -154,6 +154,7 @@ export function useLogTrainingSession() {
           mode:             input.mode,
           duration_seconds: input.duration_seconds,
           focus:            input.focus ?? null,
+          rounds:           input.rounds ?? null,
         })
       if (error) throw error
     },
