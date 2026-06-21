@@ -343,10 +343,6 @@ export default function GroceriesPage() {
               >
                 <Clock size={15} strokeWidth={2.5} />
               </button>
-              <Link to="/groceries/saved" className={styles.savedListsLink} aria-label="Mes listes">
-                <Bookmark size={14} strokeWidth={2.5} />
-                <span>Listes</span>
-              </Link>
             </>
           )}
           <button
@@ -500,6 +496,10 @@ export default function GroceriesPage() {
             <ClipboardList size={14} strokeWidth={2.5} aria-hidden="true" />
             Depuis le catalogue
           </button>
+          <Link to="/groceries/saved" className={styles.catalogLinkBtn} aria-label="Mes listes">
+            <Bookmark size={14} strokeWidth={2.5} aria-hidden="true" />
+            Listes
+          </Link>
         </div>
       )}
 
