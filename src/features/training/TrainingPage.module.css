@@ -1354,7 +1354,7 @@
 /* ── Desktop : un peu d'air ─────────────────────────────────────────────────── */
 
 /* Wrappers neutres (colonne unique, comme avant) */
-.configZone, .configMain { display: contents; }
+.configZone, .configMain, .dataGrid, .dataCol { display: contents; }
 
 @media (min-width: 768px) {
   .header, .sectionLabel, .modeTabs, .presetList, .configCard, .configActions,
@@ -1388,6 +1388,22 @@
     grid-template-columns: 1fr 1fr;
     align-items: start;
   }
+
+  /* Stats + historique côte à côte (chaque colonne garde son libellé). */
+  .dataGrid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    align-items: start;
+    gap: 16px;
+    padding: 0 28px;
+  }
+  .dataCol { display: block; min-width: 0; }
+  /* Les enfants s'alignent aux bords de leur colonne (on annule les gouttières
+     propres héritées du layout mobile/tablette). */
+  .dataCol .sectionLabel,
+  .dataCol .focusFilterRow { padding-left: 0; padding-right: 0; }
+  .dataCol .statsCard,
+  .dataCol .historyCard { margin-left: 0; margin-right: 0; }
 }
 
 /* ── Séances suggérées ─────────────────────────────────────────────────────── */

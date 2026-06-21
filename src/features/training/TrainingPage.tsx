@@ -346,15 +346,21 @@ export default function TrainingPage() {
         )
       })()}
 
+      {/* Stats + historique — empilés sur mobile, côte à côte sur desktop */}
+      {(((stats?.totalCount ?? 0) > 0) || sessions.length > 0) && (
+      <div className={styles.dataGrid}>
       {/* Stats */}
+      <div className={styles.dataCol}>
       {stats && stats.totalCount > 0 && (
         <>
           <p className={styles.sectionLabel}>Cette semaine</p>
           <StatsCard stats={stats} goal={weeklyGoal} onEditGoal={() => setShowGoal(true)} />
         </>
       )}
+      </div>
 
       {/* Historique */}
+      <div className={styles.dataCol}>
       {sessions.length > 0 && (() => {
         const members = [...new Set(sessions.map(s => s.member?.display_name).filter(Boolean))] as string[]
         const shownSessions = historyMember
@@ -412,6 +418,9 @@ export default function TrainingPage() {
         </>
         )
       })()}
+      </div>
+      </div>
+      )}
 
       {showGoal && (
         <SlideUpModal title="Objectif de la semaine" onClose={() => setShowGoal(false)}>
