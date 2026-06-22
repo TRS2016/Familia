@@ -803,6 +803,7 @@ export default function MomentsPage() {
   const fileInputRef   = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
   const videoInputRef  = useRef<HTMLInputElement>(null)
+  const videoCaptureRef = useRef<HTMLInputElement>(null)
 
   const feedAuthors = useMemo(() => {
     const seen = new Map<string, string>()
@@ -1174,6 +1175,10 @@ export default function MomentsPage() {
                   <ImageIcon size={16} strokeWidth={2} />
                   Galerie
                 </button>
+                <button type="button" className={styles.photoPickerBtn} onClick={() => videoCaptureRef.current?.click()}>
+                  <Video size={16} strokeWidth={2} />
+                  Filmer
+                </button>
                 <button type="button" className={styles.photoPickerBtn} onClick={() => videoInputRef.current?.click()}>
                   <Video size={16} strokeWidth={2} />
                   Vidéo
@@ -1231,6 +1236,14 @@ export default function MomentsPage() {
               multiple
               style={{ display: 'none' }}
               onChange={handlePhotoChange}
+            />
+            <input
+              ref={videoCaptureRef}
+              type="file"
+              accept="video/*"
+              capture="environment"
+              style={{ display: 'none' }}
+              onChange={handleVideoChange}
             />
             <input
               ref={videoInputRef}
