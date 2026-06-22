@@ -259,13 +259,14 @@ export default function HomePage() {
   }, [HOUR_MS])
 
   const lastMoment = useMemo<HomeMoment | null>(() => {
-    if (recentMoments.length === 0) return null
-    const newest = recentMoments[0]
+    const pool = Array.isArray(recentMoments) ? recentMoments : []
+    const newest = pool[0]
+    if (!newest) return null
     // Épinglage : si le plus récent date de moins de 3h, on l'affiche.
     if (nowTick - new Date(newest.created_at).getTime() < PIN_MS) return newest
     // Sinon, rotation horaire déterministe sur le pool.
-    const idx = Math.floor(nowTick / HOUR_MS) % recentMoments.length
-    return recentMoments[idx]
+    const idx = Math.floor(nowTick / HOUR_MS) % pool.length
+    return pool[idx] ?? newest
   }, [recentMoments, nowTick, HOUR_MS, PIN_MS])
 
   // Photos du dernier moment : album trié, sinon photo_path legacy. Puis signed URLs.
