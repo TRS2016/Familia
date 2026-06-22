@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { ShoppingCart, Settings, Flame, Bell, Camera } from 'lucide-react'
@@ -233,21 +233,40 @@ export default function HomePage() {
     enabled: !!member,
   })
 
-  const { data: lastMoment } = useQuery({
+  const { data: recentMoments = [] } = useQuery({
     queryKey: QK.homeMoments,
-    queryFn: async (): Promise<HomeMoment | null> => {
+    queryFn: async (): Promise<HomeMoment[]> => {
       const { data, error } = await supabase
         .from('moments')
         .select('id, member_id, text, photo_path, photo_archived, created_at, member:members(display_name), photos:moment_photos(photo_path, position)')
         .eq('household_id', HOUSEHOLD_ID)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
+        .limit(30)
       if (error) throw error
-      return data as unknown as HomeMoment | null
+      return (data as unknown as HomeMoment[]) ?? []
     },
     enabled: !!member,
   })
+
+  // Rotation du moment affiché : change toutes les heures. Mais un moment récent
+  // (< 3h) reste épinglé, puis la rotation reprend une fois ce délai écoulé.
+  const HOUR_MS = 60 * 60 * 1000
+  const PIN_MS = 3 * HOUR_MS
+  const [nowTick, setNowTick] = useState(() => Date.now())
+  useEffect(() => {
+    const id = setInterval(() => setNowTick(Date.now()), HOUR_MS)
+    return () => clearInterval(id)
+  }, [HOUR_MS])
+
+  const lastMoment = useMemo<HomeMoment | null>(() => {
+    if (recentMoments.length === 0) return null
+    const newest = recentMoments[0]
+    // Épinglage : si le plus récent date de moins de 3h, on l'affiche.
+    if (nowTick - new Date(newest.created_at).getTime() < PIN_MS) return newest
+    // Sinon, rotation horaire déterministe sur le pool.
+    const idx = Math.floor(nowTick / HOUR_MS) % recentMoments.length
+    return recentMoments[idx]
+  }, [recentMoments, nowTick, HOUR_MS, PIN_MS])
 
   // Photos du dernier moment : album trié, sinon photo_path legacy. Puis signed URLs.
   const momentPhotoPaths = useMemo(() => {
