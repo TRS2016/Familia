@@ -491,6 +491,73 @@
   cursor: pointer;
 }
 
+/* Édition : liste des photos (légende + ordre + retrait) */
+.editPhotoList { display: flex; flex-direction: column; gap: 8px; }
+.editPhotoRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: var(--bg-input);
+}
+.editPhotoThumb {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+.editPhotoThumbSkeleton {
+  width: 48px;
+  height: 48px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(90deg, var(--border) 25%, var(--bg-card) 50%, var(--border) 75%);
+}
+.editCaptionInput {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  color: var(--text);
+  outline: none;
+}
+.editPhotoActions { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.editPhotoBtn {
+  width: 28px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.editPhotoBtn:disabled { opacity: 0.3; cursor: default; }
+.editPhotoBtn:not(:disabled):hover { background: var(--bg-card); color: var(--text); }
+
+/* Légende dans la lightbox */
+.lightboxCaption {
+  position: absolute;
+  left: 50%;
+  bottom: 76px;
+  transform: translateX(-50%);
+  max-width: min(640px, 90vw);
+  text-align: center;
+  color: #fff;
+  font-size: var(--text-sm);
+  line-height: 1.4;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 8px 14px;
+  border-radius: var(--radius-md);
+}
+
 /* Section Épinglés */
 .pinnedSection { margin-bottom: 8px; }
 .pinnedHeader {

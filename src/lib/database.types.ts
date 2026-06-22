@@ -1299,6 +1299,7 @@ export type Database = {
       }
       moment_photos: {
         Row: {
+          caption: string | null
           created_at: string | null
           id: string
           moment_id: string
@@ -1306,6 +1307,7 @@ export type Database = {
           position: number
         }
         Insert: {
+          caption?: string | null
           created_at?: string | null
           id?: string
           moment_id: string
@@ -1313,6 +1315,7 @@ export type Database = {
           position?: number
         }
         Update: {
+          caption?: string | null
           created_at?: string | null
           id?: string
           moment_id?: string

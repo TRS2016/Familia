@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send, Download, Share2, Pin, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send, Download, Share2, Pin, Search } from 'lucide-react'
 import { format, parseISO, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useMember } from '../../auth/useMember'
@@ -13,7 +13,7 @@ import {
   useMoments, useOnThisDay, useSearchMoments, useSignedPhotoUrls, useToggleReaction,
   getMomentPhotoPaths,
   useAddMoment, useDeleteMoment, useEditMomentText,
-  useAddPhotoToMoment, useRemovePhotoFromMoment,
+  useAddPhotoToMoment, useRemovePhotoFromMoment, useReorderMomentPhotos, useSetPhotoCaption,
   useComments, useAddComment, useDeleteComment, useTogglePin,
   EMOJIS, EMOJI_PICKER,
 } from './useMoments'
@@ -79,8 +79,9 @@ async function downloadBlob(blob: Blob, name: string) {
   URL.revokeObjectURL(blobUrl)
 }
 
-function Lightbox({ urls, initialIndex, onClose, onOpenAlbumShare }: {
+function Lightbox({ urls, captions, initialIndex, onClose, onOpenAlbumShare }: {
   urls: string[]
+  captions: (string | null)[]
   initialIndex: number
   onClose: () => void
   onOpenAlbumShare: (urls: string[]) => void
@@ -114,6 +115,15 @@ function Lightbox({ urls, initialIndex, onClose, onOpenAlbumShare }: {
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
   }, [urls.length, onClose])
+
+  // Préchargement des photos voisines pour une transition fluide (B3).
+  useEffect(() => {
+    [index + 1, index - 1].forEach(i => {
+      if (i >= 0 && i < urls.length) { const img = new Image(); img.src = urls[i] }
+    })
+  }, [index, urls])
+
+  const caption = captions[index]
 
   function handleTouchStart(e: React.TouchEvent) {
     if (zoomed) return
@@ -234,6 +244,11 @@ function Lightbox({ urls, initialIndex, onClose, onOpenAlbumShare }: {
             </button>
           </div>
         </>
+      )}
+
+      {/* Légende de la photo courante */}
+      {!zoomed && caption && (
+        <div className={styles.lightboxCaption} onClick={e => e.stopPropagation()}>{caption}</div>
       )}
 
       {/* Indication zoom — disparaît après le premier zoom */}
@@ -472,6 +487,8 @@ function EditMomentModal({ moment, onClose }: { moment: Moment; onClose: () => v
   const editText    = useEditMomentText()
   const addPhoto    = useAddPhotoToMoment()
   const removePhoto = useRemovePhotoFromMoment()
+  const reorder         = useReorderMomentPhotos()
+  const setPhotoCaption = useSetPhotoCaption()
   const cameraRef   = useRef<HTMLInputElement>(null)
   const fileRef     = useRef<HTMLInputElement>(null)
 
@@ -490,6 +507,14 @@ function EditMomentModal({ moment, onClose }: { moment: Moment; onClose: () => v
     if (!file) return
     addPhoto.mutate({ momentId: moment.id, file, nextPosition })
     if (e.target) e.target.value = ''
+  }
+
+  function move(i: number, dir: -1 | 1) {
+    const j = i + dir
+    if (j < 0 || j >= currentPhotos.length) return
+    const ids = currentPhotos.map(p => p.id)
+    ;[ids[i], ids[j]] = [ids[j], ids[i]]
+    reorder.mutate({ momentId: moment.id, orderedIds: ids })
   }
 
   async function handleSave(e: FormEvent) {
@@ -512,35 +537,49 @@ function EditMomentModal({ moment, onClose }: { moment: Moment; onClose: () => v
           autoFocus
         />
 
-        {/* ── Photos ── */}
+        {/* ── Photos : liste editable (légende + ordre + retrait) ── */}
         {(currentPhotos.length > 0 || addPhoto.isPending) ? (
-          <div className={styles.previewGrid}>
-            {currentPhotos.map(photo => (
-              <div key={photo.id} className={styles.previewThumbWrap}>
+          <div className={styles.editPhotoList}>
+            {currentPhotos.map((photo, i) => (
+              <div key={photo.id} className={styles.editPhotoRow}>
                 {urlMap[photo.photo_path]
-                  ? <img src={urlMap[photo.photo_path]} className={styles.previewThumb} alt="" />
-                  : <div className={styles.previewThumbSkeleton} />}
-                <button
-                  type="button"
-                  className={styles.removePhotoBtn}
-                  onClick={() => removePhoto.mutate({ photoId: photo.id, momentId: moment.id, photoPath: photo.photo_path })}
-                  disabled={removePhoto.isPending}
-                  aria-label="Retirer"
-                >
-                  <X size={12} strokeWidth={2.5} />
-                </button>
+                  ? <img src={urlMap[photo.photo_path]} className={styles.editPhotoThumb} alt="" />
+                  : <div className={styles.editPhotoThumbSkeleton} />}
+                <input
+                  className={styles.editCaptionInput}
+                  defaultValue={photo.caption ?? ''}
+                  placeholder="Légende de la photo…"
+                  maxLength={200}
+                  onBlur={e => {
+                    const v = e.target.value
+                    if ((v.trim() || null) !== (photo.caption ?? null)) {
+                      setPhotoCaption.mutate({ photoId: photo.id, momentId: moment.id, caption: v })
+                    }
+                  }}
+                />
+                <div className={styles.editPhotoActions}>
+                  <button type="button" className={styles.editPhotoBtn} onClick={() => move(i, -1)} disabled={i === 0 || reorder.isPending} aria-label="Monter">
+                    <ChevronUp size={15} strokeWidth={2.5} />
+                  </button>
+                  <button type="button" className={styles.editPhotoBtn} onClick={() => move(i, 1)} disabled={i === currentPhotos.length - 1 || reorder.isPending} aria-label="Descendre">
+                    <ChevronDown size={15} strokeWidth={2.5} />
+                  </button>
+                  <button type="button" className={styles.editPhotoBtn} onClick={() => removePhoto.mutate({ photoId: photo.id, momentId: moment.id, photoPath: photo.photo_path })} disabled={removePhoto.isPending} aria-label="Retirer">
+                    <X size={15} strokeWidth={2.5} />
+                  </button>
+                </div>
               </div>
             ))}
-            {addPhoto.isPending && <div className={[styles.previewThumbWrap, styles.previewThumbSkeleton].join(' ')} />}
+            {addPhoto.isPending && <div className={[styles.editPhotoThumbSkeleton, styles.editPhotoRow].join(' ')} />}
             {canAddMore && !addPhoto.isPending && (
-              <>
-                <button type="button" className={styles.addMoreBtn} onClick={() => cameraRef.current?.click()} aria-label="Photo">
-                  <Camera size={18} strokeWidth={2} />
+              <div className={styles.photoPickerRow}>
+                <button type="button" className={styles.photoPickerBtn} onClick={() => cameraRef.current?.click()}>
+                  <Camera size={16} strokeWidth={2} /> Photo
                 </button>
-                <button type="button" className={styles.addMoreBtn} onClick={() => fileRef.current?.click()} aria-label="Galerie">
-                  <ImageIcon size={18} strokeWidth={2} />
+                <button type="button" className={styles.photoPickerBtn} onClick={() => fileRef.current?.click()}>
+                  <ImageIcon size={16} strokeWidth={2} /> Galerie
                 </button>
-              </>
+              </div>
             )}
           </div>
         ) : (
@@ -574,7 +613,7 @@ function MomentCard({ moment, currentMemberId, memberMap, urlMap, onDelete, onEd
   urlMap: Record<string, string>
   onDelete: (m: Moment) => void
   onEdit: (m: Moment) => void
-  onOpenPhoto: (urls: string[], index: number) => void
+  onOpenPhoto: (urls: string[], captions: (string | null)[], index: number) => void
 }) {
   const toggleReaction = useToggleReaction()
   const togglePin = useTogglePin()
@@ -593,8 +632,11 @@ function MomentCard({ moment, currentMemberId, memberMap, urlMap, onDelete, onEd
   const photoPaths = useMemo(() => getMomentPhotoPaths(moment), [moment])
 
   function handlePhotoOpen(index: number) {
-    const urls = photoPaths.map(p => urlMap[p]).filter(Boolean)
-    if (urls.length > 0) onOpenPhoto(urls, index)
+    const captionByPath = new Map((moment.photos ?? []).map(p => [p.photo_path, p.caption]))
+    const kept = photoPaths.filter(p => urlMap[p])
+    const urls = kept.map(p => urlMap[p])
+    const captions = kept.map(p => captionByPath.get(p) ?? null)
+    if (urls.length > 0) onOpenPhoto(urls, captions, index)
   }
 
   return (
@@ -731,7 +773,7 @@ export default function MomentsPage() {
   const [previews, setPreviews]             = useState<string[]>([])
   const [confirmDelete, setConfirmDelete]   = useState<Moment | null>(null)
   const [editTargetId, setEditTargetId]     = useState<string | null>(null)
-  const [lightbox, setLightbox]             = useState<{ urls: string[]; index: number } | null>(null)
+  const [lightbox, setLightbox]             = useState<{ urls: string[]; captions: (string | null)[]; index: number } | null>(null)
   const [albumShare, setAlbumShare]         = useState<string[] | null>(null)
   const [showLastYear, setShowLastYear]     = useState(true)
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
@@ -933,7 +975,7 @@ export default function MomentsPage() {
                 urlMap={urlMap}
                 onDelete={setConfirmDelete}
                 onEdit={m => setEditTargetId(m.id)}
-                onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
+                onOpenPhoto={(urls, captions, index) => setLightbox({ urls, captions, index })}
               />
             ))}
           </div>
@@ -968,7 +1010,7 @@ export default function MomentsPage() {
                       urlMap={urlMap}
                       onDelete={setConfirmDelete}
                       onEdit={m => setEditTargetId(m.id)}
-                      onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
+                      onOpenPhoto={(urls, captions, index) => setLightbox({ urls, captions, index })}
                     />
                   ))}
                 </div>
@@ -994,7 +1036,7 @@ export default function MomentsPage() {
                 urlMap={urlMap}
                 onDelete={setConfirmDelete}
                 onEdit={m => setEditTargetId(m.id)}
-                onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
+                onOpenPhoto={(urls, captions, index) => setLightbox({ urls, captions, index })}
               />
             ))}
           </div>
@@ -1032,7 +1074,7 @@ export default function MomentsPage() {
                     urlMap={urlMap}
                     onDelete={setConfirmDelete}
                     onEdit={m => setEditTargetId(m.id)}
-                    onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
+                    onOpenPhoto={(urls, captions, index) => setLightbox({ urls, captions, index })}
                   />
                 </div>
               )
@@ -1055,6 +1097,7 @@ export default function MomentsPage() {
       {lightbox && (
         <Lightbox
           urls={lightbox.urls}
+          captions={lightbox.captions}
           initialIndex={lightbox.index}
           onClose={() => setLightbox(null)}
           onOpenAlbumShare={urls => setAlbumShare(urls)}

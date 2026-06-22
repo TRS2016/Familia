@@ -17,6 +17,7 @@ export interface MomentPhoto {
   moment_id: string
   photo_path: string
   position: number
+  caption: string | null
   created_at: string
 }
 
@@ -67,7 +68,7 @@ export function commentsKey(momentId: string) {
 
 // ── Shared select ─────────────────────────────────────────────────────────────
 
-const MOMENTS_SELECT = '*, member:members(id, display_name), reactions:moment_reactions(emoji, member_id), photos:moment_photos(id, photo_path, position)'
+const MOMENTS_SELECT = '*, member:members(id, display_name), reactions:moment_reactions(emoji, member_id), photos:moment_photos(id, photo_path, position, caption)'
 
 function sortPhotos(m: Moment): Moment {
   return { ...m, photos: (m.photos ?? []).sort((a, b) => a.position - b.position) }
@@ -253,6 +254,7 @@ export function useAddMoment() {
           moment_id: data.id,
           photo_path: path,
           position: i,
+          caption: null,
           created_at: new Date().toISOString(),
         }))
         return { ...(data as unknown as Moment), photos }
@@ -524,7 +526,7 @@ export function useAddPhotoToMoment() {
       const { data, error } = await supabase
         .from('moment_photos')
         .insert({ moment_id: momentId, photo_path: path, position: nextPosition })
-        .select('id, moment_id, photo_path, position, created_at')
+        .select('id, moment_id, photo_path, position, caption, created_at')
         .single()
       if (error) {
         await supabase.storage.from('family-moments').remove([path])
@@ -562,6 +564,57 @@ export function useRemovePhotoFromMoment() {
     },
     onError: () => {
       showToast({ type: 'error', message: 'Impossible de supprimer la photo.' })
+      queryClient.invalidateQueries({ queryKey: MOMENTS_KEY })
+    },
+  })
+}
+
+// Réordonne les photos d'un album : réassigne position = index (B4).
+export function useReorderMomentPhotos() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async ({ orderedIds }: { momentId: string; orderedIds: string[] }) => {
+      await Promise.all(orderedIds.map((id, i) =>
+        supabase.from('moment_photos').update({ position: i }).eq('id', id)
+      ))
+    },
+    onMutate: async ({ momentId, orderedIds }) => {
+      await queryClient.cancelQueries({ queryKey: MOMENTS_KEY })
+      const pos = new Map(orderedIds.map((id, i) => [id, i]))
+      updateMomentInCaches(queryClient, momentId, m => sortPhotos({
+        ...m,
+        photos: (m.photos ?? []).map(p => pos.has(p.id) ? { ...p, position: pos.get(p.id)! } : p),
+      }))
+    },
+    onError: () => {
+      showToast({ type: 'error', message: 'Impossible de réordonner.' })
+      queryClient.invalidateQueries({ queryKey: MOMENTS_KEY })
+    },
+  })
+}
+
+// Légende d'une photo (C4).
+export function useSetPhotoCaption() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async ({ photoId, caption }: { photoId: string; momentId: string; caption: string }) => {
+      const { error } = await supabase
+        .from('moment_photos')
+        .update({ caption: caption.trim() || null })
+        .eq('id', photoId)
+      if (error) throw error
+    },
+    onMutate: async ({ photoId, momentId, caption }) => {
+      await queryClient.cancelQueries({ queryKey: MOMENTS_KEY })
+      updateMomentInCaches(queryClient, momentId, m => ({
+        ...m,
+        photos: (m.photos ?? []).map(p => p.id === photoId ? { ...p, caption: caption.trim() || null } : p),
+      }))
+    },
+    onError: () => {
+      showToast({ type: 'error', message: 'Impossible d\'enregistrer la légende.' })
       queryClient.invalidateQueries({ queryKey: MOMENTS_KEY })
     },
   })
