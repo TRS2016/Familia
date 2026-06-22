@@ -25,23 +25,24 @@ Deno.serve(async (req: Request) => {
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
   )
 
-  // Résout et valide un token de soirée → household_id, ou null si invalide/expiré.
-  async function resolveHousehold(token: string | null): Promise<string | null> {
+  // Résout et valide un token de soirée → { household, modération }, ou null si invalide/expiré.
+  async function resolveParty(token: string | null): Promise<{ householdId: string; moderated: boolean } | null> {
     if (!token) return null
     const { data } = await supabase
       .from('lecteur_party_tokens')
-      .select('household_id, expires_at')
+      .select('household_id, expires_at, moderated')
       .eq('token', token)
       .maybeSingle()
     if (!data || new Date(data.expires_at as string) < new Date()) return null
-    return data.household_id as string
+    return { householdId: data.household_id as string, moderated: data.moderated === true }
   }
 
   // ── GET : bibliothèque + file en cours ──────────────────────────────────────
   if (req.method === 'GET') {
     const token = new URL(req.url).searchParams.get('token')
-    const householdId = await resolveHousehold(token)
-    if (!householdId) return json({ error: 'Lien invalide ou expiré' }, 404)
+    const party = await resolveParty(token)
+    if (!party) return json({ error: 'Lien invalide ou expiré' }, 404)
+    const householdId = party.householdId
 
     const [tracksRes, queueRes] = await Promise.all([
       supabase
@@ -54,6 +55,7 @@ Deno.serve(async (req: Request) => {
         .select('id, votes, media_file:media_files(title), added_by_member:members!lecteur_queue_added_by_fkey(display_name), guest_name, position')
         .eq('household_id', householdId)
         .eq('played', false)
+        .eq('approved', true)
         .order('position', { ascending: true }),
     ])
     if (tracksRes.error || queueRes.error) return json({ error: 'Erreur serveur' }, 500)
@@ -77,8 +79,9 @@ Deno.serve(async (req: Request) => {
     let body: { token?: string; action?: string; queue_item_id?: string; voter_key?: string; media_file_id?: string; external_url?: string; title?: string; guest_name?: string }
     try { body = await req.json() } catch { return json({ error: 'Requête invalide' }, 400) }
 
-    const householdId = await resolveHousehold(body.token ?? null)
-    if (!householdId) return json({ error: 'Lien invalide ou expiré' }, 404)
+    const party = await resolveParty(body.token ?? null)
+    if (!party) return json({ error: 'Lien invalide ou expiré' }, 404)
+    const householdId = party.householdId
 
     // ── Vote invité (modèle « le DJ arbitre » : incrémente un compteur) ──
     if (body.action === 'vote') {
@@ -144,15 +147,18 @@ Deno.serve(async (req: Request) => {
     }
 
     const guestName = (body.guest_name ?? '').trim().slice(0, 40) || 'Invité'
+    // Modération active → la demande entre en attente (approved=false) jusqu'à
+    // validation du DJ. Sinon, ajout direct en file.
     const { error } = await supabase.from('lecteur_queue').insert({
       household_id:  householdId,
       media_file_id: mediaFileId,
       added_by:      null,
       guest_name:    guestName,
       position:      Date.now(),
+      approved:      !party.moderated,
     })
     if (error) return json({ error: 'Ajout impossible' }, 500)
-    return json({ ok: true })
+    return json({ ok: true, pending: party.moderated })
   }
 
   return json({ error: 'Méthode non supportée' }, 405)

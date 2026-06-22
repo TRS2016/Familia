@@ -1915,6 +1915,48 @@
 .voteBtnActive { border-color: var(--accent); color: var(--accent); }
 .voteCount { line-height: 1; }
 
+/* ── Modération des demandes (pane DJ) ───────────────────────────────────────── */
+.modToggleOn {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+}
+
+.pendingBox {
+  margin: 10px 0;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--accent) 7%, var(--bg-card));
+  padding: 12px;
+}
+.pendingHead {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-2xs);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.pendingApprove,
+.pendingReject {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.pendingApprove { background: var(--success); color: #fff; }
+.pendingReject { background: transparent; border: 1px solid var(--border); color: var(--text-muted); }
+.pendingReject:hover { color: var(--danger); border-color: var(--danger); }
+.pendingApprove:disabled, .pendingReject:disabled { opacity: 0.5; cursor: default; }
+
 /* ── Mode écran « soirée » plein écran ───────────────────────────────────────── */
 .party {
   position: fixed;

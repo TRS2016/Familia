@@ -110,6 +110,14 @@
 }
 .voteNum { line-height: 1; }
 
+.infoLine {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+  margin: 4px 0;
+}
+
 .modeRow {
   display: flex;
   gap: 8px;

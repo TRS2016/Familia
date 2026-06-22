@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowDownWideNarrow, ChevronDown, ChevronRight, ChevronUp, ChevronsUp, History, PartyPopper, Play, Plus, Share2, Tv, Volume2, X } from 'lucide-react'
+import { ArrowDownWideNarrow, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsUp, History, PartyPopper, Play, Plus, Share2, Shield, Tv, Volume2, X } from 'lucide-react'
 import EmptyState from '../../components/EmptyState'
 import MediaPlayer, { canAutoAdvance } from '../media/MediaPlayer'
 import EqBars from './EqBars'
 import InviteModal from './InviteModal'
 import {
-  useAddToQueue, useClearQueue, useLecteurPlayedHistory, useMarkQueuePlayed, useMoveQueueItem,
-  useRemoveFromQueue, useSortQueueByVotes, useVoteQueueItem,
+  useAddToQueue, useApproveRequest, useClearQueue, useLecteurPlayedHistory, useMarkQueuePlayed,
+  useMoveQueueItem, usePendingRequests, useRejectRequest, useRemoveFromQueue, useSortQueueByVotes,
+  useVoteQueueItem,
 } from './useLecteurQueue'
 import type { QueueItem } from './useLecteurQueue'
 import { useLecteurPlaylists, useLecteurPlaylistItems } from './useLecteur'
+import { useJukeboxToken } from './useJukeboxToken'
 import styles from './LecteurPage.module.css'
 
 // File d'attente partagée de soirée. Le mode DJ (lecture sur cet appareil) est
@@ -27,6 +29,11 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
   const moveItem   = useMoveQueueItem()
   const voteItem   = useVoteQueueItem()
   const sortByVotes = useSortQueueByVotes()
+  const { query: tokenQuery, setModerated } = useJukeboxToken()
+  const moderated = tokenQuery.data?.moderated ?? false
+  const { data: pending = [] } = usePendingRequests()
+  const approve = useApproveRequest()
+  const reject  = useRejectRequest()
   const { data: played = [] } = useLecteurPlayedHistory()
   const [showInvite, setShowInvite] = useState(false)
   const [showPlayed, setShowPlayed] = useState(false)
@@ -87,6 +94,54 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
       <Tv size={14} strokeWidth={2.5} /> Mode écran
     </button>
   )
+  const moderationToggle = (
+    <button
+      className={[styles.screenBtn, moderated ? styles.modToggleOn : ''].join(' ')}
+      onClick={() => setModerated.mutate(!moderated)}
+      disabled={setModerated.isPending}
+      aria-pressed={moderated}
+      title="Valider les demandes des invités avant leur entrée dans la file"
+    >
+      <Shield size={14} strokeWidth={2.5} /> Modération{moderated ? ' ON' : ''}
+    </button>
+  )
+  const pendingSection = pending.length > 0 && (
+    <div className={styles.pendingBox}>
+      <div className={styles.pendingHead}>
+        <Shield size={13} strokeWidth={2.5} /> Demandes en attente · {pending.length}
+      </div>
+      <ul className={styles.jukeboxList}>
+        {pending.map(item => {
+          const title = item.media_file?.title ?? 'Morceau supprimé'
+          const by = item.added_by_member?.display_name ?? item.guest_name
+          return (
+            <li key={item.id} className={styles.jukeboxItem}>
+              <div className={styles.jukeboxItemBody}>
+                <div className={styles.jukeboxItemTitle}>{title}</div>
+                {by && <div className={styles.jukeboxItemBy}>{by}</div>}
+              </div>
+              <button
+                className={styles.pendingApprove}
+                onClick={() => approve.mutate(item.id)}
+                disabled={approve.isPending}
+                aria-label={`Valider ${title}`}
+              >
+                <Check size={16} strokeWidth={3} />
+              </button>
+              <button
+                className={styles.pendingReject}
+                onClick={() => reject.mutate(item.id)}
+                disabled={reject.isPending}
+                aria-label={`Refuser ${title}`}
+              >
+                <X size={15} strokeWidth={2.5} />
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </div>
+  )
   const inviteModal = showInvite && <InviteModal onClose={() => setShowInvite(false)} />
 
   const playedSection = played.length > 0 && (
@@ -126,9 +181,11 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
         />
         {inviteBtn}
         {screenBtn}
+        {moderationToggle}
         <button className={styles.newListBtn} onClick={onGoToLibrary}>
           <Plus size={13} strokeWidth={2.5} /> Ajouter depuis la bibliothèque
         </button>
+        {pendingSection}
         {playedSection}
         {inviteModal}
       </div>
@@ -137,7 +194,8 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
 
   return (
     <div className={styles.jukebox}>
-      <div className={styles.jukeboxTopBar}>{inviteBtn}{screenBtn}</div>
+      <div className={styles.jukeboxTopBar}>{inviteBtn}{screenBtn}{moderationToggle}</div>
+      {pendingSection}
       {/* En cours */}
       <div className={styles.jukeboxNow}>
         <div className={styles.jukeboxNowHead}>

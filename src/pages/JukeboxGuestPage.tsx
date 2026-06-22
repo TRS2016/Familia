@@ -44,6 +44,7 @@ export default function JukeboxGuestPage() {
   const [justAdded, setJustAdded] = useState<Set<string>>(new Set())
   const [sending, setSending]     = useState<string | null>(null)
   const [voterKey] = useState(guestVoterKey)
+  const [info, setInfo] = useState<string | null>(null)
   const [votedIds, setVotedIds] = useState<Set<string>>(new Set())
   const [voting, setVoting]     = useState<string | null>(null)
 
@@ -99,9 +100,12 @@ export default function JukeboxGuestPage() {
         headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
         body: JSON.stringify({ token, guest_name: name.trim(), ...payload }),
       })
-      const data = await r.json() as { ok?: boolean; error?: string }
+      const data = await r.json() as { ok?: boolean; pending?: boolean; error?: string }
       if (data.ok) {
         setJustAdded(prev => new Set(prev).add(key))
+        setInfo(data.pending
+          ? 'Demande envoyée — en attente de validation du DJ 👌'
+          : 'Ajouté à la file 🎉')
         loadState()
       } else if (data.error) {
         setSearchErr(data.error)
@@ -224,6 +228,7 @@ export default function JukeboxGuestPage() {
       </form>
 
       {searchErr && <p className={styles.errLine}>{searchErr}</p>}
+      {info && <p className={styles.infoLine}>{info}</p>}
 
       {/* Résultats */}
       {mode === 'search' ? (

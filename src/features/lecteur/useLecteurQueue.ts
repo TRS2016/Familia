@@ -35,10 +35,83 @@ export function useLecteurQueue() {
         .select(SELECT)
         .eq('household_id', HOUSEHOLD_ID)
         .eq('played', false)
+        .eq('approved', true)
         .order('position', { ascending: true })
       if (error) throw error
       return data as unknown as QueueItem[]
     },
+  })
+}
+
+export const LECTEUR_PENDING_KEY = ['lecteur-queue-pending', HOUSEHOLD_ID] as const
+
+// Demandes invitées en attente de validation (modération active). Ordre d'arrivée.
+export function usePendingRequests() {
+  return useQuery({
+    queryKey: LECTEUR_PENDING_KEY,
+    queryFn: async (): Promise<QueueItem[]> => {
+      const { data, error } = await supabase
+        .from('lecteur_queue')
+        .select(SELECT)
+        .eq('household_id', HOUSEHOLD_ID)
+        .eq('played', false)
+        .eq('approved', false)
+        .order('created_at', { ascending: true })
+      if (error) throw error
+      return data as unknown as QueueItem[]
+    },
+  })
+}
+
+// Le DJ valide une demande : elle entre en file (renvoyée en fin via position).
+export function useApproveRequest() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase
+        .from('lecteur_queue')
+        .update({ approved: true, position: Date.now() } as never)
+        .eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: LECTEUR_PENDING_KEY })
+      const previous = queryClient.getQueryData<QueueItem[]>(LECTEUR_PENDING_KEY) ?? []
+      queryClient.setQueryData<QueueItem[]>(LECTEUR_PENDING_KEY, previous.filter(q => q.id !== id))
+      return { previous }
+    },
+    onError: (_e, _id, ctx) => {
+      queryClient.setQueryData(LECTEUR_PENDING_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Validation impossible.' })
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: LECTEUR_PENDING_KEY })
+      queryClient.invalidateQueries({ queryKey: LECTEUR_QUEUE_KEY })
+    },
+  })
+}
+
+// Le DJ refuse une demande : suppression définitive.
+export function useRejectRequest() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('lecteur_queue').delete().eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async (id) => {
+      await queryClient.cancelQueries({ queryKey: LECTEUR_PENDING_KEY })
+      const previous = queryClient.getQueryData<QueueItem[]>(LECTEUR_PENDING_KEY) ?? []
+      queryClient.setQueryData<QueueItem[]>(LECTEUR_PENDING_KEY, previous.filter(q => q.id !== id))
+      return { previous }
+    },
+    onError: (_e, _id, ctx) => {
+      queryClient.setQueryData(LECTEUR_PENDING_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Action impossible.' })
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: LECTEUR_PENDING_KEY }),
   })
 }
 

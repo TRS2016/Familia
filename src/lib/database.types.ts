@@ -902,6 +902,7 @@ export type Database = {
           expires_at: string
           household_id: string
           id: string
+          moderated: boolean
           token: string
         }
         Insert: {
@@ -910,6 +911,7 @@ export type Database = {
           expires_at?: string
           household_id: string
           id?: string
+          moderated?: boolean
           token?: string
         }
         Update: {
@@ -918,6 +920,7 @@ export type Database = {
           expires_at?: string
           household_id?: string
           id?: string
+          moderated?: boolean
           token?: string
         }
         Relationships: [
@@ -940,6 +943,7 @@ export type Database = {
       lecteur_queue: {
         Row: {
           added_by: string | null
+          approved: boolean
           created_at: string
           guest_name: string | null
           household_id: string
@@ -947,9 +951,11 @@ export type Database = {
           media_file_id: string
           played: boolean
           position: number
+          votes: number
         }
         Insert: {
           added_by?: string | null
+          approved?: boolean
           created_at?: string
           guest_name?: string | null
           household_id: string
@@ -957,9 +963,11 @@ export type Database = {
           media_file_id: string
           played?: boolean
           position?: number
+          votes?: number
         }
         Update: {
           added_by?: string | null
+          approved?: boolean
           created_at?: string
           guest_name?: string | null
           household_id?: string
@@ -967,6 +975,7 @@ export type Database = {
           media_file_id?: string
           played?: boolean
           position?: number
+          votes?: number
         }
         Relationships: [
           {
