@@ -12,6 +12,8 @@ import {
 import type { QueueItem } from './useLecteurQueue'
 import { useLecteurPlaylists, useLecteurPlaylistItems } from './useLecteur'
 import { useJukeboxToken } from './useJukeboxToken'
+import JukeboxAudioEngine from './JukeboxAudioEngine'
+import { isLocalAudio } from './lecteur.utils'
 import styles from './LecteurPage.module.css'
 
 // File d'attente partagée de soirée. Le mode DJ (lecture sur cet appareil) est
@@ -48,6 +50,10 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
 
   // ── Volume (le MediaPlayer applique le réglage à l'audio/vidéo/YouTube) ──
   const [volume, setVolume] = useState(1)
+  // ── Crossfade (fondu enchaîné) : opt-in, fichiers audio locaux uniquement ──
+  const [crossfade, setCrossfade] = useState(false)
+  const CROSSFADE_SEC = 6
+  const useEngine = crossfade && isLocalAudio(current?.media_file ?? null)
 
   // ── Anti-silence : quand la file se vide en mode DJ, on enchaîne sur une
   // playlist manuelle choisie (un morceau à la fois → enchaînement perpétuel). ──
@@ -220,16 +226,26 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
 
         {djMode && current.media_file && (
           <div className={styles.playerWrap}>
-            <MediaPlayer
-              key={current.id}
-              filePath={current.media_file.file_path}
-              externalUrl={current.media_file.external_url}
-              mimeType={current.media_file.mime_type}
-              title={current.media_file.title}
-              autoPlay
-              volume={volume}
-              onEnded={() => markPlayed.mutate(current.id)}
-            />
+            {useEngine ? (
+              <JukeboxAudioEngine
+                current={current}
+                next={upNext[0] ?? null}
+                volume={volume}
+                crossfadeSec={CROSSFADE_SEC}
+                onEnded={(id) => markPlayed.mutate(id)}
+              />
+            ) : (
+              <MediaPlayer
+                key={current.id}
+                filePath={current.media_file.file_path}
+                externalUrl={current.media_file.external_url}
+                mimeType={current.media_file.mime_type}
+                title={current.media_file.title}
+                autoPlay
+                volume={volume}
+                onEnded={() => markPlayed.mutate(current.id)}
+              />
+            )}
           </div>
         )}
         {djMode && (
@@ -241,6 +257,12 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
               className={styles.volumeSlider}
               aria-label="Volume"
             />
+          </label>
+        )}
+        {djMode && (
+          <label className={styles.autoFillToggle} style={{ marginTop: 8 }}>
+            <input type="checkbox" checked={crossfade} onChange={e => setCrossfade(e.target.checked)} />
+            Fondu enchaîné <span className={styles.autoFillNote}>fichiers audio uniquement</span>
           </label>
         )}
         {djMode && current.media_file

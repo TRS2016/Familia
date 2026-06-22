@@ -1,5 +1,11 @@
 import type { LecteurSmartFilters, MediaFileKind } from './useLecteur'
 
+// Fichier audio uploadé (crossfadable par le moteur jukebox). Typé
+// structurellement pour éviter une dépendance circulaire.
+export function isLocalAudio(mf: { file_path: string | null; mime_type: string | null } | null | undefined): boolean {
+  return !!mf?.file_path && !!mf.mime_type?.startsWith('audio/')
+}
+
 export const KIND_META: Record<MediaFileKind, { emoji: string; label: string }> = {
   audio:  { emoji: '🎵', label: 'Audio'  },
   vidéo:  { emoji: '🎬', label: 'Vidéo'  },
