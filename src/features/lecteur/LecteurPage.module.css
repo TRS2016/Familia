@@ -1873,6 +1873,48 @@
   font-style: italic;
 }
 
+/* ── Votes (pane DJ) ─────────────────────────────────────────────────────────── */
+.jukeboxHeadActions { display: inline-flex; align-items: center; gap: 8px; }
+
+.sortVotesBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 9px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-family: var(--font-family);
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  cursor: pointer;
+}
+.sortVotesBtn:disabled { opacity: 0.5; cursor: default; }
+
+.voteBtn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 30px;
+  height: 28px;
+  padding: 0 7px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: var(--font-display);
+  font-feature-settings: "tnum";
+  font-size: var(--text-xs);
+  font-weight: 700;
+  cursor: pointer;
+  justify-content: center;
+}
+.voteBtn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.voteBtnActive { border-color: var(--accent); color: var(--accent); }
+.voteCount { line-height: 1; }
+
 /* ── Mode écran « soirée » plein écran ───────────────────────────────────────── */
 .party {
   position: fixed;

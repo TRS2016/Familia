@@ -13,6 +13,7 @@ export interface QueueItem {
   added_by: string | null
   guest_name: string | null
   played: boolean
+  votes: number
   created_at: string
   media_file: MediaFile | null
   added_by_member: { display_name: string } | null
@@ -164,6 +165,44 @@ export function useMarkQueuePlayed() {
     onError: (_e, _id, ctx) => {
       queryClient.setQueryData(LECTEUR_QUEUE_KEY, ctx?.previous ?? [])
     },
+  })
+}
+
+// Vote d'un membre pour un morceau de la file (modèle « le DJ arbitre » :
+// incrémente un compteur, ne réordonne pas). Dédup par member_id en base.
+export function useVoteQueueItem() {
+  const queryClient = useQueryClient()
+  const { data: member } = useMember()
+  return useMutation({
+    mutationFn: async (itemId: string) => {
+      if (!member?.id) throw new Error('Membre inconnu')
+      const { error } = await supabase.rpc('vote_lecteur_queue', { p_item_id: itemId, p_voter_key: member.id })
+      if (error) throw error
+    },
+    onMutate: async (itemId) => {
+      await queryClient.cancelQueries({ queryKey: LECTEUR_QUEUE_KEY })
+      const previous = queryClient.getQueryData<QueueItem[]>(LECTEUR_QUEUE_KEY) ?? []
+      queryClient.setQueryData<QueueItem[]>(LECTEUR_QUEUE_KEY,
+        previous.map(q => q.id === itemId ? { ...q, votes: (q.votes ?? 0) + 1 } : q))
+      return { previous }
+    },
+    onError: (_e, _id, ctx) => { queryClient.setQueryData(LECTEUR_QUEUE_KEY, ctx?.previous ?? []) },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: LECTEUR_QUEUE_KEY }),
+  })
+}
+
+// Le DJ range la file par votes (action explicite, un tap). Le morceau en cours
+// (tête de file) reste en place côté serveur.
+export function useSortQueueByVotes() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('sort_lecteur_queue_by_votes', { p_household: HOUSEHOLD_ID })
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: LECTEUR_QUEUE_KEY }),
+    onError: () => showToast({ type: 'error', message: 'Impossible de ranger la file.' }),
   })
 }
 

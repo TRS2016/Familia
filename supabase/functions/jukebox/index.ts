@@ -51,7 +51,7 @@ Deno.serve(async (req: Request) => {
         .order('title', { ascending: true }),
       supabase
         .from('lecteur_queue')
-        .select('media_file:media_files(title), added_by_member:members!lecteur_queue_added_by_fkey(display_name), guest_name, position')
+        .select('id, votes, media_file:media_files(title), added_by_member:members!lecteur_queue_added_by_fkey(display_name), guest_name, position')
         .eq('household_id', householdId)
         .eq('played', false)
         .order('position', { ascending: true }),
@@ -64,6 +64,7 @@ Deno.serve(async (req: Request) => {
     }))
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const queue = (queueRes.data ?? []).map((q: any) => ({
+      id: q.id, votes: q.votes ?? 0,
       title: q.media_file?.title ?? 'Morceau', by: q.added_by_member?.display_name ?? q.guest_name ?? null,
     }))
     return json({ tracks, queue })
@@ -73,11 +74,31 @@ Deno.serve(async (req: Request) => {
   // Body : { token, guest_name, media_file_id }  (depuis la bibliothèque)
   //   ou  : { token, guest_name, external_url, title }  (lien YouTube/Spotify)
   if (req.method === 'POST') {
-    let body: { token?: string; media_file_id?: string; external_url?: string; title?: string; guest_name?: string }
+    let body: { token?: string; action?: string; queue_item_id?: string; voter_key?: string; media_file_id?: string; external_url?: string; title?: string; guest_name?: string }
     try { body = await req.json() } catch { return json({ error: 'Requête invalide' }, 400) }
 
     const householdId = await resolveHousehold(body.token ?? null)
     if (!householdId) return json({ error: 'Lien invalide ou expiré' }, 404)
+
+    // ── Vote invité (modèle « le DJ arbitre » : incrémente un compteur) ──
+    if (body.action === 'vote') {
+      const itemId   = (body.queue_item_id ?? '').trim()
+      const voterKey = (body.voter_key ?? '').trim().slice(0, 64)
+      if (!itemId || !voterKey) return json({ error: 'Vote invalide' }, 400)
+      // Le morceau doit appartenir au foyer du token et ne pas être déjà joué.
+      const { data: item } = await supabase
+        .from('lecteur_queue')
+        .select('id')
+        .eq('id', itemId)
+        .eq('household_id', householdId)
+        .eq('played', false)
+        .maybeSingle()
+      if (!item) return json({ error: 'Morceau introuvable' }, 404)
+      const { data: counted, error: vErr } = await supabase
+        .rpc('vote_lecteur_queue', { p_item_id: itemId, p_voter_key: `g:${voterKey}` })
+      if (vErr) return json({ error: 'Vote impossible' }, 500)
+      return json({ ok: true, counted: counted === true })
+    }
 
     // Garde-fou anti-spam.
     const { count } = await supabase

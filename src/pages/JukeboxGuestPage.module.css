@@ -72,6 +72,44 @@
 .queueBy { color: var(--text-sub); }
 .queueMore { list-style: none; color: var(--text-muted); font-style: italic; }
 
+.queueLine {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.queueLineText {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.voteBtn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-width: 34px;
+  height: 30px;
+  padding: 0 8px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-weight: 800;
+  font-size: var(--text-sm);
+  cursor: pointer;
+  justify-content: center;
+}
+.voteBtnDone {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  cursor: default;
+}
+.voteNum { line-height: 1; }
+
 .modeRow {
   display: flex;
   gap: 8px;

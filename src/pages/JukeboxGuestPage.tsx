@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
-import { Search, Plus, Check, PartyPopper, Music, ListMusic, Link as LinkIcon } from 'lucide-react'
+import { Search, Plus, Check, PartyPopper, Music, ListMusic, Link as LinkIcon, ChevronsUp } from 'lucide-react'
 import { decodeHtml } from '../lib/youtube'
 import type { YtResult } from '../lib/youtube'
 import styles from './JukeboxGuestPage.module.css'
@@ -11,7 +11,14 @@ const SUPABASE_KEY  = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string
 const NAME_KEY = 'familia-guest-name'
 
 interface Track { id: string; title: string; by: string | null }
-interface QueueLine { title: string; by: string | null }
+interface QueueLine { id: string; votes: number; title: string; by: string | null }
+
+// Empreinte locale stable du votant invité (dédup côté serveur).
+function guestVoterKey(): string {
+  let k = localStorage.getItem('familia-guest-id')
+  if (!k) { k = crypto.randomUUID(); localStorage.setItem('familia-guest-id', k) }
+  return k
+}
 
 type Mode = 'search' | 'library'
 
@@ -36,6 +43,27 @@ export default function JukeboxGuestPage() {
 
   const [justAdded, setJustAdded] = useState<Set<string>>(new Set())
   const [sending, setSending]     = useState<string | null>(null)
+  const [voterKey] = useState(guestVoterKey)
+  const [votedIds, setVotedIds] = useState<Set<string>>(new Set())
+  const [voting, setVoting]     = useState<string | null>(null)
+
+  async function vote(itemId: string) {
+    if (voting || votedIds.has(itemId)) return
+    setVoting(itemId)
+    // Optimiste : marque voté tout de suite (le serveur dédoublonne de toute façon).
+    setVotedIds(prev => new Set(prev).add(itemId))
+    try {
+      const r = await fetch(base, {
+        method: 'POST',
+        headers: { apikey: SUPABASE_KEY, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, action: 'vote', queue_item_id: itemId, voter_key: voterKey }),
+      })
+      const data = await r.json() as { ok?: boolean }
+      if (data.ok) loadState()
+    } finally {
+      setVoting(null)
+    }
+  }
 
   async function loadState() {
     try {
@@ -54,7 +82,6 @@ export default function JukeboxGuestPage() {
     if (!token) return
     // loadState est async : ses setState surviennent après await (polling), pas
     // de cascade de rendu synchrone.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadState()
     const t = setInterval(loadState, 8000)
     return () => clearInterval(t)
@@ -138,10 +165,23 @@ export default function JukeboxGuestPage() {
         <div className={styles.queueBox}>
           <div className={styles.queueHead}>À suivre · {queue.length}</div>
           <ol className={styles.queueList}>
-            {queue.slice(0, 5).map((qu, i) => (
-              <li key={i}>{qu.title}{qu.by ? <span className={styles.queueBy}> · {qu.by}</span> : null}</li>
+            {queue.slice(0, 8).map(qu => (
+              <li key={qu.id} className={styles.queueLine}>
+                <span className={styles.queueLineText}>
+                  {qu.title}{qu.by ? <span className={styles.queueBy}> · {qu.by}</span> : null}
+                </span>
+                <button
+                  className={[styles.voteBtn, votedIds.has(qu.id) ? styles.voteBtnDone : ''].join(' ')}
+                  onClick={() => vote(qu.id)}
+                  disabled={voting === qu.id || votedIds.has(qu.id)}
+                  aria-label={`Voter pour ${qu.title}`}
+                >
+                  <ChevronsUp size={14} strokeWidth={2.5} />
+                  {qu.votes > 0 && <span className={styles.voteNum}>{qu.votes}</span>}
+                </button>
+              </li>
             ))}
-            {queue.length > 5 && <li className={styles.queueMore}>+{queue.length - 5} autres…</li>}
+            {queue.length > 8 && <li className={styles.queueMore}>+{queue.length - 8} autres…</li>}
           </ol>
         </div>
       )}

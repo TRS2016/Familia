@@ -1991,9 +1991,17 @@ export type Database = {
         Returns: string
       }
       spendable_balance: { Args: { p_member_id: string }; Returns: number }
+      sort_lecteur_queue_by_votes: {
+        Args: { p_household: string }
+        Returns: undefined
+      }
       swap_lecteur_queue_position: {
         Args: { a: string; b: string }
         Returns: undefined
+      }
+      vote_lecteur_queue: {
+        Args: { p_item_id: string; p_voter_key: string }
+        Returns: boolean
       }
       swap_playlist_item_position: {
         Args: { a: string; b: string }

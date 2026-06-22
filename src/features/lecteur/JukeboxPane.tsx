@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, ChevronRight, ChevronUp, History, PartyPopper, Play, Plus, Share2, Tv, Volume2, X } from 'lucide-react'
+import { ArrowDownWideNarrow, ChevronDown, ChevronRight, ChevronUp, ChevronsUp, History, PartyPopper, Play, Plus, Share2, Tv, Volume2, X } from 'lucide-react'
 import EmptyState from '../../components/EmptyState'
 import MediaPlayer, { canAutoAdvance } from '../media/MediaPlayer'
 import EqBars from './EqBars'
 import InviteModal from './InviteModal'
 import {
-  useAddToQueue, useClearQueue, useLecteurPlayedHistory, useMarkQueuePlayed, useMoveQueueItem, useRemoveFromQueue,
+  useAddToQueue, useClearQueue, useLecteurPlayedHistory, useMarkQueuePlayed, useMoveQueueItem,
+  useRemoveFromQueue, useSortQueueByVotes, useVoteQueueItem,
 } from './useLecteurQueue'
 import type { QueueItem } from './useLecteurQueue'
 import { useLecteurPlaylists, useLecteurPlaylistItems } from './useLecteur'
@@ -24,6 +25,8 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
   const removeItem = useRemoveFromQueue()
   const clearQueue = useClearQueue()
   const moveItem   = useMoveQueueItem()
+  const voteItem   = useVoteQueueItem()
+  const sortByVotes = useSortQueueByVotes()
   const { data: played = [] } = useLecteurPlayedHistory()
   const [showInvite, setShowInvite] = useState(false)
   const [showPlayed, setShowPlayed] = useState(false)
@@ -204,7 +207,19 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
       {/* À suivre */}
       <div className={styles.jukeboxUpNextHead}>
         <span>À suivre{upNext.length > 0 ? ` · ${upNext.length}` : ''}</span>
-        <button className={styles.clearQueueBtn} onClick={() => clearQueue.mutate()} disabled={clearQueue.isPending}>Vider la file</button>
+        <span className={styles.jukeboxHeadActions}>
+          {upNext.some(it => (it.votes ?? 0) > 0) && (
+            <button
+              className={styles.sortVotesBtn}
+              onClick={() => sortByVotes.mutate()}
+              disabled={sortByVotes.isPending}
+              title="Ranger la file par votes (le morceau en cours reste en tête)"
+            >
+              <ArrowDownWideNarrow size={13} strokeWidth={2.5} /> Par votes
+            </button>
+          )}
+          <button className={styles.clearQueueBtn} onClick={() => clearQueue.mutate()} disabled={clearQueue.isPending}>Vider la file</button>
+        </span>
       </div>
 
       {/* Anti-silence : enchaîne une playlist quand la file se vide (mode DJ) */}
@@ -251,6 +266,16 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
                     <div className={styles.jukeboxItemBy}>{item.added_by_member?.display_name ?? item.guest_name}</div>
                   )}
                 </div>
+                <button
+                  className={[styles.voteBtn, (item.votes ?? 0) > 0 ? styles.voteBtnActive : ''].join(' ')}
+                  onClick={() => voteItem.mutate(item.id)}
+                  disabled={voteItem.isPending}
+                  aria-label={`Voter pour ${title}`}
+                  title="Voter"
+                >
+                  <ChevronsUp size={13} strokeWidth={2.5} />
+                  {(item.votes ?? 0) > 0 && <span className={styles.voteCount}>{item.votes}</span>}
+                </button>
                 {/* Monter en position 1 quand le DJ joue déplacerait la piste en
                     cours de lecture : on bloque ce cran-là seulement. */}
                 <button
