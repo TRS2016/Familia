@@ -52,7 +52,7 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
   const [volume, setVolume] = useState(1)
   // ── Crossfade (fondu enchaîné) : opt-in, fichiers audio locaux uniquement ──
   const [crossfade, setCrossfade] = useState(false)
-  const CROSSFADE_SEC = 6
+  const [crossfadeSec, setCrossfadeSec] = useState(6)
   const useEngine = crossfade && isLocalAudio(current?.media_file ?? null)
 
   // ── Anti-silence : quand la file se vide en mode DJ, on enchaîne sur une
@@ -231,7 +231,7 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
                 current={current}
                 next={upNext[0] ?? null}
                 volume={volume}
-                crossfadeSec={CROSSFADE_SEC}
+                crossfadeSec={crossfadeSec}
                 onEnded={(id) => markPlayed.mutate(id)}
               />
             ) : (
@@ -260,10 +260,24 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
           </label>
         )}
         {djMode && (
-          <label className={styles.autoFillToggle} style={{ marginTop: 8 }}>
-            <input type="checkbox" checked={crossfade} onChange={e => setCrossfade(e.target.checked)} />
-            Fondu enchaîné <span className={styles.autoFillNote}>fichiers audio uniquement</span>
-          </label>
+          <div className={styles.autoFillRow} style={{ marginTop: 8 }}>
+            <label className={styles.autoFillToggle}>
+              <input type="checkbox" checked={crossfade} onChange={e => setCrossfade(e.target.checked)} />
+              Fondu enchaîné
+            </label>
+            {crossfade ? (
+              <select
+                className={styles.autoFillSelect}
+                value={crossfadeSec}
+                onChange={e => setCrossfadeSec(Number(e.target.value))}
+                aria-label="Durée du fondu"
+              >
+                {[2, 3, 4, 6, 8, 10, 12].map(s => <option key={s} value={s}>{s}s</option>)}
+              </select>
+            ) : (
+              <span className={styles.autoFillNote}>fichiers audio uniquement</span>
+            )}
+          </div>
         )}
         {djMode && current.media_file
           && !canAutoAdvance(current.media_file.file_path, current.media_file.external_url, current.media_file.mime_type) && (
