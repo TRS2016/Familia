@@ -92,10 +92,13 @@ Si tu ne vois aucun article lisible, renvoie {"store": "", "items": []}.`
 
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
-    console.error('[parse-receipt] Anthropic', res.status, detail.slice(0, 300))
+    console.error('[parse-receipt] Anthropic', res.status, detail.slice(0, 500))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let amsg = ''
+    try { amsg = (JSON.parse(detail) as any)?.error?.message ?? '' } catch { /* pas du JSON */ }
     const hint = res.status === 401 || res.status === 403
       ? 'clé IA invalide — reconfigure ANTHROPIC_API_KEY'
-      : `service IA indisponible (code ${res.status})`
+      : `service IA (code ${res.status}) : ${(amsg || detail).slice(0, 200)}`
     return err(`Lecture du ticket impossible : ${hint}.`, 502)
   }
 
