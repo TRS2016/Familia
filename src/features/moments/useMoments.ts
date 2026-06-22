@@ -39,6 +39,8 @@ export interface Moment {
   photo_archived: boolean
   archived_at: string | null
   pinned: boolean
+  video_path: string | null
+  video_mime: string | null
   created_at: string
   member: { id: string; display_name: string } | null
   reactions: MomentReaction[]
@@ -48,7 +50,11 @@ export interface Moment {
 export interface NewMomentInput {
   text: string
   photos: File[]
+  video?: File | null
 }
+
+// Plafond vidéo (plan gratuit Supabase : 50 Mo/fichier).
+export const MAX_VIDEO_BYTES = 50 * 1024 * 1024
 
 // Réactions rapides toujours affichées + jeu étendu pour le sélecteur.
 export const EMOJIS = ['❤️', '😄', '👍', '😮'] as const
@@ -210,6 +216,23 @@ export function useAddMoment() {
     mutationFn: async (input: NewMomentInput): Promise<Moment> => {
       const uploadedPaths: string[] = []
 
+      // Vidéo (optionnelle) : pas de compression navigateur fiable → cap de taille.
+      let videoPath: string | null = null
+      let videoMime: string | null = null
+      if (input.video) {
+        if (input.video.size > MAX_VIDEO_BYTES) {
+          throw new Error(`Vidéo trop lourde (max ${Math.round(MAX_VIDEO_BYTES / 1024 / 1024)} Mo).`)
+        }
+        const ext = input.video.name.split('.').pop()?.toLowerCase() ?? 'mp4'
+        const path = `${HOUSEHOLD_ID}/${member!.id}/${crypto.randomUUID()}.${ext}`
+        const { error: vErr } = await supabase.storage
+          .from('family-moments')
+          .upload(path, input.video, { contentType: input.video.type || 'video/mp4' })
+        if (vErr) throw vErr
+        videoPath = path
+        videoMime = input.video.type || 'video/mp4'
+      }
+
       for (const rawFile of input.photos) {
         let file: File = rawFile
         if (file.size > 1_048_576) {
@@ -235,6 +258,8 @@ export function useAddMoment() {
           member_id: member!.id,
           text: input.text.trim() || null,
           photo_path: uploadedPaths[0] ?? null,
+          video_path: videoPath,
+          video_mime: videoMime,
         })
         .select(MOMENTS_SELECT)
         .single()
@@ -274,6 +299,8 @@ export function useAddMoment() {
         photo_archived: false,
         archived_at: null,
         pinned: false,
+        video_path: null,
+        video_mime: null,
         created_at: new Date().toISOString(),
         member: member ? { id: member.id, display_name: member.display_name } : null,
         reactions: [],
@@ -311,11 +338,12 @@ export function useDeleteMoment() {
   const { showToast } = useToast()
 
   return useMutation({
-    mutationFn: async ({ id, photo_path, photos = [] }: { id: string; photo_path: string | null; photos?: MomentPhoto[] }) => {
+    mutationFn: async ({ id, photo_path, video_path, photos = [] }: { id: string; photo_path: string | null; video_path?: string | null; photos?: MomentPhoto[] }) => {
       const pathsToDelete = photos.map(p => p.photo_path)
       if (photo_path && !pathsToDelete.includes(photo_path)) {
         pathsToDelete.push(photo_path)
       }
+      if (video_path) pathsToDelete.push(video_path)
       if (pathsToDelete.length > 0) {
         await supabase.storage.from('family-moments').remove(pathsToDelete)
       }
@@ -575,6 +603,11 @@ export function useReorderMomentPhotos() {
   const { showToast } = useToast()
   return useMutation({
     mutationFn: async ({ orderedIds }: { momentId: string; orderedIds: string[] }) => {
+      // UNIQUE(moment_id, position) : on passe par des positions temporaires hors
+      // plage (1000+i) avant d'écrire les positions finales, sinon collision.
+      await Promise.all(orderedIds.map((id, i) =>
+        supabase.from('moment_photos').update({ position: 1000 + i }).eq('id', id)
+      ))
       await Promise.all(orderedIds.map((id, i) =>
         supabase.from('moment_photos').update({ position: i }).eq('id', id)
       ))

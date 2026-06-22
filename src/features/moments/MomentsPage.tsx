@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send, Download, Share2, Pin, Search } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send, Download, Share2, Pin, Search, Video } from 'lucide-react'
 import { format, parseISO, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useMember } from '../../auth/useMember'
@@ -15,10 +15,11 @@ import {
   useAddMoment, useDeleteMoment, useEditMomentText,
   useAddPhotoToMoment, useRemovePhotoFromMoment, useReorderMomentPhotos, useSetPhotoCaption,
   useComments, useAddComment, useDeleteComment, useTogglePin,
-  EMOJIS, EMOJI_PICKER,
+  EMOJIS, EMOJI_PICKER, MAX_VIDEO_BYTES,
 } from './useMoments'
 import type { Moment, MomentComment } from './useMoments'
 import { useMomentsRealtime } from './useMomentsRealtime'
+import { useToast } from '../../components/useToast'
 import styles from './MomentsPage.module.css'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -675,6 +676,16 @@ function MomentCard({ moment, currentMemberId, memberMap, urlMap, onDelete, onEd
 
       {moment.text && <p className={styles.text}>{moment.text}</p>}
 
+      {moment.video_path && urlMap[moment.video_path] && (
+        <video
+          className={styles.momentVideo}
+          src={urlMap[moment.video_path]}
+          controls
+          preload="metadata"
+          playsInline
+        />
+      )}
+
       {photoPaths.length > 0 && (
         <PhotoGrid photoPaths={photoPaths} urlMap={urlMap} onOpen={handlePhotoOpen} />
       )}
@@ -767,10 +778,13 @@ export default function MomentsPage() {
   const addMoment    = useAddMoment()
   const deleteMoment = useDeleteMoment()
 
+  const { showToast }                       = useToast()
   const [showCompose, setShowCompose]       = useState(false)
   const [text, setText]                     = useState('')
   const [photos, setPhotos]                 = useState<File[]>([])
   const [previews, setPreviews]             = useState<string[]>([])
+  const [video, setVideo]                   = useState<File | null>(null)
+  const [videoPreview, setVideoPreview]     = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete]   = useState<Moment | null>(null)
   const [editTargetId, setEditTargetId]     = useState<string | null>(null)
   const [lightbox, setLightbox]             = useState<{ urls: string[]; captions: (string | null)[]; index: number } | null>(null)
@@ -788,6 +802,7 @@ export default function MomentsPage() {
     : null
   const fileInputRef   = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
+  const videoInputRef  = useRef<HTMLInputElement>(null)
 
   const feedAuthors = useMemo(() => {
     const seen = new Map<string, string>()
@@ -831,6 +846,7 @@ export default function MomentsPage() {
     const set = new Set<string>()
     for (const m of [...displayMoments, ...onThisDay, ...searchResults]) {
       for (const p of getMomentPhotoPaths(m)) set.add(p)
+      if (m.video_path) set.add(m.video_path)
     }
     return [...set]
   }, [displayMoments, onThisDay, searchResults])
@@ -855,19 +871,38 @@ export default function MomentsPage() {
     setPreviews(prev => prev.filter((_, i) => i !== idx))
   }
 
+  function handleVideoChange(e: ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (e.target) e.target.value = ''
+    if (!file) return
+    if (file.size > MAX_VIDEO_BYTES) {
+      showToast({ type: 'error', message: `Vidéo trop lourde (max ${Math.round(MAX_VIDEO_BYTES / 1024 / 1024)} Mo). Utilise un clip plus court.` })
+      return
+    }
+    setVideo(file)
+    setVideoPreview(URL.createObjectURL(file))
+  }
+
+  function clearVideo() {
+    if (videoPreview) URL.revokeObjectURL(videoPreview)
+    setVideo(null)
+    setVideoPreview(null)
+  }
+
   function resetCompose() {
     setText('')
     setPhotos([])
     setPreviews([])
+    clearVideo()
     if (fileInputRef.current)   fileInputRef.current.value = ''
     if (cameraInputRef.current) cameraInputRef.current.value = ''
   }
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!text.trim() && photos.length === 0) return
+    if (!text.trim() && photos.length === 0 && !video) return
     try {
-      await addMoment.mutateAsync({ text, photos })
+      await addMoment.mutateAsync({ text, photos, video })
       resetCompose()
       setShowCompose(false)
       window.scrollTo({ top: 0, behavior: 'smooth' })
@@ -881,12 +916,13 @@ export default function MomentsPage() {
         id: confirmDelete.id,
         photo_path: confirmDelete.photo_path,
         photos: confirmDelete.photos ?? [],
+        video_path: confirmDelete.video_path,
       })
       setConfirmDelete(null)
     } catch { /* onError handles toast */ }
   }
 
-  const canPublish = (text.trim().length > 0 || photos.length > 0) && !addMoment.isPending
+  const canPublish = (text.trim().length > 0 || photos.length > 0 || !!video) && !addMoment.isPending
 
   const deleteHasPhotos = (confirmDelete?.photos?.length ?? 0) > 0 || !!confirmDelete?.photo_path
 
@@ -1121,15 +1157,26 @@ export default function MomentsPage() {
               rows={4}
               autoFocus
             />
-            {previews.length === 0 ? (
+            {video ? (
+              <div className={styles.composeVideoWrap}>
+                {videoPreview && <video src={videoPreview} className={styles.composeVideo} controls playsInline />}
+                <button type="button" className={styles.removePhotoBtn} onClick={clearVideo} aria-label="Retirer la vidéo">
+                  <X size={12} strokeWidth={2.5} />
+                </button>
+              </div>
+            ) : previews.length === 0 ? (
               <div className={styles.photoPickerRow}>
                 <button type="button" className={styles.photoPickerBtn} onClick={() => cameraInputRef.current?.click()}>
                   <Camera size={16} strokeWidth={2} />
-                  Appareil photo
+                  Photo
                 </button>
                 <button type="button" className={styles.photoPickerBtn} onClick={() => fileInputRef.current?.click()}>
                   <ImageIcon size={16} strokeWidth={2} />
                   Galerie
+                </button>
+                <button type="button" className={styles.photoPickerBtn} onClick={() => videoInputRef.current?.click()}>
+                  <Video size={16} strokeWidth={2} />
+                  Vidéo
                 </button>
               </div>
             ) : (
@@ -1184,6 +1231,13 @@ export default function MomentsPage() {
               multiple
               style={{ display: 'none' }}
               onChange={handlePhotoChange}
+            />
+            <input
+              ref={videoInputRef}
+              type="file"
+              accept="video/*"
+              style={{ display: 'none' }}
+              onChange={handleVideoChange}
             />
             <button type="submit" className={styles.publishBtn} disabled={!canPublish}>
               {addMoment.isPending ? 'Publication…' : 'Publier'}

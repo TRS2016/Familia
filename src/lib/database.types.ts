@@ -1382,6 +1382,8 @@ export type Database = {
           photo_path: string | null
           pinned: boolean
           text: string | null
+          video_mime: string | null
+          video_path: string | null
         }
         Insert: {
           archived_at?: string | null
@@ -1393,6 +1395,8 @@ export type Database = {
           photo_path?: string | null
           pinned?: boolean
           text?: string | null
+          video_mime?: string | null
+          video_path?: string | null
         }
         Update: {
           archived_at?: string | null
@@ -1404,6 +1408,8 @@ export type Database = {
           photo_path?: string | null
           pinned?: boolean
           text?: string | null
+          video_mime?: string | null
+          video_path?: string | null
         }
         Relationships: [
           {
