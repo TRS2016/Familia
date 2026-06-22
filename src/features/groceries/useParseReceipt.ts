@@ -35,32 +35,45 @@ export function useParseReceipt() {
 
   return useMutation({
     mutationFn: async (file: File): Promise<ParsedReceipt> => {
-      // Compresse les grosses photos (coût + payload). Tickets longs → on borne
-      // la dimension sans casser le ratio.
+      // Toujours ré-encoder en JPEG : convertit le HEIC (iPhone, non supporté par
+      // la vision) et borne la dimension. La conversion est cheap même sur les
+      // petits fichiers et évite d'envoyer un format que le modèle refuse.
       let img: File = file
-      if (img.size > 1_572_864) {
+      try {
         const { default: imageCompression } = await import('browser-image-compression')
         img = await imageCompression(file, {
-          maxSizeMB: 1.2,
-          maxWidthOrHeight: 2000,
+          maxSizeMB: 1.5,
+          maxWidthOrHeight: 2200,
           useWebWorker: true,
           fileType: 'image/jpeg',
         })
-      }
+      } catch { /* si la conversion échoue, on tente l'original */ }
       const mimeType = SUPPORTED.includes(img.type) ? img.type : 'image/jpeg'
       const image = await fileToBase64(img)
 
       const { data, error } = await supabase.functions.invoke('parse-receipt', {
         body: { image, mimeType, categories: CATEGORY_ORDER },
       })
-      if (error) throw error
+      if (error) {
+        // Remonte le vrai message renvoyé par l'Edge Function (sinon masqué).
+        let detail = ''
+        try {
+          const ctx = (error as { context?: Response }).context
+          const body = ctx && typeof ctx.json === 'function' ? await ctx.json() : null
+          detail = (body as { error?: string })?.error ?? ''
+        } catch { /* corps illisible */ }
+        throw new Error(detail || 'invoke')
+      }
       const parsed = data as ParsedReceipt
       if (!parsed || !Array.isArray(parsed.items)) throw new Error('Réponse invalide')
       return parsed
     },
-    onError: () => showToast({
-      type: 'error',
-      message: 'Lecture du ticket impossible. Réessaie avec une photo nette et bien cadrée.',
-    }),
+    onError: (e) => {
+      const msg = e instanceof Error && e.message && e.message !== 'invoke' ? e.message : null
+      showToast({
+        type: 'error',
+        message: msg ?? 'Lecture du ticket impossible. Réessaie avec une photo nette et bien cadrée.',
+      })
+    },
   })
 }

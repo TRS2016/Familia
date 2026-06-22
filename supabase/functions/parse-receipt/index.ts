@@ -50,31 +50,6 @@ Deno.serve(async (req: Request) => {
     ? body.categories.filter((c): c is string => typeof c === 'string' && c.length > 0)
     : ['Autre']
 
-  // Structured outputs : JSON garanti conforme au schéma (prix/qté en chaînes →
-  // parsées côté client, évite les unions number|null fragiles).
-  const schema = {
-    type: 'object',
-    additionalProperties: false,
-    required: ['store', 'items'],
-    properties: {
-      store: { type: 'string' },
-      items: {
-        type: 'array',
-        items: {
-          type: 'object',
-          additionalProperties: false,
-          required: ['name', 'quantity', 'price', 'category'],
-          properties: {
-            name: { type: 'string' },
-            quantity: { type: 'string' },
-            price: { type: 'string' },
-            category: { type: 'string', enum: [...categories, ''] },
-          },
-        },
-      },
-    },
-  }
-
   const prompt = `Tu lis la photo d'un ticket de caisse de courses (supermarché français). Extrais UNIQUEMENT les articles achetés.
 
 Règles :
@@ -85,7 +60,9 @@ Règles :
 - category : choisis EXACTEMENT une valeur parmi : ${categories.join(', ')}. Si tu hésites, "".
 - store : le nom de l'enseigne si visible (ex « Carrefour »), sinon "".
 
-Réponds uniquement via le schéma fourni.`
+Réponds UNIQUEMENT avec un objet JSON valide, sans aucun texte autour ni balises de code, exactement de cette forme :
+{"store": "...", "items": [{"name": "...", "quantity": "...", "price": "...", "category": "..."}]}
+Si tu ne vois aucun article lisible, renvoie {"store": "", "items": []}.`
 
   let res: Response
   try {
@@ -99,7 +76,6 @@ Réponds uniquement via le schéma fourni.`
       body: JSON.stringify({
         model: MODEL,
         max_tokens: 4096,
-        output_config: { format: { type: 'json_schema', schema } },
         messages: [{
           role: 'user',
           content: [
@@ -117,7 +93,10 @@ Réponds uniquement via le schéma fourni.`
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
     console.error('[parse-receipt] Anthropic', res.status, detail.slice(0, 300))
-    return err('Lecture du ticket impossible (service IA).', 502)
+    const hint = res.status === 401 || res.status === 403
+      ? 'clé IA invalide — reconfigure ANTHROPIC_API_KEY'
+      : `service IA indisponible (code ${res.status})`
+    return err(`Lecture du ticket impossible : ${hint}.`, 502)
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -131,8 +110,18 @@ Réponds uniquement via le schéma fourni.`
     .map((b: any) => b.text)
     .join('')
 
-  let parsed: unknown
-  try { parsed = JSON.parse(text) } catch {
+  // Parsing défensif : enlève d'éventuelles balises ```json puis, en dernier
+  // recours, isole l'objet du premier { au dernier }.
+  function tryParse(raw: string): unknown | null {
+    const cleaned = raw.replace(/```json\s*/gi, '').replace(/```/g, '').trim()
+    try { return JSON.parse(cleaned) } catch { /* suite */ }
+    const a = cleaned.indexOf('{'), b = cleaned.lastIndexOf('}')
+    if (a >= 0 && b > a) { try { return JSON.parse(cleaned.slice(a, b + 1)) } catch { /* non */ } }
+    return null
+  }
+
+  const parsed = tryParse(text)
+  if (!parsed) {
     console.error('[parse-receipt] JSON parse fail', text.slice(0, 200))
     return err('Réponse IA illisible.', 502)
   }
