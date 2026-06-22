@@ -396,6 +396,58 @@
   font-weight: 800;
 }
 
+/* Sélecteur d'emojis étendu */
+.reactionPickerWrap { position: relative; display: inline-flex; }
+.reactionAddBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 26px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color 0.12s, background 0.12s, color 0.12s;
+}
+.reactionAddBtn:hover { border-color: #D4778A; color: #D4778A; }
+.reactionPicker {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 8px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card-hover);
+  max-width: min(320px, 86vw);
+}
+.reactionPickerItem {
+  border: none;
+  background: transparent;
+  font-size: 20px;
+  line-height: 1;
+  padding: 5px;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.reactionPickerItem:hover { background: var(--bg-input); }
+
+/* « Ce jour-là » — sous-en-tête par année */
+.onThisDayYear {
+  font-size: var(--text-2xs);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  padding: 10px 4px 4px;
+}
+
 /* ── Photo lightbox ──────────────────────────────────────────────────────── */
 
 .photoClickable {

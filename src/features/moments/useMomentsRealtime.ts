@@ -5,6 +5,7 @@ export function useMomentsRealtime() {
   useRealtimeInvalidation('moments-changes', [
     { table: 'moments', keys: [MOMENTS_KEY] },
     { table: 'moment_reactions', keys: [MOMENTS_KEY] },
+    { table: 'moment_photos', keys: [MOMENTS_KEY] },
     {
       table: 'moment_comments',
       keysFromPayload: (payload) => {

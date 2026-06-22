@@ -1,8 +1,8 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send, Download, Share2 } from 'lucide-react'
-import { format, parseISO, subDays, subYears } from 'date-fns'
+import { format, parseISO, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useMember } from '../../auth/useMember'
 import { memberColor } from '../../lib/constants'
@@ -10,12 +10,12 @@ import { capitalize } from '../../lib/utils'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import {
-  useMoments, useTodayLastYear, useSignedPhotoUrls, useToggleReaction,
+  useMoments, useOnThisDay, useSignedPhotoUrls, useToggleReaction,
   getMomentPhotoPaths,
   useAddMoment, useDeleteMoment, useEditMomentText,
   useAddPhotoToMoment, useRemovePhotoFromMoment,
   useComments, useAddComment, useDeleteComment,
-  EMOJIS,
+  EMOJIS, EMOJI_PICKER,
 } from './useMoments'
 import type { Moment, MomentComment } from './useMoments'
 import { useMomentsRealtime } from './useMomentsRealtime'
@@ -49,6 +49,13 @@ function dateSeparatorLabel(isoString: string): string {
 
 function momentDateStr(m: Moment) {
   return format(parseISO(m.created_at), 'yyyy-MM-dd')
+}
+
+// Couleur stable par membre (id → palette) : avatar et chips de filtre cohérents.
+function colorForMember(id: string): string {
+  let sum = 0
+  for (let i = 0; i < id.length; i++) sum += id.charCodeAt(i)
+  return memberColor(sum)
 }
 
 // ── Lightbox ──────────────────────────────────────────────────────────────────
@@ -89,6 +96,24 @@ function Lightbox({ urls, initialIndex, onClose, onOpenAlbumShare }: {
     setIndex(newIndex)
     setZoomed(false)
   }
+
+  // Verrou du scroll de fond tant que la lightbox est ouverte.
+  useEffect(() => {
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = prev }
+  }, [])
+
+  // Navigation clavier (desktop) : ←/→ pour changer de photo, Échap pour fermer.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+      else if (e.key === 'ArrowRight') { setIndex(i => Math.min(urls.length - 1, i + 1)); setZoomed(false) }
+      else if (e.key === 'ArrowLeft')  { setIndex(i => Math.max(0, i - 1)); setZoomed(false) }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [urls.length, onClose])
 
   function handleTouchStart(e: React.TouchEvent) {
     if (zoomed) return
@@ -553,10 +578,16 @@ function MomentCard({ moment, currentMemberId, memberMap, urlMap, onDelete, onEd
 }) {
   const toggleReaction = useToggleReaction()
   const [showComments, setShowComments] = useState(false)
+  const [showPicker, setShowPicker] = useState(false)
+  // Emojis affichés : les 4 rapides + tout emoji déjà utilisé sur ce moment.
+  const shownEmojis = useMemo(() => {
+    const list: string[] = [...EMOJIS]
+    for (const r of moment.reactions) if (!list.includes(r.emoji)) list.push(r.emoji)
+    return list
+  }, [moment.reactions])
   const isOwn        = moment.member_id === currentMemberId
   const isOptimistic = moment.id.startsWith('optimistic-')
   const name         = moment.member?.display_name ?? '?'
-  const colorIndex   = name.charCodeAt(0) % 4
 
   const photoPaths = useMemo(() => getMomentPhotoPaths(moment), [moment])
 
@@ -568,7 +599,7 @@ function MomentCard({ moment, currentMemberId, memberMap, urlMap, onDelete, onEd
   return (
     <article className={[styles.card, isOptimistic ? styles.cardOptimistic : ''].join(' ')}>
       <div className={styles.cardHeader}>
-        <div className={styles.avatar} style={{ background: memberColor(colorIndex) }}>
+        <div className={styles.avatar} style={{ background: colorForMember(moment.member_id) }}>
           {name.trim().slice(0, 2).toUpperCase()}
         </div>
         <div className={styles.cardMeta}>
@@ -596,7 +627,7 @@ function MomentCard({ moment, currentMemberId, memberMap, urlMap, onDelete, onEd
       {!isOptimistic && (
         <>
           <div className={styles.reactionsBar}>
-            {EMOJIS.map(emoji => {
+            {shownEmojis.map(emoji => {
               const count  = moment.reactions.filter(r => r.emoji === emoji).length
               const active = moment.reactions.some(r => r.emoji === emoji && r.member_id === currentMemberId)
               return (
@@ -611,6 +642,30 @@ function MomentCard({ moment, currentMemberId, memberMap, urlMap, onDelete, onEd
                 </button>
               )
             })}
+            <div className={styles.reactionPickerWrap}>
+              <button
+                className={[styles.reactionAddBtn, showPicker ? styles.reactionBtnActive : ''].join(' ')}
+                onClick={() => setShowPicker(p => !p)}
+                aria-label="Plus de réactions"
+                aria-expanded={showPicker}
+              >
+                <Plus size={13} strokeWidth={2.5} />
+              </button>
+              {showPicker && (
+                <div className={styles.reactionPicker}>
+                  {EMOJI_PICKER.map(emoji => (
+                    <button
+                      key={emoji}
+                      className={styles.reactionPickerItem}
+                      onClick={() => { toggleReaction.mutate({ momentId: moment.id, emoji }); setShowPicker(false) }}
+                      aria-label={`Réagir avec ${emoji}`}
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
             <button
               className={[styles.commentToggleBtn, showComments ? styles.commentToggleBtnActive : ''].join(' ')}
               onClick={() => setShowComments(s => !s)}
@@ -622,7 +677,7 @@ function MomentCard({ moment, currentMemberId, memberMap, urlMap, onDelete, onEd
 
           {/* Noms des personnes qui ont réagi */}
           {moment.reactions.length > 0 && (() => {
-            const parts = EMOJIS
+            const parts = shownEmojis
               .filter(e => moment.reactions.some(r => r.emoji === e))
               .map(e => {
                 const names = moment.reactions
@@ -653,7 +708,7 @@ export default function MomentsPage() {
   const { data: member }         = useMember()
   const [limit, setLimit]        = useState(PAGE_SIZE)
   const { data: moments = [], isLoading } = useMoments(limit)
-  const { data: lastYear = [] }  = useTodayLastYear()
+  const { data: onThisDay = [] } = useOnThisDay()
   const addMoment    = useAddMoment()
   const deleteMoment = useDeleteMoment()
 
@@ -668,7 +723,7 @@ export default function MomentsPage() {
 
   // live version derived from cache — updates as photos are added/removed
   const editTarget = editTargetId
-    ? ([...moments, ...lastYear].find(m => m.id === editTargetId) ?? null)
+    ? ([...moments, ...onThisDay].find(m => m.id === editTargetId) ?? null)
     : null
   const [showLastYear, setShowLastYear]     = useState(true)
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
@@ -685,11 +740,23 @@ export default function MomentsPage() {
 
   const memberMap = useMemo<Record<string, string>>(() => {
     const map: Record<string, string> = {}
-    for (const m of [...moments, ...lastYear]) {
+    for (const m of [...moments, ...onThisDay]) {
       if (m.member) map[m.member.id] = m.member.display_name
     }
     return map
-  }, [moments, lastYear])
+  }, [moments, onThisDay])
+
+  // « Ce jour-là » regroupé par année (la plus récente d'abord).
+  const onThisDayGroups = useMemo(() => {
+    const byYear = new Map<number, Moment[]>()
+    for (const m of onThisDay) {
+      const y = new Date(m.created_at).getFullYear()
+      const arr = byYear.get(y) ?? []
+      arr.push(m)
+      byYear.set(y, arr)
+    }
+    return [...byYear.entries()].sort((a, b) => b[0] - a[0])
+  }, [onThisDay])
 
   const displayMoments = useMemo(
     () => filterMemberId ? moments.filter(m => m.member_id === filterMemberId) : moments,
@@ -699,11 +766,11 @@ export default function MomentsPage() {
   // Signed URLs batchées pour toute la galerie (1 appel au lieu d'un par carte).
   const allPhotoPaths = useMemo(() => {
     const set = new Set<string>()
-    for (const m of [...displayMoments, ...lastYear]) {
+    for (const m of [...displayMoments, ...onThisDay]) {
       for (const p of getMomentPhotoPaths(m)) set.add(p)
     }
     return [...set]
-  }, [displayMoments, lastYear])
+  }, [displayMoments, onThisDay])
   const { data: urlMap = {} } = useSignedPhotoUrls(allPhotoPaths)
 
   function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
@@ -758,8 +825,6 @@ export default function MomentsPage() {
 
   const canPublish = (text.trim().length > 0 || photos.length > 0) && !addMoment.isPending
 
-  const lastYearDate = format(subYears(new Date(), 1), 'd MMMM yyyy', { locale: fr })
-
   const deleteHasPhotos = (confirmDelete?.photos?.length ?? 0) > 0 || !!confirmDelete?.photo_path
 
   return (
@@ -786,9 +851,9 @@ export default function MomentsPage() {
           >
             Tous
           </button>
-          {feedAuthors.map((a, i) => {
+          {feedAuthors.map(a => {
             const active = filterMemberId === a.id
-            const color  = memberColor(i)
+            const color  = colorForMember(a.id)
             return (
               <button
                 key={a.id}
@@ -803,33 +868,41 @@ export default function MomentsPage() {
         </div>
       )}
 
-      {/* Ce jour-là — anniversaire */}
-      {lastYear.length > 0 && (
+      {/* Ce jour-là — souvenirs des années passées (regroupés par année) */}
+      {onThisDay.length > 0 && (
         <div className={styles.lastYearBanner}>
           <button
             className={styles.lastYearToggle}
             onClick={() => setShowLastYear(s => !s)}
           >
             <span className={styles.lastYearIcon}>🗓️</span>
-            <span className={styles.lastYearTitle}>Ce jour-là · {lastYearDate}</span>
-            <span className={styles.lastYearCount}>{lastYear.length}</span>
+            <span className={styles.lastYearTitle}>Ce jour-là</span>
+            <span className={styles.lastYearCount}>{onThisDay.length}</span>
           </button>
-          {showLastYear && (
-            <div className={[styles.feed, styles.feedLastYear].join(' ')}>
-              {lastYear.map(m => (
-                <MomentCard
-                  key={m.id}
-                  moment={m}
-                  currentMemberId={member?.id ?? ''}
-                  memberMap={memberMap}
-                  urlMap={urlMap}
-                  onDelete={setConfirmDelete}
-                  onEdit={m => setEditTargetId(m.id)}
-                  onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
-                />
-              ))}
-            </div>
-          )}
+          {showLastYear && onThisDayGroups.map(([year, items]) => {
+            const yearsAgo = new Date().getFullYear() - year
+            return (
+              <div key={year}>
+                <div className={styles.onThisDayYear}>
+                  Il y a {yearsAgo} an{yearsAgo > 1 ? 's' : ''} · {year}
+                </div>
+                <div className={[styles.feed, styles.feedLastYear].join(' ')}>
+                  {items.map(m => (
+                    <MomentCard
+                      key={m.id}
+                      moment={m}
+                      currentMemberId={member?.id ?? ''}
+                      memberMap={memberMap}
+                      urlMap={urlMap}
+                      onDelete={setConfirmDelete}
+                      onEdit={m => setEditTargetId(m.id)}
+                      onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
+                    />
+                  ))}
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 

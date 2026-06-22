@@ -48,8 +48,13 @@ export interface NewMomentInput {
   photos: File[]
 }
 
+// Réactions rapides toujours affichées + jeu étendu pour le sélecteur.
 export const EMOJIS = ['❤️', '😄', '👍', '😮'] as const
 export type Emoji = typeof EMOJIS[number]
+export const EMOJI_PICKER = [
+  '❤️', '😄', '👍', '😮', '😢', '😡', '🎉', '🔥',
+  '😍', '🙏', '👏', '💯', '😂', '🥳', '🤩', '🤔',
+] as const
 
 // ── Query keys ────────────────────────────────────────────────────────────────
 
@@ -93,20 +98,24 @@ export function useMoments(limit = 20) {
   })
 }
 
-/** Moments de ce même jour l'année dernière */
-export function useTodayLastYear() {
-  const d = subYears(new Date(), 1)
-  const from = format(d, 'yyyy-MM-dd') + 'T00:00:00'
-  const to   = format(d, 'yyyy-MM-dd') + 'T23:59:59'
+/** Moments de ce même jour les années passées (« il y a 1 an, 2 ans… »). */
+export const ON_THIS_DAY_KEY = ['moments-on-this-day', HOUSEHOLD_ID] as const
+
+export function useOnThisDay(maxYears = 8) {
+  const now = new Date()
+  // Une plage [00:00, 23:59:59] par année passée, combinées en un seul OR.
+  const ranges = Array.from({ length: maxYears }, (_, i) => {
+    const day = format(subYears(now, i + 1), 'yyyy-MM-dd')
+    return `and(created_at.gte.${day}T00:00:00,created_at.lte.${day}T23:59:59)`
+  })
   return useQuery({
-    queryKey: ['moments-today-last-year', HOUSEHOLD_ID, format(d, 'yyyy-MM-dd')],
+    queryKey: [...ON_THIS_DAY_KEY, format(now, 'MM-dd')],
     queryFn: async (): Promise<Moment[]> => {
       const { data, error } = await supabase
         .from('moments')
         .select(MOMENTS_SELECT)
         .eq('household_id', HOUSEHOLD_ID)
-        .gte('created_at', from)
-        .lte('created_at', to)
+        .or(ranges.join(','))
         .order('created_at', { ascending: false })
       if (error) throw error
       return ((data as Moment[]) ?? []).map(sortPhotos)
@@ -376,11 +385,17 @@ export function useAddComment() {
       queryClient.setQueryData<MomentComment[]>(key, [...previous, optimistic])
       return { previous, optimisticId: optimistic.id, key }
     },
-    onSuccess: (newComment, { momentId }, context) => {
+    onSuccess: (newComment, { momentId, text }, context) => {
       const key = commentsKey(momentId)
       queryClient.setQueryData<MomentComment[]>(key, old =>
         (old ?? []).map(c => c.id === context?.optimisticId ? newComment : c)
       )
+      // Prévient le foyer (réutilise notify-household ; le foyer = sauf l'auteur).
+      const t = text.trim()
+      const body = t.length > 60 ? t.slice(0, 57) + '…' : t
+      void supabase.functions.invoke('notify-household', {
+        body: { title: `${member?.display_name ?? 'Quelqu\'un'} a commenté un moment`, body, module: 'moments' },
+      })
     },
     onError: (_err, _vars, ctx) => {
       if (ctx?.key) queryClient.setQueryData(ctx.key, ctx.previous ?? [])
@@ -424,7 +439,7 @@ function updateMomentInCaches(
       old ? old.map(m => m.id === momentId ? updater(m) : m) : old
     )
   })
-  queryClient.getQueryCache().findAll({ queryKey: ['moments-today-last-year', HOUSEHOLD_ID] }).forEach(q => {
+  queryClient.getQueryCache().findAll({ queryKey: ON_THIS_DAY_KEY }).forEach(q => {
     queryClient.setQueryData(q.queryKey, (old: Moment[] | undefined) =>
       old ? old.map(m => m.id === momentId ? updater(m) : m) : old
     )
@@ -506,7 +521,7 @@ export function useToggleReaction() {
   const { data: member } = useMember()
 
   return useMutation({
-    mutationFn: async ({ momentId, emoji }: { momentId: string; emoji: Emoji }) => {
+    mutationFn: async ({ momentId, emoji }: { momentId: string; emoji: string }) => {
       const memberId = member!.id
       const keys = queryClient.getQueryCache().findAll({ queryKey: MOMENTS_KEY })
       const existing = keys
@@ -527,7 +542,7 @@ export function useToggleReaction() {
           .insert({ moment_id: momentId, member_id: memberId, emoji })
       }
     },
-    onMutate: async ({ momentId, emoji }) => {
+    onMutate: async ({ momentId, emoji }: { momentId: string; emoji: string }) => {
       await queryClient.cancelQueries({ queryKey: MOMENTS_KEY })
       const keys = queryClient.getQueryCache().findAll({ queryKey: MOMENTS_KEY })
       const snapshots = keys.map(q => ({ key: q.queryKey, data: q.state.data }))
