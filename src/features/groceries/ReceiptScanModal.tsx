@@ -12,9 +12,11 @@ import styles from './CatalogPage.module.css'
 // Scan d'un ticket → extraction IA → écran de confirmation éditable → ajout au
 // catalogue. On n'écrit jamais en aveugle : l'utilisateur coche/édite/valide.
 
-interface Row extends ParsedReceiptItem { checked: boolean; dup: boolean }
+interface Row extends ParsedReceiptItem { checked: boolean; dupReason: 'catalog' | 'ticket' | null }
 
-const norm = (s: string) => s.trim().toLowerCase()
+// Normalisation pour le dédoublonnage : minuscules + accents retirés.
+const norm = (s: string) =>
+  s.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
 
 export default function ReceiptScanModal({ existing, onClose }: {
   existing: CatalogItem[]
@@ -35,9 +37,16 @@ export default function ReceiptScanModal({ existing, onClose }: {
     try {
       const res = await parse.mutateAsync(file)
       setStore(res.store || '')
+      const seen = new Set<string>()
       setRows(res.items.map(it => {
-        const dup = existingNames.has(norm(it.name))
-        return { ...it, dup, checked: !dup } // les doublons sont décochés par défaut
+        const key = norm(it.name)
+        // Doublon vs catalogue, ou même article déjà vu plus haut dans CE ticket.
+        const dupReason: Row['dupReason'] =
+          key && existingNames.has(key) ? 'catalog'
+          : key && seen.has(key) ? 'ticket'
+          : null
+        if (key) seen.add(key)
+        return { ...it, dupReason, checked: !dupReason } // les doublons sont décochés par défaut
       }))
     } catch { /* toast géré par le hook */ }
   }
@@ -154,7 +163,11 @@ export default function ReceiptScanModal({ existing, onClose }: {
                           aria-label="Prix"
                         />
                       </div>
-                      {r.dup && <span className={styles.receiptDup}>Déjà au catalogue</span>}
+                      {r.dupReason && (
+                        <span className={styles.receiptDup}>
+                          {r.dupReason === 'catalog' ? 'Déjà au catalogue' : 'Doublon dans le ticket'}
+                        </span>
+                      )}
                     </div>
                   </li>
                 ))}
