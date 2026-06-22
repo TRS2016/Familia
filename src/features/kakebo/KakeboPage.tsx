@@ -247,17 +247,25 @@ export default function KakeboPage() {
 
   function exportCsv() {
     const header = 'Date,Catégorie,Type,Description,Montant\n'
-    const rows = displayEntries
-      .filter(e => e.category?.type !== 'income')
+    const sorted = [...displayEntries].sort((a, b) => a.date.localeCompare(b.date))
+    const rows = sorted
       .map(e => [
         e.date,
         e.category?.name ?? '',
         e.category?.type ?? '',
         `"${(e.description ?? '').replace(/"/g, '""')}"`,
-        Number(e.amount).toFixed(2),
+        // Revenus en positif, dépenses en négatif pour un grand livre lisible.
+        (e.category?.type === 'income' ? Number(e.amount) : -Number(e.amount)).toFixed(2),
       ].join(','))
       .join('\n')
-    const blob = new Blob(['﻿' + header + rows], { type: 'text/csv;charset=utf-8;' })
+    // Lignes de synthèse en pied de fichier.
+    const totals = [
+      '',
+      `\nTotal revenus,,,,${totalRevenusMois.toFixed(2)}`,
+      `Total dépenses,,,,${(-totalDepenses).toFixed(2)}`,
+      `Épargne réelle,,,,${epargneReelle.toFixed(2)}`,
+    ].join('\n')
+    const blob = new Blob(['﻿' + header + rows + totals], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url

@@ -143,7 +143,7 @@ Deno.serve(async (req: Request) => {
 
     const payload = JSON.stringify({
       title: `⏰ Rappel : ${ev.title}`,
-      body: `Dans ${label}${ev.location ? ` · ${ev.location}` : ''} à ${ev.start_time}`,
+      body: `Dans ${label}${ev.location ? ` · ${ev.location}` : ''} à ${ev.start_time.slice(0, 5)}`,
       module: 'calendar',
       tag: `event-${ev.id}`,
       actions: [{ action: 'view', title: 'Voir' }],

@@ -75,20 +75,25 @@ export async function fetchStations(): Promise<Station[]> {
     infoMap.set(station.station_id, station)
   }
 
-  return statusStations.map((status): Station => {
+  return statusStations.flatMap((status): Station[] => {
     const info = infoMap.get(status.station_id)
-    return {
+    // Sans coordonnées valides, la station polluerait la carte (point à (0,0))
+    // et fausserait les calculs de distance/recommandations → on l'écarte.
+    if (!info || typeof info.lat !== 'number' || typeof info.lon !== 'number' || (info.lat === 0 && info.lon === 0)) {
+      return []
+    }
+    return [{
       id: status.station_id,
-      name: info?.name || status.station_id,
-      address: info?.address || '',
-      lat: info?.lat || 0,
-      lng: info?.lon || 0,
+      name: info.name || status.station_id,
+      address: info.address || '',
+      lat: info.lat,
+      lng: info.lon,
       availableBikes: status.num_bikes_available,
       availableStands: status.num_docks_available,
-      capacity: info?.capacity || 0,
+      capacity: info.capacity || 0,
       isRenting: Boolean(status.is_renting),
       isReturning: Boolean(status.is_returning),
       lastUpdated: new Date(status.last_reported * 1000),
-    }
+    }]
   })
 }

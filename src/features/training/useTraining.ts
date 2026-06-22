@@ -258,10 +258,13 @@ export function useTrainingStats() {
 
 // ── Records For Time (meilleur temps par nom de séance) ──────────────────────────
 
+// Renvoie un Record (et non une Map) : le cache TanStack Query est persisté en
+// localStorage (PWA) et une Map y est sérialisée en `{}` → `.get` planterait à
+// la réhydratation. Même précaution que la gamification des corvées.
 export function useTrainingRecords() {
   return useQuery({
     queryKey: [...TRAINING_SESSIONS_KEY, 'records'],
-    queryFn: async (): Promise<Map<string, number>> => {
+    queryFn: async (): Promise<Record<string, number>> => {
       const { data, error } = await supabase
         .from('training_sessions')
         .select('name, duration_seconds')
@@ -269,11 +272,11 @@ export function useTrainingRecords() {
         .eq('mode', 'fortime')
       if (error) throw error
       const rows = (data ?? []) as { name: string; duration_seconds: number }[]
-      const best = new Map<string, number>()
+      const best: Record<string, number> = {}
       for (const r of rows) {
         if (!r.duration_seconds) continue
-        const cur = best.get(r.name)
-        if (cur === undefined || r.duration_seconds < cur) best.set(r.name, r.duration_seconds)
+        const cur = best[r.name]
+        if (cur === undefined || r.duration_seconds < cur) best[r.name] = r.duration_seconds
       }
       return best
     },

@@ -134,9 +134,9 @@ export function useArchivedHabits() {
   })
 }
 
-/** Last 60 days of completions — used for streak + week grid */
+/** Last 120 days of completions — used for streak + week grid */
 export function useRecentCompletions(habitIds: string[]) {
-  const from = format(subDays(new Date(), 60), 'yyyy-MM-dd')
+  const from = format(subDays(new Date(), 120), 'yyyy-MM-dd')
   const to   = format(new Date(), 'yyyy-MM-dd')
   const key  = completionsKey('recent')
 

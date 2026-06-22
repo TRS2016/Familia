@@ -230,7 +230,7 @@ export default function TrainingPage() {
           <div className={styles.presetList}>
             {shownPresets.map(p => {
               const exCount = p.config.exercises?.length ?? 0
-              const record = p.mode === 'fortime' ? records?.get(p.name) : undefined
+              const record = p.mode === 'fortime' ? records?.[p.name] : undefined
               return (
                 <div key={p.id} className={styles.presetRow}>
                   <button className={styles.presetMain} onClick={() => loadPreset(p)}>

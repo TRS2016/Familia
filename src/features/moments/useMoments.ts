@@ -178,13 +178,13 @@ export function useSignedPhotoUrl(path: string | null) {
     queryFn: async (): Promise<string> => {
       const { data, error } = await supabase.storage
         .from('family-moments')
-        .createSignedUrl(path!, 1800)
+        .createSignedUrl(path!, 7200)
       if (error) throw error
       return data.signedUrl
     },
     enabled: !!path,
-    staleTime: 25 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
+    staleTime: 110 * 60 * 1000,
+    gcTime: 120 * 60 * 1000,
   })
 }
 
@@ -195,15 +195,15 @@ export function useSignedPhotoUrls(paths: string[]) {
     queryFn: async (): Promise<Record<string, string>> => {
       const { data, error } = await supabase.storage
         .from('family-moments')
-        .createSignedUrls(paths, 1800)
+        .createSignedUrls(paths, 7200)
       if (error) throw error
       return Object.fromEntries(
         (data ?? []).filter(d => d.signedUrl).map(d => [d.path, d.signedUrl])
       )
     },
     enabled: paths.length > 0,
-    staleTime: 25 * 60 * 1000,
-    gcTime: 30 * 60 * 1000,
+    staleTime: 110 * 60 * 1000,
+    gcTime: 120 * 60 * 1000,
   })
 }
 

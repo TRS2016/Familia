@@ -150,7 +150,8 @@ function Lightbox({ urls, captions, initialIndex, onClose, onOpenAlbumShare }: {
   async function handleDownloadOne() {
     try {
       const blob = await fetch(url).then(r => r.blob())
-      await downloadBlob(blob, `photo-${index + 1}.jpg`)
+      const ext  = blob.type.split('/')[1] || 'jpg'
+      await downloadBlob(blob, `photo-${index + 1}.${ext}`)
     } catch (err) { console.error('Download photo failed:', err) }
   }
 

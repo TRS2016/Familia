@@ -171,7 +171,7 @@ export default function HomePage() {
     queryKey: [...QK.homeHabits, member?.id],
     queryFn: async () => {
       const today = format(new Date(), 'yyyy-MM-dd')
-      const since = format(subDays(new Date(), 35), 'yyyy-MM-dd') // fenêtre pour le streak
+      const since = format(subDays(new Date(), 120), 'yyyy-MM-dd') // fenêtre pour le streak
       const dow   = new Date().getDay() === 0 ? 7 : new Date().getDay() // 1=lun…7=dim
       const [habitsRes, completionsRes] = await Promise.all([
         supabase.from('habits')

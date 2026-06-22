@@ -61,7 +61,7 @@ export function streakMilestone(streak: number): { emoji: string } | null {
  * Série en cours : remonte le calendrier en ne comptant que les jours où
  * l'habitude était prévue — un mardi ne casse pas la série d'une habitude
  * lun/mer/ven, il est simplement sauté. Aujourd'hui pas encore fait n'est
- * pas pénalisé. Fenêtre bornée à 60 jours (celle des données chargées).
+ * pas pénalisé. Fenêtre bornée à 120 jours (celle des données chargées).
  */
 export function calcStreak(
   habit: HabitSchedule,
@@ -74,7 +74,7 @@ export function calcStreak(
   let d = new Date()
   const todayStr = format(d, 'yyyy-MM-dd')
   if (isApplicable(habit, todayStr) && !doneSet.has(todayStr)) d = subDays(d, 1)
-  for (let i = 0; i < 60; i++) {
+  for (let i = 0; i < 120; i++) {
     const ds = format(d, 'yyyy-MM-dd')
     if (habit.start_date && ds < habit.start_date) break
     if (!isApplicable(habit, ds)) { d = subDays(d, 1); continue }

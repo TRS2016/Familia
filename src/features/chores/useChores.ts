@@ -133,9 +133,9 @@ export function useChoreAssignments(from: string, to: string) {
   })
 }
 
-/** Logs récents (60 derniers jours) — historique + base de stats du Lot 2. */
+/** Logs récents (120 derniers jours) — historique + séries + base de stats. */
 export function useRecentChoreLogs() {
-  const from = format(subDays(new Date(), 60), 'yyyy-MM-dd')
+  const from = format(subDays(new Date(), 120), 'yyyy-MM-dd')
   return useQuery({
     queryKey: [...LOGS_KEY, 'recent'],
     queryFn: async (): Promise<ChoreLog[]> => {

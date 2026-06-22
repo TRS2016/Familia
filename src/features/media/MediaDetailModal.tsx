@@ -11,6 +11,17 @@ import type { MediaItem, MediaType, UpdateMediaInput, MediaRating } from './useM
 import { TYPE_META, STATUS_STYLE } from './mediaMeta'
 import styles from './MediaPage.module.css'
 
+/** N'autorise que http(s) — neutralise les schémas dangereux (javascript:, data:). */
+function safeHttpUrl(raw: string | null): string | null {
+  if (!raw) return null
+  try {
+    const u = new URL(raw)
+    return (u.protocol === 'http:' || u.protocol === 'https:') ? u.href : null
+  } catch {
+    return null
+  }
+}
+
 const TYPES: MediaType[] = ['film', 'série', 'livre', 'jeu']
 
 function formatDate(d: string | null) {
@@ -229,10 +240,10 @@ export default function MediaDetailModal({ item, members, ratings, onClose, onCy
           )}
 
           {/* Où regarder */}
-          {item.external_url && (
+          {safeHttpUrl(item.external_url) && (
             <div className={styles.detailSection}>
               <a
-                href={item.external_url}
+                href={safeHttpUrl(item.external_url)!}
                 target="_blank"
                 rel="noopener noreferrer"
                 className={styles.watchLink}
