@@ -98,6 +98,8 @@ Si tu ne vois aucun article lisible, renvoie {"store": "", "items": []}.`
     try { amsg = (JSON.parse(detail) as any)?.error?.message ?? '' } catch { /* pas du JSON */ }
     const hint = res.status === 401 || res.status === 403
       ? 'clé IA invalide — reconfigure ANTHROPIC_API_KEY'
+      : /credit balance/i.test(amsg)
+      ? 'crédits IA épuisés — recharge le compte Anthropic (Plans & Billing)'
       : `service IA (code ${res.status}) : ${(amsg || detail).slice(0, 200)}`
     return err(`Lecture du ticket impossible : ${hint}.`, 502)
   }
