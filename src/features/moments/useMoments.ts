@@ -125,6 +125,28 @@ export function useOnThisDay(maxYears = 8) {
   })
 }
 
+/** Recherche serveur : texte de légende (≥2 car.) et/ou mois (YYYY-MM). */
+export function useSearchMoments(query: string, month: string) {
+  const q = query.trim()
+  const active = q.length >= 2 || !!month
+  return useQuery({
+    queryKey: ['moments-search', HOUSEHOLD_ID, q, month],
+    queryFn: async (): Promise<Moment[]> => {
+      let req = supabase.from('moments').select(MOMENTS_SELECT).eq('household_id', HOUSEHOLD_ID)
+      if (q.length >= 2) req = req.ilike('text', `%${q}%`)
+      if (month) {
+        const [y, m] = month.split('-').map(Number)
+        const next = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`
+        req = req.gte('created_at', `${month}-01T00:00:00`).lt('created_at', `${next}-01T00:00:00`)
+      }
+      const { data, error } = await req.order('created_at', { ascending: false }).limit(80)
+      if (error) throw error
+      return (data as Moment[]).map(sortPhotos)
+    },
+    enabled: active,
+  })
+}
+
 /** Comments for a single moment — fetched on demand (when section is expanded) */
 export function useComments(momentId: string | null) {
   return useQuery({

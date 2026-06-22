@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send, Download, Share2, Pin } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send, Download, Share2, Pin, Search } from 'lucide-react'
 import { format, parseISO, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useMember } from '../../auth/useMember'
@@ -10,7 +10,7 @@ import { capitalize } from '../../lib/utils'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import {
-  useMoments, useOnThisDay, useSignedPhotoUrls, useToggleReaction,
+  useMoments, useOnThisDay, useSearchMoments, useSignedPhotoUrls, useToggleReaction,
   getMomentPhotoPaths,
   useAddMoment, useDeleteMoment, useEditMomentText,
   useAddPhotoToMoment, useRemovePhotoFromMoment,
@@ -733,13 +733,17 @@ export default function MomentsPage() {
   const [editTargetId, setEditTargetId]     = useState<string | null>(null)
   const [lightbox, setLightbox]             = useState<{ urls: string[]; index: number } | null>(null)
   const [albumShare, setAlbumShare]         = useState<string[] | null>(null)
+  const [showLastYear, setShowLastYear]     = useState(true)
+  const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
+  const [search, setSearch]                 = useState('')
+  const [month, setMonth]                   = useState('')
+  const searchActive = search.trim().length >= 2 || !!month
+  const { data: searchResults = [], isLoading: searchLoading } = useSearchMoments(search, month)
 
   // live version derived from cache — updates as photos are added/removed
   const editTarget = editTargetId
-    ? ([...moments, ...onThisDay].find(m => m.id === editTargetId) ?? null)
+    ? ([...moments, ...onThisDay, ...searchResults].find(m => m.id === editTargetId) ?? null)
     : null
-  const [showLastYear, setShowLastYear]     = useState(true)
-  const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
   const fileInputRef   = useRef<HTMLInputElement>(null)
   const cameraInputRef = useRef<HTMLInputElement>(null)
 
@@ -753,11 +757,11 @@ export default function MomentsPage() {
 
   const memberMap = useMemo<Record<string, string>>(() => {
     const map: Record<string, string> = {}
-    for (const m of [...moments, ...onThisDay]) {
+    for (const m of [...moments, ...onThisDay, ...searchResults]) {
       if (m.member) map[m.member.id] = m.member.display_name
     }
     return map
-  }, [moments, onThisDay])
+  }, [moments, onThisDay, searchResults])
 
   // « Ce jour-là » regroupé par année (la plus récente d'abord).
   const onThisDayGroups = useMemo(() => {
@@ -783,11 +787,11 @@ export default function MomentsPage() {
   // Signed URLs batchées pour toute la galerie (1 appel au lieu d'un par carte).
   const allPhotoPaths = useMemo(() => {
     const set = new Set<string>()
-    for (const m of [...displayMoments, ...onThisDay]) {
+    for (const m of [...displayMoments, ...onThisDay, ...searchResults]) {
       for (const p of getMomentPhotoPaths(m)) set.add(p)
     }
     return [...set]
-  }, [displayMoments, onThisDay])
+  }, [displayMoments, onThisDay, searchResults])
   const { data: urlMap = {} } = useSignedPhotoUrls(allPhotoPaths)
 
   function handlePhotoChange(e: ChangeEvent<HTMLInputElement>) {
@@ -884,6 +888,57 @@ export default function MomentsPage() {
           })}
         </div>
       )}
+
+      {/* Recherche / filtre */}
+      <div className={styles.searchRow}>
+        <div className={styles.searchInputWrap}>
+          <Search size={15} strokeWidth={2} className={styles.searchIcon} />
+          <input
+            type="search"
+            className={styles.searchInput}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Rechercher dans les légendes…"
+            aria-label="Rechercher"
+          />
+        </div>
+        <input
+          type="month"
+          className={styles.searchMonth}
+          value={month}
+          onChange={e => setMonth(e.target.value)}
+          aria-label="Filtrer par mois"
+        />
+        {searchActive && (
+          <button className={styles.searchClear} onClick={() => { setSearch(''); setMonth('') }} aria-label="Effacer la recherche">
+            <X size={15} strokeWidth={2.5} />
+          </button>
+        )}
+      </div>
+
+      {/* Résultats de recherche (remplacent le feed) */}
+      {searchActive ? (
+        searchLoading ? (
+          <div className={styles.skeletonList}>{[0, 1].map(i => <div key={i} className={styles.skeletonCard} />)}</div>
+        ) : searchResults.length === 0 ? (
+          <EmptyState emoji="🔎" title="Aucun résultat" description="Essaie d'autres mots ou un autre mois." />
+        ) : (
+          <div className={styles.feed}>
+            {searchResults.map(m => (
+              <MomentCard
+                key={m.id}
+                moment={m}
+                currentMemberId={member?.id ?? ''}
+                memberMap={memberMap}
+                urlMap={urlMap}
+                onDelete={setConfirmDelete}
+                onEdit={m => setEditTargetId(m.id)}
+                onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
+              />
+            ))}
+          </div>
+        )
+      ) : (<>
 
       {/* Ce jour-là — souvenirs des années passées (regroupés par année) */}
       {onThisDay.length > 0 && (
@@ -994,6 +1049,7 @@ export default function MomentsPage() {
           )}
         </>
       )}
+      </>)}
 
       {/* Lightbox */}
       {lightbox && (

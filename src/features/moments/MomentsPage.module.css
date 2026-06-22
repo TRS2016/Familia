@@ -438,6 +438,59 @@
 }
 .reactionPickerItem:hover { background: var(--bg-input); }
 
+/* Recherche / filtre */
+.searchRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 12px;
+}
+.searchInputWrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.searchIcon { position: absolute; left: 10px; color: var(--text-muted); pointer-events: none; }
+.searchInput {
+  width: 100%;
+  padding: 9px 12px 9px 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: var(--text-md);
+  outline: none;
+}
+.searchInput:focus { border-color: var(--accent); }
+.searchMonth {
+  flex-shrink: 0;
+  padding: 8px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  outline: none;
+}
+.searchMonth:focus { border-color: var(--accent); }
+.searchClear {
+  flex-shrink: 0;
+  width: 34px;
+  height: 34px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
 /* Section Épinglés */
 .pinnedSection { margin-bottom: 8px; }
 .pinnedHeader {
