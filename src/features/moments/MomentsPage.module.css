@@ -447,15 +447,16 @@
 }
 .searchInputWrap {
   position: relative;
-  flex: 1;
+  flex: 1 1 auto;
   min-width: 0;
   display: flex;
   align-items: center;
 }
-.searchIcon { position: absolute; left: 10px; color: var(--text-muted); pointer-events: none; }
+.searchIcon { position: absolute; left: 11px; color: var(--text-muted); pointer-events: none; }
 .searchInput {
   width: 100%;
-  padding: 9px 12px 9px 32px;
+  height: 40px;
+  padding: 0 12px 0 34px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg-input);
@@ -463,11 +464,17 @@
   font-family: var(--font-family);
   font-size: var(--text-md);
   outline: none;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.searchInput:focus { border-color: var(--accent); }
+.searchInput:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
 .searchMonth {
-  flex-shrink: 0;
-  padding: 8px 10px;
+  flex: 0 0 auto;
+  width: 150px;
+  height: 40px;
+  padding: 0 10px;
   border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg-input);
@@ -475,13 +482,18 @@
   font-family: var(--font-family);
   font-size: var(--text-sm);
   outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.searchMonth:focus { border-color: var(--accent); }
+.searchMonth:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent);
+}
 .searchClear {
-  flex-shrink: 0;
-  width: 34px;
-  height: 34px;
-  border-radius: var(--radius-pill);
+  flex: 0 0 auto;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
   background: var(--bg-card);
   color: var(--text-muted);
@@ -489,6 +501,15 @@
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease;
+}
+.searchClear:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Mobile : la recherche prend la largeur, le mois + clear partagent la 2e ligne */
+@media (max-width: 480px) {
+  .searchRow { flex-wrap: wrap; }
+  .searchInputWrap { flex: 1 1 100%; }
+  .searchMonth { flex: 1 1 auto; width: auto; }
 }
 
 /* Édition : liste des photos (légende + ordre + retrait) */
