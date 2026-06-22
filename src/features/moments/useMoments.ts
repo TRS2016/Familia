@@ -37,6 +37,7 @@ export interface Moment {
   photo_path: string | null
   photo_archived: boolean
   archived_at: string | null
+  pinned: boolean
   created_at: string
   member: { id: string; display_name: string } | null
   reactions: MomentReaction[]
@@ -248,6 +249,7 @@ export function useAddMoment() {
         photo_path: null,
         photo_archived: false,
         archived_at: null,
+        pinned: false,
         created_at: new Date().toISOString(),
         member: member ? { id: member.id, display_name: member.display_name } : null,
         reactions: [],
@@ -351,6 +353,33 @@ export function useEditMomentText() {
     onError: (_err, _vars, ctx) => {
       ctx?.snapshots?.forEach(({ key, data }) => queryClient.setQueryData(key, data))
       showToast({ type: 'error', message: 'Impossible de modifier le moment.' })
+    },
+  })
+}
+
+// Épingle / désépingle un moment (favori du foyer). N'importe quel membre peut.
+export function useTogglePin() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async ({ id, pinned }: { id: string; pinned: boolean }) => {
+      const { error } = await supabase.from('moments').update({ pinned }).eq('id', id)
+      if (error) throw error
+    },
+    onMutate: async ({ id, pinned }) => {
+      await queryClient.cancelQueries({ queryKey: MOMENTS_KEY })
+      const keys = queryClient.getQueryCache().findAll({ queryKey: MOMENTS_KEY })
+      const snapshots = keys.map(q => ({ key: q.queryKey, data: q.state.data }))
+      keys.forEach(q => {
+        queryClient.setQueryData(q.queryKey, (old: Moment[] | undefined) =>
+          (old ?? []).map(m => m.id === id ? { ...m, pinned } : m)
+        )
+      })
+      return { snapshots }
+    },
+    onError: (_e, _v, ctx) => {
+      ctx?.snapshots?.forEach(({ key, data }) => queryClient.setQueryData(key, data))
+      showToast({ type: 'error', message: 'Action impossible.' })
     },
   })
 }

@@ -1,7 +1,7 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
 import type { FormEvent, ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send, Download, Share2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Trash2, Camera, Image as ImageIcon, X, Pencil, MessageCircle, Send, Download, Share2, Pin } from 'lucide-react'
 import { format, parseISO, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useMember } from '../../auth/useMember'
@@ -14,7 +14,7 @@ import {
   getMomentPhotoPaths,
   useAddMoment, useDeleteMoment, useEditMomentText,
   useAddPhotoToMoment, useRemovePhotoFromMoment,
-  useComments, useAddComment, useDeleteComment,
+  useComments, useAddComment, useDeleteComment, useTogglePin,
   EMOJIS, EMOJI_PICKER,
 } from './useMoments'
 import type { Moment, MomentComment } from './useMoments'
@@ -577,6 +577,7 @@ function MomentCard({ moment, currentMemberId, memberMap, urlMap, onDelete, onEd
   onOpenPhoto: (urls: string[], index: number) => void
 }) {
   const toggleReaction = useToggleReaction()
+  const togglePin = useTogglePin()
   const [showComments, setShowComments] = useState(false)
   const [showPicker, setShowPicker] = useState(false)
   // Emojis affichés : les 4 rapides + tout emoji déjà utilisé sur ce moment.
@@ -606,14 +607,26 @@ function MomentCard({ moment, currentMemberId, memberMap, urlMap, onDelete, onEd
           <span className={styles.memberName}>{name}</span>
           <span className={styles.timestamp}>{relativeTime(moment.created_at)}</span>
         </div>
-        {isOwn && !isOptimistic && (
+        {!isOptimistic && (
           <div className={styles.cardActions}>
-            <button className={styles.actionBtn} onClick={() => onEdit(moment)} aria-label="Modifier">
-              <Pencil size={13} strokeWidth={2} />
+            <button
+              className={styles.actionBtn}
+              onClick={() => togglePin.mutate({ id: moment.id, pinned: !moment.pinned })}
+              aria-label={moment.pinned ? 'Désépingler' : 'Épingler'}
+              aria-pressed={moment.pinned}
+            >
+              <Pin size={13} strokeWidth={2} style={moment.pinned ? { color: 'var(--accent)', fill: 'currentColor' } : undefined} />
             </button>
-            <button className={styles.actionBtn} onClick={() => onDelete(moment)} aria-label="Supprimer" style={{ color: 'var(--text-muted)' }}>
-              <Trash2 size={13} strokeWidth={2} />
-            </button>
+            {isOwn && (
+              <>
+                <button className={styles.actionBtn} onClick={() => onEdit(moment)} aria-label="Modifier">
+                  <Pencil size={13} strokeWidth={2} />
+                </button>
+                <button className={styles.actionBtn} onClick={() => onDelete(moment)} aria-label="Supprimer" style={{ color: 'var(--text-muted)' }}>
+                  <Trash2 size={13} strokeWidth={2} />
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -762,6 +775,10 @@ export default function MomentsPage() {
     () => filterMemberId ? moments.filter(m => m.member_id === filterMemberId) : moments,
     [moments, filterMemberId],
   )
+  // Épinglés en section dédiée ; le reste en feed chronologique (sépare proprement
+  // les séparateurs de date d'un favori ancien remonté en tête).
+  const pinnedMoments = useMemo(() => displayMoments.filter(m => m.pinned), [displayMoments])
+  const feedMoments   = useMemo(() => displayMoments.filter(m => !m.pinned), [displayMoments])
 
   // Signed URLs batchées pour toute la galerie (1 appel au lieu d'un par carte).
   const allPhotoPaths = useMemo(() => {
@@ -906,6 +923,29 @@ export default function MomentsPage() {
         </div>
       )}
 
+      {/* Épinglés */}
+      {pinnedMoments.length > 0 && (
+        <div className={styles.pinnedSection}>
+          <div className={styles.pinnedHeader}>
+            <Pin size={13} strokeWidth={2.5} /> Épinglés
+          </div>
+          <div className={styles.feed}>
+            {pinnedMoments.map(m => (
+              <MomentCard
+                key={m.id}
+                moment={m}
+                currentMemberId={member?.id ?? ''}
+                memberMap={memberMap}
+                urlMap={urlMap}
+                onDelete={setConfirmDelete}
+                onEdit={m => setEditTargetId(m.id)}
+                onOpenPhoto={(urls, index) => setLightbox({ urls, index })}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Feed */}
       {isLoading ? (
         <div className={styles.skeletonList}>
@@ -921,8 +961,8 @@ export default function MomentsPage() {
       ) : (
         <>
           <div className={styles.feed}>
-            {displayMoments.map((m, i) => {
-              const prevDate = i > 0 ? momentDateStr(displayMoments[i - 1]) : null
+            {feedMoments.map((m, i) => {
+              const prevDate = i > 0 ? momentDateStr(feedMoments[i - 1]) : null
               const currDate = momentDateStr(m)
               const showSep  = prevDate !== currDate
               return (

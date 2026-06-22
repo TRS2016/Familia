@@ -438,6 +438,20 @@
 }
 .reactionPickerItem:hover { background: var(--bg-input); }
 
+/* Section Épinglés */
+.pinnedSection { margin-bottom: 8px; }
+.pinnedHeader {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: var(--text-2xs);
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding: 4px 4px 8px;
+}
+
 /* « Ce jour-là » — sous-en-tête par année */
 .onThisDayYear {
   font-size: var(--text-2xs);

@@ -1377,6 +1377,7 @@ export type Database = {
           member_id: string
           photo_archived: boolean
           photo_path: string | null
+          pinned: boolean
           text: string | null
         }
         Insert: {
@@ -1387,6 +1388,7 @@ export type Database = {
           member_id: string
           photo_archived?: boolean
           photo_path?: string | null
+          pinned?: boolean
           text?: string | null
         }
         Update: {
@@ -1397,6 +1399,7 @@ export type Database = {
           member_id?: string
           photo_archived?: boolean
           photo_path?: string | null
+          pinned?: boolean
           text?: string | null
         }
         Relationships: [
