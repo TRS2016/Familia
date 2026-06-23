@@ -34,7 +34,14 @@ function sortItems(items: MediaItem[], sort: SortBy, avg: Record<string, number 
   if (sort === 'added') return items
   return [...items].sort((a, b) => {
     if (sort === 'title')    return a.title.localeCompare(b.title, 'fr')
-    if (sort === 'rating')   return (avg[b.id] ?? 0) - (avg[a.id] ?? 0)
+    if (sort === 'rating') {
+      // Les non-notés (null) passent après les notés ; départage par titre.
+      const ra = avg[a.id], rb = avg[b.id]
+      if (ra == null && rb == null) return a.title.localeCompare(b.title, 'fr')
+      if (ra == null) return 1
+      if (rb == null) return -1
+      return rb - ra || a.title.localeCompare(b.title, 'fr')
+    }
     if (sort === 'finished') return (b.finished_at ?? '').localeCompare(a.finished_at ?? '')
     return 0
   })
