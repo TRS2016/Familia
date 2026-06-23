@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { Search, ArrowLeftRight, X, ChevronUp, ChevronDown } from 'lucide-react'
+import { Search, ArrowLeftRight, X, ChevronUp, ChevronDown, Share2, Check } from 'lucide-react'
 import { DESTINATIONS } from '../constants'
 import { searchAddress, type AddressFeature } from '../api'
 import type { FavoriteRoute, RoutePoint, SearchPlace } from '../types'
@@ -165,6 +165,21 @@ export function RoutePlanner({
     setShowFavorites(false)
   }
 
+  // Partage d'un trajet favori : lien profond (Velov sait parser ?from/?to) via
+  // Web Share, sinon copie dans le presse-papier.
+  const [sharedId, setSharedId] = useState<string | null>(null)
+  async function shareFavorite(route: FavoriteRoute) {
+    const base = `${window.location.origin}${window.location.pathname}`
+    const url = `${base}?tab=route&from=${route.origin.lat},${route.origin.lng}&to=${route.destination.lat},${route.destination.lng}`
+    const title = `Trajet Vélo'v : ${route.origin.name} → ${route.destination.name}`
+    try {
+      if (navigator.share) { await navigator.share({ title, text: title, url }); return }
+      await navigator.clipboard.writeText(url)
+      setSharedId(route.id)
+      setTimeout(() => setSharedId(null), 2000)
+    } catch { /* partage annulé / indisponible */ }
+  }
+
   return (
     <div className={[ui.section, ui.tintInfo].join(' ')}>
       <div className={[ui.inner, ui.stack].join(' ')}>
@@ -180,6 +195,9 @@ export function RoutePlanner({
                   <div key={route.id} className={styles.favRow}>
                     <button onClick={() => handleSelectFavorite(route)} className={styles.favSelect}>
                       {route.origin.name} → {route.destination.name}
+                    </button>
+                    <button onClick={() => shareFavorite(route)} aria-label="Partager cet itinéraire avec le foyer" className={styles.favRemove}>
+                      {sharedId === route.id ? <Check size={14} /> : <Share2 size={14} />}
                     </button>
                     <button onClick={() => onFavoriteRemove?.(route.id)} aria-label="Supprimer cet itinéraire favori" className={styles.favRemove}><X size={14} /></button>
                   </div>
