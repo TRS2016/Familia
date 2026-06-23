@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronDown, ChevronRight, Play, Trash2, Bookmark, Copy, Plus, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronUp, ChevronDown, ChevronRight, Play, Trash2, Bookmark, Copy, Plus, Sparkles } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useNumPref } from '../../lib/usePrefs'
 import {
@@ -14,6 +14,7 @@ import {
   useTrainingPresets, useAddTrainingPreset, useUpdateTrainingPreset, useDeleteTrainingPreset,
   useTrainingSessions, useTrainingRealtime, useTrainingStats,
   useDeleteTrainingSession, useTrainingRecords, useAmrapRecords, useFlushPendingSessions,
+  useReorderTrainingPresets,
 } from './useTraining'
 import Stepper from './Stepper'
 import StatsCard from './StatsCard'
@@ -41,6 +42,17 @@ export default function TrainingPage() {
   const updatePreset = useUpdateTrainingPreset()
   const deletePreset = useDeleteTrainingPreset()
   const deleteSession = useDeleteTrainingSession()
+  const reorderPresets = useReorderTrainingPresets()
+
+  // Déplace un preset dans l'ordre global (seulement hors filtre de zone).
+  function movePreset(id: string, dir: -1 | 1) {
+    const i = presets.findIndex(p => p.id === id)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= presets.length) return
+    const ids = presets.map(p => p.id)
+    ;[ids[i], ids[j]] = [ids[j], ids[i]]
+    reorderPresets.mutate(ids)
+  }
 
   const [screen, setScreen]   = useState<Screen>({ name: 'home' })
   const [mode, setMode]       = useState<TrainingMode>('tabata')
@@ -256,6 +268,16 @@ export default function TrainingPage() {
                     </span>
                     {p.config.focus && <span className={styles.presetFocus}>{p.config.focus}</span>}
                   </button>
+                  {!focusFilter && presets.length > 1 && (
+                    <span className={styles.presetMove}>
+                      <button className={styles.exMoveBtn} onClick={() => movePreset(p.id, -1)} disabled={presets[0]?.id === p.id} aria-label="Monter">
+                        <ChevronUp size={13} strokeWidth={2.5} />
+                      </button>
+                      <button className={styles.exMoveBtn} onClick={() => movePreset(p.id, 1)} disabled={presets[presets.length - 1]?.id === p.id} aria-label="Descendre">
+                        <ChevronDown size={13} strokeWidth={2.5} />
+                      </button>
+                    </span>
+                  )}
                   <button
                     className={styles.presetDuplicate}
                     onClick={() => addPreset.mutate({ name: `${p.name} (copie)`, mode: p.mode, config: { ...p.config } })}

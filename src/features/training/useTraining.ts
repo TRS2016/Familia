@@ -29,9 +29,34 @@ export function useTrainingPresets() {
         .from('training_presets')
         .select('*')
         .eq('household_id', HOUSEHOLD_ID)
+        .order('position', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: false })
       if (error) throw error
       return data as unknown as TrainingPreset[]
+    },
+  })
+}
+
+/** Réordonne les presets : position = index dans le tableau (RPC en une requête). */
+export function useReorderTrainingPresets() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      const { error } = await supabase.rpc('reorder_training_presets', { p_ids: orderedIds })
+      if (error) throw error
+    },
+    onMutate: async (orderedIds: string[]) => {
+      await queryClient.cancelQueries({ queryKey: TRAINING_PRESETS_KEY })
+      const previous = queryClient.getQueryData<TrainingPreset[]>(TRAINING_PRESETS_KEY) ?? []
+      const byId = new Map(previous.map(p => [p.id, p]))
+      const reordered = orderedIds.map(id => byId.get(id)).filter((p): p is TrainingPreset => !!p)
+      queryClient.setQueryData<TrainingPreset[]>(TRAINING_PRESETS_KEY, reordered)
+      return { previous }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.previous) queryClient.setQueryData(TRAINING_PRESETS_KEY, ctx.previous)
+      showToast({ type: 'error', message: 'Impossible de réordonner.' })
     },
   })
 }

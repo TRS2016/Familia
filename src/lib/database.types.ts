@@ -750,6 +750,38 @@ export type Database = {
         }
         Relationships: []
       }
+      kakebo_budget_alerts_sent: {
+        Row: {
+          created_at: string
+          household_id: string
+          id: string
+          period: string
+          scope_key: string
+        }
+        Insert: {
+          created_at?: string
+          household_id: string
+          id?: string
+          period: string
+          scope_key: string
+        }
+        Update: {
+          created_at?: string
+          household_id?: string
+          id?: string
+          period?: string
+          scope_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kakebo_budget_alerts_sent_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       kakebo_categories: {
         Row: {
           color: string | null
@@ -997,6 +1029,32 @@ export type Database = {
             columns: ["media_file_id"]
             isOneToOne: false
             referencedRelation: "media_files"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      lecteur_queue_votes: {
+        Row: {
+          created_at: string
+          queue_item_id: string
+          voter_key: string
+        }
+        Insert: {
+          created_at?: string
+          queue_item_id: string
+          voter_key: string
+        }
+        Update: {
+          created_at?: string
+          queue_item_id?: string
+          voter_key?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lecteur_queue_votes_queue_item_id_fkey"
+            columns: ["queue_item_id"]
+            isOneToOne: false
+            referencedRelation: "lecteur_queue"
             referencedColumns: ["id"]
           },
         ]
@@ -1816,6 +1874,7 @@ export type Database = {
           member_id: string | null
           mode: string
           name: string
+          position: number | null
         }
         Insert: {
           config?: Json
@@ -1825,6 +1884,7 @@ export type Database = {
           member_id?: string | null
           mode: string
           name: string
+          position?: number | null
         }
         Update: {
           config?: Json
@@ -1834,6 +1894,7 @@ export type Database = {
           member_id?: string | null
           mode?: string
           name?: string
+          position?: number | null
         }
         Relationships: [
           {
@@ -2002,6 +2063,10 @@ export type Database = {
         Returns: string
       }
       reorder_habits: { Args: { p_ids: string[] }; Returns: undefined }
+      reorder_training_presets: {
+        Args: { p_ids: string[] }
+        Returns: undefined
+      }
       replace_grocery_catalog: { Args: { p_rows: Json }; Returns: number }
       resolve_redemption: {
         Args: { p_redemption_id: string; p_status: string }
@@ -2011,24 +2076,24 @@ export type Database = {
         Args: { p_items: Json; p_name: string }
         Returns: string
       }
-      spendable_balance: { Args: { p_member_id: string }; Returns: number }
       sort_lecteur_queue_by_votes: {
         Args: { p_household: string }
         Returns: undefined
       }
+      spendable_balance: { Args: { p_member_id: string }; Returns: number }
       swap_lecteur_queue_position: {
         Args: { a: string; b: string }
         Returns: undefined
-      }
-      vote_lecteur_queue: {
-        Args: { p_item_id: string; p_voter_key: string }
-        Returns: boolean
       }
       swap_playlist_item_position: {
         Args: { a: string; b: string }
         Returns: undefined
       }
       undo_chore_log: { Args: { p_log_id: string }; Returns: undefined }
+      vote_lecteur_queue: {
+        Args: { p_item_id: string; p_voter_key: string }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never
