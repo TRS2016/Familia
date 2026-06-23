@@ -8,13 +8,13 @@ import {
 } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { useQuery } from '@tanstack/react-query'
-import { ChevronLeft, ChevronRight, Plus, X, Clock, MapPin, RotateCw, Bell } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, X, Clock, MapPin, RotateCw, Bell, Search } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
-import { useEvents, useMaterializeRecurringEvents } from './useEvents'
+import { useEvents, useMaterializeRecurringEvents, useSearchEvents } from './useEvents'
 import { useEventsRealtime } from './useEventsRealtime'
 import type { CalendarEvent, NewEventInput } from './useEvents'
 import { MEMBER_PALETTE } from '../../lib/constants'
@@ -77,6 +77,8 @@ export default function CalendarPage() {
 
   // ── Filters ──────────────────────────────────────────────────────────────
   const [filterMemberId, setFilterMemberId] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const searchActive = search.trim().length >= 2
 
   function switchView(newView: View) {
     if (newView === 'agenda') {
@@ -254,6 +256,12 @@ export default function CalendarPage() {
     ? allEvents.filter(e => e.member_id === filterMemberId)
     : allEvents
 
+  // Recherche serveur (titre/lieu), filtrée par membre comme les vues.
+  const { data: searchHits = [], isFetching: searchLoading } = useSearchEvents(search)
+  const searchResults = filterMemberId
+    ? searchHits.filter(e => e.member_id === filterMemberId)
+    : searchHits
+
   const { data: householdMembers = [] } = useQuery({
     queryKey: QK.membersList,
     queryFn: async () => {
@@ -392,14 +400,75 @@ export default function CalendarPage() {
         </div>
       )}
 
-      {query.isLoading && (
+      {/* Recherche d'événements (titre / lieu) */}
+      <div className={styles.searchRow}>
+        <Search size={15} strokeWidth={2} className={styles.searchIcon} />
+        <input
+          type="search"
+          className={styles.searchInput}
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Rechercher un événement…"
+          aria-label="Rechercher un événement"
+        />
+        {search && (
+          <button className={styles.searchClear} onClick={() => setSearch('')} aria-label="Effacer la recherche">
+            <X size={15} strokeWidth={2.5} />
+          </button>
+        )}
+      </div>
+
+      {/* ── Résultats de recherche (remplacent les vues) ─────────────────── */}
+      {searchActive && (
+        searchLoading && searchResults.length === 0 ? (
+          <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
+            <Spinner size={28} />
+          </div>
+        ) : searchResults.length === 0 ? (
+          <EmptyState emoji="🔎" title="Aucun résultat" description="Essaie d'autres mots ou un autre lieu." />
+        ) : (
+          <ul className={styles.agendaEvents} style={{ padding: '0 16px' }}>
+            {searchResults.map(event => {
+              const color = getMemberColor(event.member_id, householdMembers)
+              const [y, mo, d] = event.date.split('-').map(Number)
+              const date = new Date(y, mo - 1, d)
+              return (
+                <li
+                  key={event.id}
+                  className={styles.agendaItem}
+                  onClick={() => openEditForm(event)}
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openEditForm(event) } }}
+                  aria-label={`Modifier ${event.title}`}
+                >
+                  <span className={styles.agendaBar} style={{ background: color }} />
+                  <div className={styles.agendaContent}>
+                    <span className={styles.agendaTitle}>{event.title}</span>
+                    <div className={styles.agendaMeta}>
+                      <span>{capitalize(format(date, 'EEE d MMM yyyy', { locale: fr }))}</span>
+                      {!event.all_day && event.start_time && (
+                        <span><Clock size={10} /> {pgTimeToInput(event.start_time)}</span>
+                      )}
+                      {event.location && <span><MapPin size={10} /> {event.location}</span>}
+                      {event.member && <span style={{ color }}>{event.member.display_name}</span>}
+                    </div>
+                  </div>
+                </li>
+              )
+            })}
+          </ul>
+        )
+      )}
+
+      {!searchActive && query.isLoading && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
           <Spinner size={32} />
         </div>
       )}
 
       {/* ── Agenda view ──────────────────────────────────────────────────── */}
-      {view === 'agenda' && !query.isLoading && (
+      {!searchActive && view === 'agenda' && !query.isLoading && (
         filteredEvents.length === 0 ? (
           <EmptyState
             emoji="📅"
@@ -501,7 +570,7 @@ export default function CalendarPage() {
       )}
 
       {/* ── Week / 3-day view (time grid) ───────────────────────────────────── */}
-      {(view === 'week' || view === '3day') && !query.isLoading && (
+      {!searchActive && (view === 'week' || view === '3day') && !query.isLoading && (
         <div className={styles.weekGrid}>
 
           {/* Day headers (sticky) */}
@@ -700,7 +769,7 @@ export default function CalendarPage() {
       )}
 
       {/* ── Month view ───────────────────────────────────────────────────── */}
-      {view === 'month' && (
+      {!searchActive && view === 'month' && (
         <div className={styles.monthWrapper}>
           <table className={styles.monthTable}>
             <thead>
@@ -762,7 +831,7 @@ export default function CalendarPage() {
       )}
 
       {/* ── Month day detail panel ───────────────────────────────────────────── */}
-      {view === 'month' && selectedMonthDay && (() => {
+      {!searchActive && view === 'month' && selectedMonthDay && (() => {
         const [y, mo, d] = selectedMonthDay.split('-').map(Number)
         const dayDate = new Date(y, mo - 1, d)
         const dayEvents = filteredEvents.filter(e => e.date === selectedMonthDay)

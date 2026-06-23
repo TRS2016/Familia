@@ -160,6 +160,28 @@ export function useMaterializeRecurringEvents(rangeEnd: string) {
   })
 }
 
+/** Recherche serveur d'événements par titre ou lieu (≥ 2 caractères). */
+export function useSearchEvents(query: string) {
+  const q = query.trim()
+  return useQuery({
+    queryKey: ['events-search', HOUSEHOLD_ID, q],
+    queryFn: async (): Promise<CalendarEvent[]> => {
+      const like = `%${q}%`
+      const { data, error } = await supabase
+        .from('events')
+        .select(EVENT_SELECT)
+        .eq('household_id', HOUSEHOLD_ID)
+        .or(`title.ilike.${like},location.ilike.${like}`)
+        .order('date', { ascending: false })
+        .order('start_time', { ascending: true, nullsFirst: true })
+        .limit(100)
+      if (error) throw error
+      return data as unknown as CalendarEvent[]
+    },
+    enabled: q.length >= 2,
+  })
+}
+
 export function useEvents(rangeStart: string, rangeEnd: string) {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
