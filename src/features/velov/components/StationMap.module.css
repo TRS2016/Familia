@@ -58,6 +58,7 @@
 }
 
 .dotBikes { background: var(--success); }
+.dotLow { background: #E8943A; }
 .dotEmpty { background: var(--danger); }
 .dotUser { background: var(--info); }
 .dotGood { background: var(--success); }

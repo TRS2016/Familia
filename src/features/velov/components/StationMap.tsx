@@ -99,10 +99,8 @@ function makeClusterIcon(count: number, hasBikes: boolean) {
 
 interface ClusterCell { lat: number; lng: number; count: number; bikes: number }
 
-function BoundedStations({ stations, bikeIcon, emptyIcon, onStationClick }: {
+function BoundedStations({ stations, onStationClick }: {
   stations: Station[]
-  bikeIcon: L.Icon
-  emptyIcon: L.Icon
   onStationClick?: (s: Station) => void
 }) {
   const map = useMap()
@@ -169,7 +167,7 @@ function BoundedStations({ stations, bikeIcon, emptyIcon, onStationClick }: {
         <Marker
           key={station.id}
           position={[station.lat, station.lng]}
-          icon={station.availableBikes > 0 ? bikeIcon : emptyIcon}
+          icon={pickStationIcon(station)}
           eventHandlers={onStationClick ? { click: () => onStationClick(station) } : undefined}
         >
           {!onStationClick && (
@@ -201,8 +199,16 @@ function colorIcon(name: string, big = false): L.Icon {
 }
 
 const bikeIcon = colorIcon('marker-icon-green')
+const lowIcon = colorIcon('marker-icon-orange')
 const emptyIcon = colorIcon('marker-icon-red')
 const userIcon = colorIcon('marker-icon-blue')
+
+// Couleur d'occupation : vide (rouge), peu de vélos 1-2 (orange), dispo (vert).
+function pickStationIcon(s: Station): L.Icon {
+  if (s.availableBikes === 0) return emptyIcon
+  if (s.availableBikes <= 2) return lowIcon
+  return bikeIcon
+}
 const destIcon = colorIcon('marker-icon-2x-red')
 const recommendedStartIcon = colorIcon('marker-icon-2x-green', true)
 const recommendedEndIcon = colorIcon('marker-icon-2x-blue', true)
@@ -338,7 +344,7 @@ export function StationMap({
           <Marker
             key={station.id}
             position={[station.lat, station.lng]}
-            icon={station.availableBikes > 0 ? bikeIcon : emptyIcon}
+            icon={pickStationIcon(station)}
             eventHandlers={onStationClick ? { click: () => onStationClick(station) } : undefined}
           >
             {!onStationClick && (
@@ -389,12 +395,15 @@ export function StationMap({
           </Marker>
         ))}
 
-        <BoundedStations stations={otherStations} bikeIcon={bikeIcon} emptyIcon={emptyIcon} onStationClick={onStationClick} />
+        <BoundedStations stations={otherStations} onStationClick={onStationClick} />
       </MapContainer>
 
       <div className={styles.legend}>
         <div className={styles.legendItem}>
           <span className={[styles.legendDot, styles.dotBikes].join(' ')} />Vélos dispo
+        </div>
+        <div className={styles.legendItem}>
+          <span className={[styles.legendDot, styles.dotLow].join(' ')} />Peu de vélos
         </div>
         <div className={styles.legendItem}>
           <span className={[styles.legendDot, styles.dotEmpty].join(' ')} />Station vide
