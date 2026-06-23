@@ -50,14 +50,12 @@ Deno.serve(async (req: Request) => {
 
   console.log(`[remind-events] Now: ${now.toISOString()} — window ${todayStr} → ${maxStr} (Paris)`)
 
-  // ── Fetch upcoming timed events that have a reminder set ────────────────────
+  // ── Fetch upcoming events (timed OU toute la journée) avec un rappel défini ──
   const { data: events, error: eventsErr } = await supabase
     .from('events')
-    .select('id, title, date, start_time, household_id, location, reminder_minutes')
-    .eq('all_day', false)
+    .select('id, title, date, start_time, all_day, household_id, location, reminder_minutes')
     .gte('date', todayStr)
     .lte('date', maxStr)
-    .not('start_time', 'is', null)
     .not('reminder_minutes', 'is', null)
 
   if (eventsErr) {
@@ -75,10 +73,14 @@ Deno.serve(async (req: Request) => {
   // l'événement est modifié → instant différent).
   const candidates = events
     .map((e) => {
-      const ev = e as { date: string; start_time: string; reminder_minutes: number }
-      const triggerMs = parisWallToUtcMs(ev.date, ev.start_time) - ev.reminder_minutes * 60000
+      const ev = e as { date: string; start_time: string | null; all_day: boolean; reminder_minutes: number }
+      // All-day : ancrage à 9h le jour J. Sinon : avant l'heure de début.
+      const anchorTime = ev.all_day ? '09:00' : ev.start_time
+      if (!anchorTime) return null
+      const triggerMs = parisWallToUtcMs(ev.date, anchorTime) - ev.reminder_minutes * 60000
       return { e, triggerMs }
     })
+    .filter((c): c is { e: typeof events[number]; triggerMs: number } => c !== null)
     .filter(({ triggerMs }) => Math.abs(nowMs - triggerMs) <= 5 * 60000)
 
   if (candidates.length === 0) {
@@ -119,7 +121,7 @@ Deno.serve(async (req: Request) => {
 
   for (const { e, triggerMs } of toRemind) {
     const ev = e as {
-      id: string; title: string; start_time: string; reminder_minutes: number
+      id: string; title: string; start_time: string | null; all_day: boolean; reminder_minutes: number
       household_id: string; location: string | null
     }
 
@@ -139,11 +141,21 @@ Deno.serve(async (req: Request) => {
 
     if (!subscriptions || subscriptions.length === 0) continue
 
-    const label = reminderLabel(ev.reminder_minutes)
+    // Corps adapté : all-day → « Toute la journée » + échéance ; sinon heure.
+    let body: string
+    if (ev.all_day) {
+      const when = ev.reminder_minutes === 0 ? "aujourd'hui"
+        : ev.reminder_minutes === 1440 ? 'demain'
+        : `dans ${Math.round(ev.reminder_minutes / 1440)} jours`
+      body = `Toute la journée ${when}${ev.location ? ` · ${ev.location}` : ''}`
+    } else {
+      const label = reminderLabel(ev.reminder_minutes)
+      body = `Dans ${label}${ev.location ? ` · ${ev.location}` : ''} à ${(ev.start_time ?? '').slice(0, 5)}`
+    }
 
     const payload = JSON.stringify({
       title: `⏰ Rappel : ${ev.title}`,
-      body: `Dans ${label}${ev.location ? ` · ${ev.location}` : ''} à ${ev.start_time.slice(0, 5)}`,
+      body,
       module: 'calendar',
       tag: `event-${ev.id}`,
       actions: [{ action: 'view', title: 'Voir' }],

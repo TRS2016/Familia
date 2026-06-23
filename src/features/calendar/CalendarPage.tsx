@@ -29,8 +29,15 @@ type View = 'week' | '3day' | 'month' | 'agenda'
 const WEEK_DAYS_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
 const HOUR_HEIGHT = 48 // px per hour in the week grid
 
-function reminderLabel(minutes: number | null | undefined): string | null {
+function reminderLabel(minutes: number | null | undefined, allDay = false): string | null {
   if (minutes == null) return null
+  if (allDay) {
+    // Rappels « toute la journée » : ancrés à 9h le jour J (voir EventFormModal).
+    if (minutes === 0) return 'le jour même 9h'
+    if (minutes === 1440) return 'la veille 9h'
+    const days = Math.round(minutes / 1440)
+    return days === 7 ? '1 sem. avant 9h' : `${days}j avant 9h`
+  }
   if (minutes >= 60) return `${minutes / 60}h avant`
   return `${minutes} min avant`
 }
@@ -461,8 +468,8 @@ export default function CalendarPage() {
                                 {event.recurrence_group_id && (
                                   <span><RotateCw size={10} /></span>
                                 )}
-                                {reminderLabel(event.reminder_minutes) && (
-                                  <span><Bell size={10} /> {reminderLabel(event.reminder_minutes)}</span>
+                                {reminderLabel(event.reminder_minutes, event.all_day) && (
+                                  <span><Bell size={10} /> {reminderLabel(event.reminder_minutes, event.all_day)}</span>
                                 )}
                               </div>
                               {event.description && (
@@ -817,8 +824,8 @@ export default function CalendarPage() {
                           {ev.location && <span><MapPin size={10} /> {ev.location}</span>}
                           {ev.member && <span style={{ color }}>{ev.member.display_name}</span>}
                           {ev.recurrence_group_id && <span><RotateCw size={10} /></span>}
-                          {reminderLabel(ev.reminder_minutes) && (
-                            <span><Bell size={10} /> {reminderLabel(ev.reminder_minutes)}</span>
+                          {reminderLabel(ev.reminder_minutes, ev.all_day) && (
+                            <span><Bell size={10} /> {reminderLabel(ev.reminder_minutes, ev.all_day)}</span>
                           )}
                         </div>
                       </div>

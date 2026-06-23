@@ -27,6 +27,17 @@ const REMINDER_OPTIONS: { value: number | null; label: string }[] = [
   { value: 10080, label: '1 semaine avant' },
 ]
 
+// Événements « toute la journée » : pas d'heure de début → le rappel est ancré à
+// 9h (heure de Paris) le jour J. reminder_minutes = minutes avant cet ancrage.
+const ALLDAY_REMINDER_OPTIONS: { value: number | null; label: string }[] = [
+  { value: null,  label: 'Pas de rappel' },
+  { value: 0,     label: 'Le jour même (9h)' },
+  { value: 1440,  label: 'La veille (9h)' },
+  { value: 2880,  label: '2 jours avant (9h)' },
+  { value: 10080, label: '1 semaine avant (9h)' },
+]
+const ALLDAY_REMINDER_VALUES = new Set(ALLDAY_REMINDER_OPTIONS.map(o => o.value))
+
 interface EventFormModalProps {
   isOpen: boolean
   editingEvent: CalendarEvent | null
@@ -118,7 +129,7 @@ export function EventFormModal({
       location: formLocation || null,
       description: formDescription || null,
       recurrence: formRecurrence,
-      reminder_minutes: formAllDay ? null : formReminderMinutes,
+      reminder_minutes: formReminderMinutes,
     }
     onSubmit(input, editScope)
   }
@@ -180,7 +191,16 @@ export function EventFormModal({
               id="ev-allday"
               type="checkbox"
               checked={formAllDay}
-              onChange={e => setFormAllDay(e.target.checked)}
+              onChange={e => {
+                const allDay = e.target.checked
+                setFormAllDay(allDay)
+                // Normalise le rappel pour qu'il corresponde au jeu d'options actif.
+                setFormReminderMinutes(prev =>
+                  allDay
+                    ? (ALLDAY_REMINDER_VALUES.has(prev) ? prev : null)
+                    : (prev != null && prev !== 0 ? prev : 30)
+                )
+              }}
               className={styles.formCheckbox}
             />
             <label htmlFor="ev-allday" className={styles.formCheckLabel}>
@@ -274,23 +294,21 @@ export function EventFormModal({
             />
           </div>
 
-          {!formAllDay && (
-            <div className={styles.formField}>
-              <label htmlFor="ev-reminder" className={styles.formLabel}>Rappel</label>
-              <select
-                id="ev-reminder"
-                className={styles.formInput}
-                value={formReminderMinutes ?? ''}
-                onChange={e => setFormReminderMinutes(e.target.value === '' ? null : Number(e.target.value))}
-              >
-                {REMINDER_OPTIONS.map(opt => (
-                  <option key={String(opt.value)} value={opt.value ?? ''}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          <div className={styles.formField}>
+            <label htmlFor="ev-reminder" className={styles.formLabel}>Rappel</label>
+            <select
+              id="ev-reminder"
+              className={styles.formInput}
+              value={formReminderMinutes ?? ''}
+              onChange={e => setFormReminderMinutes(e.target.value === '' ? null : Number(e.target.value))}
+            >
+              {(formAllDay ? ALLDAY_REMINDER_OPTIONS : REMINDER_OPTIONS).map(opt => (
+                <option key={String(opt.value)} value={opt.value ?? ''}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
 
           {!editingId && (
             <div className={styles.formField}>
