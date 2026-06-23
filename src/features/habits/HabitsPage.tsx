@@ -153,6 +153,24 @@ export default function HabitsPage() {
     return rates
   }, [habits, completions])
 
+  // Classement de la semaine : complétions abouties (lun→dim) attribuées au
+  // membre propriétaire de l'habitude. Affiché seulement à ≥ 2 membres.
+  const weekLeaderboard = useMemo(() => {
+    if (members.length < 2) return []
+    const weekSet = new Set(weekDates())
+    const ownerOf = new Map(habits.map(h => [h.id, h.member_id]))
+    const byMember = new Map<string, number>()
+    for (const c of completions) {
+      if (!c.completed || !weekSet.has(c.date)) continue
+      const owner = ownerOf.get(c.habit_id)
+      if (!owner) continue
+      byMember.set(owner, (byMember.get(owner) ?? 0) + 1)
+    }
+    return members
+      .map((m, i) => ({ member: m, color: memberColor(i), count: byMember.get(m.id) ?? 0 }))
+      .sort((a, b) => b.count - a.count)
+  }, [members, habits, completions])
+
   // Sections par membre (vue « Tous » avec ≥ 2 membres)
   const grouped = (!filterMemberId && members.length > 1)
     ? (() => {
@@ -319,6 +337,23 @@ export default function HabitsPage() {
           )
         })}
       </div>
+
+      {/* ── Classement de la semaine ─────────────────────────────────── */}
+      {weekLeaderboard.length > 1 && weekLeaderboard.some(r => r.count > 0) && (
+        <div className={styles.leaderboard}>
+          <span className={styles.leaderboardTitle}>🏆 Cette semaine</span>
+          <div className={styles.leaderboardRows}>
+            {weekLeaderboard.map((r, i) => (
+              <div key={r.member.id} className={styles.lbRow}>
+                <span className={styles.lbRank}>{i === 0 && r.count > 0 ? '👑' : `#${i + 1}`}</span>
+                <span className={styles.lbDot} style={{ background: r.color }} />
+                <span className={styles.lbName}>{r.member.display_name}</span>
+                <span className={styles.lbCount}>{r.count}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* ── Day navigation ───────────────────────────────────────────── */}
       <div className={styles.weekNav}>
