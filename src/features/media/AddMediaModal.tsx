@@ -1,9 +1,11 @@
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { memberColor } from '../../lib/constants'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useAddMediaItem } from './useMedia'
 import type { MediaType } from './useMedia'
 import { TYPE_META } from './mediaMeta'
+import { searchBooks, type BookSuggestion } from '../../lib/openlibrary'
 import styles from './MediaPage.module.css'
 
 const TYPES: MediaType[] = ['film', 'série', 'livre', 'jeu']
@@ -36,6 +38,39 @@ export function AddMediaForm({
 }) {
   const addItem = useAddMediaItem()
 
+  // Auto-complétion OpenLibrary (livres uniquement, sans clé API).
+  const [suggestions, setSuggestions] = useState<BookSuggestion[]>([])
+  const [showSuggest, setShowSuggest] = useState(false)
+  const pickedRef = useRef(false) // évite de re-chercher juste après une sélection
+
+  useEffect(() => {
+    if (draft.type !== 'livre' || pickedRef.current) { pickedRef.current = false; setSuggestions([]); return }
+    const q = draft.title.trim()
+    if (q.length < 3) { setSuggestions([]); return }
+    const ctrl = new AbortController()
+    const t = setTimeout(async () => {
+      try {
+        const res = await searchBooks(q, ctrl.signal)
+        setSuggestions(res)
+        setShowSuggest(res.length > 0)
+      } catch { /* abort / réseau : silencieux */ }
+    }, 350)
+    return () => { clearTimeout(t); ctrl.abort() }
+  }, [draft.title, draft.type])
+
+  function pickBook(b: BookSuggestion) {
+    pickedRef.current = true
+    setDraft(d => ({
+      ...d,
+      title: b.title,
+      author_director: b.author ?? d.author_director,
+      release_year: b.year != null ? String(b.year) : d.release_year,
+      external_url: d.external_url || (b.url ?? ''),
+    }))
+    setShowSuggest(false)
+    setSuggestions([])
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
     if (!draft.title.trim()) return
@@ -58,13 +93,27 @@ export function AddMediaForm({
   return (
     <SlideUpModal title="Ajouter un élément" onClose={onClose}>
       <form onSubmit={handleSubmit} className={styles.form}>
-        <div className={styles.fieldGroup}>
+        <div className={styles.fieldGroup} style={{ position: 'relative' }}>
           <label htmlFor="m-title" className={styles.fieldLabel}>Titre</label>
           <input
-            id="m-title" type="text" value={draft.title} autoFocus required
-            onChange={e => setDraft(d => ({ ...d, title: e.target.value }))}
+            id="m-title" type="text" value={draft.title} autoFocus required autoComplete="off"
+            onChange={e => { setDraft(d => ({ ...d, title: e.target.value })); setShowSuggest(true) }}
             className={styles.input} placeholder="Dune, Atomic Habits…"
           />
+          {draft.type === 'livre' && showSuggest && suggestions.length > 0 && (
+            <ul className={styles.suggestList}>
+              {suggestions.map((b, i) => (
+                <li key={i}>
+                  <button type="button" className={styles.suggestItem} onClick={() => pickBook(b)}>
+                    <span className={styles.suggestTitle}>{b.title}</span>
+                    <span className={styles.suggestMeta}>
+                      {[b.author, b.year].filter(Boolean).join(' · ')}
+                    </span>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
 
         <div className={styles.fieldGroup}>

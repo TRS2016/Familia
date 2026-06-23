@@ -313,6 +313,40 @@
 
 .input:focus { border-color: var(--accent); }
 
+/* ── Auto-complétion OpenLibrary (livres) ─────────────────────────────── */
+.suggestList {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  max-height: 240px;
+  overflow-y: auto;
+}
+.suggestItem {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  width: 100%;
+  text-align: left;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text);
+  cursor: pointer;
+}
+.suggestItem:hover { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.suggestTitle { font-size: var(--text-md); font-weight: 600; }
+.suggestMeta { font-size: var(--text-sm); color: var(--text-muted); }
+
 .typePills {
   display: flex;
   gap: 8px;
