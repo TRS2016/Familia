@@ -839,6 +839,26 @@
 .exMoveBtn:hover:not(:disabled) { color: var(--tr-ink2); }
 .exMoveBtn:disabled { opacity: 0.3; cursor: default; }
 
+.exPerRow { display: flex; gap: 6px; margin: 0 0 10px; }
+.exPerBtn {
+  flex: 1;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
+}
+.exPerBtnActive {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+
 .exAddRow { display: flex; gap: 8px; }
 
 .exInput {

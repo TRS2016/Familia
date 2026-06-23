@@ -13,7 +13,8 @@ export interface TrainingConfig {
   duration?: number // durée totale AMRAP (s)
   cap?:     number  // plafond For Time (s, 0 = aucun)
   target?:  number  // objectif de tours For Time (0 = aucun)
-  exercises?: Exercise[] // exercices (un par round) qui défilent pendant l'effort
+  exercises?: Exercise[] // exercices qui défilent pendant l'effort (cyclent si moins nombreux que les rounds/séries)
+  exercisePer?: 'round' | 'set' // tabata/intervals : un exercice par round (Tabata classique) ou par série. Défaut 'set' (compat).
   focus?:   string  // zone travaillée (Abdos, Jambes…) — pour ranger/filtrer
 }
 
@@ -177,5 +178,7 @@ export function configSummary(mode: TrainingMode, cfg: TrainingConfig): string {
       if (cfg.cap && cfg.cap > 0) parts.push(`cap ${fmtClock(cfg.cap)}`)
       return parts.length ? `For Time · ${parts.join(' · ')}` : 'For Time'
     }
+    default:
+      return ''
   }
 }

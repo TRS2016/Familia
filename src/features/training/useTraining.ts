@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import type { Json } from '../../lib/database.types'
@@ -138,6 +139,35 @@ export function useTrainingSessions(limit = 20) {
   })
 }
 
+// File hors-ligne : une séance terminée sans réseau ne doit pas être perdue.
+// On la stocke en localStorage puis on rejoue à la reconnexion / au prochain montage.
+const OFFLINE_QUEUE_KEY = 'training.pendingSessions'
+type PendingSession = {
+  household_id: string; member_id: string | null; name: string; mode: TrainingMode
+  duration_seconds: number; focus: string | null; rounds: number | null
+}
+
+function readQueue(): PendingSession[] {
+  try { return JSON.parse(localStorage.getItem(OFFLINE_QUEUE_KEY) || '[]') as PendingSession[] } catch { return [] }
+}
+function writeQueue(q: PendingSession[]) {
+  try { localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(q)) } catch { /* quota : ignore */ }
+}
+
+/** Rejoue les séances en attente. Retourne le nombre réinséré. */
+export async function flushPendingSessions(): Promise<number> {
+  const q = readQueue()
+  if (q.length === 0) return 0
+  const remaining: PendingSession[] = []
+  let done = 0
+  for (const s of q) {
+    const { error } = await supabase.from('training_sessions').insert(s)
+    if (error) remaining.push(s); else done++
+  }
+  writeQueue(remaining)
+  return done
+}
+
 export function useLogTrainingSession() {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
@@ -145,24 +175,38 @@ export function useLogTrainingSession() {
 
   return useMutation({
     mutationFn: async (input: { name: string; mode: TrainingMode; duration_seconds: number; focus?: string | null; rounds?: number | null }) => {
-      const { error } = await supabase
-        .from('training_sessions')
-        .insert({
-          household_id:     HOUSEHOLD_ID,
-          member_id:        member?.id ?? null,
-          name:             input.name,
-          mode:             input.mode,
-          duration_seconds: input.duration_seconds,
-          focus:            input.focus ?? null,
-          rounds:           input.rounds ?? null,
-        })
-      if (error) throw error
+      const row: PendingSession = {
+        household_id:     HOUSEHOLD_ID,
+        member_id:        member?.id ?? null,
+        name:             input.name,
+        mode:             input.mode,
+        duration_seconds: input.duration_seconds,
+        focus:            input.focus ?? null,
+        rounds:           input.rounds ?? null,
+      }
+      const { error } = await supabase.from('training_sessions').insert(row)
+      if (error) {
+        // Pas de réseau / erreur : on met de côté pour rejouer plus tard.
+        writeQueue([...readQueue(), row])
+        throw error
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: TRAINING_SESSIONS_KEY })
     },
-    onError: () => showToast({ type: 'error', message: "Séance non enregistrée — vérifie ta connexion." }),
+    onError: () => showToast({ type: 'info', message: 'Séance gardée hors-ligne — elle sera enregistrée au retour du réseau.' }),
   })
+}
+
+/** Rejoue la file au montage de la page Training et à chaque retour en ligne. */
+export function useFlushPendingSessions() {
+  const queryClient = useQueryClient()
+  useEffect(() => {
+    const run = () => { void flushPendingSessions().then(n => { if (n > 0) queryClient.invalidateQueries({ queryKey: TRAINING_SESSIONS_KEY }) }) }
+    run()
+    window.addEventListener('online', run)
+    return () => window.removeEventListener('online', run)
+  }, [queryClient])
 }
 
 export function useDeleteTrainingSession() {
@@ -277,6 +321,30 @@ export function useTrainingRecords() {
         if (!r.duration_seconds) continue
         const cur = best[r.name]
         if (cur === undefined || r.duration_seconds < cur) best[r.name] = r.duration_seconds
+      }
+      return best
+    },
+  })
+}
+
+// Record AMRAP : meilleur nombre de tours par nom de séance. Record (pas Map) →
+// survit à la persistance PWA du cache.
+export function useAmrapRecords() {
+  return useQuery({
+    queryKey: [...TRAINING_SESSIONS_KEY, 'amrap-records'],
+    queryFn: async (): Promise<Record<string, number>> => {
+      const { data, error } = await supabase
+        .from('training_sessions')
+        .select('name, rounds')
+        .eq('household_id', HOUSEHOLD_ID)
+        .eq('mode', 'amrap')
+      if (error) throw error
+      const rows = (data ?? []) as { name: string; rounds: number | null }[]
+      const best: Record<string, number> = {}
+      for (const r of rows) {
+        if (r.rounds == null || r.rounds <= 0) continue
+        const cur = best[r.name]
+        if (cur === undefined || r.rounds > cur) best[r.name] = r.rounds
       }
       return best
     },

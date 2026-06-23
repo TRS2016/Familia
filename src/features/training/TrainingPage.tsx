@@ -13,7 +13,7 @@ import type { TrainingMode, TrainingConfig, TrainingPreset } from './training'
 import {
   useTrainingPresets, useAddTrainingPreset, useUpdateTrainingPreset, useDeleteTrainingPreset,
   useTrainingSessions, useTrainingRealtime, useTrainingStats,
-  useDeleteTrainingSession, useTrainingRecords,
+  useDeleteTrainingSession, useTrainingRecords, useAmrapRecords, useFlushPendingSessions,
 } from './useTraining'
 import Stepper from './Stepper'
 import StatsCard from './StatsCard'
@@ -31,10 +31,12 @@ type Screen =
 
 export default function TrainingPage() {
   useTrainingRealtime()
+  useFlushPendingSessions()
   const { data: presets = [] }  = useTrainingPresets()
   const { data: sessions = [] } = useTrainingSessions(15)
   const { data: stats }         = useTrainingStats()
   const { data: records }       = useTrainingRecords()
+  const { data: amrapRecords }  = useAmrapRecords()
   const addPreset    = useAddTrainingPreset()
   const updatePreset = useUpdateTrainingPreset()
   const deletePreset = useDeleteTrainingPreset()
@@ -186,7 +188,9 @@ export default function TrainingPage() {
         rounds={cfg.rounds ?? 0}
         sets={cfg.sets ?? 1}
         exercises={normalizeExercises(cfg.exercises)}
+        exercisePer={cfg.exercisePer ?? 'set'}
         onChange={list => set({ exercises: list })}
+        onExercisePerChange={v => set({ exercisePer: v })}
       />
       </div>{/* /configMain */}
       </div>{/* /configZone */}
@@ -231,6 +235,7 @@ export default function TrainingPage() {
             {shownPresets.map(p => {
               const exCount = p.config.exercises?.length ?? 0
               const record = p.mode === 'fortime' ? records?.[p.name] : undefined
+              const amrapRec = p.mode === 'amrap' ? amrapRecords?.[p.name] : undefined
               return (
                 <div key={p.id} className={styles.presetRow}>
                   <button className={styles.presetMain} onClick={() => loadPreset(p)}>
@@ -246,6 +251,7 @@ export default function TrainingPage() {
                         {MODE_META[p.mode].label} · {configSummary(p.mode, p.config)}
                         {exCount > 0 ? ` · ${exCount} ex.` : ''}
                         {record !== undefined && <span className={styles.presetRecord}> · 🏆 {fmtClock(record)}</span>}
+                        {amrapRec !== undefined && <span className={styles.presetRecord}> · 🏆 {amrapRec} tours</span>}
                       </span>
                     </span>
                     {p.config.focus && <span className={styles.presetFocus}>{p.config.focus}</span>}

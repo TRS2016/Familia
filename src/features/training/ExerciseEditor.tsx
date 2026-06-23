@@ -10,16 +10,17 @@ import styles from './TrainingPage.module.css'
 
 // ── Éditeur d'exercices (un par round/série) + vidéos ───────────────────────────
 
-export default function ExerciseEditor({ mode, rounds, sets, exercises, onChange }: {
+export default function ExerciseEditor({ mode, rounds, sets, exercises, exercisePer, onChange, onExercisePerChange }: {
   mode: TrainingMode
   rounds: number
   sets: number
   exercises: Exercise[]
+  exercisePer: 'round' | 'set'
   onChange: (list: Exercise[]) => void
+  onExercisePerChange: (v: 'round' | 'set') => void
 }) {
   const seriesBased = mode === 'tabata' || mode === 'intervals'
   const perMinute   = mode === 'emom'
-  const fixedSlots  = seriesBased || perMinute
   const [videoIdx, setVideoIdx] = useState<number | null>(null)
   const [freeInput, setFreeInput] = useState('')
 
@@ -46,9 +47,14 @@ export default function ExerciseEditor({ mode, rounds, sets, exercises, onChange
     setFreeInput('')
   }
 
-  const count = seriesBased ? Math.max(1, sets) : perMinute ? Math.max(1, rounds) : exercises.length
-  const hint = seriesBased ? 'un par série' : perMinute ? 'un par minute' : 'défilent à l\'effort'
-  const slotTag = (i: number) => seriesBased ? `S${i + 1}` : perMinute ? `M${i + 1}` : `${i + 1}`
+  // Liste libre pour tous les modes : si moins d'exercices que de rounds/séries,
+  // le moteur les fait cycler. « cible » = à quoi se rapporte chaque exercice.
+  const cycleLen = seriesBased ? (exercisePer === 'round' ? Math.max(1, rounds) : Math.max(1, sets))
+    : perMinute ? Math.max(1, rounds) : 0
+  const unit = seriesBased ? (exercisePer === 'round' ? 'round' : 'série') : perMinute ? 'minute' : ''
+  const hint = unit
+    ? `un par ${unit}${exercises.length > 0 && exercises.length < cycleLen ? ' · cycle' : ''}`
+    : 'défilent à l\'effort'
 
   return (
     <div className={styles.subCard}>
@@ -56,61 +62,73 @@ export default function ExerciseEditor({ mode, rounds, sets, exercises, onChange
         Exercices <span className={styles.cfgSectionHint}>· {hint}</span>
       </span>
 
-      <ul className={styles.exList}>
-        {Array.from({ length: count }).map((_, i) => {
-          const ex = exercises[i] ?? { name: '' }
-          return (
-            <li key={i} className={styles.exItem}>
-              <span className={styles.exIdx}>{slotTag(i)}</span>
-              <input
-                className={styles.exNameInput}
-                value={ex.name}
-                onChange={e => setEx(i, { name: e.target.value })}
-                placeholder={seriesBased ? `Exercice série ${i + 1}` : perMinute ? `Exercice min ${i + 1}` : 'Exercice…'}
-              />
-              <button
-                type="button"
-                className={[styles.exVideoBtn, exerciseHasVideo(ex) ? styles.exVideoBtnSet : ''].join(' ')}
-                onClick={() => setVideoIdx(i)}
-                aria-label="Vidéo de démo"
-                title="Vidéo de démo"
-              >
-                <Video size={15} strokeWidth={2} />
-              </button>
-              {!fixedSlots && count > 1 && (
-                <span className={styles.exMove}>
-                  <button type="button" className={styles.exMoveBtn} onClick={() => moveEx(i, -1)} disabled={i === 0} aria-label="Monter">
-                    <ChevronUp size={13} strokeWidth={2.5} />
-                  </button>
-                  <button type="button" className={styles.exMoveBtn} onClick={() => moveEx(i, 1)} disabled={i === count - 1} aria-label="Descendre">
-                    <ChevronDown size={13} strokeWidth={2.5} />
-                  </button>
-                </span>
-              )}
-              {!fixedSlots && (
-                <button type="button" className={styles.exRemove} onClick={() => removeEx(i)} aria-label="Retirer">
-                  <X size={14} strokeWidth={2.5} />
-                </button>
-              )}
-            </li>
-          )
-        })}
-      </ul>
-
-      {!fixedSlots && (
-        <div className={styles.exAddRow}>
-          <input
-            className={styles.exInput}
-            value={freeInput}
-            onChange={e => setFreeInput(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addFree() } }}
-            placeholder="Ajouter un exercice…"
-          />
-          <button type="button" className={styles.exAddBtn} onClick={addFree} aria-label="Ajouter">
-            <Plus size={18} strokeWidth={2.5} />
+      {seriesBased && (
+        <div className={styles.exPerRow}>
+          <button
+            type="button"
+            className={[styles.exPerBtn, exercisePer !== 'round' ? styles.exPerBtnActive : ''].join(' ')}
+            onClick={() => onExercisePerChange('set')}
+          >
+            Par série
+          </button>
+          <button
+            type="button"
+            className={[styles.exPerBtn, exercisePer === 'round' ? styles.exPerBtnActive : ''].join(' ')}
+            onClick={() => onExercisePerChange('round')}
+          >
+            Par round
           </button>
         </div>
       )}
+
+      <ul className={styles.exList}>
+        {exercises.map((ex, i) => (
+          <li key={i} className={styles.exItem}>
+            <span className={styles.exIdx}>{i + 1}</span>
+            <input
+              className={styles.exNameInput}
+              value={ex.name}
+              onChange={e => setEx(i, { name: e.target.value })}
+              placeholder="Exercice…"
+            />
+            <button
+              type="button"
+              className={[styles.exVideoBtn, exerciseHasVideo(ex) ? styles.exVideoBtnSet : ''].join(' ')}
+              onClick={() => setVideoIdx(i)}
+              aria-label="Vidéo de démo"
+              title="Vidéo de démo"
+            >
+              <Video size={15} strokeWidth={2} />
+            </button>
+            {exercises.length > 1 && (
+              <span className={styles.exMove}>
+                <button type="button" className={styles.exMoveBtn} onClick={() => moveEx(i, -1)} disabled={i === 0} aria-label="Monter">
+                  <ChevronUp size={13} strokeWidth={2.5} />
+                </button>
+                <button type="button" className={styles.exMoveBtn} onClick={() => moveEx(i, 1)} disabled={i === exercises.length - 1} aria-label="Descendre">
+                  <ChevronDown size={13} strokeWidth={2.5} />
+                </button>
+              </span>
+            )}
+            <button type="button" className={styles.exRemove} onClick={() => removeEx(i)} aria-label="Retirer">
+              <X size={14} strokeWidth={2.5} />
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <div className={styles.exAddRow}>
+        <input
+          className={styles.exInput}
+          value={freeInput}
+          onChange={e => setFreeInput(e.target.value)}
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addFree() } }}
+          placeholder="Ajouter un exercice…"
+        />
+        <button type="button" className={styles.exAddBtn} onClick={addFree} aria-label="Ajouter">
+          <Plus size={18} strokeWidth={2.5} />
+        </button>
+      </div>
 
       {videoIdx !== null && (
         <VideoSheet
