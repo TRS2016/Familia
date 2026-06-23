@@ -52,6 +52,9 @@ export interface EditEntryInput {
   tags: string[]
   recurring: boolean
   series_id: string | null
+  // 'series' : applique les champs (sauf la date) à toutes les occurrences de la
+  // série. Décocher `recurring` en scope série arrête la série de façon fiable.
+  scope?: 'one' | 'series'
 }
 
 // ── Query keys ────────────────────────────────────────────────────────────────
@@ -291,7 +294,26 @@ export function useEditEntry(year: number, month: number) {
   const key = kakeboEntriesKey(year, month)
 
   return useMutation({
-    mutationFn: async (input: EditEntryInput): Promise<KakeboEntry> => {
+    mutationFn: async (input: EditEntryInput): Promise<KakeboEntry | null> => {
+      // Scope « toute la série » : applique les champs partagés à toutes les
+      // occurrences (la date reste propre à chaque mois). Décocher `recurring`
+      // ici met fin à la série de façon fiable (toutes les lignes passent à false).
+      if (input.scope === 'series' && input.series_id) {
+        const { error } = await supabase
+          .from('kakebo_entries')
+          .update({
+            category_id: input.category_id,
+            amount: input.amount,
+            description: input.description.trim() || null,
+            member_id: input.member_id,
+            tags: input.tags,
+            recurring: input.recurring,
+          } as never)
+          .eq('series_id', input.series_id)
+        if (error) throw error
+        return null
+      }
+
       // Si on rend l'opération récurrente et qu'elle n'a pas encore de série, on lui en crée une.
       const seriesId = input.recurring ? (input.series_id ?? (crypto.randomUUID() as string)) : input.series_id
       const { data, error } = await supabase
@@ -313,6 +335,9 @@ export function useEditEntry(year: number, month: number) {
       return data as unknown as KakeboEntry
     },
     onMutate: async (input: EditEntryInput) => {
+      // Scope série : trop de mois potentiellement concernés pour un patch
+      // optimiste fiable → on invalide en onSuccess.
+      if (input.scope === 'series') return { previous: undefined }
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<KakeboEntry[]>(key) ?? []
       const categories = queryClient.getQueryData<KakeboCategory[]>(KAKEBO_CATS_KEY) ?? []
@@ -331,13 +356,20 @@ export function useEditEntry(year: number, month: number) {
       )
       return { previous }
     },
-    onSuccess: updated => {
+    onSuccess: (updated, input) => {
+      if (input.scope === 'series' || !updated) {
+        // Plusieurs mois touchés (+ régénération récurrente) → on invalide large.
+        queryClient.invalidateQueries({ queryKey: ['kakebo-entries', HOUSEHOLD_ID] })
+        queryClient.invalidateQueries({ queryKey: ['kakebo-trend', HOUSEHOLD_ID] })
+        queryClient.invalidateQueries({ queryKey: ['kakebo-materialize', HOUSEHOLD_ID] })
+        return
+      }
       queryClient.setQueryData<KakeboEntry[]>(key, old =>
         (old ?? []).map(e => e.id === updated.id ? updated : e)
       )
     },
-    onError: (_err, _input, context) => {
-      queryClient.setQueryData(key, context?.previous ?? [])
+    onError: (_err, input, context) => {
+      if (input.scope !== 'series') queryClient.setQueryData(key, context?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de modifier l\'opération.' })
     },
   })

@@ -1,4 +1,7 @@
 import type { LecteurSmartFilters, MediaFileKind } from './useLecteur'
+// Helpers YouTube centralisés dans lib/youtube ; réexportés ici pour la
+// compatibilité des imports existants du lecteur.
+export { youtubeId, youtubeThumb } from '../../lib/youtube'
 
 // Fichier audio uploadé (crossfadable par le moteur jukebox). Typé
 // structurellement pour éviter une dépendance circulaire.
@@ -10,21 +13,6 @@ export const KIND_META: Record<MediaFileKind, { emoji: string; label: string }> 
   audio:  { emoji: '🎵', label: 'Audio'  },
   vidéo:  { emoji: '🎬', label: 'Vidéo'  },
   lien:   { emoji: '🔗', label: 'Lien'   },
-}
-
-// Extrait l'ID 11 caractères d'une URL YouTube (toutes formes courantes), ou ''.
-// Source unique partagée par youtubeThumb (ici) et MediaPlayer (détection/lecture).
-export function youtubeId(url: string | null | undefined): string {
-  if (!url) return ''
-  const m = url.match(/(?:v=|vi=|youtu\.be\/|\/shorts\/|\/embed\/|\/live\/|\/v\/)([a-zA-Z0-9_-]{11})/)
-  return m?.[1] ?? ''
-}
-
-// Vignette YouTube (mqdefault) déduite de l'URL externe, ou null si non YouTube.
-// Sert d'artwork pour le now-playing et les lignes de bibliothèque.
-export function youtubeThumb(url: string | null | undefined): string | null {
-  const id = youtubeId(url)
-  return id ? `https://i.ytimg.com/vi/${id}/mqdefault.jpg` : null
 }
 
 export function smartFilterLabel(f: LecteurSmartFilters): string {

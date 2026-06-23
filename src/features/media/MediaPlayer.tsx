@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Play, Pause, ExternalLink, Volume2, VolumeX } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
-import { youtubeId } from '../lecteur/lecteur.utils'
+import { youtubeId } from '../../lib/youtube'
 import styles from './MediaPlayer.module.css'
 
 // URL signée d'un fichier du bucket privé family-media. Exporté pour permettre

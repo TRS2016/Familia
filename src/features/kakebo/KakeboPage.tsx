@@ -86,6 +86,8 @@ export default function KakeboPage() {
   // Edit entry state
   const [editTarget, setEditTarget] = useState<KakeboEntry | null>(null)
   const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '', member_id: null as string | null, tags: [] as string[], recurring: false, series_id: null as string | null })
+  // Portée de l'édition d'une charge récurrente : cette occurrence ou toute la série.
+  const [editScope, setEditScope]   = useState<'one' | 'series'>('one')
 
   // Add form state
   const firstCatId = categories.find(c => c.type !== 'income')?.id ?? ''
@@ -207,6 +209,7 @@ export default function KakeboPage() {
       recurring: entry.recurring ?? false,
       series_id: entry.series_id ?? null,
     })
+    setEditScope('one')
     setEditTarget(entry)
   }
 
@@ -225,6 +228,7 @@ export default function KakeboPage() {
       tags: editDraft.tags,
       recurring: editDraft.recurring,
       series_id: editDraft.series_id,
+      scope: editDraft.series_id ? editScope : 'one',
     })
     setEditTarget(null)
   }
@@ -751,13 +755,36 @@ export default function KakeboPage() {
                   required
                 />
               </div>
+              {editDraft.series_id && (
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Appliquer à</label>
+                  <div className={styles.catPills}>
+                    <button
+                      type="button"
+                      className={[styles.catPill, editScope === 'one' ? styles.catPillActive : ''].join(' ')}
+                      style={editScope === 'one' ? { background: 'rgba(224,123,84,0.13)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}}
+                      onClick={() => setEditScope('one')}
+                    >
+                      Cette opération
+                    </button>
+                    <button
+                      type="button"
+                      className={[styles.catPill, editScope === 'series' ? styles.catPillActive : ''].join(' ')}
+                      style={editScope === 'series' ? { background: 'rgba(224,123,84,0.13)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}}
+                      onClick={() => setEditScope('series')}
+                    >
+                      Toute la série
+                    </button>
+                  </div>
+                </div>
+              )}
               <label className={styles.recurRow}>
                 <input
                   type="checkbox"
                   checked={editDraft.recurring}
                   onChange={e => setEditDraft(d => ({ ...d, recurring: e.target.checked }))}
                 />
-                <span>🔁 Charge fixe — revient chaque mois{editDraft.recurring ? '' : ' (décocher arrête la série)'}</span>
+                <span>🔁 Charge fixe — revient chaque mois{editDraft.recurring ? '' : (editScope === 'series' ? ' (décocher arrête toute la série)' : ' (décocher arrête la série)')}</span>
               </label>
               <button
                 type="submit"
