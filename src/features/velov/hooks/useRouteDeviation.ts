@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { calculateDistance } from '../geo'
+import { distanceToPolyline } from '../geo'
 import type { GeoLineString, UserPosition } from '../types'
 
 const DEVIATION_THRESHOLD = 100
@@ -18,14 +18,9 @@ export function useRouteDeviation({ routeGeometry, userPosition }: UseRouteDevia
       return () => clearTimeout(t)
     }
 
-    const coords = routeGeometry.coordinates
-    let minDist = Infinity
-    for (let i = 0; i < coords.length; i++) {
-      const [lng, lat] = coords[i]
-      const d = calculateDistance(userPosition.lat, userPosition.lng, lat, lng)
-      if (d < minDist) minDist = d
-      if (minDist < 30) break
-    }
+    // Distance au plus proche segment (et non sommet) → pas de fausse déviation
+    // sur les longs segments droits.
+    const minDist = distanceToPolyline(userPosition.lat, userPosition.lng, routeGeometry.coordinates)
 
     const t = setTimeout(() => setDeviated(minDist > DEVIATION_THRESHOLD), 0)
     return () => clearTimeout(t)

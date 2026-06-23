@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 
 export interface UseNotificationsResult {
   permission: NotificationPermission
@@ -10,6 +10,15 @@ export function useNotifications(): UseNotificationsResult {
   const [permission, setPermission] = useState<NotificationPermission>(() => {
     return 'Notification' in window ? Notification.permission : 'default'
   })
+
+  // L'autorisation peut changer dans les réglages OS pendant que l'app est en
+  // arrière-plan : on resynchronise l'état au retour au premier plan.
+  useEffect(() => {
+    if (!('Notification' in window)) return
+    const sync = () => setPermission(Notification.permission)
+    document.addEventListener('visibilitychange', sync)
+    return () => document.removeEventListener('visibilitychange', sync)
+  }, [])
 
   const requestPermission = useCallback(async () => {
     if (!('Notification' in window)) return false

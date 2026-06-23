@@ -1,4 +1,4 @@
-import { calculateDistance, formatDistance } from './geo'
+import { distanceToPolyline, formatDistance } from './geo'
 import type {
   GeoCoord,
   GeoLineString,
@@ -252,18 +252,8 @@ export function findStationsAlongRoute(
   const coords = routeGeometry.coordinates
   const step = Math.max(1, Math.floor(coords.length / 200))
 
-  function distanceToRoute(stationLat: number, stationLng: number): number {
-    let min = Infinity
-    for (let i = 0; i < coords.length; i += step) {
-      const [rlng, rlat] = coords[i]
-      const d = calculateDistance(stationLat, stationLng, rlat, rlng)
-      if (d < min) min = d
-    }
-    return min
-  }
-
   return stations
-    .map((s): StationAlongRoute => ({ ...s, distanceToRoute: distanceToRoute(s.lat, s.lng) }))
+    .map((s): StationAlongRoute => ({ ...s, distanceToRoute: distanceToPolyline(s.lat, s.lng, coords, step) }))
     .filter((s) => s.distanceToRoute <= maxDistance)
     .sort((a, b) => {
       if (a.availableBikes > 0 && b.availableBikes <= 0) return -1

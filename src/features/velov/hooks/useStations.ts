@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { fetchStations } from '../api'
 import { saveSnapshot } from '../historyDB'
 import type { Station } from '../types'
@@ -41,6 +41,10 @@ export function useStations(refreshInterval = 30000): UseStationsResult {
   const [error, setError] = useState<string | null>(null)
   const [isFromCache, setIsFromCache] = useState(false)
   const [fetchedAt, setFetchedAt] = useState<Date | null>(null)
+  // Backoff exponentiel : sur échecs répétés du flux GBFS, on espace les tentatives
+  // (30s → 1min → 2min → … plafonné à 5min) pour ne pas marteler une API en panne.
+  const failuresRef = useRef(0)
+  const nextAllowedRef = useRef(0)
 
   const doFetch = useCallback(async () => {
     try {
@@ -49,6 +53,8 @@ export function useStations(refreshInterval = 30000): UseStationsResult {
       setError(null)
       setIsFromCache(false)
       setFetchedAt(new Date())
+      failuresRef.current = 0
+      nextAllowedRef.current = 0
       saveToCache(data)
       // Historique pour TOUTES les stations (la carte/les reco en dépendent), pas
       // seulement celles dont la carte de liste est rendue. saveSnapshot déduplique.
@@ -61,17 +67,22 @@ export function useStations(refreshInterval = 30000): UseStationsResult {
         setIsFromCache(true)
       }
       setError(err instanceof Error ? err.message : 'Erreur inconnue')
+      failuresRef.current += 1
+      const backoff = Math.min(refreshInterval * 2 ** failuresRef.current, 5 * 60 * 1000)
+      nextAllowedRef.current = Date.now() + backoff
     } finally {
       setLoading(false)
     }
-  }, [])
+  }, [refreshInterval])
 
   useEffect(() => {
     let interval: ReturnType<typeof setInterval> | null = null
     const start = () => {
       if (interval !== null) return
       interval = setInterval(() => {
-        if (!document.hidden && navigator.onLine !== false) void doFetch()
+        if (document.hidden || navigator.onLine === false) return
+        if (Date.now() < nextAllowedRef.current) return // fenêtre de backoff
+        void doFetch()
       }, refreshInterval)
     }
     const stop = () => {
