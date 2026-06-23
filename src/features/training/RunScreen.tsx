@@ -48,7 +48,7 @@ export default function RunScreen({ mode, config, title, onExit }: {
   useEffect(() => {
     if (!prevBestCaptured.current && isNamed && mode === 'fortime' && records) {
       prevBestCaptured.current = true
-      setPrevBest(records.get(title))
+      setPrevBest(records[title])
     }
   }, [records, title, mode, isNamed])
 

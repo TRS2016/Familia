@@ -38,6 +38,12 @@ function Avatar({ name, index, size = 36 }: { name: string; index: number; size?
   )
 }
 
+interface HouseholdDetails {
+  name: string
+  members: { id: string; display_name: string }[]
+  kakebo_objectif_epargne: number | null
+}
+
 interface UpcomingEvent {
   id: string
   title: string
@@ -275,16 +281,30 @@ export default function HomePage() {
   const { data: momentUrlMap = {} } = useSignedPhotoUrls(momentPhotoPaths)
 
   // Liste des membres mutualisée avec le reste de l'app (QK.membersList) : une
-  // seule source/cache au lieu d'un fetch household dédié (name/objectif inutilisés ici).
-  const { data: householdMembers = [], isLoading: householdLoading } = useQuery({
-    queryKey: QK.membersList,
-    queryFn: async (): Promise<{ id: string; display_name: string }[]> => {
-      const { data, error } = await supabase
-        .from('members')
-        .select('id, display_name')
-        .eq('household_id', HOUSEHOLD_ID)
-      if (error) throw error
-      return data as { id: string; display_name: string }[]
+  // household + membres en une requête (name/objectif servent au widget Foyer
+  // et à ChoresHomeWidget). Les membres alimentent aussi l'avatar stack.
+  const { data: householdDetails, isLoading: householdLoading } = useQuery({
+    queryKey: QK.householdDetails(member?.household_id ?? ''),
+    queryFn: async (): Promise<HouseholdDetails> => {
+      const [householdRes, membersRes] = await Promise.all([
+        supabase
+          .from('households')
+          .select('name, kakebo_objectif_epargne')
+          .eq('id', member!.household_id)
+          .single(),
+        supabase
+          .from('members')
+          .select('id, display_name')
+          .eq('household_id', member!.household_id),
+      ])
+      if (householdRes.error) throw householdRes.error
+      if (membersRes.error) throw membersRes.error
+      const hd = householdRes.data as { name: string; kakebo_objectif_epargne: number | null }
+      return {
+        name: hd.name,
+        kakebo_objectif_epargne: hd.kakebo_objectif_epargne,
+        members: membersRes.data as { id: string; display_name: string }[],
+      }
     },
     enabled: !!member,
   })
@@ -311,13 +331,13 @@ export default function HomePage() {
         </div>
         <div className={styles.headerRight}>
           <div className={styles.avatarStack}>
-            {householdLoading || householdMembers.length === 0
+            {householdLoading || !householdDetails
               ? [0, 1].map(i => (
                   <div key={i} className={styles.avatarWrap}>
                     <div className={styles.skeletonAvatar} />
                   </div>
                 ))
-              : householdMembers.slice(0, 3).map((m, i) => (
+              : householdDetails.members.slice(0, 3).map((m, i) => (
                   <div key={m.id} className={styles.avatarWrap}>
                     <Avatar name={m.display_name} index={i} size={36} />
                   </div>
@@ -397,7 +417,8 @@ export default function HomePage() {
           <div className={styles.card}>
             <ul className={styles.eventsList}>
               {upcomingEvents.map((event, i) => {
-                const idx = householdMembers.findIndex(m => m.id === event.member_id)
+                const members = householdDetails?.members ?? []
+                const idx = members.findIndex(m => m.id === event.member_id)
                 const color = idx >= 0 ? MEMBER_PALETTE[idx % MEMBER_PALETTE.length] : undefined
                 return (
                   <li key={event.id} className={[styles.eventRow, i === 0 ? styles.eventRowFirst : ''].join(' ')}>

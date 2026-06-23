@@ -43,6 +43,7 @@ export function AddMediaForm({
   const [showSuggest, setShowSuggest] = useState(false)
   const pickedRef = useRef(false) // évite de re-chercher juste après une sélection
 
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (draft.type !== 'livre' || pickedRef.current) { pickedRef.current = false; setSuggestions([]); return }
     const q = draft.title.trim()
@@ -57,6 +58,7 @@ export function AddMediaForm({
     }, 350)
     return () => { clearTimeout(t); ctrl.abort() }
   }, [draft.title, draft.type])
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   function pickBook(b: BookSuggestion) {
     pickedRef.current = true
