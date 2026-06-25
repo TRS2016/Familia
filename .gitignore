@@ -37,3 +37,6 @@ ROADMAP.md
 
 # Skills Claude Code (outillage local, non versionné)
 .claude/skills/
+
+# Ebooks/PDF sources d import (non versionnes)
+*.pdf
