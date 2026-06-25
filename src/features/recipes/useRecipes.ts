@@ -4,6 +4,7 @@ import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useToast } from '../../components/useToast'
 import { useRealtimeInvalidation } from '../../lib/useRealtimeInvalidation'
+import { GROCERIES_KEY } from '../groceries/useGroceries'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -97,6 +98,34 @@ export function useDeleteRecipe() {
       queryClient.setQueryData(RECIPES_KEY, ctx?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de supprimer la recette.' })
     },
+  })
+}
+
+/** Ajoute les ingrédients d'une recette à la liste de courses (insert en lot). */
+export function useAddRecipeToGroceries() {
+  const queryClient = useQueryClient()
+  const { data: member } = useMember()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async (ingredients: Ingredient[]): Promise<number> => {
+      const rows = ingredients
+        .filter(i => i.name.trim())
+        .map(i => ({
+          household_id: HOUSEHOLD_ID,
+          created_by: member?.id ?? null,
+          name: i.name.trim(),
+          quantity: i.quantity.trim() || null,
+        }))
+      if (rows.length === 0) return 0
+      const { error } = await supabase.from('groceries').insert(rows as never)
+      if (error) throw error
+      return rows.length
+    },
+    onSuccess: (n) => {
+      queryClient.invalidateQueries({ queryKey: GROCERIES_KEY })
+      showToast({ type: 'success', message: `${n} ingrédient${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''} à la liste de courses.` })
+    },
+    onError: () => showToast({ type: 'error', message: 'Impossible d\'ajouter à la liste.' }),
   })
 }
 

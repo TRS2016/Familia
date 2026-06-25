@@ -87,6 +87,27 @@
 /* ── Détail ─────────────────────────────────────────────────────────── */
 .detail { display: flex; flex-direction: column; gap: 16px; padding-bottom: 8px; }
 .detailMeal { font-size: var(--text-sm); font-weight: 700; color: var(--accent); }
+
+.detailActions { display: flex; gap: 8px; flex-wrap: wrap; }
+.actionPrimary, .actionSecondary {
+  flex: 1;
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: var(--radius-sm);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+.actionPrimary { border: none; background: var(--accent); color: #fff; }
+.actionPrimary:disabled { opacity: 0.7; cursor: default; }
+.actionSecondary { border: 1.5px solid var(--border); background: transparent; color: var(--text); }
+.actionSecondary:disabled { opacity: 0.6; cursor: default; }
 .detailSection { display: flex; flex-direction: column; gap: 8px; }
 .detailH { margin: 0; font-size: var(--text-md); font-weight: 800; color: var(--text); }
 .ingList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }

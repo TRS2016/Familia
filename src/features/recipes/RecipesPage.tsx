@@ -1,11 +1,15 @@
 import { useState, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Upload, Trash2, X } from 'lucide-react'
+import { ChevronLeft, Upload, Trash2, X, ShoppingCart, ChefHat } from 'lucide-react'
+import { format } from 'date-fns'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
+import { useToast } from '../../components/useToast'
+import { useMember } from '../../auth/useMember'
+import { useLogChore } from '../chores/useChores'
 import {
-  useRecipes, useRecipesRealtime, useImportRecipes, useDeleteRecipe,
+  useRecipes, useRecipesRealtime, useImportRecipes, useDeleteRecipe, useAddRecipeToGroceries,
   MEAL_TYPES, mealMeta,
 } from './useRecipes'
 import type { Recipe } from './useRecipes'
@@ -25,6 +29,27 @@ export default function RecipesPage() {
   const { data: recipes = [], isLoading } = useRecipes()
   const importRecipes = useImportRecipes()
   const deleteRecipe = useDeleteRecipe()
+  const addToGroceries = useAddRecipeToGroceries()
+  const logChore = useLogChore()
+  const { data: member } = useMember()
+  const { showToast } = useToast()
+
+  // « J'ai cuisiné » : pointe une tâche ad-hoc → alimente points/niveaux/badges.
+  function handleCooked(r: Recipe) {
+    if (!member) return
+    logChore.mutate(
+      {
+        chore_id: null,
+        assignment_id: null,
+        member_id: member.id,
+        done_on: format(new Date(), 'yyyy-MM-dd'),
+        label: `🍳 ${r.title}`,
+        points: r.points,
+      },
+      { onSuccess: () => showToast({ type: 'success', message: `Bravo ! +${r.points} points pour « ${r.title} ».` }) },
+    )
+    setDetail(null)
+  }
 
   const [filter, setFilter] = useState<string | null>(null)
   const [detail, setDetail] = useState<Recipe | null>(null)
@@ -142,6 +167,21 @@ export default function RecipesPage() {
         <SlideUpModal title={detail.title} onClose={() => setDetail(null)}>
           <div className={styles.detail}>
             <span className={styles.detailMeal}>{mealMeta(detail.meal_type).emoji} {mealMeta(detail.meal_type).label}</span>
+
+            <div className={styles.detailActions}>
+              {detail.ingredients.length > 0 && (
+                <button
+                  className={styles.actionSecondary}
+                  onClick={() => addToGroceries.mutate(detail.ingredients)}
+                  disabled={addToGroceries.isPending}
+                >
+                  <ShoppingCart size={15} strokeWidth={2} /> Ajouter aux courses
+                </button>
+              )}
+              <button className={styles.actionPrimary} onClick={() => handleCooked(detail)}>
+                <ChefHat size={15} strokeWidth={2} /> J'ai cuisiné ! · +{detail.points}
+              </button>
+            </div>
 
             {detail.ingredients.length > 0 && (
               <section className={styles.detailSection}>
