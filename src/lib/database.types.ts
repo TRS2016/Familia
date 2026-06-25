@@ -1662,6 +1662,57 @@ export type Database = {
           },
         ]
       }
+      recipes: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          household_id: string
+          id: string
+          ingredients: Json
+          meal_type: string
+          points: number
+          steps: Json
+          title: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          household_id: string
+          id?: string
+          ingredients?: Json
+          meal_type: string
+          points?: number
+          steps?: Json
+          title: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          household_id?: string
+          id?: string
+          ingredients?: Json
+          meal_type?: string
+          points?: number
+          steps?: Json
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "recipes_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "recipes_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       reward_redemptions: {
         Row: {
           cost_points: number
