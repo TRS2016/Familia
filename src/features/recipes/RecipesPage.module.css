@@ -1,0 +1,136 @@
+.page {
+  max-width: var(--page-max-w, 800px);
+  margin: 0 auto;
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 16px 14px;
+}
+.backLink {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  color: var(--text);
+  border-radius: var(--radius-sm);
+}
+.pageTitle { flex: 1; margin: 0; font-size: var(--text-xl, 1.3rem); font-weight: 800; color: var(--text); }
+
+.importBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: var(--radius-pill);
+  border: none;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  font-weight: 700;
+  cursor: pointer;
+}
+.importBtn:disabled { opacity: 0.7; cursor: default; }
+
+.filterRow { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 16px 12px; }
+.chip {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.chipActive { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+
+.spinnerWrap { display: flex; justify-content: center; padding: 40px 0; }
+
+.list { list-style: none; margin: 0; padding: 0 16px; display: flex; flex-direction: column; gap: 8px; }
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 12px);
+  background: var(--bg-card);
+  cursor: pointer;
+}
+.rowEmoji { font-size: 1.5rem; line-height: 1; flex-shrink: 0; }
+.rowBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.rowTitle { font-size: var(--text-md); font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rowSub { font-size: var(--text-sm); color: var(--text-muted); }
+.rowDelete {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+}
+.rowDelete:hover { color: var(--danger, #C0392B); }
+
+/* ── Détail ─────────────────────────────────────────────────────────── */
+.detail { display: flex; flex-direction: column; gap: 16px; padding-bottom: 8px; }
+.detailMeal { font-size: var(--text-sm); font-weight: 700; color: var(--accent); }
+.detailSection { display: flex; flex-direction: column; gap: 8px; }
+.detailH { margin: 0; font-size: var(--text-md); font-weight: 800; color: var(--text); }
+.ingList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.ingItem {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: var(--text-md);
+  color: var(--text);
+  padding: 4px 0;
+  border-bottom: 1px solid var(--border);
+}
+.ingQty { color: var(--text-muted); flex-shrink: 0; }
+.stepList { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+.stepItem { font-size: var(--text-md); color: var(--text); line-height: 1.5; }
+
+/* ── Confirmation suppression ───────────────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.confirmSheet {
+  position: relative;
+  width: 100%;
+  max-width: 360px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md, 14px);
+  padding: 22px 18px 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+}
+.confirmClose { position: absolute; top: 10px; right: 10px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; }
+.confirmTitle { margin: 0 0 6px; font-size: var(--text-md); font-weight: 800; color: var(--text); }
+.confirmText { margin: 0 0 16px; font-size: var(--text-sm); color: var(--text-muted); }
+.confirmDelBtn {
+  width: 100%;
+  min-height: 44px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--danger, #C0392B);
+  color: #fff;
+  font-family: var(--font-family);
+  font-size: var(--text-md);
+  font-weight: 700;
+  cursor: pointer;
+}
