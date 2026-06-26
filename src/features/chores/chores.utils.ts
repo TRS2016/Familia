@@ -23,6 +23,14 @@ export function weekDates(weekStart?: Date): string[] {
 export function isApplicable(chore: Pick<Chore, 'frequency' | 'frequency_days' | 'start_date'>, dateStr: string): boolean {
   if (chore.frequency === 'none') return false
   if (chore.start_date && dateStr < chore.start_date) return false
+  // Mensuel : frequency_days[0] = jour du mois (clampé au dernier jour pour 29-31).
+  if (chore.frequency === 'monthly') {
+    const dom = chore.frequency_days?.[0]
+    if (!dom) return true
+    const [y, m, d] = dateStr.split('-').map(Number)
+    const lastDay = new Date(y, m, 0).getDate()
+    return d === Math.min(dom, lastDay)
+  }
   if (!chore.frequency_days || chore.frequency_days.length === 0) return true
   return chore.frequency_days.includes(isoDow(dateStr))
 }
@@ -46,9 +54,10 @@ export function dueMemberFor(chore: Pick<Chore, 'rotation_member_ids' | 'rotatio
 }
 
 export const FREQ_OPTS = [
-  { value: 'daily',  label: 'Tous les jours' },
-  { value: 'weekly', label: 'Jours choisis' },
-  { value: 'none',   label: 'À la demande' },
+  { value: 'daily',   label: 'Tous les jours' },
+  { value: 'weekly',  label: 'Jours choisis' },
+  { value: 'monthly', label: 'Mensuel' },
+  { value: 'none',    label: 'À la demande' },
 ]
 
 // ── Série de jours par membre (pour les badges streak) ────────────────────────

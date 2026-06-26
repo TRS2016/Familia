@@ -259,7 +259,7 @@ function normalize(input: NewChoreInput) {
     category: input.category,
     points: input.points,
     frequency: input.frequency,
-    frequency_days: input.frequency === 'weekly' ? input.frequency_days : null,
+    frequency_days: (input.frequency === 'weekly' || input.frequency === 'monthly') ? input.frequency_days : null,
     start_date: input.start_date,
     rotation_member_ids: (input.rotation_member_ids && input.rotation_member_ids.length > 0)
       ? input.rotation_member_ids : null,

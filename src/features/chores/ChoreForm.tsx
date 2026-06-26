@@ -27,6 +27,7 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
   const [instructions, setInstructions] = useState(initial?.instructions ?? '')
   const [steps, setSteps] = useState<string[]>(initial?.steps ?? [])
   const [recipeId, setRecipeId] = useState<string | null>(initial?.recipe_id ?? null)
+  const [monthDay, setMonthDay] = useState<number>(initial?.frequency === 'monthly' ? (initial?.frequency_days?.[0] ?? 1) : 1)
   const { data: recipes = [] } = useRecipes()
 
   function updateStep(i: number, val: string) { setSteps(prev => prev.map((s, j) => j === i ? val : s)) }
@@ -64,7 +65,7 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
     onSubmit({
       name, emoji, color: categoryOf(category).color, category, points,
       frequency,
-      frequency_days: frequency === 'weekly' ? days : null,
+      frequency_days: frequency === 'weekly' ? days : frequency === 'monthly' ? [monthDay] : null,
       start_date: initial?.start_date ?? null,
       rotation_member_ids: rotating ? rotation : null,
       rotation_period: rotationPeriod,
@@ -127,13 +128,22 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
         <div className={styles.field}>
           <span className={styles.label}>Récurrence</span>
           <div className={styles.chipRow}>
-            {[['daily', 'Tous les jours'], ['weekly', 'Jours choisis'], ['none', 'À la demande']].map(([v, l]) => (
+            {[['daily', 'Tous les jours'], ['weekly', 'Jours choisis'], ['monthly', 'Mensuel'], ['none', 'À la demande']].map(([v, l]) => (
               <button type="button" key={v}
                 className={[styles.chip, frequency === v ? styles.chipActive : ''].join(' ')}
                 onClick={() => setFrequency(v)}>{l}</button>
             ))}
           </div>
         </div>
+
+        {frequency === 'monthly' && (
+          <label className={styles.field}>
+            <span className={styles.label}>Jour du mois</span>
+            <input className={styles.input} type="number" min={1} max={31} value={monthDay}
+              onChange={e => setMonthDay(Math.max(1, Math.min(31, Number(e.target.value) || 1)))} />
+            <p className={styles.hint}>Au-delà du nombre de jours du mois (29-31), la tâche tombe le dernier jour.</p>
+          </label>
+        )}
 
         {frequency === 'weekly' && (
           <div className={styles.field}>
