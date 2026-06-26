@@ -300,6 +300,59 @@ export function useToggleStep() {
   })
 }
 
+/** Passe une assignation en « skipped » (excusée) ou la remet « pending ». */
+export function useSetAssignmentStatus() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async ({ assignmentId, status }: { assignmentId: string; status: 'pending' | 'skipped' }) => {
+      const { error } = await supabase
+        .from('chore_assignments')
+        .update({ status } as never)
+        .eq('id', assignmentId)
+      if (error) throw error
+    },
+    onMutate: async ({ assignmentId, status }) => {
+      await queryClient.cancelQueries({ queryKey: ASSIGNMENTS_KEY })
+      const snapshots = queryClient.getQueriesData<ChoreAssignment[]>({ queryKey: ASSIGNMENTS_KEY })
+      for (const [key, data] of snapshots) {
+        if (!data) continue
+        queryClient.setQueryData<ChoreAssignment[]>(key,
+          data.map(a => a.id === assignmentId ? { ...a, status } : a))
+      }
+      return { snapshots }
+    },
+    onError: (_e, _v, ctx) => {
+      ctx?.snapshots?.forEach(([key, data]) => queryClient.setQueryData(key, data))
+      showToast({ type: 'error', message: 'Action impossible.' })
+    },
+  })
+}
+
+/** Réordonne le catalogue de tâches (position = index, RPC en une requête). */
+export function useReorderChores() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async (orderedIds: string[]) => {
+      const { error } = await supabase.rpc('reorder_chores', { p_ids: orderedIds })
+      if (error) throw error
+    },
+    onMutate: async (orderedIds: string[]) => {
+      await queryClient.cancelQueries({ queryKey: CHORES_KEY })
+      const previous = queryClient.getQueryData<Chore[]>(CHORES_KEY) ?? []
+      const byId = new Map(previous.map(c => [c.id, c]))
+      const reordered = orderedIds.map(id => byId.get(id)).filter((c): c is Chore => !!c)
+      queryClient.setQueryData<Chore[]>(CHORES_KEY, reordered)
+      return { previous }
+    },
+    onError: (_e, _v, ctx) => {
+      queryClient.setQueryData(CHORES_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de réordonner.' })
+    },
+  })
+}
+
 // ── Mutations : matérialisation des assignations (rotation) ────────────────────
 
 /** Upsert idempotent (UNIQUE(chore_id,date)) des assignations manquantes. */

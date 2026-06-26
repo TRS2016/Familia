@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, addDays, startOfWeek, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Check, Undo2, Pencil, Trash2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Check, Undo2, Pencil, Trash2, SkipForward } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -12,6 +12,7 @@ import {
   useChores, useChoreAssignments, useRecentChoreLogs, useHouseholdMembers,
   useAddChore, useEditChore, useDeleteChore,
   useMaterializeAssignments, useLogChore, useUndoChoreLog, useToggleStep,
+  useSetAssignmentStatus, useReorderChores,
 } from './useChores'
 import type { Chore, ChoreAssignment } from './useChores'
 import { useChoresRealtime } from './useChoresRealtime'
@@ -52,7 +53,10 @@ export default function ChoresPage() {
   const [adHocOpen, setAdHocOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [recipeView, setRecipeView] = useState<Recipe | null>(null)
+  const [pickDone, setPickDone] = useState<{ a: ChoreAssignment; chore: Chore } | null>(null)
   const toggleStep = useToggleStep()
+  const setStatus = useSetAssignmentStatus()
+  const reorderChores = useReorderChores()
   const { data: recipes = [] } = useRecipes()
   const recipeById = useMemo(() => new Map(recipes.map(r => [r.id, r])), [recipes])
 
@@ -104,10 +108,27 @@ export default function ChoresPage() {
     [assignments, effectiveDay, choreById],
   )
 
-  function markDone(assignmentId: string, chore: Chore, assignedMemberId: string | null) {
-    const memberId = assignedMemberId ?? currentMember?.id
-    if (!memberId) return
+  function markDone(assignmentId: string, chore: Chore, memberId: string) {
     logChore.mutate({ chore_id: chore.id, assignment_id: assignmentId, member_id: memberId, done_on: effectiveDay })
+  }
+
+  // Tâche assignée → crédite l'assigné. Tâche libre + plusieurs membres →
+  // demande qui l'a faite. Sinon → membre courant.
+  function requestDone(a: ChoreAssignment, chore: Chore) {
+    if (a.member_id) { markDone(a.id, chore, a.member_id); return }
+    if (members.length > 1) { setPickDone({ a, chore }); return }
+    const me = currentMember?.id
+    if (me) markDone(a.id, chore, me)
+  }
+
+  // Déplace une tâche dans le catalogue (réordonnancement persistant).
+  function moveChore(id: string, dir: -1 | 1) {
+    const i = chores.findIndex(c => c.id === id)
+    const j = i + dir
+    if (i < 0 || j < 0 || j >= chores.length) return
+    const ids = chores.map(c => c.id)
+    ;[ids[i], ids[j]] = [ids[j], ids[i]]
+    reorderChores.mutate(ids)
   }
 
   return (
@@ -169,18 +190,20 @@ export default function ChoresPage() {
                 const chore = choreById.get(a.chore_id)!
                 const logId = logByAssignment.get(a.id)
                 const done = a.status === 'done' || !!logId
+                const skipped = a.status === 'skipped'
                 const assignee = a.member_id ? members.find(m => m.id === a.member_id) : null
                 const color = a.member_id ? memberColorById.get(a.member_id) : 'var(--accent)'
                 const hasDetail = !!chore.instructions || chore.steps.length > 0
                 const stepsTotal = chore.steps.length
                 const stepsDone = a.steps_done.filter(i => i < stepsTotal).length
                 return (
-                  <li key={a.id} className={[styles.row, done ? styles.rowDone : ''].join(' ')}>
+                  <li key={a.id} className={[styles.row, done ? styles.rowDone : '', skipped ? styles.rowSkipped : ''].join(' ')}>
                     <button className={styles.rowOpen} onClick={() => setDetailId(a.id)}>
                       <span className={styles.rowEmoji} style={{ background: (chore.color ?? categoryOf(chore.category).color) + '22' }}>{chore.emoji}</span>
                       <div className={styles.rowMain}>
                         <span className={styles.rowName}>{chore.name}</span>
                         <span className={styles.rowMeta}>
+                          {skipped && <span className={styles.rotBadge}>passée</span>}
                           {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
                           <span className={styles.points}>+{chore.points} pts</span>
                           {stepsTotal > 0 && <span className={styles.rotBadge}>{stepsDone}/{stepsTotal} étapes</span>}
@@ -192,8 +215,12 @@ export default function ChoresPage() {
                       <button className={styles.undoBtn} disabled={!logId || logId.startsWith('opt-')} onClick={() => logId && !logId.startsWith('opt-') && undoLog.mutate(logId)} aria-label="Annuler">
                         <Undo2 size={16} />
                       </button>
+                    ) : skipped ? (
+                      <button className={styles.undoBtn} onClick={() => setStatus.mutate({ assignmentId: a.id, status: 'pending' })} aria-label="Reprendre">
+                        <Undo2 size={16} />
+                      </button>
                     ) : (
-                      <button className={styles.doneBtn} onClick={() => markDone(a.id, chore, a.member_id)} aria-label="Marquer fait">
+                      <button className={styles.doneBtn} onClick={() => requestDone(a, chore)} aria-label="Marquer fait">
                         <Check size={18} />
                       </button>
                     )}
@@ -209,7 +236,7 @@ export default function ChoresPage() {
           <EmptyState emoji="✨" title="Aucune tâche" description="Crée ta première tâche familiale." />
         ) : (
           <ul className={styles.list}>
-            {chores.map(chore => {
+            {chores.map((chore, i) => {
               const cat = categoryOf(chore.category)
               const rot = chore.rotation_member_ids && chore.rotation_member_ids.length > 0
               return (
@@ -223,6 +250,12 @@ export default function ChoresPage() {
                       {rot && <span className={styles.rotBadge}>rotation</span>}
                     </span>
                   </div>
+                  {chores.length > 1 && (
+                    <span className={styles.moveCol}>
+                      <button className={styles.iconBtn} onClick={() => moveChore(chore.id, -1)} disabled={i === 0} aria-label="Monter"><ChevronUp size={15} /></button>
+                      <button className={styles.iconBtn} onClick={() => moveChore(chore.id, 1)} disabled={i === chores.length - 1} aria-label="Descendre"><ChevronDown size={15} /></button>
+                    </span>
+                  )}
                   <button className={styles.iconBtn} onClick={() => { setEditing(chore); setFormOpen(true) }} aria-label="Modifier"><Pencil size={16} /></button>
                   <button className={styles.iconBtn} onClick={() => { if (confirm(`Supprimer « ${chore.name} » ? Les points déjà gagnés sont conservés.`)) deleteChore.mutate(chore.id) }} aria-label="Supprimer"><Trash2 size={16} /></button>
                 </li>
@@ -256,7 +289,9 @@ export default function ChoresPage() {
             linkedRecipe={chore.recipe_id ? recipeById.get(chore.recipe_id) ?? null : null}
             onOpenRecipe={(r) => setRecipeView(r)}
             onToggleStep={(stepsDone) => toggleStep.mutate({ assignmentId: a.id, stepsDone })}
-            onMarkDone={() => { markDone(a.id, chore, a.member_id); setDetailId(null) }}
+            onMarkDone={() => { setDetailId(null); requestDone(a, chore) }}
+            onSkip={() => { setStatus.mutate({ assignmentId: a.id, status: 'skipped' }); setDetailId(null) }}
+            onResume={() => { setStatus.mutate({ assignmentId: a.id, status: 'pending' }); setDetailId(null) }}
             onUndo={() => { if (logId && !logId.startsWith('opt-')) undoLog.mutate(logId); setDetailId(null) }}
             onClose={() => setDetailId(null)}
           />
@@ -265,6 +300,19 @@ export default function ChoresPage() {
 
       {recipeView && (
         <RecipeDetailModal recipe={recipeView} showCooked={false} onClose={() => setRecipeView(null)} />
+      )}
+
+      {pickDone && (
+        <SlideUpModal title="Qui a fait cette tâche ?" onClose={() => setPickDone(null)}>
+          <div className={styles.pickList}>
+            {members.map(m => (
+              <button key={m.id} className={styles.pickBtn}
+                onClick={() => { markDone(pickDone.a.id, pickDone.chore, m.id); setPickDone(null) }}>
+                {m.display_name}
+              </button>
+            ))}
+          </div>
+        </SlideUpModal>
       )}
 
       {adHocOpen && (
@@ -290,11 +338,13 @@ interface DetailProps {
   onOpenRecipe?: (r: Recipe) => void
   onToggleStep: (stepsDone: number[]) => void
   onMarkDone: () => void
+  onSkip: () => void
+  onResume: () => void
   onUndo: () => void
   onClose: () => void
 }
 
-function TaskDetailSheet({ chore, assignment, done, linkedRecipe, onOpenRecipe, onToggleStep, onMarkDone, onUndo, onClose }: DetailProps) {
+function TaskDetailSheet({ chore, assignment, done, linkedRecipe, onOpenRecipe, onToggleStep, onMarkDone, onSkip, onResume, onUndo, onClose }: DetailProps) {
   const doneSet = new Set(assignment.steps_done)
   function toggle(i: number) {
     const next = new Set(doneSet)
@@ -337,9 +387,18 @@ function TaskDetailSheet({ chore, assignment, done, linkedRecipe, onOpenRecipe, 
           </div>
         )}
 
-        {done
-          ? <button className={styles.deleteBtn} onClick={onUndo}>Annuler « fait »</button>
-          : <button className={styles.submitBtn} onClick={onMarkDone}>Marquer fait</button>}
+        {done ? (
+          <button className={styles.deleteBtn} onClick={onUndo}>Annuler « fait »</button>
+        ) : assignment.status === 'skipped' ? (
+          <button className={styles.submitBtn} onClick={onResume}>Reprendre la tâche</button>
+        ) : (
+          <>
+            <button className={styles.submitBtn} onClick={onMarkDone}>Marquer fait</button>
+            <button className={styles.skipBtn} onClick={onSkip}>
+              <SkipForward size={15} /> Passer aujourd'hui
+            </button>
+          </>
+        )}
       </div>
     </SlideUpModal>
   )

@@ -61,38 +61,51 @@ Deno.serve(async (_req: Request) => {
 
   let totalSent = 0
 
-  for (const a of toRemind) {
-    // Cible : la personne assignée (si notifications activées), sinon tout le
-    // foyer pour une tâche « libre » (member_id null).
-    let q = supabase.from('members').select('id')
-      .eq('household_id', a.household_id).eq('notifications_enabled', true)
-    if (a.member_id) q = q.eq('id', a.member_id)
-    const { data: members } = await q
+  // ── Digest : 1 notification par membre listant ses tâches du soir ───────────
+  // (au lieu d'une push par tâche). Tâche assignée → l'assigné ; tâche libre →
+  // tous les membres du foyer (notifications activées).
+  const households = [...new Set(toRemind.map(a => a.household_id))]
+  for (const hh of households) {
+    const { data: members } = await supabase.from('members')
+      .select('id').eq('household_id', hh).eq('notifications_enabled', true)
     if (!members || members.length === 0) continue
-
     const memberIds = members.map((m: { id: string }) => m.id)
-    const { data: subs } = await supabase
-      .from('push_subscriptions')
-      .select('endpoint, p256dh, auth')
-      .in('member_id', memberIds)
-    if (!subs || subs.length === 0) continue
 
-    const payload = JSON.stringify({
-      title: `${a.chore!.emoji} ${a.chore!.name}`,
-      body: 'Tâche encore à faire aujourd\'hui',
-      module: 'chores',
-      tag: `chore-${a.id}`,
-      actions: [{ action: 'view', title: 'Voir' }],
-    })
+    // memberId → libellés de tâches à lui rappeler
+    const byMember = new Map<string, string[]>(memberIds.map(id => [id, []]))
+    for (const a of toRemind.filter(x => x.household_id === hh)) {
+      const label = `${a.chore!.emoji} ${a.chore!.name}`
+      if (a.member_id) byMember.get(a.member_id)?.push(label)
+      else for (const id of memberIds) byMember.get(id)!.push(label)
+    }
 
-    const { sent, dead, ok } = await sendPush(subs, payload)
-    totalSent += sent
-    await cleanupAndTouch(supabase, dead, ok)
+    for (const [memberId, labels] of byMember) {
+      if (labels.length === 0) continue
+      const { data: subs } = await supabase.from('push_subscriptions')
+        .select('endpoint, p256dh, auth').eq('member_id', memberId)
+      if (!subs || subs.length === 0) continue
 
-    await supabase
-      .from('chore_reminders_sent')
-      .upsert({ assignment_id: a.id, sent_date: todayStr }, { onConflict: 'assignment_id,sent_date', ignoreDuplicates: true })
+      const body = labels.length === 1
+        ? `${labels[0]} — encore à faire ce soir`
+        : `${labels.length} tâches encore à faire : ${labels.slice(0, 4).join(', ')}${labels.length > 4 ? '…' : ''}`
+      const payload = JSON.stringify({
+        title: '🧹 Tâches du soir',
+        body,
+        module: 'chores',
+        tag: 'chores-evening-digest',
+        actions: [{ action: 'view', title: 'Voir' }],
+      })
+      const { sent, dead, ok } = await sendPush(subs, payload)
+      totalSent += sent
+      await cleanupAndTouch(supabase, dead, ok)
+    }
   }
+
+  // Marque toutes les assignations rappelées (dédup par jour).
+  await supabase.from('chore_reminders_sent').upsert(
+    toRemind.map(a => ({ assignment_id: a.id, sent_date: todayStr })),
+    { onConflict: 'assignment_id,sent_date', ignoreDuplicates: true },
+  )
 
   // Ménage : marqueurs de plus de 7 jours.
   const purgeBefore = parisDate(new Date(now.getTime() - 7 * 24 * 3600 * 1000))

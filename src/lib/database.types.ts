@@ -2123,6 +2123,7 @@ export type Database = {
         Args: { p_member_id: string; p_reward_id: string }
         Returns: string
       }
+      reorder_chores: { Args: { p_ids: string[] }; Returns: undefined }
       reorder_habits: { Args: { p_ids: string[] }; Returns: undefined }
       reorder_training_presets: {
         Args: { p_ids: string[] }
