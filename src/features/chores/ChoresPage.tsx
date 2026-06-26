@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, addDays, startOfWeek, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Check, Undo2, Pencil, Trash2, SkipForward } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Check, Undo2, Pencil, Trash2, SkipForward, Camera } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -12,9 +12,10 @@ import {
   useChores, useChoreAssignments, useRecentChoreLogs, useHouseholdMembers,
   useAddChore, useEditChore, useDeleteChore,
   useMaterializeAssignments, useLogChore, useUndoChoreLog, useToggleStep,
-  useSetAssignmentStatus, useReorderChores,
+  useSetAssignmentStatus, useReorderChores, useAddChoreProof, useChoreProofUrl,
 } from './useChores'
-import type { Chore, ChoreAssignment } from './useChores'
+import type { Chore, ChoreAssignment, ChoreLog } from './useChores'
+import { supabase } from '../../lib/supabase'
 import { useChoresRealtime } from './useChoresRealtime'
 import { isApplicable, dueMemberFor, weekDates } from './chores.utils'
 import { categoryOf } from './categories'
@@ -94,6 +95,11 @@ export default function ChoresPage() {
     for (const l of logs) if (l.assignment_id) m.set(l.assignment_id, l.id)
     return m
   }, [logs])
+  const logObjByAssignment = useMemo(() => {
+    const m = new Map<string, ChoreLog>()
+    for (const l of logs) if (l.assignment_id) m.set(l.assignment_id, l)
+    return m
+  }, [logs])
 
   const today = format(new Date(), 'yyyy-MM-dd')
   const [selectedDay, setSelectedDay] = useState(today)
@@ -108,8 +114,17 @@ export default function ChoresPage() {
     [assignments, effectiveDay, choreById],
   )
 
+  // Au-delà de ce seuil de points, on prévient le foyer qu'une grosse tâche est faite.
+  const BIG_TASK_POINTS = 20
+
   function markDone(assignmentId: string, chore: Chore, memberId: string) {
     logChore.mutate({ chore_id: chore.id, assignment_id: assignmentId, member_id: memberId, done_on: effectiveDay })
+    if (chore.points >= BIG_TASK_POINTS) {
+      const who = members.find(m => m.id === memberId)?.display_name ?? 'Quelqu\'un'
+      void supabase.functions.invoke('notify-household', {
+        body: { title: `${chore.emoji} Tâche faite`, body: `${who} a fait « ${chore.name} » (+${chore.points} pts)`, module: 'chores' },
+      })
+    }
   }
 
   // Tâche assignée → crédite l'assigné. Tâche libre + plusieurs membres →
@@ -286,6 +301,7 @@ export default function ChoresPage() {
         return (
           <TaskDetailSheet
             chore={chore} assignment={a} done={done}
+            log={logObjByAssignment.get(a.id) ?? null}
             linkedRecipe={chore.recipe_id ? recipeById.get(chore.recipe_id) ?? null : null}
             onOpenRecipe={(r) => setRecipeView(r)}
             onToggleStep={(stepsDone) => toggleStep.mutate({ assignmentId: a.id, stepsDone })}
@@ -334,6 +350,7 @@ interface DetailProps {
   chore: Chore
   assignment: ChoreAssignment
   done: boolean
+  log?: ChoreLog | null
   linkedRecipe?: Recipe | null
   onOpenRecipe?: (r: Recipe) => void
   onToggleStep: (stepsDone: number[]) => void
@@ -344,7 +361,10 @@ interface DetailProps {
   onClose: () => void
 }
 
-function TaskDetailSheet({ chore, assignment, done, linkedRecipe, onOpenRecipe, onToggleStep, onMarkDone, onSkip, onResume, onUndo, onClose }: DetailProps) {
+function TaskDetailSheet({ chore, assignment, done, log, linkedRecipe, onOpenRecipe, onToggleStep, onMarkDone, onSkip, onResume, onUndo, onClose }: DetailProps) {
+  const addProof = useAddChoreProof()
+  const { data: proofUrl } = useChoreProofUrl(log?.photo_path ?? null)
+  const proofInputRef = useRef<HTMLInputElement>(null)
   const doneSet = new Set(assignment.steps_done)
   function toggle(i: number) {
     const next = new Set(doneSet)
@@ -384,6 +404,25 @@ function TaskDetailSheet({ chore, assignment, done, linkedRecipe, onOpenRecipe, 
                 </li>
               ))}
             </ul>
+          </div>
+        )}
+
+        {done && log && !log.id.startsWith('opt-') && (
+          <div className={styles.detailBlock}>
+            <span className={styles.label}>Preuve photo</span>
+            {proofUrl ? (
+              <img src={proofUrl} className={styles.proofImg} alt="Preuve de la tâche réalisée" />
+            ) : (
+              <>
+                <button type="button" className={styles.skipBtn} onClick={() => proofInputRef.current?.click()} disabled={addProof.isPending}>
+                  <Camera size={15} /> {addProof.isPending ? 'Envoi…' : 'Ajouter une preuve'}
+                </button>
+                <input
+                  ref={proofInputRef} type="file" accept="image/*" capture="environment" style={{ display: 'none' }}
+                  onChange={e => { const f = e.target.files?.[0]; if (f) addProof.mutate({ logId: log.id, file: f }); if (e.target) e.target.value = '' }}
+                />
+              </>
+            )}
           </div>
         )}
 

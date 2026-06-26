@@ -105,6 +105,7 @@ export type Database = {
           label: string | null
           member_id: string
           note: string | null
+          photo_path: string | null
           points_awarded: number
         }
         Insert: {
@@ -117,6 +118,7 @@ export type Database = {
           label?: string | null
           member_id: string
           note?: string | null
+          photo_path?: string | null
           points_awarded?: number
         }
         Update: {
@@ -129,6 +131,7 @@ export type Database = {
           label?: string | null
           member_id?: string
           note?: string | null
+          photo_path?: string | null
           points_awarded?: number
         }
         Relationships: [

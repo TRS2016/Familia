@@ -50,6 +50,7 @@ export interface ChoreLog {
   label: string | null
   points_awarded: number
   note: string | null
+  photo_path: string | null
   created_at: string
 }
 
@@ -373,6 +374,51 @@ export function useMaterializeAssignments() {
   })
 }
 
+// ── Preuve photo d'une tâche réalisée ─────────────────────────────────────────
+
+/** Compresse + uploade une photo de preuve dans family-moments et la lie au log. */
+export function useAddChoreProof() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async ({ logId, file }: { logId: string; file: File }) => {
+      let toUpload: File = file
+      if (file.size > 1_048_576) {
+        const { default: imageCompression } = await import('browser-image-compression')
+        toUpload = await imageCompression(file, { maxSizeMB: 1, maxWidthOrHeight: 1600, useWebWorker: true })
+      }
+      const ext = (toUpload.name.split('.').pop() || 'jpg').toLowerCase()
+      const path = `${HOUSEHOLD_ID}/chores/${crypto.randomUUID()}.${ext}`
+      const { error: upErr } = await supabase.storage.from('family-moments')
+        .upload(path, toUpload, { contentType: toUpload.type || 'image/jpeg' })
+      if (upErr) throw upErr
+      const { error } = await supabase.from('chore_logs').update({ photo_path: path } as never).eq('id', logId)
+      if (error) { await supabase.storage.from('family-moments').remove([path]); throw error }
+      return path
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: LOGS_KEY })
+      showToast({ type: 'success', message: 'Photo ajoutée 📷' })
+    },
+    onError: () => showToast({ type: 'error', message: 'Impossible d\'ajouter la photo.' }),
+  })
+}
+
+/** URL signée d'une preuve photo (cache 25 min). */
+export function useChoreProofUrl(path: string | null) {
+  return useQuery({
+    queryKey: ['chore-proof-url', path],
+    queryFn: async (): Promise<string> => {
+      const { data, error } = await supabase.storage.from('family-moments').createSignedUrl(path!, 1800)
+      if (error) throw error
+      return data.signedUrl
+    },
+    enabled: !!path,
+    staleTime: 25 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  })
+}
+
 // ── Mutations : pointage (RPC atomique) ───────────────────────────────────────
 
 export interface LogChoreInput {
@@ -416,7 +462,7 @@ export function useLogChore() {
         id: `opt-${input.assignment_id}`, household_id: HOUSEHOLD_ID,
         chore_id: input.chore_id, assignment_id: input.assignment_id, member_id: input.member_id,
         done_on: input.done_on, label: input.label ?? null, points_awarded: 0,
-        note: input.note ?? null, created_at: new Date().toISOString(),
+        note: input.note ?? null, photo_path: null, created_at: new Date().toISOString(),
       }
       queryClient.setQueryData<ChoreLog[]>(RECENT_LOGS_KEY, [optimistic, ...previous])
       return { previous }

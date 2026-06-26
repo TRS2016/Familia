@@ -116,6 +116,7 @@
 .detail { display: flex; flex-direction: column; gap: 16px; padding: 4px 16px 20px; }
 .detailBlock { display: flex; flex-direction: column; gap: 8px; }
 .rowSkipped { opacity: 0.55; }
+.proofImg { width: 100%; max-height: 280px; object-fit: cover; border-radius: var(--radius-sm); }
 .moveCol { display: flex; flex-direction: column; gap: 1px; flex-shrink: 0; }
 .pickList { display: flex; flex-direction: column; gap: 8px; padding: 4px 16px 20px; }
 .pickBtn {
