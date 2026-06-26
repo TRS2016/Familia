@@ -26,6 +26,7 @@ export interface Chore {
   created_at: string
   instructions: string | null
   steps: string[]
+  recipe_id: string | null
 }
 
 export interface ChoreAssignment {
@@ -71,6 +72,7 @@ export interface NewChoreInput {
   default_member_id: string | null
   instructions: string | null
   steps: string[]
+  recipe_id: string | null
 }
 
 export interface EditChoreInput extends NewChoreInput { id: string }
@@ -265,6 +267,7 @@ function normalize(input: NewChoreInput) {
     default_member_id: input.default_member_id,
     instructions: input.instructions?.trim() || null,
     steps: input.steps.map(s => s.trim()).filter(Boolean),
+    recipe_id: input.recipe_id ?? null,
   }
 }
 

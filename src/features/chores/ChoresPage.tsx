@@ -20,6 +20,9 @@ import { categoryOf } from './categories'
 import ChoreForm from './ChoreForm'
 import ProgressionTab from './ProgressionTab'
 import RewardsTab from './RewardsTab'
+import { useRecipes } from '../recipes/useRecipes'
+import type { Recipe } from '../recipes/useRecipes'
+import RecipeDetailModal from '../recipes/RecipeDetailModal'
 import styles from './ChoresPage.module.css'
 
 type Tab = 'todo' | 'progress' | 'rewards' | 'catalog'
@@ -48,7 +51,10 @@ export default function ChoresPage() {
   const [editing, setEditing] = useState<Chore | null>(null)
   const [adHocOpen, setAdHocOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [recipeView, setRecipeView] = useState<Recipe | null>(null)
   const toggleStep = useToggleStep()
+  const { data: recipes = [] } = useRecipes()
+  const recipeById = useMemo(() => new Map(recipes.map(r => [r.id, r])), [recipes])
 
   const memberColorById = useMemo(() => {
     const m = new Map<string, string>()
@@ -247,6 +253,8 @@ export default function ChoresPage() {
         return (
           <TaskDetailSheet
             chore={chore} assignment={a} done={done}
+            linkedRecipe={chore.recipe_id ? recipeById.get(chore.recipe_id) ?? null : null}
+            onOpenRecipe={(r) => setRecipeView(r)}
             onToggleStep={(stepsDone) => toggleStep.mutate({ assignmentId: a.id, stepsDone })}
             onMarkDone={() => { markDone(a.id, chore, a.member_id); setDetailId(null) }}
             onUndo={() => { if (logId && !logId.startsWith('opt-')) undoLog.mutate(logId); setDetailId(null) }}
@@ -254,6 +262,10 @@ export default function ChoresPage() {
           />
         )
       })()}
+
+      {recipeView && (
+        <RecipeDetailModal recipe={recipeView} showCooked={false} onClose={() => setRecipeView(null)} />
+      )}
 
       {adHocOpen && (
         <AdHocModal
@@ -274,13 +286,15 @@ interface DetailProps {
   chore: Chore
   assignment: ChoreAssignment
   done: boolean
+  linkedRecipe?: Recipe | null
+  onOpenRecipe?: (r: Recipe) => void
   onToggleStep: (stepsDone: number[]) => void
   onMarkDone: () => void
   onUndo: () => void
   onClose: () => void
 }
 
-function TaskDetailSheet({ chore, assignment, done, onToggleStep, onMarkDone, onUndo, onClose }: DetailProps) {
+function TaskDetailSheet({ chore, assignment, done, linkedRecipe, onOpenRecipe, onToggleStep, onMarkDone, onUndo, onClose }: DetailProps) {
   const doneSet = new Set(assignment.steps_done)
   function toggle(i: number) {
     const next = new Set(doneSet)
@@ -293,6 +307,12 @@ function TaskDetailSheet({ chore, assignment, done, onToggleStep, onMarkDone, on
     <SlideUpModal title={`${chore.emoji} ${chore.name}`} onClose={onClose}>
       <div className={styles.detail}>
         <span className={styles.points}>+{chore.points} pts</span>
+
+        {linkedRecipe && onOpenRecipe && (
+          <button type="button" className={styles.recipeLinkBtn} onClick={() => onOpenRecipe(linkedRecipe)}>
+            📖 Voir la recette — {linkedRecipe.title}
+          </button>
+        )}
 
         {chore.instructions && (
           <div className={styles.detailBlock}>

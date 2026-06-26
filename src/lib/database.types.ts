@@ -204,6 +204,7 @@ export type Database = {
           name: string
           points: number
           position: number | null
+          recipe_id: string | null
           rotation_member_ids: string[] | null
           rotation_period: string
           start_date: string | null
@@ -224,6 +225,7 @@ export type Database = {
           name: string
           points?: number
           position?: number | null
+          recipe_id?: string | null
           rotation_member_ids?: string[] | null
           rotation_period?: string
           start_date?: string | null
@@ -244,6 +246,7 @@ export type Database = {
           name?: string
           points?: number
           position?: number | null
+          recipe_id?: string | null
           rotation_member_ids?: string[] | null
           rotation_period?: string
           start_date?: string | null
@@ -262,6 +265,13 @@ export type Database = {
             columns: ["household_id"]
             isOneToOne: false
             referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chores_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
             referencedColumns: ["id"]
           },
         ]

@@ -4,6 +4,7 @@ import SlideUpModal from '../../components/SlideUpModal'
 import { CHORE_CATEGORIES, categoryOf } from './categories'
 import { EMOJI_PALETTE, WEEK_LABELS } from './chores.utils'
 import type { Chore, NewChoreInput, HouseholdMember } from './useChores'
+import { useRecipes, MEAL_TYPES, mealMeta } from '../recipes/useRecipes'
 import styles from './ChoresPage.module.css'
 
 interface Props {
@@ -25,6 +26,8 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
   const [defaultMember, setDefaultMember] = useState<string | null>(initial?.default_member_id ?? null)
   const [instructions, setInstructions] = useState(initial?.instructions ?? '')
   const [steps, setSteps] = useState<string[]>(initial?.steps ?? [])
+  const [recipeId, setRecipeId] = useState<string | null>(initial?.recipe_id ?? null)
+  const { data: recipes = [] } = useRecipes()
 
   function updateStep(i: number, val: string) { setSteps(prev => prev.map((s, j) => j === i ? val : s)) }
   function addStep() { setSteps(prev => [...prev, '']) }
@@ -68,8 +71,18 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
       default_member_id: rotating ? null : (rotation.length === 1 ? rotation[0] : defaultMember),
       instructions: instructions.trim() || null,
       steps,
+      recipe_id: recipeId,
     })
     onClose()
+  }
+
+  function pickRecipe(id: string) {
+    setRecipeId(id || null)
+    // Pré-remplit le nom si vide, pour une tâche « cuisiner ».
+    if (id && !name.trim()) {
+      const r = recipes.find(x => x.id === id)
+      if (r) setName(`Cuisiner : ${r.title}`)
+    }
   }
 
   return (
@@ -173,6 +186,24 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
               ))}
             </div>
           </div>
+        )}
+
+        {recipes.length > 0 && (
+          <label className={styles.field}>
+            <span className={styles.label}>Recette liée (optionnel)</span>
+            <select className={styles.input} value={recipeId ?? ''} onChange={e => pickRecipe(e.target.value)}>
+              <option value="">Aucune</option>
+              {MEAL_TYPES.map(t => {
+                const inMeal = recipes.filter(r => r.meal_type === t)
+                if (inMeal.length === 0) return null
+                return (
+                  <optgroup key={t} label={`${mealMeta(t).emoji} ${mealMeta(t).label}`}>
+                    {inMeal.map(r => <option key={r.id} value={r.id}>{r.title}</option>)}
+                  </optgroup>
+                )
+              })}
+            </select>
+          </label>
         )}
 
         <label className={styles.field}>
