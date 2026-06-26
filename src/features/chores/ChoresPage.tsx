@@ -52,6 +52,7 @@ export default function ChoresPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Chore | null>(null)
   const [adHocOpen, setAdHocOpen] = useState(false)
+  const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [recipeView, setRecipeView] = useState<Recipe | null>(null)
   const [pickDone, setPickDone] = useState<{ a: ChoreAssignment; chore: Chore } | null>(null)
@@ -178,18 +179,26 @@ export default function ChoresPage() {
       <header className={styles.header}>
         <Link to="/" className={styles.backLink} aria-label="Accueil"><ChevronLeft size={24} /></Link>
         <h1 className={styles.pageTitle}>Tâches</h1>
-        <div className={styles.headerActions}>
-          {tab === 'todo' && (
-            <button className={styles.statsBtn} onClick={() => setAdHocOpen(true)}>
-              <Plus size={15} /> Tâche faite
+        {(tab === 'todo' || tab === 'catalog') && (
+          <div className={styles.headerActions}>
+            <button className={styles.statsBtn} onClick={() => setAddMenuOpen(o => !o)} aria-haspopup="menu" aria-expanded={addMenuOpen}>
+              <Plus size={15} /> Ajouter
             </button>
-          )}
-          {tab === 'catalog' && (
-            <button className={styles.statsBtn} onClick={() => { setEditing(null); setFormOpen(true) }}>
-              <Plus size={15} /> Tâche
-            </button>
-          )}
-        </div>
+            {addMenuOpen && (
+              <>
+                <div className={styles.menuBackdrop} onClick={() => setAddMenuOpen(false)} />
+                <div className={styles.addMenu} role="menu">
+                  <button role="menuitem" onClick={() => { setAddMenuOpen(false); setEditing(null); setFormOpen(true) }}>
+                    ✨ Nouvelle tâche <span>(catalogue)</span>
+                  </button>
+                  <button role="menuitem" onClick={() => { setAddMenuOpen(false); setAdHocOpen(true) }}>
+                    ✓ Tâche faite <span>(déclarer)</span>
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </header>
 
       <div className={styles.tabs}>
