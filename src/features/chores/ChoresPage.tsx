@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, addDays, startOfWeek, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Check, Undo2, Pencil, Trash2, SkipForward, Camera } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Check, Undo2, Pencil, Trash2, SkipForward, Camera, Copy, Sparkles } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -14,11 +14,11 @@ import {
   useMaterializeAssignments, useLogChore, useUndoChoreLog, useToggleStep,
   useSetAssignmentStatus, useReorderChores, useAddChoreProof, useChoreProofUrl,
 } from './useChores'
-import type { Chore, ChoreAssignment, ChoreLog } from './useChores'
+import type { Chore, ChoreAssignment, ChoreLog, NewChoreInput } from './useChores'
 import { supabase } from '../../lib/supabase'
 import { useChoresRealtime } from './useChoresRealtime'
 import { isApplicable, dueMemberFor, weekDates } from './chores.utils'
-import { categoryOf } from './categories'
+import { categoryOf, CHORE_SUGGESTIONS } from './categories'
 import ChoreForm from './ChoreForm'
 import ProgressionTab from './ProgressionTab'
 import RewardsTab from './RewardsTab'
@@ -134,6 +134,33 @@ export default function ChoresPage() {
     if (members.length > 1) { setPickDone({ a, chore }); return }
     const me = currentMember?.id
     if (me) markDone(a.id, chore, me)
+  }
+
+  // Suggestions de tâches courantes pas encore présentes dans le catalogue.
+  const suggestions = useMemo(() => {
+    const have = new Set(chores.map(c => c.name.trim().toLowerCase()))
+    return CHORE_SUGGESTIONS.filter(s => !have.has(s.name.trim().toLowerCase()))
+  }, [chores])
+
+  // Ajoute une tâche courante en un tap (défauts raisonnables, à affiner ensuite).
+  function addSuggestion(s: typeof CHORE_SUGGESTIONS[number]) {
+    addChore.mutate({
+      name: s.name, emoji: s.emoji, color: null, category: s.category, points: s.points,
+      frequency: 'none', frequency_days: null, start_date: null,
+      rotation_member_ids: null, rotation_period: 'week', default_member_id: null,
+      instructions: null, steps: [], recipe_id: null,
+    })
+  }
+
+  // Duplique une tâche existante du catalogue (copie modifiable).
+  function duplicateChore(chore: Chore) {
+    addChore.mutate({
+      name: `${chore.name} (copie)`, emoji: chore.emoji, color: chore.color, category: chore.category,
+      points: chore.points, frequency: chore.frequency, frequency_days: chore.frequency_days,
+      start_date: chore.start_date, rotation_member_ids: chore.rotation_member_ids,
+      rotation_period: chore.rotation_period, default_member_id: chore.default_member_id,
+      instructions: chore.instructions, steps: chore.steps, recipe_id: chore.recipe_id,
+    })
   }
 
   // Déplace une tâche dans le catalogue (réordonnancement persistant).
@@ -272,12 +299,27 @@ export default function ChoresPage() {
                     </span>
                   )}
                   <button className={styles.iconBtn} onClick={() => { setEditing(chore); setFormOpen(true) }} aria-label="Modifier"><Pencil size={16} /></button>
+                  <button className={styles.iconBtn} onClick={() => duplicateChore(chore)} aria-label="Dupliquer"><Copy size={16} /></button>
                   <button className={styles.iconBtn} onClick={() => { if (confirm(`Supprimer « ${chore.name} » ? Les points déjà gagnés sont conservés.`)) deleteChore.mutate(chore.id) }} aria-label="Supprimer"><Trash2 size={16} /></button>
                 </li>
               )
             })}
           </ul>
         )
+      )}
+
+      {tab === 'catalog' && suggestions.length > 0 && (
+        <section className={styles.suggestBlock}>
+          <h2 className={styles.suggestTitle}><Sparkles size={15} /> Suggestions</h2>
+          <p className={styles.suggestHint}>Ajoute une tâche courante en un tap, puis affine-la si besoin.</p>
+          <div className={styles.suggestChips}>
+            {suggestions.map(s => (
+              <button key={s.name} className={styles.suggestChip} onClick={() => addSuggestion(s)} disabled={addChore.isPending}>
+                <span>{s.emoji}</span> {s.name} <span className={styles.suggestPts}>+{s.points}</span>
+              </button>
+            ))}
+          </div>
+        </section>
       )}
 
       {formOpen && (
@@ -338,6 +380,7 @@ export default function ChoresPage() {
           defaultMemberId={currentMember?.id ?? null}
           onClose={() => setAdHocOpen(false)}
           onSubmit={(input) => { logChore.mutate(input); setAdHocOpen(false) }}
+          onSaveAsChore={(input) => addChore.mutate(input)}
         />
       )}
     </div>
@@ -451,18 +494,28 @@ interface AdHocProps {
   defaultMemberId: string | null
   onClose: () => void
   onSubmit: (input: { chore_id: string | null; assignment_id: null; member_id: string; done_on: string; label: string | null; points: number | null }) => void
+  onSaveAsChore: (input: NewChoreInput) => void
 }
 
-function AdHocModal({ chores, members, defaultMemberId, onClose, onSubmit }: AdHocProps) {
+function AdHocModal({ chores, members, defaultMemberId, onClose, onSubmit, onSaveAsChore }: AdHocProps) {
   const [choreId, setChoreId] = useState<string | null>(chores[0]?.id ?? null)
   const [label, setLabel] = useState('')
   const [points, setPoints] = useState(10)
   const [memberId, setMemberId] = useState<string | null>(defaultMemberId)
+  const [saveTemplate, setSaveTemplate] = useState(false)
   const useFree = choreId === '__free__'
 
   function submit() {
     if (!memberId) return
     if (useFree && !label.trim()) return
+    if (useFree && saveTemplate) {
+      onSaveAsChore({
+        name: label.trim(), emoji: '✨', color: null, category: 'autre', points,
+        frequency: 'none', frequency_days: null, start_date: null,
+        rotation_member_ids: null, rotation_period: 'week', default_member_id: null,
+        instructions: null, steps: [], recipe_id: null,
+      })
+    }
     onSubmit({
       chore_id: useFree ? null : choreId,
       assignment_id: null,
@@ -493,6 +546,10 @@ function AdHocModal({ chores, members, defaultMemberId, onClose, onSubmit }: AdH
               <span className={styles.label}>Points</span>
               <input className={styles.input} type="number" min={0} max={100} value={points}
                 onChange={e => setPoints(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} />
+            </label>
+            <label className={styles.checkRow}>
+              <input type="checkbox" checked={saveTemplate} onChange={e => setSaveTemplate(e.target.checked)} />
+              <span>Enregistrer aussi dans le catalogue (tâche à la demande)</span>
             </label>
           </>
         )}

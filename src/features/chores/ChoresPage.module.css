@@ -331,3 +331,37 @@
   padding: 8px 12px; border-radius: 12px; background: var(--bg-input);
   font-size: var(--text-2xs); color: var(--text); font-weight: 600;
 }
+
+/* Suggestions de tâches courantes (catalogue) */
+.suggestBlock { margin-top: 20px; }
+.suggestTitle {
+  display: flex; align-items: center; gap: 6px;
+  margin: 0 0 4px; font-size: var(--text-sm); font-weight: 800; color: var(--text);
+}
+.suggestTitle svg { color: var(--accent); }
+.suggestHint { margin: 0 0 10px; font-size: var(--text-2xs); color: var(--text-muted, #999); }
+.suggestChips { display: flex; flex-wrap: wrap; gap: 8px; }
+.suggestChip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 99px;
+  border: 1.5px dashed var(--border, #d8cdb8); background: transparent;
+  font-family: var(--font-family); font-weight: 700; font-size: var(--text-2xs); color: var(--text);
+  cursor: pointer; transition: border-color 0.15s, color 0.15s;
+}
+.suggestChip:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+.suggestChip:disabled { opacity: 0.5; cursor: default; }
+.suggestPts { font-weight: 800; color: var(--accent); }
+
+/* Création rapide : bouton pour déplier les options avancées */
+.advancedToggle {
+  align-self: flex-start; background: transparent; border: none; cursor: pointer;
+  padding: 4px 0; font-family: var(--font-family); font-weight: 700;
+  font-size: var(--text-2xs); color: var(--accent);
+}
+
+/* Case à cocher (ad-hoc : enregistrer dans le catalogue) */
+.checkRow {
+  display: flex; align-items: center; gap: 8px;
+  font-size: var(--text-2xs); color: var(--text-muted, #888); cursor: pointer;
+}
+.checkRow input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }

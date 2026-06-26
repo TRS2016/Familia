@@ -28,6 +28,7 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
   const [steps, setSteps] = useState<string[]>(initial?.steps ?? [])
   const [recipeId, setRecipeId] = useState<string | null>(initial?.recipe_id ?? null)
   const [monthDay, setMonthDay] = useState<number>(initial?.frequency === 'monthly' ? (initial?.frequency_days?.[0] ?? 1) : 1)
+  const [showAdvanced, setShowAdvanced] = useState(!!initial)
   const { data: recipes = [] } = useRecipes()
 
   function updateStep(i: number, val: string) { setSteps(prev => prev.map((s, j) => j === i ? val : s)) }
@@ -125,6 +126,13 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
             onChange={e => setPoints(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} />
         </label>
 
+        {!showAdvanced && (
+          <button type="button" className={styles.advancedToggle} onClick={() => setShowAdvanced(true)}>
+            + Configurer plus (récurrence, rotation, étapes…)
+          </button>
+        )}
+
+        {showAdvanced && (<>
         <div className={styles.field}>
           <span className={styles.label}>Récurrence</span>
           <div className={styles.chipRow}>
@@ -236,6 +244,7 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
           ))}
           <button type="button" className={styles.addStepBtn} onClick={addStep}>+ Ajouter une étape</button>
         </div>
+        </>)}
 
         <button type="submit" className={styles.submitBtn}>
           {initial ? 'Enregistrer' : 'Créer la tâche'}
