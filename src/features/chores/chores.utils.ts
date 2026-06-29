@@ -63,7 +63,7 @@ export const FREQ_OPTS = [
 // ── Série de jours par membre (pour les badges streak) ────────────────────────
 // Les compteurs « à vie » (total, par catégorie) viennent d'un agrégat serveur
 // (chore_counts_by_category) ; ici on n'a besoin que de la série, calculable sur
-// la fenêtre de logs récents (60 j) chargée par la page.
+// la fenêtre de logs récents (120 j) chargée par la page.
 
 interface LogLike { member_id: string; done_on: string }
 

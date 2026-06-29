@@ -68,13 +68,13 @@ export default function RewardsTab({ members, currentMemberId }: Props) {
                 <div className={styles.actionRow}>
                   {r.status === 'requested' && !mine && (
                     <>
-                      <button className={styles.approveBtn} onClick={() => resolve.mutate({ id: r.id, status: 'approved' })}><Check size={15} /> Approuver</button>
-                      <button className={styles.declineBtn} onClick={() => resolve.mutate({ id: r.id, status: 'declined' })}><X size={15} /> Refuser</button>
+                      <button className={styles.approveBtn} onClick={() => resolve.mutate({ id: r.id, status: 'approved', label: r.label })}><Check size={15} /> Approuver</button>
+                      <button className={styles.declineBtn} onClick={() => resolve.mutate({ id: r.id, status: 'declined', label: r.label })}><X size={15} /> Refuser</button>
                     </>
                   )}
                   {r.status === 'requested' && mine && <span className={styles.hint}>En attente de validation</span>}
                   {r.status === 'approved' && (
-                    <button className={styles.approveBtn} onClick={() => resolve.mutate({ id: r.id, status: 'fulfilled' })}><Check size={15} /> Marquer remise</button>
+                    <button className={styles.approveBtn} onClick={() => resolve.mutate({ id: r.id, status: 'fulfilled', label: r.label })}><Check size={15} /> Marquer remise</button>
                   )}
                 </div>
               </div>

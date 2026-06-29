@@ -21,11 +21,12 @@ interface Props {
   members: HouseholdMember[]
   chores: Chore[]
   logs: ChoreLog[]
+  currentMemberId: string | null
 }
 
 const PERIOD_LABEL: Record<string, string> = { week: 'cette semaine', month: 'ce mois', open: 'au total' }
 
-export default function ProgressionTab({ members, logs }: Props) {
+export default function ProgressionTab({ members, logs, currentMemberId }: Props) {
   const { data: totals = {} as PointMap } = useMemberTotals()
   const { data: achievements = [] } = useMemberAchievements()
   const { data: goals = [] } = useFamilyGoals()
@@ -102,8 +103,13 @@ export default function ProgressionTab({ members, logs }: Props) {
     if (evaluatedRef.current === sig) return // évite la double-passe avant refetch
     evaluatedRef.current = sig
     unlock.mutate(toUnlock)
-    const labels = toUnlock.map(r => ACHIEVEMENTS.find(a => a.key === r.achievement_key)?.emoji ?? '🏅').join(' ')
-    showToast({ type: 'success', message: `Badge débloqué ! ${labels}` })
+    // Le toast n'annonce que MES badges (l'évaluation, idempotente, couvre tout
+    // le foyer mais on ne félicite pas l'utilisateur pour les badges d'un autre).
+    const mine = toUnlock.filter(r => r.member_id === currentMemberId)
+    if (mine.length > 0) {
+      const labels = mine.map(r => ACHIEVEMENTS.find(a => a.key === r.achievement_key)?.emoji ?? '🏅').join(' ')
+      showToast({ type: 'success', message: `Badge débloqué ! ${labels}` })
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctxByMember, achievements, members])
 
@@ -126,12 +132,16 @@ export default function ProgressionTab({ members, logs }: Props) {
         <div className={styles.scoreCards}>
           {ranking.map(({ member, color, xp }, i) => {
             const lvl = levelForXp(xp)
+            const streak = ctxByMember.get(member.id)?.streakDays ?? 0
             return (
               <div key={member.id} className={styles.scoreCard}>
                 <div className={styles.scoreRank}>{i === 0 && xp > 0 ? '👑' : `#${i + 1}`}</div>
                 <div className={styles.scoreAvatar} style={{ background: color }}>{member.display_name.charAt(0).toUpperCase()}</div>
                 <div className={styles.scoreMain}>
-                  <span className={styles.scoreName}>{member.display_name}</span>
+                  <span className={styles.scoreName}>
+                    {member.display_name}
+                    {streak >= 2 && <span className={styles.streakTag} title={`${streak} jours d'affilée`}>🔥 {streak}</span>}
+                  </span>
                   <span className={styles.scoreLevel}>{levelEmoji(lvl.level)} Niveau {lvl.level} · {xp} XP</span>
                   <div className={styles.progressTrack}>
                     <div className={styles.progressFill} style={{ width: `${Math.round(lvl.progress * 100)}%`, background: color }} />

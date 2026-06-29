@@ -151,11 +151,22 @@ export function useResolveRedemption() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   return useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: 'approved' | 'fulfilled' | 'declined' }) => {
+    mutationFn: async ({ id, status }: { id: string; status: 'approved' | 'fulfilled' | 'declined'; label?: string }) => {
       const { error } = await supabase.rpc('resolve_redemption', { p_redemption_id: id, p_status: status })
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: REDEMPTIONS_KEY }),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: REDEMPTIONS_KEY })
+      // Prévient le demandeur du verdict (notify-household exclut l'émetteur,
+      // donc seul l'autre membre — le demandeur — reçoit le push).
+      if (vars.label) {
+        const verdict = vars.status === 'declined' ? 'refusée ❌'
+          : vars.status === 'fulfilled' ? 'remise ✅' : 'approuvée ✅'
+        void supabase.functions.invoke('notify-household', {
+          body: { title: '🎁 Récompense', body: `« ${vars.label} » ${verdict}`, module: 'chores' },
+        })
+      }
+    },
     onError: () => showToast({ type: 'error', message: 'Action impossible.' }),
   })
 }

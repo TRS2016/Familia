@@ -188,12 +188,23 @@ export function useEditChore() {
         .select('*')
         .single()
       if (error) throw error
+      // La rotation/fréquence a pu changer. Les assignations futures déjà
+      // matérialisées gardent leur ancien membre (upsert ignoreDuplicates ne les
+      // met pas à jour) : on supprime les jours futurs encore « pending » pour
+      // qu'ils soient re-matérialisés avec le nouveau membre/calendrier. Les
+      // jours faits/passés/excusés sont préservés.
+      const todayStr = format(new Date(), 'yyyy-MM-dd')
+      await supabase
+        .from('chore_assignments')
+        .delete()
+        .eq('chore_id', input.id)
+        .gte('date', todayStr)
+        .eq('status', 'pending')
       return data as unknown as Chore
     },
     onSuccess: (updated) => {
       queryClient.setQueryData<Chore[]>(CHORES_KEY, old =>
         (old ?? []).map(c => c.id === updated.id ? updated : c))
-      // La rotation/fréquence a pu changer : on re-matérialisera à la prochaine vue.
       queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_KEY })
     },
     onError: () => showToast({ type: 'error', message: 'Impossible de modifier la tâche.' }),
@@ -224,30 +235,6 @@ export function useDeleteChore() {
     onError: (_e, _id, ctx) => {
       queryClient.setQueryData(CHORES_KEY, ctx?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de supprimer la tâche.' })
-    },
-  })
-}
-
-export function useArchiveChore() {
-  const queryClient = useQueryClient()
-  const { showToast } = useToast()
-  return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('chores')
-        .update({ archived_at: new Date().toISOString() } as never)
-        .eq('id', id)
-      if (error) throw error
-    },
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey: CHORES_KEY })
-      const previous = queryClient.getQueryData<Chore[]>(CHORES_KEY) ?? []
-      queryClient.setQueryData<Chore[]>(CHORES_KEY, previous.filter(c => c.id !== id))
-      return { previous }
-    },
-    onError: (_e, _id, ctx) => {
-      queryClient.setQueryData(CHORES_KEY, ctx?.previous ?? [])
-      showToast({ type: 'error', message: 'Impossible d\'archiver la tâche.' })
     },
   })
 }

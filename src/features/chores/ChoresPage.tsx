@@ -209,7 +209,7 @@ export default function ChoresPage() {
       </div>
 
       {isLoading ? <Spinner /> : tab === 'progress' ? (
-        <ProgressionTab members={members} chores={chores} logs={logs} />
+        <ProgressionTab members={members} chores={chores} logs={logs} currentMemberId={currentMember?.id ?? null} />
       ) : tab === 'rewards' ? (
         <RewardsTab members={members} currentMemberId={currentMember?.id ?? null} />
       ) : tab === 'todo' ? (
