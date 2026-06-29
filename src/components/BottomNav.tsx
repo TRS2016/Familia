@@ -13,14 +13,14 @@ import styles from './BottomNav.module.css'
 const MOBILE_TABS: { to: string; Icon: LucideIcon; label: string; exact: boolean }[] = [
   { to: '/',          Icon: Home,         label: 'Accueil',    exact: true  },
   { to: '/groceries', Icon: ShoppingCart, label: 'Courses',    exact: false },
-  { to: '/calendar',  Icon: Calendar,     label: 'Agenda',     exact: false },
+  { to: '/kakebo',    Icon: BookOpen,     label: 'Budget',     exact: false },
   { to: '/habits',    Icon: Flame,        label: 'Habitudes',  exact: false },
 ]
 
 const MOBILE_MORE: { to: string; Icon: LucideIcon; label: string }[] = [
   { to: '/chores',   Icon: ListChecks, label: 'Tâches' },
   { to: '/recipes',  Icon: ChefHat,  label: 'Recettes' },
-  { to: '/kakebo',   Icon: BookOpen, label: 'Budget'   },
+  { to: '/calendar', Icon: Calendar, label: 'Agenda'   },
   { to: '/moments',  Icon: Camera,   label: 'Moments'  },
   { to: '/media',    Icon: Tv,       label: 'Médias'   },
   { to: '/lecteur',  Icon: Music,    label: 'Lecteur'  },
