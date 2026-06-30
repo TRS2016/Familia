@@ -39,6 +39,16 @@ import TrendView from './TrendView'
 
 type View = 'bilan' | 'detail' | 'reflexion' | 'tendance'
 
+// Convertit la valeur d'un <input type="month"> ('YYYY-MM' ou '') en date de fin
+// d'échéance = dernier jour du mois (inclut tout le mois choisi), ou null si vide.
+function monthInputToEndDate(ym: string): string | null {
+  if (!ym) return null
+  const [y, m] = ym.split('-').map(Number)
+  if (!y || !m) return null
+  const lastDay = new Date(y, m, 0).getDate()
+  return `${ym}-${String(lastDay).padStart(2, '0')}`
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function KakeboPage() {
@@ -85,7 +95,7 @@ export default function KakeboPage() {
 
   // Edit entry state
   const [editTarget, setEditTarget] = useState<KakeboEntry | null>(null)
-  const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '', member_id: null as string | null, tags: [] as string[], recurring: false, series_id: null as string | null })
+  const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '', member_id: null as string | null, tags: [] as string[], recurring: false, series_id: null as string | null, series_end: null as string | null })
   // Portée de l'édition d'une charge récurrente : cette occurrence ou toute la série.
   const [editScope, setEditScope]   = useState<'one' | 'series'>('one')
 
@@ -99,6 +109,7 @@ export default function KakeboPage() {
     member_id: null as string | null,
     tags: [] as string[],
     recurring: false,
+    series_end: null as string | null,
   })
 
   // Ouvre le modal d'ajout en pré-affectant à la vue courante (Foyer ou membre)
@@ -208,6 +219,7 @@ export default function KakeboPage() {
       tags: entry.tags ?? [],
       recurring: entry.recurring ?? false,
       series_id: entry.series_id ?? null,
+      series_end: entry.series_end ?? null,
     })
     setEditScope('one')
     setEditTarget(entry)
@@ -228,6 +240,7 @@ export default function KakeboPage() {
       tags: editDraft.tags,
       recurring: editDraft.recurring,
       series_id: editDraft.series_id,
+      series_end: editDraft.recurring ? editDraft.series_end : null,
       scope: editDraft.series_id ? editScope : 'one',
     })
     setEditTarget(null)
@@ -244,6 +257,7 @@ export default function KakeboPage() {
         member_id: entry.member_id,
         tags: entry.tags ?? [],
         recurring: false,
+        series_end: null,
       },
       { onSuccess: () => showToast({ type: 'success', message: 'Opération dupliquée pour aujourd\'hui.' }) }
     )
@@ -336,8 +350,9 @@ export default function KakeboPage() {
       member_id: draft.member_id,
       tags: draft.tags,
       recurring: draft.recurring,
+      series_end: draft.recurring ? draft.series_end : null,
     })
-    setDraft({ category_id: draft.category_id, amount: '', description: '', date: draft.date, member_id: draft.member_id, tags: [], recurring: false })
+    setDraft({ category_id: draft.category_id, amount: '', description: '', date: draft.date, member_id: draft.member_id, tags: [], recurring: false, series_end: null })
     setShowAdd(false)
   }
 
@@ -641,10 +656,25 @@ export default function KakeboPage() {
                 <input
                   type="checkbox"
                   checked={draft.recurring}
-                  onChange={e => setDraft(d => ({ ...d, recurring: e.target.checked }))}
+                  onChange={e => setDraft(d => ({ ...d, recurring: e.target.checked, series_end: e.target.checked ? d.series_end : null }))}
                 />
                 <span>🔁 Charge fixe — revient chaque mois à la même date</span>
               </label>
+
+              {draft.recurring && (
+                <div className={styles.fieldGroup}>
+                  <label htmlFor="k-end" className={styles.fieldLabel}>Fin d'échéance (optionnel)</label>
+                  <input
+                    id="k-end"
+                    type="month"
+                    value={draft.series_end ? draft.series_end.slice(0, 7) : ''}
+                    min={draft.date.slice(0, 7)}
+                    onChange={e => setDraft(d => ({ ...d, series_end: monthInputToEndDate(e.target.value) }))}
+                    className={styles.input}
+                  />
+                  <p className={styles.fieldHint}>Dernier mois où la charge est générée. Vide = sans fin.</p>
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -782,10 +812,26 @@ export default function KakeboPage() {
                 <input
                   type="checkbox"
                   checked={editDraft.recurring}
-                  onChange={e => setEditDraft(d => ({ ...d, recurring: e.target.checked }))}
+                  onChange={e => setEditDraft(d => ({ ...d, recurring: e.target.checked, series_end: e.target.checked ? d.series_end : null }))}
                 />
                 <span>🔁 Charge fixe — revient chaque mois{editDraft.recurring ? '' : (editScope === 'series' ? ' (décocher arrête toute la série)' : ' (décocher arrête la série)')}</span>
               </label>
+              {editDraft.recurring && (
+                <div className={styles.fieldGroup}>
+                  <label htmlFor="k-edit-end" className={styles.fieldLabel}>Fin d'échéance (optionnel)</label>
+                  <input
+                    id="k-edit-end"
+                    type="month"
+                    value={editDraft.series_end ? editDraft.series_end.slice(0, 7) : ''}
+                    min={editDraft.date.slice(0, 7)}
+                    onChange={e => setEditDraft(d => ({ ...d, series_end: monthInputToEndDate(e.target.value) }))}
+                    className={styles.input}
+                  />
+                  <p className={styles.fieldHint}>
+                    Dernier mois généré. {editDraft.series_id ? 'Modifier en portée « toute la série » applique l\'échéance à la charge.' : 'Vide = sans fin.'}
+                  </p>
+                </div>
+              )}
               <button
                 type="submit"
                 className={styles.submitBtn}

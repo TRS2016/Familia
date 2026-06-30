@@ -25,7 +25,11 @@ export default function EntryRow({ entry, showBorder, onEdit, onDelete, onReplay
       <div className={styles.entryBody}>
         <p className={styles.entryDesc}>
           {entry.description ?? cat?.name ?? '—'}
-          {entry.recurring && <span className={styles.entryRecur} title="Charge fixe mensuelle"> 🔁</span>}
+          {entry.recurring && (
+            <span className={styles.entryRecur} title={entry.series_end ? `Charge fixe jusqu'à ${MONTH_LABELS_FR[parseInt(entry.series_end.slice(5, 7)) - 1]} ${entry.series_end.slice(0, 4)}` : 'Charge fixe mensuelle'}>
+              {' '}🔁{entry.series_end ? ` → ${MONTH_LABELS_FR[parseInt(entry.series_end.slice(5, 7)) - 1]} ${entry.series_end.slice(2, 4)}` : ''}
+            </span>
+          )}
         </p>
         <p className={styles.entryMeta}>{cat?.name}{entry.member?.display_name ? ` · ${entry.member.display_name}` : ''}</p>
         {(entry.tags ?? []).length > 0 && (

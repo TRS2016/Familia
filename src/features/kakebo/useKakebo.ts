@@ -27,6 +27,7 @@ export interface KakeboEntry {
   tags: string[]
   recurring: boolean
   series_id: string | null
+  series_end: string | null   // dernier mois inclus (date = dernier jour du mois), null = sans fin
   created_at: string
   category: KakeboCategory | null
   member: { display_name: string } | null
@@ -40,6 +41,7 @@ export interface NewEntryInput {
   member_id: string | null // null = dépense commune (foyer)
   tags: string[]
   recurring: boolean
+  series_end: string | null // dernier jour du mois d'échéance, null = sans fin
 }
 
 export interface EditEntryInput {
@@ -52,6 +54,7 @@ export interface EditEntryInput {
   tags: string[]
   recurring: boolean
   series_id: string | null
+  series_end: string | null
   // 'series' : applique les champs (sauf la date) à toutes les occurrences de la
   // série. Décocher `recurring` en scope série arrête la série de façon fiable.
   scope?: 'one' | 'series'
@@ -182,6 +185,7 @@ export function useMaterializeRecurring(year: number, month: number) {
         occ.sort((a, b) => a.date.localeCompare(b.date))
         const latest = occ[occ.length - 1]
         if (!latest.recurring) continue // série arrêtée (décochée)
+        const end = latest.series_end // dernier jour du mois d'échéance, ou null
         const latestKey = latest.date.slice(0, 7)
         if (targetKey <= latestKey) continue // déjà à jour jusqu'au mois affiché
 
@@ -192,19 +196,21 @@ export function useMaterializeRecurring(year: number, month: number) {
         while (guard++ < 24) {
           m++; if (m > 12) { m = 1; y++ }
           const mk = `${y}-${String(m).padStart(2, '0')}`
+          const lastDay = new Date(y, m, 0).getDate()
+          const occDate = `${mk}-${String(Math.min(day, lastDay)).padStart(2, '0')}`
+          if (end && occDate > end) break // échéance dépassée : on arrête la série
           if (!existingMonths.has(mk)) {
-            const lastDay = new Date(y, m, 0).getDate()
-            const d = Math.min(day, lastDay)
             toInsert.push({
               household_id: HOUSEHOLD_ID,
               category_id: latest.category_id,
               member_id: latest.member_id,
               amount: latest.amount,
-              date: `${mk}-${String(d).padStart(2, '0')}`,
+              date: occDate,
               description: latest.description,
               tags: latest.tags ?? [],
               recurring: true,
               series_id: sid,
+              series_end: end,
             })
           }
           if (mk >= targetKey) break
@@ -246,6 +252,7 @@ export function useAddEntry(year: number, month: number) {
           tags: input.tags,
           recurring: input.recurring,
           series_id: seriesId,
+          series_end: input.recurring ? input.series_end : null,
         } as never)
         .select(`*, category:kakebo_categories(*), member:members(display_name)`)
         .single()
@@ -267,6 +274,7 @@ export function useAddEntry(year: number, month: number) {
         tags: input.tags,
         recurring: input.recurring,
         series_id: null,
+        series_end: input.recurring ? input.series_end : null,
         created_at: new Date().toISOString(),
         category: categories.find(c => c.id === input.category_id) ?? null,
         member: (input.member_id && member && input.member_id === member.id)
@@ -299,6 +307,7 @@ export function useEditEntry(year: number, month: number) {
       // occurrences (la date reste propre à chaque mois). Décocher `recurring`
       // ici met fin à la série de façon fiable (toutes les lignes passent à false).
       if (input.scope === 'series' && input.series_id) {
+        const endVal = input.recurring ? input.series_end : null
         const { error } = await supabase
           .from('kakebo_entries')
           .update({
@@ -308,9 +317,20 @@ export function useEditEntry(year: number, month: number) {
             member_id: input.member_id,
             tags: input.tags,
             recurring: input.recurring,
+            series_end: endVal,
           } as never)
           .eq('series_id', input.series_id)
         if (error) throw error
+        // Échéance reculée/posée : supprime les occurrences déjà matérialisées
+        // au-delà du mois de fin (les mois antérieurs/égal sont conservés).
+        if (endVal) {
+          const { error: delErr } = await supabase
+            .from('kakebo_entries')
+            .delete()
+            .eq('series_id', input.series_id)
+            .gt('date', endVal)
+          if (delErr) throw delErr
+        }
         return null
       }
 
@@ -327,6 +347,7 @@ export function useEditEntry(year: number, month: number) {
           tags: input.tags,
           recurring: input.recurring,
           series_id: seriesId,
+          series_end: input.recurring ? input.series_end : null,
         } as never)
         .eq('id', input.id)
         .select(`*, category:kakebo_categories(*), member:members(display_name)`)

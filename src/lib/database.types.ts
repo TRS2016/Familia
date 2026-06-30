@@ -844,6 +844,7 @@ export type Database = {
           id: string
           member_id: string | null
           recurring: boolean
+          series_end: string | null
           series_id: string | null
           tags: string[]
         }
@@ -857,6 +858,7 @@ export type Database = {
           id?: string
           member_id?: string | null
           recurring?: boolean
+          series_end?: string | null
           series_id?: string | null
           tags?: string[]
         }
@@ -870,6 +872,7 @@ export type Database = {
           id?: string
           member_id?: string | null
           recurring?: boolean
+          series_end?: string | null
           series_id?: string | null
           tags?: string[]
         }

@@ -1182,6 +1182,12 @@
   letter-spacing: 0.6px;
 }
 
+.fieldHint {
+  font-size: var(--text-2xs);
+  color: var(--text-muted);
+  margin: 2px 0 0;
+}
+
 .input {
   padding: 11px 14px;
   border-radius: var(--radius-sm);
