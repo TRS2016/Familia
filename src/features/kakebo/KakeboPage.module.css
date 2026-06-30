@@ -797,6 +797,46 @@
   padding: 3px;
 }
 
+.tagFilterBar { margin: 0 16px 12px; display: flex; flex-direction: column; gap: 8px; }
+.tagFilterChips { display: flex; flex-wrap: wrap; gap: 6px; }
+.tagFilterChip {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+.tagFilterChipActive {
+  color: var(--accent);
+  background: rgba(224, 123, 84, 0.13);
+  border-color: var(--accent);
+}
+.tagFilterFoot { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.tagFilterMode {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  color: var(--accent);
+  background: rgba(224, 123, 84, 0.10);
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+.tagFilterCount { font-size: var(--text-2xs); font-weight: 700; color: var(--text-muted); }
+.tagFilterClear {
+  font-size: var(--text-2xs);
+  font-weight: 700;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  text-decoration: underline;
+  cursor: pointer;
+  margin-left: auto;
+}
+
 .detailToggleBtn {
   flex: 1;
   padding: 6px 0;

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { catColor, catGlyph, fmtEur, MONTH_LABELS_FR } from './kakebo.utils'
 import EntryRow from './EntryRow'
 import type { KakeboCategory, KakeboEntry } from './useKakebo'
@@ -14,9 +14,67 @@ export default function DetailView({
   onReplay: (entry: KakeboEntry) => void
 }) {
   const [groupMode, setGroupMode] = useState<'cat' | 'date'>('cat')
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [matchMode, setMatchMode] = useState<'any' | 'all'>('any')
+
+  // Tous les tags présents ce mois (triés), pour la barre de filtre.
+  const allTags = useMemo(() => {
+    const set = new Set<string>()
+    for (const e of entries) for (const t of e.tags ?? []) set.add(t)
+    return [...set].sort((a, b) => a.localeCompare(b))
+  }, [entries])
+
+  // Filtrage multi-tags : « au moins un » (union) ou « tous » (intersection).
+  const filtered = useMemo(() => {
+    if (selectedTags.length === 0) return entries
+    return entries.filter(e => {
+      const tags = e.tags ?? []
+      return matchMode === 'all'
+        ? selectedTags.every(t => tags.includes(t))
+        : selectedTags.some(t => tags.includes(t))
+    })
+  }, [entries, selectedTags, matchMode])
+
+  function toggleTag(t: string) {
+    setSelectedTags(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
+  }
+
+  const filterActive = selectedTags.length > 0
+  const filteredExpense = filtered
+    .filter(e => e.category?.type !== 'income')
+    .reduce((s, e) => s + Number(e.amount), 0)
 
   return (
     <div className={styles.scrollArea}>
+      {/* Filtre par tags (multi-sélection) */}
+      {allTags.length > 0 && (
+        <div className={styles.tagFilterBar}>
+          <div className={styles.tagFilterChips}>
+            {allTags.map(t => (
+              <button
+                key={t}
+                type="button"
+                className={[styles.tagFilterChip, selectedTags.includes(t) ? styles.tagFilterChipActive : ''].join(' ')}
+                onClick={() => toggleTag(t)}
+                aria-pressed={selectedTags.includes(t)}
+              >#{t}</button>
+            ))}
+          </div>
+          {filterActive && (
+            <div className={styles.tagFilterFoot}>
+              <button
+                type="button"
+                className={styles.tagFilterMode}
+                onClick={() => setMatchMode(m => m === 'any' ? 'all' : 'any')}
+                title="Basculer le mode de correspondance"
+              >{matchMode === 'any' ? 'au moins un' : 'tous les tags'}</button>
+              <span className={styles.tagFilterCount}>{filtered.length} op. · {fmtEur(filteredExpense)} €</span>
+              <button type="button" className={styles.tagFilterClear} onClick={() => setSelectedTags([])}>Effacer</button>
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Toggle */}
       <div className={styles.detailToggle}>
         <button
@@ -30,7 +88,7 @@ export default function DetailView({
       </div>
 
       {groupMode === 'cat' && categories.map(cat => {
-        const catEntries = entries
+        const catEntries = filtered
           .filter(e => e.category_id === cat.id)
           .sort((a, b) => b.date.localeCompare(a.date))
         const total = catEntries.reduce((s, e) => s + Number(e.amount), 0)
@@ -70,7 +128,7 @@ export default function DetailView({
       })}
 
       {groupMode === 'date' && (() => {
-        const sorted = [...entries].sort((a, b) => b.date.localeCompare(a.date))
+        const sorted = [...filtered].sort((a, b) => b.date.localeCompare(a.date))
         const byDate = new Map<string, KakeboEntry[]>()
         for (const e of sorted) {
           if (!byDate.has(e.date)) byDate.set(e.date, [])
