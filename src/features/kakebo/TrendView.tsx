@@ -57,6 +57,7 @@ export default function TrendView({ entries, isLoading, categories, onSelectMont
     savings:   m.savings,
     isCurrent: m.isCurrent,
     label:     m.label,
+    date:      m.date,
   }))
   const savPath = savPts.map((p, i) => `${i === 0 ? 'M' : 'L'}${p.x},${p.y}`).join(' ')
 
@@ -195,18 +196,24 @@ export default function TrendView({ entries, isLoading, categories, onSelectMont
             {/* Points — rendus en overlay HTML pour rester parfaitement ronds
                 (le SVG est étiré via preserveAspectRatio="none"). */}
             {savPts.map((p, i) => (
-              <span
+              <button
                 key={i}
-                className={styles.savingsPoint}
-                style={{
-                  left:   `${(p.x / SL_W) * 100}%`,
-                  top:    `${(p.y / SL_H) * 100}%`,
-                  width:  p.isCurrent ? 8 : 5,
-                  height: p.isCurrent ? 8 : 5,
-                  background: p.savings >= 0 ? 'var(--positive)' : 'var(--accent)',
-                }}
+                type="button"
+                className={styles.savingsHit}
+                style={{ left: `${(p.x / SL_W) * 100}%`, top: `${(p.y / SL_H) * 100}%` }}
+                onClick={() => onSelectMonth(p.date)}
                 title={`${p.label} : ${p.savings >= 0 ? '+' : ''}${fmtEur(p.savings)} €`}
-              />
+                aria-label={`Voir ${p.label} : épargne ${p.savings >= 0 ? '+' : ''}${fmtEur(p.savings)} €`}
+              >
+                <span
+                  className={styles.savingsPoint}
+                  style={{
+                    width:  p.isCurrent ? 8 : 5,
+                    height: p.isCurrent ? 8 : 5,
+                    background: p.savings >= 0 ? 'var(--positive)' : 'var(--accent)',
+                  }}
+                />
+              </button>
             ))}
           </div>
 

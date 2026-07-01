@@ -1,15 +1,16 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import { catColor, catDesc, catGlyph, fmtEur } from './kakebo.utils'
+import { catColor, catDesc, catGlyph, fmtEur, MONTH_LABELS_FR } from './kakebo.utils'
 import EntryRow from './EntryRow'
 import type { KakeboCategory, KakeboEntry } from './useKakebo'
 import styles from './KakeboPage.module.css'
 
 export default function CategoryDetail({
-  cat, entries, revenus, onEdit, onDelete, onReplay, readOnly = false,
+  cat, entries, trendEntries, revenus, onEdit, onDelete, onReplay, readOnly = false,
 }: {
   cat: KakeboCategory
   entries: KakeboEntry[]
+  trendEntries: KakeboEntry[]
   revenus: number
   onEdit: (entry: KakeboEntry) => void
   onDelete: (id: string) => void
@@ -44,6 +45,20 @@ export default function CategoryDetail({
   const pctRev   = revenus > 0 ? (total / revenus) * 100 : 0
   const sorted   = [...shown].sort((a, b) => b.date.localeCompare(a.date))
 
+  // Mini-tendance : dépenses de cette catégorie sur 12 mois glissants.
+  const now = new Date()
+  const trend12 = Array.from({ length: 12 }, (_, i) => {
+    const d      = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1)
+    const prefix = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const tot    = trendEntries
+      .filter(e => e.date.startsWith(prefix))
+      .reduce((s, e) => s + Number(e.amount), 0)
+    return { label: MONTH_LABELS_FR[d.getMonth()], total: tot, isCurrent: i === 11 }
+  })
+  const trendMax    = Math.max(1, ...trend12.map(m => m.total))
+  const trendActive = trend12.some(m => m.total > 0)
+  const trendAvg    = trend12.reduce((s, m) => s + m.total, 0) / 12
+
   return (
     <div className={styles.scrollArea}>
       <div className={styles.catDetailHero} style={{ '--cat-color': catColor(cat) } as React.CSSProperties}>
@@ -73,6 +88,37 @@ export default function CategoryDetail({
           ))}
         </div>
       </div>
+
+      {trendActive && (
+        <div className={styles.catTrendCard}>
+          <div className={styles.catTrendHead}>
+            <span className={styles.catTrendTitle}>Sur 12 mois</span>
+            <span className={styles.catTrendAvg}>~{fmtEur(trendAvg)} €/mois</span>
+          </div>
+          <div
+            className={styles.catTrendBars}
+            role="img"
+            aria-label={`Dépenses ${cat.name} sur 12 mois. ${trend12.map(m => `${m.label} : ${fmtEur(m.total)} €`).join('. ')}.`}
+          >
+            {trend12.map((m, i) => {
+              const h = m.total > 0 ? Math.max(3, (m.total / trendMax) * 40) : 2
+              return (
+                <div key={i} className={styles.catTrendBarWrap} title={`${m.label} : ${fmtEur(m.total)} €`}>
+                  <div
+                    className={styles.catTrendBar}
+                    style={{
+                      height: h,
+                      background: m.isCurrent ? catColor(cat) : 'var(--chart-neutral)',
+                      opacity: m.total === 0 ? 0.4 : 1,
+                    }}
+                  />
+                  <span className={styles.catTrendLabel}>{m.label.slice(0, 1)}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {allTags.length > 0 && (
         <div className={styles.tagFilterRow}>

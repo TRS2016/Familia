@@ -475,6 +475,7 @@ export default function KakeboPage() {
             <CategoryDetail
               cat={selectedCat}
               entries={displayEntries.filter(e => e.category_id === selectedCatId)}
+              trendEntries={displayTrendEntries.filter(e => e.category_id === selectedCatId)}
               revenus={totalRevenusMois}
               onEdit={openEdit}
               onDelete={id => deleteEntry.mutate(id)}
