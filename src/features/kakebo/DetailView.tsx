@@ -5,13 +5,14 @@ import type { KakeboCategory, KakeboEntry } from './useKakebo'
 import styles from './KakeboPage.module.css'
 
 export default function DetailView({
-  categories, entries, onEdit, onDelete, onReplay,
+  categories, entries, onEdit, onDelete, onReplay, readOnly = false,
 }: {
   categories: KakeboCategory[]
   entries: KakeboEntry[]
   onEdit: (entry: KakeboEntry) => void
   onDelete: (id: string) => void
   onReplay: (entry: KakeboEntry) => void
+  readOnly?: boolean
 }) {
   const [groupMode, setGroupMode] = useState<'cat' | 'date'>('cat')
   const [selectedTags, setSelectedTags] = useState<string[]>([])
@@ -115,8 +116,8 @@ export default function DetailView({
                       key={e.id}
                       entry={e}
                       showBorder={i < catEntries.length - 1}
-                      onEdit={() => onEdit(e)}
-                      onDelete={() => onDelete(e.id)}
+                      onEdit={readOnly ? undefined : () => onEdit(e)}
+                      onDelete={readOnly ? undefined : () => onDelete(e.id)}
                       onReplay={() => onReplay(e)}
                     />
                   ))}
@@ -155,8 +156,8 @@ export default function DetailView({
                     key={e.id}
                     entry={e}
                     showBorder={i < dayEntries.length - 1}
-                    onEdit={() => onEdit(e)}
-                    onDelete={() => onDelete(e.id)}
+                    onEdit={readOnly ? undefined : () => onEdit(e)}
+                    onDelete={readOnly ? undefined : () => onDelete(e.id)}
                     onReplay={() => onReplay(e)}
                   />
                 ))}

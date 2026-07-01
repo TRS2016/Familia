@@ -9,7 +9,7 @@ export default function BilanView({
   epargneReelle, solde, moodEmoji, moodLabel,
   dailyTotals, maxDaily, todayDay,
   entries, prevMonthExpenses,
-  onSelectCat, onShowDetail, onEdit, onReplay,
+  onSelectCat, onShowDetail, onEdit, onReplay, readOnly = false,
 }: {
   arcs: { cat: KakeboCategory; pct: number; dash: number; offset: number; value: number }[]
   donutR: number; donutC: number
@@ -23,6 +23,7 @@ export default function BilanView({
   onShowDetail: () => void
   onEdit: (entry: KakeboEntry) => void
   onReplay: (entry: KakeboEntry) => void
+  readOnly?: boolean
 }) {
   const epargnePct  = revenus > 0 ? Math.max(0, Math.min(1, epargneReelle / revenus)) : 0
   const objectifPct = revenus > 0 ? Math.max(0, Math.min(1, objectifEpargne / revenus)) : 0
@@ -216,7 +217,7 @@ export default function BilanView({
           </div>
           <div className={styles.entryList}>
             {recentEntries.map((e, i) => (
-              <EntryRow key={e.id} entry={e} showBorder={i < recentEntries.length - 1} onEdit={() => onEdit(e)} onReplay={() => onReplay(e)} />
+              <EntryRow key={e.id} entry={e} showBorder={i < recentEntries.length - 1} onEdit={readOnly ? undefined : () => onEdit(e)} onReplay={() => onReplay(e)} />
             ))}
           </div>
         </div>

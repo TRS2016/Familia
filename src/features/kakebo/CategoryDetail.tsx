@@ -6,7 +6,7 @@ import type { KakeboCategory, KakeboEntry } from './useKakebo'
 import styles from './KakeboPage.module.css'
 
 export default function CategoryDetail({
-  cat, entries, revenus, onEdit, onDelete, onReplay,
+  cat, entries, revenus, onEdit, onDelete, onReplay, readOnly = false,
 }: {
   cat: KakeboCategory
   entries: KakeboEntry[]
@@ -14,6 +14,7 @@ export default function CategoryDetail({
   onEdit: (entry: KakeboEntry) => void
   onDelete: (id: string) => void
   onReplay: (entry: KakeboEntry) => void
+  readOnly?: boolean
 }) {
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [matchMode, setMatchMode] = useState<'any' | 'all'>('any')
@@ -114,8 +115,8 @@ export default function CategoryDetail({
                 key={e.id}
                 entry={e}
                 showBorder={i < sorted.length - 1}
-                onEdit={() => onEdit(e)}
-                onDelete={() => onDelete(e.id)}
+                onEdit={readOnly ? undefined : () => onEdit(e)}
+                onDelete={readOnly ? undefined : () => onDelete(e.id)}
                 onReplay={() => onReplay(e)}
               />
             ))}

@@ -56,6 +56,11 @@ export default function KakeboPage() {
   const year  = refDate.getFullYear()
   const month = refDate.getMonth() + 1 // 1-based
 
+  // Les mois passés sont en lecture seule : on ne peut plus éditer/supprimer,
+  // uniquement dupliquer une opération vers le mois courant (rejouer).
+  const _now = new Date()
+  const isPastMonth = year < _now.getFullYear() || (year === _now.getFullYear() && month < _now.getMonth() + 1)
+
   const { data: categories = [], isLoading: catsLoading } = useKakeboCategories()
   const { data: entries = [], isLoading: entriesLoading } = useKakeboEntries(year, month)
   const { objectif, update: updateObjectif } = useKakeboObjectif()
@@ -474,6 +479,7 @@ export default function KakeboPage() {
               onEdit={openEdit}
               onDelete={id => deleteEntry.mutate(id)}
               onReplay={handleReplay}
+              readOnly={isPastMonth}
             />
           )}
 
@@ -499,6 +505,7 @@ export default function KakeboPage() {
               onShowDetail={() => setView('detail')}
               onEdit={openEdit}
               onReplay={handleReplay}
+              readOnly={isPastMonth}
             />
           )}
 
@@ -510,6 +517,7 @@ export default function KakeboPage() {
               onEdit={openEdit}
               onDelete={id => deleteEntry.mutate(id)}
               onReplay={handleReplay}
+              readOnly={isPastMonth}
             />
           )}
 
