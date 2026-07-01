@@ -15,7 +15,7 @@ export default function ReflexionView({
     'Combien d\'argent ai-je dépensé ?',
     'Comment puis-je améliorer mes dépenses ?',
   ]
-  const qColors = ['#E07B54', '#5B9E8F', '#E07B54', '#9B7AC4']
+  const qColors = ['var(--accent)', 'var(--positive)', 'var(--accent)', 'var(--chart-violet)']
   const positif = solde >= 0
 
   return (

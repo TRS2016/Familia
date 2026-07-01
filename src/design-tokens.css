@@ -28,6 +28,10 @@
   --positive: #5B9E8F;   /* vert « positif » : épargne, budget OK, terminé, revenu */
   --star:     #B07A12;   /* favori : or assombri pour passer 3:1 en clair (cf. dark plus bas) */
 
+  /* Couleurs graphiques (barres / segments neutres) */
+  --chart-neutral: #C8B89A;   /* barres neutres : jours passés, dépenses historiques */
+  --chart-violet:  #9B7AC4;   /* accent secondaire graphiques / réflexion */
+
   /* Member palette — source unique : src/lib/constants.ts (MEMBER_PALETTE).
      Gardée en phase ici pour usage CSS éventuel. */
   --member-1: #E07B54;

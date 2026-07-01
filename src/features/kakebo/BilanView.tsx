@@ -1,4 +1,4 @@
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, AlertTriangle } from 'lucide-react'
 import { catColor, catGlyph, fmtEur } from './kakebo.utils'
 import EntryRow from './EntryRow'
 import type { KakeboCategory, KakeboEntry } from './useKakebo'
@@ -53,7 +53,12 @@ export default function BilanView({
         <div className={styles.heroTop}>
           {/* Donut */}
           <div className={styles.donutWrap}>
-            <svg width="130" height="130" viewBox="0 0 130 130" style={{ transform: 'rotate(-90deg)' }}>
+            <svg
+              width="130" height="130" viewBox="0 0 130 130"
+              style={{ transform: 'rotate(-90deg)' }}
+              role="img"
+              aria-label={`Répartition des dépenses : ${fmtEur(totalDepenses)} € au total. ${arcs.filter(a => a.pct > 0).map(a => `${a.cat.name} ${(a.pct * 100).toFixed(0)} %`).join(', ')}.`}
+            >
               <circle cx="65" cy="65" r={donutR} fill="none" stroke="var(--border)" strokeWidth="13" />
               {arcs.map((a, i) => (
                 <circle key={i} cx="65" cy="65" r={donutR} fill="none"
@@ -126,15 +131,19 @@ export default function BilanView({
             {todayDay > 0 ? fmtEur(totalDepenses / todayDay) : 0} €/jour
           </span>
         </div>
-        <div className={styles.rhythmBars}>
+        <div
+          className={styles.rhythmBars}
+          role="img"
+          aria-label={`Dépenses jour par jour. ${dailyTotals.map((v, i) => v > 0 ? `${i + 1} : ${fmtEur(v)} €` : null).filter(Boolean).join('. ') || 'Aucune dépense'}.`}
+        >
           {dailyTotals.map((v, i) => {
             const h = v > 0 ? Math.max(3, (v / maxDaily) * 44) : 2
             const day = i + 1
             const isToday  = day === todayDay
             const isFuture = day > todayDay
-            const bg = isFuture ? 'var(--border)' : isToday ? 'var(--accent)' : v > 0 ? '#C8B89A' : 'var(--border)'
+            const bg = isFuture ? 'var(--border)' : isToday ? 'var(--accent)' : v > 0 ? 'var(--chart-neutral)' : 'var(--border)'
             return (
-              <div key={i} className={styles.rhythmBarWrap}>
+              <div key={i} className={styles.rhythmBarWrap} title={`Jour ${day} : ${fmtEur(v)} €`}>
                 <div className={styles.rhythmBar} style={{ height: h, background: bg, opacity: v === 0 && !isToday ? 0.5 : 1 }} />
               </div>
             )
@@ -199,7 +208,11 @@ export default function BilanView({
               <div className={styles.catCardMeta}>
                 <span>{entries.filter(e => e.category_id === cat.id).length} op.</span>
                 {budget != null
-                  ? <span style={{ color: barColor }}>{overBudget ? '⚠ Dépassé' : `${budgetPct.toFixed(0)}%`}</span>
+                  ? <span style={{ color: barColor, display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                      {overBudget
+                        ? <><AlertTriangle size={11} strokeWidth={2.5} /> Dépassé</>
+                        : `${budgetPct.toFixed(0)}%`}
+                    </span>
                   : <span style={{ color: catColor(cat) }}>{(pct * 100).toFixed(0)}%</span>
                 }
               </div>

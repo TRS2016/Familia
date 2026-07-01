@@ -96,13 +96,20 @@ export default function TrendView({ entries, isLoading, categories }: {
           )}
         </div>
 
-        <div className={styles.trendBars}>
+        <div
+          className={styles.trendBars}
+          role="img"
+          aria-label={`Dépenses et revenus sur 12 mois. ${byMonth.map(m => `${m.label} : ${fmtEur(m.depenses)} € dépensés, ${fmtEur(m.revenus)} € de revenus`).join('. ')}.`}
+        >
           {byMonth.map(m => {
             const depH = Math.max(2, (m.depenses / maxVal) * BAR_H)
             const revH = m.revenus > 0 ? Math.max(2, (m.revenus / maxVal) * BAR_H) : 0
             return (
               <div key={m.prefix} className={styles.trendBarGroup}>
-                <div className={styles.trendBarStack}>
+                <div
+                  className={styles.trendBarStack}
+                  title={`${m.label} — Dépenses ${fmtEur(m.depenses)} € · Revenus ${fmtEur(m.revenus)} €`}
+                >
                   {revH > 0 && <div className={styles.trendBarRev} style={{ height: revH }} />}
                   <div
                     className={[styles.trendBarDep, m.isCurrent ? styles.trendBarDepCurrent : ''].join(' ')}
@@ -133,54 +140,69 @@ export default function TrendView({ entries, isLoading, categories }: {
         <div className={styles.savingsCard}>
           <p className={styles.trendTitle}>Épargne mensuelle</p>
 
-          <svg
-            viewBox={`0 0 ${SL_W} ${SL_H}`}
-            className={styles.savingsLineSvg}
-            preserveAspectRatio="none"
+          <div
+            className={styles.savingsChartWrap}
+            role="img"
+            aria-label={`Épargne mensuelle sur 12 mois. ${byMonth.map(m => `${m.label} : ${m.savings >= 0 ? '+' : ''}${fmtEur(m.savings)} €`).join('. ')}.`}
           >
-            {/* Zero baseline */}
-            <line
-              x1="0" y1={zeroY} x2={SL_W} y2={zeroY}
-              stroke="var(--border)" strokeWidth="1" strokeDasharray="3,2"
-            />
-            {/* Positive fill area */}
-            <path
-              d={`${savPath} L${SL_W},${zeroY} L0,${zeroY} Z`}
-              fill="rgba(91,158,143,0.10)"
-              clipPath="url(#aboveZero)"
-            />
-            <clipPath id="aboveZero">
-              <rect x="0" y="0" width={SL_W} height={zeroY} />
-            </clipPath>
-            {/* Negative fill area */}
-            <path
-              d={`${savPath} L${SL_W},${zeroY} L0,${zeroY} Z`}
-              fill="rgba(224,123,84,0.08)"
-              clipPath="url(#belowZero)"
-            />
-            <clipPath id="belowZero">
-              <rect x="0" y={zeroY} width={SL_W} height={SL_H - zeroY} />
-            </clipPath>
-            {/* Line */}
-            <path
-              d={savPath}
-              fill="none"
-              stroke="#5B9E8F"
-              strokeWidth="2"
-              strokeLinejoin="round"
-              strokeLinecap="round"
-            />
-            {/* Points */}
+            <svg
+              viewBox={`0 0 ${SL_W} ${SL_H}`}
+              className={styles.savingsLineSvg}
+              preserveAspectRatio="none"
+              aria-hidden="true"
+            >
+              {/* Zero baseline */}
+              <line
+                x1="0" y1={zeroY} x2={SL_W} y2={zeroY}
+                stroke="var(--border)" strokeWidth="1" strokeDasharray="3,2"
+                vectorEffect="non-scaling-stroke"
+              />
+              {/* Positive fill area */}
+              <path
+                d={`${savPath} L${SL_W},${zeroY} L0,${zeroY} Z`}
+                fill="rgba(91,158,143,0.10)"
+                clipPath="url(#aboveZero)"
+              />
+              <clipPath id="aboveZero">
+                <rect x="0" y="0" width={SL_W} height={zeroY} />
+              </clipPath>
+              {/* Negative fill area */}
+              <path
+                d={`${savPath} L${SL_W},${zeroY} L0,${zeroY} Z`}
+                fill="rgba(224,123,84,0.08)"
+                clipPath="url(#belowZero)"
+              />
+              <clipPath id="belowZero">
+                <rect x="0" y={zeroY} width={SL_W} height={SL_H - zeroY} />
+              </clipPath>
+              {/* Line */}
+              <path
+                d={savPath}
+                fill="none"
+                stroke="var(--positive)"
+                strokeWidth="2"
+                strokeLinejoin="round"
+                strokeLinecap="round"
+                vectorEffect="non-scaling-stroke"
+              />
+            </svg>
+            {/* Points — rendus en overlay HTML pour rester parfaitement ronds
+                (le SVG est étiré via preserveAspectRatio="none"). */}
             {savPts.map((p, i) => (
-              <circle
+              <span
                 key={i}
-                cx={p.x} cy={p.y}
-                r={p.isCurrent ? 4 : 2.5}
-                fill={p.savings >= 0 ? '#5B9E8F' : '#E07B54'}
-                stroke="var(--bg-card)" strokeWidth="1.5"
+                className={styles.savingsPoint}
+                style={{
+                  left:   `${(p.x / SL_W) * 100}%`,
+                  top:    `${(p.y / SL_H) * 100}%`,
+                  width:  p.isCurrent ? 8 : 5,
+                  height: p.isCurrent ? 8 : 5,
+                  background: p.savings >= 0 ? 'var(--positive)' : 'var(--accent)',
+                }}
+                title={`${p.label} : ${p.savings >= 0 ? '+' : ''}${fmtEur(p.savings)} €`}
               />
             ))}
-          </svg>
+          </div>
 
           <div className={styles.savingsLineLabels}>
             {byMonth.map(m => (
