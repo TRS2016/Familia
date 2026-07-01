@@ -1425,6 +1425,17 @@
   align-items: center;
   gap: 4px;
   justify-content: flex-end;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: var(--radius-xs);
+  transition: background 0.15s ease;
+}
+
+.trendBarGroup:hover {
+  background: var(--border);
 }
 
 .trendBarStack {

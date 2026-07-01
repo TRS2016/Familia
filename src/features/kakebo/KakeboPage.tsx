@@ -534,7 +534,12 @@ export default function KakeboPage() {
 
           {/* ── Tendance ────────────────────────────────────────────── */}
           {!selectedCatId && view === 'tendance' && (
-            <TrendView entries={displayTrendEntries} isLoading={trendLoading} categories={displayCategories} />
+            <TrendView
+              entries={displayTrendEntries}
+              isLoading={trendLoading}
+              categories={displayCategories}
+              onSelectMonth={date => { setRefDate(date); setView('bilan') }}
+            />
           )}
 
           {/* Empty state only for bilan with no entries */}

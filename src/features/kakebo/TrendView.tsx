@@ -3,10 +3,11 @@ import { catColor, fmtEur, MONTH_LABELS_FR } from './kakebo.utils'
 import type { KakeboCategory, KakeboEntry } from './useKakebo'
 import styles from './KakeboPage.module.css'
 
-export default function TrendView({ entries, isLoading, categories }: {
+export default function TrendView({ entries, isLoading, categories, onSelectMonth }: {
   entries: KakeboEntry[]
   isLoading: boolean
   categories: KakeboCategory[]
+  onSelectMonth: (date: Date) => void
 }) {
   if (isLoading) {
     return <div className={styles.spinnerWrap}><Spinner size={32} /></div>
@@ -19,6 +20,7 @@ export default function TrendView({ entries, isLoading, categories }: {
     return {
       prefix:    `${d.getFullYear()}-${pad(d.getMonth() + 1)}`,
       label:     MONTH_LABELS_FR[d.getMonth()],
+      date:      d,
       isCurrent: i === 11,
     }
   })
@@ -105,11 +107,15 @@ export default function TrendView({ entries, isLoading, categories }: {
             const depH = Math.max(2, (m.depenses / maxVal) * BAR_H)
             const revH = m.revenus > 0 ? Math.max(2, (m.revenus / maxVal) * BAR_H) : 0
             return (
-              <div key={m.prefix} className={styles.trendBarGroup}>
-                <div
-                  className={styles.trendBarStack}
-                  title={`${m.label} — Dépenses ${fmtEur(m.depenses)} € · Revenus ${fmtEur(m.revenus)} €`}
-                >
+              <button
+                key={m.prefix}
+                type="button"
+                className={styles.trendBarGroup}
+                onClick={() => onSelectMonth(m.date)}
+                title={`${m.label} — Dépenses ${fmtEur(m.depenses)} € · Revenus ${fmtEur(m.revenus)} €`}
+                aria-label={`Voir ${m.label} : ${fmtEur(m.depenses)} € de dépenses`}
+              >
+                <div className={styles.trendBarStack}>
                   {revH > 0 && <div className={styles.trendBarRev} style={{ height: revH }} />}
                   <div
                     className={[styles.trendBarDep, m.isCurrent ? styles.trendBarDepCurrent : ''].join(' ')}
@@ -120,7 +126,7 @@ export default function TrendView({ entries, isLoading, categories }: {
                 {m.isCurrent && m.depenses > 0 && (
                   <span className={styles.trendAmountLabel}>{fmtEur(m.depenses)}</span>
                 )}
-              </div>
+              </button>
             )
           })}
         </div>
