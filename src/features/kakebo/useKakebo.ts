@@ -10,7 +10,7 @@ export interface KakeboCategory {
   id: string
   household_id: string
   name: string
-  type: 'income' | 'fixed' | 'variable' | 'leisure' | 'extra'
+  type: 'income' | 'fixed' | 'variable' | 'leisure' | 'extra' | 'saving'
   color: string | null
   monthly_budget: number | null
   created_at: string
@@ -76,6 +76,7 @@ const DEFAULT_CATS: { name: string; type: KakeboCategory['type']; color: string 
   { name: 'Loisirs', type: 'leisure',  color: '#E07B54' },
   { name: 'Culture', type: 'variable', color: '#9B7AC4' },
   { name: 'Extras',  type: 'extra',    color: '#C89A5B' },
+  { name: 'Épargne', type: 'saving',   color: '#3D80B8' },
 ]
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────
@@ -108,21 +109,23 @@ export function useKakeboCategories() {
         return seeded as KakeboCategory[]
       }
 
-      // Back-fill income category for households created before this feature
-      if (!data.some(c => c.type === 'income')) {
+      // Back-fill des catégories introduites après la création du foyer.
+      let working = data as KakeboCategory[]
+      const backfill: { name: string; type: KakeboCategory['type']; color: string }[] = []
+      if (!working.some(c => c.type === 'income')) backfill.push({ name: 'Revenus', type: 'income', color: '#E8B84B' })
+      if (!working.some(c => c.type === 'saving')) backfill.push({ name: 'Épargne', type: 'saving', color: '#3D80B8' })
+
+      for (const cat of backfill) {
         const { data: newCat, error: insertErr } = await supabase
           .from('kakebo_categories')
-          .insert({ name: 'Revenus', type: 'income', color: '#E8B84B', household_id: HOUSEHOLD_ID })
+          .insert({ ...cat, household_id: HOUSEHOLD_ID })
           .select('*')
           .single()
-        if (!insertErr && newCat) {
-          const updated = [...data, newCat] as KakeboCategory[]
-          queryClient.setQueryData(KAKEBO_CATS_KEY, updated)
-          return updated
-        }
+        if (!insertErr && newCat) working = [...working, newCat as KakeboCategory]
       }
+      if (backfill.length > 0) queryClient.setQueryData(KAKEBO_CATS_KEY, working)
 
-      return data as KakeboCategory[]
+      return working
     },
   })
 }

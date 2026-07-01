@@ -1,12 +1,12 @@
-import { ChevronRight, AlertTriangle } from 'lucide-react'
-import { catColor, catGlyph, fmtEur } from './kakebo.utils'
+import { ChevronRight, AlertTriangle, PiggyBank } from 'lucide-react'
+import { catColor, catGlyph, fmtEur, isSpendType } from './kakebo.utils'
 import EntryRow from './EntryRow'
 import type { KakeboCategory, KakeboEntry } from './useKakebo'
 import styles from './KakeboPage.module.css'
 
 export default function BilanView({
   arcs, donutR, donutC, totalDepenses, revenus, objectifEpargne,
-  epargneReelle, solde, moodEmoji, moodLabel,
+  epargneReelle, epargneMiseDeCote, solde, moodEmoji, moodLabel,
   dailyTotals, maxDaily, todayDay,
   entries, prevMonthExpenses,
   onSelectCat, onShowDetail, onEdit, onReplay, readOnly = false,
@@ -14,7 +14,7 @@ export default function BilanView({
   arcs: { cat: KakeboCategory; pct: number; dash: number; offset: number; value: number }[]
   donutR: number; donutC: number
   totalDepenses: number; revenus: number; objectifEpargne: number
-  epargneReelle: number; solde: number
+  epargneReelle: number; epargneMiseDeCote: number; solde: number
   moodEmoji: string; moodLabel: string
   dailyTotals: number[]; maxDaily: number; todayDay: number
   entries: KakeboEntry[]
@@ -39,7 +39,7 @@ export default function BilanView({
     : null
 
   const top3 = [...entries]
-    .filter(e => e.category?.type !== 'income' && Number(e.amount) > 0)
+    .filter(e => isSpendType(e.category?.type) && Number(e.amount) > 0)
     .sort((a, b) => Number(b.amount) - Number(a.amount))
     .slice(0, 3)
 
@@ -104,6 +104,13 @@ export default function BilanView({
                 <div className={styles.goalMarker} style={{ left: `${objectifPct * 100}%` }} />
               </div>
             </div>
+            {epargneMiseDeCote > 0 && (
+              <div className={styles.savedRow} title="Virements vers l'épargne ce mois (hors dépenses)">
+                <PiggyBank size={14} strokeWidth={2} color="#3D80B8" />
+                <span className={styles.savedLabel}>Mis de côté</span>
+                <span className={styles.savedVal}>{fmtEur(epargneMiseDeCote)} €</span>
+              </div>
+            )}
             <div className={styles.mood}>
               <span className={styles.moodEmoji}>{moodEmoji}</span>
               <span className={styles.moodLabel}>{moodLabel}</span>

@@ -29,7 +29,7 @@ import type { KakeboEntry } from './useKakebo'
 import { memberColor } from '../../lib/constants'
 import styles from './KakeboPage.module.css'
 
-import { catGlyph, catColor } from './kakebo.utils'
+import { catGlyph, catColor, isSpendType, isSavingType } from './kakebo.utils'
 import BilanView from './BilanView'
 import DetailView from './DetailView'
 import CategoryDetail from './CategoryDetail'
@@ -160,21 +160,26 @@ export default function KakeboPage() {
 
   const prevMonthPrefix    = format(subMonths(refDate, 1), 'yyyy-MM')
   const prevMonthExpenses  = displayTrendEntries
-    .filter(e => e.date.startsWith(prevMonthPrefix) && e.category?.type !== 'income')
+    .filter(e => e.date.startsWith(prevMonthPrefix) && isSpendType(e.category?.type))
     .reduce((s, e) => s + Number(e.amount), 0)
 
   // ── Computations ──────────────────────────────────────────────────────────
 
   const incomeEntries  = displayEntries.filter(e => e.category?.type === 'income')
-  const expenseEntries = displayEntries.filter(e => e.category?.type !== 'income')
+  const expenseEntries = displayEntries.filter(e => isSpendType(e.category?.type))
+  const savingEntries  = displayEntries.filter(e => isSavingType(e.category?.type))
   const totalRevenusMois = incomeEntries.reduce((s, e) => s + Number(e.amount), 0)
 
+  // Dépenses de consommation uniquement (l'épargne est comptée à part).
   const totalByCategory: Record<string, number> = {}
   for (const cat of displayCategories) totalByCategory[cat.id] = 0
   for (const e of expenseEntries) {
     if (e.category_id) totalByCategory[e.category_id] = (totalByCategory[e.category_id] ?? 0) + Number(e.amount)
   }
   const totalDepenses = Object.values(totalByCategory).reduce((s, v) => s + v, 0)
+  // Épargne mise de côté : virements vers l'épargne (sortie du courant, pas une
+  // dépense). Suivie séparément, n'entre pas dans l'épargne réelle résiduelle.
+  const totalEpargneMiseDeCote = savingEntries.reduce((s, e) => s + Number(e.amount), 0)
   const epargneReelle = totalRevenusMois - totalDepenses
   const solde         = epargneReelle - effectiveObjectif
 
@@ -184,7 +189,7 @@ export default function KakeboPage() {
   // Donut math
   const donutR = 54
   const donutC = 2 * Math.PI * donutR
-  const spendCats = displayCategories.filter(c => c.type !== 'income')
+  const spendCats = displayCategories.filter(c => isSpendType(c.type))
   const arcBases = spendCats.map(cat => {
     const v = totalByCategory[cat.id] ?? 0
     const pct = totalDepenses > 0 ? v / totalDepenses : 0
@@ -334,7 +339,7 @@ export default function KakeboPage() {
     setBudgetDraft(effectiveObjectif)
     const drafts: Record<string, string> = {}
     const names: Record<string, string> = {}
-    for (const cat of displayCategories.filter(c => c.type !== 'income')) {
+    for (const cat of displayCategories.filter(c => isSpendType(c.type))) {
       drafts[cat.id] = cat.monthly_budget != null ? String(cat.monthly_budget) : ''
       names[cat.id] = cat.name
     }
@@ -494,6 +499,7 @@ export default function KakeboPage() {
               revenus={totalRevenusMois}
               objectifEpargne={effectiveObjectif}
               epargneReelle={epargneReelle}
+              epargneMiseDeCote={totalEpargneMiseDeCote}
               solde={solde}
               moodEmoji={moodEmoji}
               moodLabel={moodLabel}
@@ -880,7 +886,7 @@ export default function KakeboPage() {
               <div className={styles.budgetSeparator}>
                 <span className={styles.fieldLabel}>Budgets mensuels par catégorie</span>
               </div>
-              {displayCategories.filter(c => c.type !== 'income').map(cat => (
+              {displayCategories.filter(c => isSpendType(c.type)).map(cat => (
                 <div key={cat.id} className={styles.fieldGroup}>
                   {selectedMemberId ? (
                     <label className={styles.fieldLabel}>

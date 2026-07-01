@@ -403,6 +403,26 @@
   margin-top: 8px;
 }
 
+.savedRow {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+}
+
+.savedLabel {
+  font-size: var(--text-2xs);
+  color: var(--text-sub);
+  font-weight: 600;
+}
+
+.savedVal {
+  font-size: var(--text-2xs);
+  font-weight: 800;
+  color: #3D80B8;
+  margin-left: auto;
+}
+
 .moodEmoji { font-size: var(--text-md); }
 
 .moodLabel {

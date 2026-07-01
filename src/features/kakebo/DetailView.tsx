@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { catColor, catGlyph, fmtEur, MONTH_LABELS_FR } from './kakebo.utils'
+import { catColor, catGlyph, fmtEur, isSpendType, MONTH_LABELS_FR } from './kakebo.utils'
 import EntryRow from './EntryRow'
 import type { KakeboCategory, KakeboEntry } from './useKakebo'
 import styles from './KakeboPage.module.css'
@@ -42,7 +42,7 @@ export default function DetailView({
 
   const filterActive = selectedTags.length > 0
   const filteredExpense = filtered
-    .filter(e => e.category?.type !== 'income')
+    .filter(e => isSpendType(e.category?.type))
     .reduce((s, e) => s + Number(e.amount), 0)
 
   return (
@@ -138,7 +138,7 @@ export default function DetailView({
         if (sorted.length === 0) return <p className={styles.detailEmpty}>Aucune opération ce mois.</p>
         return [...byDate.entries()].map(([date, dayEntries]) => {
           const dayTotal = dayEntries
-            .filter(e => e.category?.type !== 'income')
+            .filter(e => isSpendType(e.category?.type))
             .reduce((s, e) => s + Number(e.amount), 0)
           return (
             <div key={date} className={styles.dateGroup}>
