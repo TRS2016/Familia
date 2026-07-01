@@ -15,14 +15,27 @@ export default function CategoryDetail({
   onDelete: (id: string) => void
   onReplay: (entry: KakeboEntry) => void
 }) {
-  const [filterTag, setFilterTag] = useState<string | null>(null)
+  const [selectedTags, setSelectedTags] = useState<string[]>([])
+  const [matchMode, setMatchMode] = useState<'any' | 'all'>('any')
 
   // Tags présents dans cette catégorie, triés par fréquence
   const tagCounts = new Map<string, number>()
   for (const e of entries) for (const t of (e.tags ?? [])) tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1)
   const allTags = [...tagCounts.entries()].sort((a, b) => b[1] - a[1]).map(([t]) => t)
 
-  const shown = filterTag ? entries.filter(e => (e.tags ?? []).includes(filterTag)) : entries
+  function toggleTag(t: string) {
+    setSelectedTags(prev => prev.includes(t) ? prev.filter(x => x !== t) : [...prev, t])
+  }
+
+  const filterActive = selectedTags.length > 0
+  const shown = filterActive
+    ? entries.filter(e => {
+        const tags = e.tags ?? []
+        return matchMode === 'all'
+          ? selectedTags.every(t => tags.includes(t))
+          : selectedTags.some(t => tags.includes(t))
+      })
+    : entries
 
   const total    = shown.reduce((s, e) => s + Number(e.amount), 0)
   const count    = shown.length
@@ -62,25 +75,35 @@ export default function CategoryDetail({
 
       {allTags.length > 0 && (
         <div className={styles.tagFilterRow}>
-          {filterTag && (
-            <button className={styles.tagFilterClear} onClick={() => setFilterTag(null)}>
+          {filterActive && (
+            <button className={styles.tagFilterClear} onClick={() => setSelectedTags([])}>
               <X size={11} strokeWidth={2.5} /> Tag
             </button>
           )}
           {allTags.map(t => (
             <button
               key={t}
-              className={[styles.tagFilterPill, filterTag === t ? styles.tagFilterPillActive : ''].join(' ')}
-              onClick={() => setFilterTag(cur => cur === t ? null : t)}
+              className={[styles.tagFilterPill, selectedTags.includes(t) ? styles.tagFilterPillActive : ''].join(' ')}
+              aria-pressed={selectedTags.includes(t)}
+              onClick={() => toggleTag(t)}
             >
               #{t}
             </button>
           ))}
+          {selectedTags.length > 1 && (
+            <button
+              className={styles.tagFilterMode}
+              onClick={() => setMatchMode(m => m === 'any' ? 'all' : 'any')}
+              title="Basculer le mode de correspondance"
+            >
+              {matchMode === 'any' ? 'au moins un' : 'tous les tags'}
+            </button>
+          )}
         </div>
       )}
 
       <p className={styles.sectionLabel} style={{ marginBottom: 8 }}>
-        {filterTag ? `Opérations · #${filterTag}` : 'Toutes les opérations'}
+        {filterActive ? `Opérations · ${selectedTags.map(t => `#${t}`).join(' ')}` : 'Toutes les opérations'}
       </p>
       {sorted.length === 0
         ? <p className={styles.detailEmpty}>Aucune dépense ce mois</p>
