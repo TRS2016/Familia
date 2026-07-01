@@ -8,6 +8,9 @@ export default function StatsCard({ stats, goal, onEditGoal }: { stats: Training
   const maxSec = Math.max(1, ...stats.perDay.map(d => d.seconds))
   const todayKey = stats.perDay[stats.perDay.length - 1]?.date
 
+  const DAY_FULL = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
+  const hasGoal = goal > 0
+
   // Anneau d'objectif hebdo
   const G = { size: 46, r: 19 }
   const GC = 2 * Math.PI * G.r
@@ -18,9 +21,15 @@ export default function StatsCard({ stats, goal, onEditGoal }: { stats: Training
   return (
     <div className={styles.statsCard}>
       <div className={styles.statsGrid}>
-        <button className={[styles.statCell, styles.statCellGoal].join(' ')} onClick={onEditGoal} aria-label="Objectif hebdomadaire">
+        <button
+          className={[styles.statCell, styles.statCellGoal].join(' ')}
+          onClick={onEditGoal}
+          aria-label={hasGoal
+            ? `Objectif hebdomadaire : ${stats.weekCount} sur ${goal} séance${goal > 1 ? 's' : ''}`
+            : 'Définir un objectif hebdomadaire'}
+        >
           <span className={styles.goalRing}>
-            <svg viewBox={`0 0 ${G.size} ${G.size}`} className={styles.goalRingSvg}>
+            <svg viewBox={`0 0 ${G.size} ${G.size}`} className={styles.goalRingSvg} aria-hidden="true">
               <circle cx={G.size / 2} cy={G.size / 2} r={G.r} fill="none" stroke="var(--tr-line)" strokeWidth={4} />
               <circle cx={G.size / 2} cy={G.size / 2} r={G.r} fill="none"
                 stroke={goalColor} strokeWidth={4} strokeLinecap="round"
@@ -30,7 +39,7 @@ export default function StatsCard({ stats, goal, onEditGoal }: { stats: Training
               />
             </svg>
             <span className={styles.goalRingText} style={{ color: goalColor }}>
-              {stats.weekCount}<span className={styles.goalRingDen}>/{goal}</span>
+              {stats.weekCount}{hasGoal && <span className={styles.goalRingDen}>/{goal}</span>}
             </span>
           </span>
           <span className={styles.statLabel}>Objectif</span>
@@ -51,12 +60,23 @@ export default function StatsCard({ stats, goal, onEditGoal }: { stats: Training
         </div>
       </div>
 
-      <div className={styles.statChart}>
+      <div
+        className={styles.statChart}
+        role="img"
+        aria-label={`Temps d'entraînement par jour sur 7 jours. ${stats.perDay.map(d => {
+          const dow = new Date(d.date + 'T00:00:00').getDay()
+          return `${DAY_FULL[dow]} : ${d.seconds > 0 ? fmtClock(d.seconds) : 'aucun'}`
+        }).join('. ')}.`}
+      >
         {stats.perDay.map(d => {
           const dow = new Date(d.date + 'T00:00:00').getDay()
           const isToday = d.date === todayKey
           return (
-            <div key={d.date} className={styles.statBarCol}>
+            <div
+              key={d.date}
+              className={styles.statBarCol}
+              title={`${DAY_FULL[dow]} : ${d.seconds > 0 ? fmtClock(d.seconds) : 'aucun entraînement'}`}
+            >
               <div className={styles.statBarTrack}>
                 <div
                   className={[styles.statBar, d.seconds === 0 ? styles.statBarEmpty : ''].join(' ')}
