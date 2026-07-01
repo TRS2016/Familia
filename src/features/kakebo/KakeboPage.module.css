@@ -1493,7 +1493,7 @@
   width: 8px;
   height: 8px;
   border-radius: 2px;
-  background: var(--accent);
+  background: var(--chart-neutral);
   display: inline-block;
 }
 
