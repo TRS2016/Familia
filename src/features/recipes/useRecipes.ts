@@ -77,6 +77,8 @@ export function useRecipes() {
 export function useRecipesRealtime() {
   useRealtimeInvalidation('recipes-changes', [
     { table: 'recipes', keys: [RECIPES_KEY] },
+    // Préfixe ['meal-plan', HOUSEHOLD_ID] : invalide toutes les semaines chargées.
+    { table: 'meal_plan_entries', keys: [['meal-plan', HOUSEHOLD_ID]] },
   ])
 }
 

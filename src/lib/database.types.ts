@@ -1075,6 +1075,58 @@ export type Database = {
           },
         ]
       }
+      meal_plan_entries: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          date: string
+          household_id: string
+          id: string
+          meal_type: string
+          recipe_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          date: string
+          household_id: string
+          id?: string
+          meal_type: string
+          recipe_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          date?: string
+          household_id?: string
+          id?: string
+          meal_type?: string
+          recipe_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "meal_plan_entries_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plan_entries_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "meal_plan_entries_recipe_id_fkey"
+            columns: ["recipe_id"]
+            isOneToOne: false
+            referencedRelation: "recipes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       media_files: {
         Row: {
           created_at: string

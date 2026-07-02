@@ -10,6 +10,7 @@ import {
 } from './useRecipes'
 import RecipeDetailModal from './RecipeDetailModal'
 import RecipeFormModal from './RecipeFormModal'
+import WeekPlanner from './WeekPlanner'
 import type { Recipe } from './useRecipes'
 import styles from './RecipesPage.module.css'
 
@@ -34,6 +35,7 @@ export default function RecipesPage() {
   const [confirmDel, setConfirmDel] = useState<Recipe | null>(null)
   // false = fermé ; null = création ; Recipe = édition
   const [form, setForm] = useState<Recipe | null | false>(false)
+  const [view, setView] = useState<'carnet' | 'semaine'>('carnet')
   const fileRef = useRef<HTMLInputElement>(null)
 
   const countByMeal = useMemo(() => {
@@ -90,7 +92,24 @@ export default function RecipesPage() {
         />
       </header>
 
-      {recipes.length > 0 && (
+      <div className={styles.tabRow}>
+        <button
+          className={[styles.chip, view === 'carnet' ? styles.chipActive : ''].join(' ')}
+          onClick={() => setView('carnet')}
+        >
+          📖 Carnet
+        </button>
+        <button
+          className={[styles.chip, view === 'semaine' ? styles.chipActive : ''].join(' ')}
+          onClick={() => setView('semaine')}
+        >
+          📅 Semaine
+        </button>
+      </div>
+
+      {view === 'semaine' && <WeekPlanner recipes={recipes} onShowRecipe={setDetail} />}
+
+      {view === 'carnet' && recipes.length > 0 && (
         <div className={styles.filterRow}>
           <button
             className={[styles.chip, !filter ? styles.chipActive : ''].join(' ')}
@@ -115,7 +134,7 @@ export default function RecipesPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {view === 'carnet' && (isLoading ? (
         <div className={styles.spinnerWrap}><Spinner size={32} /></div>
       ) : recipes.length === 0 ? (
         <EmptyState
@@ -148,7 +167,7 @@ export default function RecipesPage() {
             )
           })}
         </ul>
-      )}
+      ))}
 
       {detail && (
         <RecipeDetailModal
