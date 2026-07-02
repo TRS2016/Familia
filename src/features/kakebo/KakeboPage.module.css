@@ -1889,3 +1889,20 @@
   padding: 6px 0 2px;
   border-top: 1px solid var(--border-subtle);
 }
+
+/* ── Projets d'epargne (enveloppes) ───────────────────────────────────── */
+.goalsCard { margin: 0 16px 14px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius-md, 14px); background: var(--bg-card); }
+.goalsHead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.goalsTitle { font-size: var(--text-sm); font-weight: 800; color: var(--text); }
+.goalsAdd { display: inline-flex; align-items: center; gap: 4px; padding: 4px 10px; border: 1.5px dashed var(--border); border-radius: var(--radius-pill); background: transparent; color: var(--text-muted); font-family: var(--font-family); font-size: var(--text-xs); font-weight: 700; cursor: pointer; }
+.goalsAdd:hover { border-color: var(--accent); color: var(--accent); }
+.goalsHint { margin: 0; font-size: var(--text-xs); color: var(--text-muted); line-height: 1.5; }
+.goalsList { display: flex; flex-direction: column; gap: 12px; }
+.goalItem { display: flex; flex-direction: column; gap: 4px; }
+.goalItemHead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.goalItemName { font-size: var(--text-sm); font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.goalItemEdit { flex-shrink: 0; display: flex; align-items: center; justify-content: center; width: 26px; height: 26px; border: none; background: transparent; color: var(--text-muted); border-radius: var(--radius-sm); cursor: pointer; }
+.goalItemEdit:hover { color: var(--accent); }
+.goalItemMeta { font-size: var(--text-xs); color: var(--text-muted); font-weight: 600; }
+.goalArchiveBtn { margin-top: 4px; min-height: 40px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); font-family: var(--font-family); font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.goalArchiveBtn:hover { border-color: var(--danger, #C0392B); color: var(--danger, #C0392B); }

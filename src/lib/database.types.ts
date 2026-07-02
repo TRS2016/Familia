@@ -844,6 +844,7 @@ export type Database = {
           id: string
           member_id: string | null
           recurring: boolean
+          saving_goal_id: string | null
           series_end: string | null
           series_id: string | null
           tags: string[]
@@ -858,6 +859,7 @@ export type Database = {
           id?: string
           member_id?: string | null
           recurring?: boolean
+          saving_goal_id?: string | null
           series_end?: string | null
           series_id?: string | null
           tags?: string[]
@@ -872,6 +874,7 @@ export type Database = {
           id?: string
           member_id?: string | null
           recurring?: boolean
+          saving_goal_id?: string | null
           series_end?: string | null
           series_id?: string | null
           tags?: string[]
@@ -896,6 +899,13 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "kakebo_entries_saving_goal_id_fkey"
+            columns: ["saving_goal_id"]
+            isOneToOne: false
+            referencedRelation: "kakebo_saving_goals"
             referencedColumns: ["id"]
           },
         ]
@@ -939,6 +949,44 @@ export type Database = {
             columns: ["member_id"]
             isOneToOne: false
             referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      kakebo_saving_goals: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          emoji: string
+          household_id: string
+          id: string
+          name: string
+          target_amount: number
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          emoji?: string
+          household_id: string
+          id?: string
+          name: string
+          target_amount: number
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          emoji?: string
+          household_id?: string
+          id?: string
+          name?: string
+          target_amount?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kakebo_saving_goals_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
             referencedColumns: ["id"]
           },
         ]

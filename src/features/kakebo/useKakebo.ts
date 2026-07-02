@@ -28,6 +28,7 @@ export interface KakeboEntry {
   recurring: boolean
   series_id: string | null
   series_end: string | null   // dernier mois inclus (date = dernier jour du mois), null = sans fin
+  saving_goal_id: string | null // projet d'épargne rattaché (catégories saving)
   created_at: string
   category: KakeboCategory | null
   member: { display_name: string } | null
@@ -42,6 +43,7 @@ export interface NewEntryInput {
   tags: string[]
   recurring: boolean
   series_end: string | null // dernier jour du mois d'échéance, null = sans fin
+  saving_goal_id: string | null
 }
 
 export interface EditEntryInput {
@@ -55,6 +57,7 @@ export interface EditEntryInput {
   recurring: boolean
   series_id: string | null
   series_end: string | null
+  saving_goal_id: string | null
   // 'series' : applique les champs (sauf la date) à toutes les occurrences de la
   // série. Décocher `recurring` en scope série arrête la série de façon fiable.
   scope?: 'one' | 'series'
@@ -256,6 +259,7 @@ export function useAddEntry(year: number, month: number) {
           recurring: input.recurring,
           series_id: seriesId,
           series_end: input.recurring ? input.series_end : null,
+          saving_goal_id: input.saving_goal_id,
         } as never)
         .select(`*, category:kakebo_categories(*), member:members(display_name)`)
         .single()
@@ -278,6 +282,7 @@ export function useAddEntry(year: number, month: number) {
         recurring: input.recurring,
         series_id: null,
         series_end: input.recurring ? input.series_end : null,
+        saving_goal_id: input.saving_goal_id,
         created_at: new Date().toISOString(),
         category: categories.find(c => c.id === input.category_id) ?? null,
         member: (input.member_id && member && input.member_id === member.id)
@@ -321,6 +326,7 @@ export function useEditEntry(year: number, month: number) {
             tags: input.tags,
             recurring: input.recurring,
             series_end: endVal,
+            saving_goal_id: input.saving_goal_id,
           } as never)
           .eq('series_id', input.series_id)
         if (error) throw error
@@ -351,6 +357,7 @@ export function useEditEntry(year: number, month: number) {
           recurring: input.recurring,
           series_id: seriesId,
           series_end: input.recurring ? input.series_end : null,
+          saving_goal_id: input.saving_goal_id,
         } as never)
         .eq('id', input.id)
         .select(`*, category:kakebo_categories(*), member:members(display_name)`)
@@ -375,6 +382,7 @@ export function useEditEntry(year: number, month: number) {
           member_id: input.member_id,
           tags: input.tags,
           recurring: input.recurring,
+          saving_goal_id: input.saving_goal_id,
           category: categories.find(c => c.id === input.category_id) ?? e.category,
         })
       )

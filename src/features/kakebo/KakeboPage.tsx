@@ -30,6 +30,8 @@ import { memberColor } from '../../lib/constants'
 import styles from './KakeboPage.module.css'
 
 import { catGlyph, catColor, isSpendType, isSavingType } from './kakebo.utils'
+import SavingGoalsCard from './SavingGoalsCard'
+import { useSavingGoals } from './useSavingGoals'
 import BilanView from './BilanView'
 import DetailView from './DetailView'
 import CategoryDetail from './CategoryDetail'
@@ -93,6 +95,7 @@ export default function KakeboPage() {
   const { data: memberBudgets = [] } = useKakeboMemberBudgets(selectedMemberId)
   const selectedMember = members.find(m => m.id === selectedMemberId) ?? null
 
+  const { data: savingGoals = [] } = useSavingGoals()
   const [showAdd, setShowAdd]       = useState(false)
   const [showBudget, setShowBudget] = useState(false)
   const [budgetDraft, setBudgetDraft] = useState(400)
@@ -100,7 +103,7 @@ export default function KakeboPage() {
 
   // Edit entry state
   const [editTarget, setEditTarget] = useState<KakeboEntry | null>(null)
-  const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '', member_id: null as string | null, tags: [] as string[], recurring: false, series_id: null as string | null, series_end: null as string | null })
+  const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '', member_id: null as string | null, tags: [] as string[], recurring: false, series_id: null as string | null, series_end: null as string | null, saving_goal_id: null as string | null })
   // Portée de l'édition d'une charge récurrente : cette occurrence ou toute la série.
   const [editScope, setEditScope]   = useState<'one' | 'series'>('one')
 
@@ -115,6 +118,7 @@ export default function KakeboPage() {
     tags: [] as string[],
     recurring: false,
     series_end: null as string | null,
+    saving_goal_id: null as string | null,
   })
 
   // Ouvre le modal d'ajout en pré-affectant à la vue courante (Foyer ou membre)
@@ -230,6 +234,7 @@ export default function KakeboPage() {
       recurring: entry.recurring ?? false,
       series_id: entry.series_id ?? null,
       series_end: entry.series_end ?? null,
+      saving_goal_id: entry.saving_goal_id ?? null,
     })
     setEditScope('one')
     setEditTarget(entry)
@@ -240,6 +245,7 @@ export default function KakeboPage() {
     if (!editTarget) return
     const amount = parseFloat(editDraft.amount)
     if (!editDraft.category_id || isNaN(amount) || amount <= 0) return
+    const editCat = categories.find(c => c.id === editDraft.category_id)
     await editEntry.mutateAsync({
       id: editTarget.id,
       category_id: editDraft.category_id,
@@ -251,6 +257,7 @@ export default function KakeboPage() {
       recurring: editDraft.recurring,
       series_id: editDraft.series_id,
       series_end: editDraft.recurring ? editDraft.series_end : null,
+      saving_goal_id: isSavingType(editCat?.type) ? editDraft.saving_goal_id : null,
       scope: editDraft.series_id ? editScope : 'one',
     })
     setEditTarget(null)
@@ -268,6 +275,7 @@ export default function KakeboPage() {
         tags: entry.tags ?? [],
         recurring: false,
         series_end: null,
+        saving_goal_id: entry.saving_goal_id ?? null,
       },
       { onSuccess: () => showToast({ type: 'success', message: 'Opération dupliquée pour aujourd\'hui.' }) }
     )
@@ -352,6 +360,7 @@ export default function KakeboPage() {
     e.preventDefault()
     const amount = parseFloat(draft.amount)
     if (!draft.category_id || isNaN(amount) || amount <= 0) return
+    const addCat = categories.find(c => c.id === draft.category_id)
     await addEntry.mutateAsync({
       category_id: draft.category_id,
       amount,
@@ -361,8 +370,9 @@ export default function KakeboPage() {
       tags: draft.tags,
       recurring: draft.recurring,
       series_end: draft.recurring ? draft.series_end : null,
+      saving_goal_id: isSavingType(addCat?.type) ? draft.saving_goal_id : null,
     })
-    setDraft({ category_id: draft.category_id, amount: '', description: '', date: draft.date, member_id: draft.member_id, tags: [], recurring: false, series_end: null })
+    setDraft({ category_id: draft.category_id, amount: '', description: '', date: draft.date, member_id: draft.member_id, tags: [], recurring: false, series_end: null, saving_goal_id: null })
     setShowAdd(false)
   }
 
@@ -490,6 +500,7 @@ export default function KakeboPage() {
           )}
 
           {/* ── Bilan ───────────────────────────────────────────────── */}
+          {!selectedCatId && view === 'bilan' && <SavingGoalsCard />}
           {!selectedCatId && view === 'bilan' && (
             <BilanView
               arcs={arcs}
@@ -620,6 +631,33 @@ export default function KakeboPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Projet d'épargne (catégories saving uniquement) */}
+              {isSavingType(categories.find(c => c.id === draft.category_id)?.type) && savingGoals.length > 0 && (
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Projet d'épargne</label>
+                  <div className={styles.catPills}>
+                    <button
+                      type="button"
+                      className={[styles.catPill, draft.saving_goal_id === null ? styles.catPillActive : ''].join(' ')}
+                      onClick={() => setDraft(d => ({ ...d, saving_goal_id: null }))}
+                    >
+                      — Aucun
+                    </button>
+                    {savingGoals.map(g => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        className={[styles.catPill, draft.saving_goal_id === g.id ? styles.catPillActive : ''].join(' ')}
+                        style={draft.saving_goal_id === g.id ? { background: '#3D80B822', borderColor: '#3D80B8', color: '#3D80B8' } : {}}
+                        onClick={() => setDraft(d => ({ ...d, saving_goal_id: g.id }))}
+                      >
+                        {g.emoji} {g.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* Amount */}
               <div className={styles.fieldGroup}>
@@ -763,6 +801,33 @@ export default function KakeboPage() {
                   ))}
                 </div>
               </div>
+
+              {/* Projet d'épargne (catégories saving uniquement) */}
+              {isSavingType(categories.find(c => c.id === editDraft.category_id)?.type) && savingGoals.length > 0 && (
+                <div className={styles.fieldGroup}>
+                  <label className={styles.fieldLabel}>Projet d'épargne</label>
+                  <div className={styles.catPills}>
+                    <button
+                      type="button"
+                      className={[styles.catPill, editDraft.saving_goal_id === null ? styles.catPillActive : ''].join(' ')}
+                      onClick={() => setEditDraft(d => ({ ...d, saving_goal_id: null }))}
+                    >
+                      — Aucun
+                    </button>
+                    {savingGoals.map(g => (
+                      <button
+                        key={g.id}
+                        type="button"
+                        className={[styles.catPill, editDraft.saving_goal_id === g.id ? styles.catPillActive : ''].join(' ')}
+                        style={editDraft.saving_goal_id === g.id ? { background: '#3D80B822', borderColor: '#3D80B8', color: '#3D80B8' } : {}}
+                        onClick={() => setEditDraft(d => ({ ...d, saving_goal_id: g.id }))}
+                      >
+                        {g.emoji} {g.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className={styles.fieldGroup}>
                 <label htmlFor="e-amount" className={styles.fieldLabel}>Montant (€)</label>
                 <input
