@@ -383,3 +383,16 @@
 }
 .addMenu button:hover { background: var(--bg-input); }
 .addMenu button span { font-weight: 600; color: var(--text-muted, #999); }
+
+/* ── Taches en retard ─────────────────────────────────────────────────── */
+.overdueBlock { margin: 0 16px 14px; padding: 10px 12px; border: 1.5px solid color-mix(in srgb, var(--danger, #C0392B) 45%, var(--border)); border-radius: var(--radius-md, 12px); background: color-mix(in srgb, var(--danger, #C0392B) 6%, var(--bg-card)); }
+.overdueBlock .list { padding: 0; }
+.overdueTitle { margin: 0 0 8px; font-size: var(--text-sm); font-weight: 800; color: var(--danger, #C0392B); }
+.overdueDate { font-weight: 700; color: var(--danger, #C0392B); text-transform: capitalize; }
+
+/* ── Stats du mois (Progression) ──────────────────────────────────────── */
+.monthStats { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md, 12px); background: var(--bg-card); }
+.monthStats + .monthStats { margin-top: 8px; }
+.statRow { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 10px; }
+.statName { font-size: var(--text-sm); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.statMeta { font-size: var(--text-xs); color: var(--text-muted); font-weight: 600; white-space: nowrap; }

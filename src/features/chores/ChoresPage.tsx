@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { format, addDays, startOfWeek, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Check, Undo2, Pencil, Trash2, SkipForward, Camera, Copy, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Check, Undo2, Pencil, Trash2, SkipForward, Camera, Copy, Sparkles, X } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -42,6 +42,11 @@ export default function ChoresPage() {
   const from = days[0], to = days[6]
 
   const { data: assignments = [] } = useChoreAssignments(from, to)
+
+  // Tâches en retard : assignations passées (14 j) toujours « pending ».
+  const overdueFrom = format(subDays(new Date(), 14), 'yyyy-MM-dd')
+  const overdueTo = format(subDays(new Date(), 1), 'yyyy-MM-dd')
+  const { data: pastAssignments = [] } = useChoreAssignments(overdueFrom, overdueTo)
   const materialize = useMaterializeAssignments()
   const logChore = useLogChore()
   const undoLog = useUndoChoreLog()
@@ -55,7 +60,7 @@ export default function ChoresPage() {
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [recipeView, setRecipeView] = useState<Recipe | null>(null)
-  const [pickDone, setPickDone] = useState<{ a: ChoreAssignment; chore: Chore } | null>(null)
+  const [pickDone, setPickDone] = useState<{ a: ChoreAssignment; chore: Chore; doneOn: string } | null>(null)
   const toggleStep = useToggleStep()
   const setStatus = useSetAssignmentStatus()
   const reorderChores = useReorderChores()
@@ -102,6 +107,13 @@ export default function ChoresPage() {
     return m
   }, [logs])
 
+  const overdue = useMemo(
+    () => pastAssignments
+      .filter(a => a.status === 'pending' && choreById.has(a.chore_id) && !logByAssignment.has(a.id))
+      .sort((a, b) => a.date < b.date ? -1 : 1),
+    [pastAssignments, choreById, logByAssignment],
+  )
+
   const today = format(new Date(), 'yyyy-MM-dd')
   const [selectedDay, setSelectedDay] = useState(today)
   // Jour effectif borné à la semaine affichée (dérivé en rendu, pas en effet).
@@ -118,8 +130,8 @@ export default function ChoresPage() {
   // Au-delà de ce seuil de points, on prévient le foyer qu'une grosse tâche est faite.
   const BIG_TASK_POINTS = 20
 
-  function markDone(assignmentId: string, chore: Chore, memberId: string) {
-    logChore.mutate({ chore_id: chore.id, assignment_id: assignmentId, member_id: memberId, done_on: effectiveDay })
+  function markDone(assignmentId: string, chore: Chore, memberId: string, doneOn: string = effectiveDay) {
+    logChore.mutate({ chore_id: chore.id, assignment_id: assignmentId, member_id: memberId, done_on: doneOn })
     if (chore.points >= BIG_TASK_POINTS) {
       const who = members.find(m => m.id === memberId)?.display_name ?? 'Quelqu\'un'
       void supabase.functions.invoke('notify-household', {
@@ -130,11 +142,11 @@ export default function ChoresPage() {
 
   // Tâche assignée → crédite l'assigné. Tâche libre + plusieurs membres →
   // demande qui l'a faite. Sinon → membre courant.
-  function requestDone(a: ChoreAssignment, chore: Chore) {
-    if (a.member_id) { markDone(a.id, chore, a.member_id); return }
-    if (members.length > 1) { setPickDone({ a, chore }); return }
+  function requestDone(a: ChoreAssignment, chore: Chore, doneOn: string = effectiveDay) {
+    if (a.member_id) { markDone(a.id, chore, a.member_id, doneOn); return }
+    if (members.length > 1) { setPickDone({ a, chore, doneOn }); return }
     const me = currentMember?.id
-    if (me) markDone(a.id, chore, me)
+    if (me) markDone(a.id, chore, me, doneOn)
   }
 
   // Suggestions de tâches courantes pas encore présentes dans le catalogue.
@@ -214,6 +226,44 @@ export default function ChoresPage() {
         <RewardsTab members={members} currentMemberId={currentMember?.id ?? null} />
       ) : tab === 'todo' ? (
         <>
+          {/* Tâches en retard (assignations passées jamais faites ni passées) */}
+          {overdue.length > 0 && (
+            <section className={styles.overdueBlock}>
+              <h2 className={styles.overdueTitle}>⏰ En retard ({overdue.length})</h2>
+              <ul className={styles.list}>
+                {overdue.map(a => {
+                  const chore = choreById.get(a.chore_id)!
+                  const assignee = a.member_id ? members.find(m => m.id === a.member_id) : null
+                  const color = a.member_id ? memberColorById.get(a.member_id) : 'var(--accent)'
+                  return (
+                    <li key={a.id} className={styles.row}>
+                      <span className={styles.rowEmoji} style={{ background: (chore.color ?? categoryOf(chore.category).color) + '22' }}>{chore.emoji}</span>
+                      <div className={styles.rowMain}>
+                        <span className={styles.rowName}>{chore.name}</span>
+                        <span className={styles.rowMeta}>
+                          <span className={styles.overdueDate}>{format(new Date(a.date + 'T12:00'), 'EEE d MMM', { locale: fr })}</span>
+                          {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
+                          <span className={styles.points}>+{chore.points} pts</span>
+                        </span>
+                      </div>
+                      <button
+                        className={styles.undoBtn}
+                        onClick={() => setStatus.mutate({ assignmentId: a.id, status: 'skipped' })}
+                        aria-label="Passer cette tâche"
+                        title="Passer (personne ne la fera)"
+                      >
+                        <X size={16} />
+                      </button>
+                      <button className={styles.doneBtn} onClick={() => requestDone(a, chore, today)} aria-label="Marquer fait">
+                        <Check size={18} />
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          )}
+
           {/* Sélecteur de semaine + jours */}
           <div className={styles.weekNav}>
             <button onClick={() => setWeekStart(s => subDays(s, 7))} aria-label="Semaine précédente"><ChevronLeft size={20} /></button>
@@ -374,7 +424,7 @@ export default function ChoresPage() {
           <div className={styles.pickList}>
             {members.map(m => (
               <button key={m.id} className={styles.pickBtn}
-                onClick={() => { markDone(pickDone.a.id, pickDone.chore, m.id); setPickDone(null) }}>
+                onClick={() => { markDone(pickDone.a.id, pickDone.chore, m.id, pickDone.doneOn); setPickDone(null) }}>
                 {m.display_name}
               </button>
             ))}

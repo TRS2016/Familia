@@ -3,7 +3,7 @@ import { format, subDays } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useToast } from '../../components/useToast'
-import { POINTS_KEY, COUNTS_KEY } from './useGamification'
+import { POINTS_KEY, COUNTS_KEY, maybeAwardStreakBonus, STREAK_BONUS_POINTS } from './useGamification'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -457,6 +457,14 @@ export function useLogChore() {
     onError: (_e, _v, ctx) => {
       if (ctx?.previous) queryClient.setQueryData(RECENT_LOGS_KEY, ctx.previous)
       showToast({ type: 'error', message: 'Impossible d\'enregistrer la tâche.' })
+    },
+    // Bonus de série : primé après le pointage (jamais bloquant pour lui).
+    onSuccess: async (_id, input) => {
+      const streak = await maybeAwardStreakBonus(input.member_id)
+      if (streak) {
+        queryClient.invalidateQueries({ queryKey: POINTS_KEY })
+        showToast({ type: 'success', message: `🔥 Série de ${streak} jours : +${STREAK_BONUS_POINTS} pts bonus !` })
+      }
     },
     onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_KEY })

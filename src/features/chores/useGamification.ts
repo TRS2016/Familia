@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { format, startOfWeek, startOfMonth } from 'date-fns'
+import { format, startOfWeek, startOfMonth, subDays } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useToast } from '../../components/useToast'
+import { memberStreakDays } from './chores.utils'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -146,6 +147,53 @@ export function useFamilyGoals() {
       return data as unknown as FamilyGoal[]
     },
   })
+}
+
+// ── Bonus de série automatique ────────────────────────────────────────────────
+
+export const STREAK_BONUS_STEP = 7
+export const STREAK_BONUS_POINTS = 10
+
+/**
+ * Après un pointage réussi : +10 pts automatiques à chaque palier de 7 jours
+ * d'affilée (7, 14, 21…). Dédup : un seul bonus par membre et par jour (deux
+ * pointages le même jour donnent la même série). Retourne la série primée,
+ * ou null si pas de palier / déjà primé / erreur (silencieuse : le bonus est
+ * un plus, il ne doit jamais faire échouer le pointage).
+ */
+export async function maybeAwardStreakBonus(memberId: string): Promise<number | null> {
+  const from = format(subDays(new Date(), 66), 'yyyy-MM-dd')
+  const { data: logs, error } = await supabase
+    .from('chore_logs')
+    .select('member_id, done_on')
+    .eq('member_id', memberId)
+    .gte('done_on', from)
+  if (error || !logs) return null
+
+  const streak = memberStreakDays(logs, memberId)
+  if (streak < STREAK_BONUS_STEP || streak % STREAK_BONUS_STEP !== 0) return null
+
+  const dayStart = new Date()
+  dayStart.setHours(0, 0, 0, 0)
+  const { data: existing } = await supabase
+    .from('point_events')
+    .select('id')
+    .eq('member_id', memberId)
+    .eq('ref_type', 'streak_bonus')
+    .gte('created_at', dayStart.toISOString())
+    .limit(1)
+  if (existing && existing.length > 0) return null
+
+  const { error: insErr } = await supabase.from('point_events').insert({
+    household_id: HOUSEHOLD_ID,
+    member_id: memberId,
+    points: STREAK_BONUS_POINTS,
+    reason: `Série de ${streak} jours 🔥`,
+    ref_type: 'streak_bonus',
+    ref_id: null,
+  } as never)
+  if (insErr) return null
+  return streak
 }
 
 // ── Mutations ─────────────────────────────────────────────────────────────────

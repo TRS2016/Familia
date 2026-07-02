@@ -14,6 +14,7 @@ import {
 } from './useGamification'
 import { ACHIEVEMENTS, levelForXp, levelEmoji, type AchievementCtx } from './achievements'
 import { memberStreakDays } from './chores.utils'
+import { categoryOf } from './categories'
 import { format, startOfWeek, startOfMonth } from 'date-fns'
 import styles from './ChoresPage.module.css'
 
@@ -26,7 +27,7 @@ interface Props {
 
 const PERIOD_LABEL: Record<string, string> = { week: 'cette semaine', month: 'ce mois', open: 'au total' }
 
-export default function ProgressionTab({ members, logs, currentMemberId }: Props) {
+export default function ProgressionTab({ members, chores, logs, currentMemberId }: Props) {
   const { data: totals = {} as PointMap } = useMemberTotals()
   const { data: achievements = [] } = useMemberAchievements()
   const { data: goals = [] } = useFamilyGoals()
@@ -113,6 +114,26 @@ export default function ProgressionTab({ members, logs, currentMemberId }: Props
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ctxByMember, achievements, members])
 
+  // ── Stats du mois : par membre (points + tâches) et par catégorie (foyer) ──
+  const monthStats = useMemo(() => {
+    const choreById = new Map(chores.map(c => [c.id, c]))
+    const monthLogs = logs.filter(l => l.done_on >= monthStartStr)
+    const byMemberCount = new Map<string, number>()
+    const byCategory = new Map<string, { cnt: number; pts: number }>()
+    for (const l of monthLogs) {
+      byMemberCount.set(l.member_id, (byMemberCount.get(l.member_id) ?? 0) + 1)
+      const cat = l.chore_id ? (choreById.get(l.chore_id)?.category ?? 'autre') : 'autre'
+      const agg = byCategory.get(cat) ?? { cnt: 0, pts: 0 }
+      agg.cnt += 1
+      agg.pts += l.points_awarded
+      byCategory.set(cat, agg)
+    }
+    const categories = [...byCategory.entries()]
+      .map(([value, agg]) => ({ ...categoryOf(value), ...agg }))
+      .sort((a, b) => b.cnt - a.cnt)
+    return { byMemberCount, categories, total: monthLogs.length }
+  }, [chores, logs, monthStartStr])
+
   const earnedByMember = useMemo(() => {
     const m = new Map<string, Set<string>>()
     for (const a of achievements) {
@@ -153,6 +174,43 @@ export default function ProgressionTab({ members, logs, currentMemberId }: Props
           })}
         </div>
       </section>
+
+      {/* ── Ce mois-ci : par membre + par catégorie ────────────────── */}
+      {monthStats.total > 0 && (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>📊 Ce mois-ci</h2>
+          <div className={styles.monthStats}>
+            {members.map((m, i) => {
+              const pts = memberPoints(monthPoints, m.id)
+              const cnt = monthStats.byMemberCount.get(m.id) ?? 0
+              const maxPts = Math.max(1, ...members.map(mm => memberPoints(monthPoints, mm.id)))
+              return (
+                <div key={m.id} className={styles.statRow}>
+                  <span className={styles.statName} style={{ color: memberColor(i) }}>{m.display_name}</span>
+                  <div className={styles.progressTrack}>
+                    <div className={styles.progressFill} style={{ width: `${Math.round((pts / maxPts) * 100)}%`, background: memberColor(i) }} />
+                  </div>
+                  <span className={styles.statMeta}>{cnt} tâche{cnt > 1 ? 's' : ''} · {pts} pts</span>
+                </div>
+              )
+            })}
+          </div>
+          <div className={styles.monthStats}>
+            {monthStats.categories.map(cat => {
+              const maxCnt = Math.max(1, ...monthStats.categories.map(c => c.cnt))
+              return (
+                <div key={cat.value} className={styles.statRow}>
+                  <span className={styles.statName}>{cat.emoji} {cat.label}</span>
+                  <div className={styles.progressTrack}>
+                    <div className={styles.progressFill} style={{ width: `${Math.round((cat.cnt / maxCnt) * 100)}%`, background: cat.color }} />
+                  </div>
+                  <span className={styles.statMeta}>{cat.cnt} · {cat.pts} pts</span>
+                </div>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {/* ── Objectif familial ──────────────────────────────────────── */}
       <section className={styles.section}>
