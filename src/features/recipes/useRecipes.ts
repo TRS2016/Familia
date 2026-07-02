@@ -129,6 +129,49 @@ export function useAddRecipeToGroceries() {
   })
 }
 
+/** Création ou édition manuelle d'une recette (corrige aussi les erreurs de parsing IA). */
+export function useSaveRecipe() {
+  const queryClient = useQueryClient()
+  const { data: member } = useMember()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async (input: {
+      id?: string
+      title: string
+      meal_type: MealType
+      ingredients: Ingredient[]
+      steps: string[]
+    }) => {
+      const fields = {
+        title: input.title.trim(),
+        meal_type: input.meal_type,
+        ingredients: input.ingredients
+          .filter(i => i.name.trim())
+          .map(i => ({ name: i.name.trim(), quantity: i.quantity.trim() })),
+        steps: input.steps.map(s => s.trim()).filter(Boolean),
+        points: mealMeta(input.meal_type).points,
+      }
+      if (input.id) {
+        const { error } = await supabase.from('recipes').update(fields as never).eq('id', input.id)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('recipes').insert({
+          ...fields,
+          household_id: HOUSEHOLD_ID,
+          created_by: member?.id ?? null,
+        } as never)
+        if (error) throw error
+      }
+      return !!input.id
+    },
+    onSuccess: (edited) => {
+      queryClient.invalidateQueries({ queryKey: RECIPES_KEY })
+      showToast({ type: 'success', message: edited ? 'Recette modifiée.' : 'Recette ajoutée.' })
+    },
+    onError: () => showToast({ type: 'error', message: 'Impossible d\'enregistrer la recette.' }),
+  })
+}
+
 /** Import IA : envoie le PDF (base64) à l'edge parse-recipes puis insère les recettes. */
 export function useImportRecipes() {
   const queryClient = useQueryClient()
@@ -136,7 +179,7 @@ export function useImportRecipes() {
   const { showToast } = useToast()
 
   return useMutation({
-    mutationFn: async (pdfBase64: string): Promise<{ count: number; truncated: boolean }> => {
+    mutationFn: async (pdfBase64: string): Promise<{ count: number; skipped: number; truncated: boolean }> => {
       const { data, error } = await supabase.functions.invoke('parse-recipes', { body: { pdf: pdfBase64 } })
       if (error) {
         // L'edge renvoie un message lisible dans le corps même en cas d'erreur.
@@ -147,33 +190,46 @@ export function useImportRecipes() {
       const recipes = (data?.recipes ?? []) as ParsedRecipe[]
       if (recipes.length === 0) throw new Error('Aucune recette détectée dans ce PDF.')
 
-      const rows = recipes
-        .filter(r => (r.title ?? '').trim())
-        .map(r => {
-          const meal_type = MEAL_TYPES.includes(r.meal_type as MealType) ? r.meal_type! : 'dejeuner'
-          return {
-            household_id: HOUSEHOLD_ID,
-            created_by: member?.id ?? null,
-            title: r.title!.trim(),
-            meal_type,
-            ingredients: (r.ingredients ?? [])
-              .filter(i => (i.name ?? '').trim())
-              .map(i => ({ name: i.name!.trim(), quantity: (i.quantity ?? '').trim() })),
-            steps: (r.steps ?? []).map(s => String(s).trim()).filter(Boolean),
-            points: mealMeta(meal_type).points,
-          }
-        })
+      // Dédup : un réimport du même PDF ne doit pas dupliquer les recettes.
+      const { data: existing, error: exErr } = await supabase
+        .from('recipes')
+        .select('title')
+        .eq('household_id', HOUSEHOLD_ID)
+      if (exErr) throw exErr
+      const known = new Set((existing ?? []).map(r => r.title.trim().toLowerCase()))
 
-      const { error: insErr } = await supabase.from('recipes').insert(rows as never)
-      if (insErr) throw insErr
-      return { count: rows.length, truncated: !!data?.truncated }
-    },
-    onSuccess: ({ count, truncated }) => {
-      queryClient.invalidateQueries({ queryKey: RECIPES_KEY })
-      showToast({
-        type: 'success',
-        message: `${count} recette${count > 1 ? 's' : ''} importée${count > 1 ? 's' : ''}${truncated ? ' (PDF tronqué — relance sur le reste)' : ''}.`,
+      const parsed = recipes.filter(r => (r.title ?? '').trim())
+      const fresh = parsed.filter(r => !known.has(r.title!.trim().toLowerCase()))
+      const skipped = parsed.length - fresh.length
+
+      const rows = fresh.map(r => {
+        const meal_type = MEAL_TYPES.includes(r.meal_type as MealType) ? r.meal_type! : 'dejeuner'
+        return {
+          household_id: HOUSEHOLD_ID,
+          created_by: member?.id ?? null,
+          title: r.title!.trim(),
+          meal_type,
+          ingredients: (r.ingredients ?? [])
+            .filter(i => (i.name ?? '').trim())
+            .map(i => ({ name: i.name!.trim(), quantity: (i.quantity ?? '').trim() })),
+          steps: (r.steps ?? []).map(s => String(s).trim()).filter(Boolean),
+          points: mealMeta(meal_type).points,
+        }
       })
+
+      if (rows.length > 0) {
+        const { error: insErr } = await supabase.from('recipes').insert(rows as never)
+        if (insErr) throw insErr
+      }
+      return { count: rows.length, skipped, truncated: !!data?.truncated }
+    },
+    onSuccess: ({ count, skipped, truncated }) => {
+      queryClient.invalidateQueries({ queryKey: RECIPES_KEY })
+      const parts: string[] = []
+      if (count > 0) parts.push(`${count} recette${count > 1 ? 's' : ''} importée${count > 1 ? 's' : ''}`)
+      if (skipped > 0) parts.push(`${skipped} déjà présente${skipped > 1 ? 's' : ''} ignorée${skipped > 1 ? 's' : ''}`)
+      if (truncated) parts.push('PDF tronqué — relance sur le reste')
+      showToast({ type: 'success', message: `${parts.join(', ')}.` })
     },
     onError: (e: Error) => {
       showToast({ type: 'error', message: e.message })

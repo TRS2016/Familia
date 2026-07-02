@@ -1,4 +1,4 @@
-import { ShoppingCart, ChefHat } from 'lucide-react'
+import { ShoppingCart, ChefHat, Pencil } from 'lucide-react'
 import { format } from 'date-fns'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useToast } from '../../components/useToast'
@@ -14,9 +14,10 @@ import styles from './RecipesPage.module.css'
  * cuisiné ! » quand on l'ouvre depuis une tâche (la tâche est l'action
  * gamifiée — éviter le double comptage de points).
  */
-export default function RecipeDetailModal({ recipe, onClose, showCooked = true }: {
+export default function RecipeDetailModal({ recipe, onClose, onEdit, showCooked = true }: {
   recipe: Recipe
   onClose: () => void
+  onEdit?: (recipe: Recipe) => void
   showCooked?: boolean
 }) {
   const addToGroceries = useAddRecipeToGroceries()
@@ -47,6 +48,14 @@ export default function RecipeDetailModal({ recipe, onClose, showCooked = true }
         <span className={styles.detailMeal}>{meta.emoji} {meta.label}</span>
 
         <div className={styles.detailActions}>
+          {onEdit && (
+            <button
+              className={styles.actionSecondary}
+              onClick={() => onEdit(recipe)}
+            >
+              <Pencil size={15} strokeWidth={2} /> Modifier
+            </button>
+          )}
           {recipe.ingredients.length > 0 && (
             <button
               className={styles.actionSecondary}

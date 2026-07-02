@@ -1,13 +1,15 @@
 import { useState, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Upload, Trash2, X } from 'lucide-react'
+import { ChevronLeft, Plus, Upload, Trash2, X } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
+import { useToast } from '../../components/useToast'
 import {
   useRecipes, useRecipesRealtime, useImportRecipes, useDeleteRecipe,
   MEAL_TYPES, mealMeta,
 } from './useRecipes'
 import RecipeDetailModal from './RecipeDetailModal'
+import RecipeFormModal from './RecipeFormModal'
 import type { Recipe } from './useRecipes'
 import styles from './RecipesPage.module.css'
 
@@ -26,9 +28,12 @@ export default function RecipesPage() {
   const importRecipes = useImportRecipes()
   const deleteRecipe = useDeleteRecipe()
 
+  const { showToast } = useToast()
   const [filter, setFilter] = useState<string | null>(null)
   const [detail, setDetail] = useState<Recipe | null>(null)
   const [confirmDel, setConfirmDel] = useState<Recipe | null>(null)
+  // false = fermé ; null = création ; Recipe = édition
+  const [form, setForm] = useState<Recipe | null | false>(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const countByMeal = useMemo(() => {
@@ -43,7 +48,7 @@ export default function RecipesPage() {
     if (!file) return
     if (file.size > 32 * 1024 * 1024) {
       // garde-fou local : la limite Claude est ~32 Mo de requête
-      alert('PDF trop volumineux (max 32 Mo). Découpe-le en sections.')
+      showToast({ type: 'error', message: 'PDF trop volumineux (max 32 Mo). Découpe-le en sections.' })
       return
     }
     try {
@@ -60,6 +65,13 @@ export default function RecipesPage() {
           <ChevronLeft size={22} strokeWidth={2.5} />
         </Link>
         <h1 className={styles.pageTitle}>Recettes</h1>
+        <button
+          className={styles.newBtn}
+          onClick={() => setForm(null)}
+          aria-label="Nouvelle recette"
+        >
+          <Plus size={18} strokeWidth={2.5} />
+        </button>
         <button
           className={styles.importBtn}
           onClick={() => fileRef.current?.click()}
@@ -138,7 +150,15 @@ export default function RecipesPage() {
         </ul>
       )}
 
-      {detail && <RecipeDetailModal recipe={detail} onClose={() => setDetail(null)} />}
+      {detail && (
+        <RecipeDetailModal
+          recipe={detail}
+          onClose={() => setDetail(null)}
+          onEdit={r => { setDetail(null); setForm(r) }}
+        />
+      )}
+
+      {form !== false && <RecipeFormModal recipe={form} onClose={() => setForm(false)} />}
 
       {confirmDel && (
         <div className={styles.overlay} onClick={() => setConfirmDel(null)}>
