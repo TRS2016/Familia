@@ -269,3 +269,11 @@
   color: var(--text-muted);
   margin-top: 24px;
 }
+
+/* En cours de lecture (publie par le DJ) */
+.nowBox { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding: 10px 12px; border-radius: 12px; background: rgba(224, 123, 84, 0.12); border: 1px solid rgba(224, 123, 84, 0.35); }
+.nowIcon { font-size: 1.2rem; line-height: 1; flex-shrink: 0; }
+.nowText { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.nowLabel { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.75; }
+.nowTitle { font-size: 0.85rem; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nowBy { font-size: 0.72rem; opacity: 0.75; }

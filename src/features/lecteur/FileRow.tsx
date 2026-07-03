@@ -55,6 +55,11 @@ export default function FileRow({ file, isPlaying, onPlay, onDelete, onEdit, onA
               <span className={styles.fileDuration}>{fmtDuration(file.duration_seconds)}</span>
             )}
             {file.member && <span className={styles.fileMember}>{file.member.display_name}</span>}
+            {file.play_count > 0 && (
+              <span className={styles.fileDuration} title={`${file.play_count} écoute${file.play_count > 1 ? 's' : ''}`}>
+                ▶ {file.play_count}
+              </span>
+            )}
           </div>
           {(file.tags ?? []).length > 0 && (
             <div className={styles.fileTags}>

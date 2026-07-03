@@ -1,4 +1,4 @@
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Play, Plus, Shuffle, Sparkles, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ListVideo, Play, Plus, Shuffle, Sparkles, Trash2, X } from 'lucide-react'
 import EmptyState from '../../components/EmptyState'
 import EqBars from './EqBars'
 import {
@@ -9,7 +9,7 @@ import type { LecteurPlaylist, MediaFile } from './useLecteur'
 import { KIND_META, shuffleArray, smartFilterLabel } from './lecteur.utils'
 import styles from './LecteurPage.module.css'
 
-export default function PlaylistsPane({ playlists, allFiles, selectedId, onSelect, onBack, onNewManual, onNewSmart, onPlay, playingFileId }: {
+export default function PlaylistsPane({ playlists, allFiles, selectedId, onSelect, onBack, onNewManual, onNewSmart, onImportYt, onPlay, playingFileId }: {
   playlists: LecteurPlaylist[]
   allFiles: MediaFile[]
   selectedId: string | null
@@ -17,6 +17,7 @@ export default function PlaylistsPane({ playlists, allFiles, selectedId, onSelec
   onBack: () => void
   onNewManual: () => void
   onNewSmart: () => void
+  onImportYt: () => void
   onPlay: (files: MediaFile[], index: number) => void
   playingFileId: string | null
 }) {
@@ -42,6 +43,9 @@ export default function PlaylistsPane({ playlists, allFiles, selectedId, onSelec
         </button>
         <button className={styles.newSmartBtn} onClick={onNewSmart}>
           <Sparkles size={13} strokeWidth={2.5} aria-hidden="true" /> Smart liste
+        </button>
+        <button className={styles.newListBtn} onClick={onImportYt}>
+          <ListVideo size={13} strokeWidth={2.5} aria-hidden="true" /> Importer YouTube
         </button>
       </div>
 

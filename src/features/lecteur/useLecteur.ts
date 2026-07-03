@@ -21,6 +21,7 @@ export interface MediaFile {
   duration_seconds: number | null
   tags: string[]
   is_favorite: boolean
+  play_count: number
   created_at: string
   member: { display_name: string } | null
 }
@@ -237,6 +238,121 @@ export function useUploadMediaFile() {
       const msg = (e as { message?: string })?.message ?? ''
       showToast({ type: 'error', message: msg ? `Upload échoué : ${msg}` : "Impossible d'uploader le fichier." })
     },
+  })
+}
+
+/** Incrémente le compteur d'écoutes (fire-and-forget : jamais bloquant). */
+export function bumpPlayCount(fileId: string) {
+  void supabase.rpc('increment_media_play', { p_file_id: fileId })
+}
+
+// ── Import d'une playlist YouTube entière ─────────────────────────────────────
+
+const YT_IMPORT_ENV = {
+  url: import.meta.env.VITE_SUPABASE_URL as string,
+  key: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string,
+}
+
+/** Extrait l'id de playlist d'une URL YouTube (ou accepte l'id brut). */
+export function parseYtPlaylistId(input: string): string | null {
+  const trimmed = input.trim()
+  const m = trimmed.match(/[?&]list=([\w-]+)/)
+  if (m) return m[1]
+  if (/^[\w-]{10,}$/.test(trimmed) && !/^https?:/i.test(trimmed)) return trimmed
+  return null
+}
+
+/**
+ * Importe une playlist YouTube : crée la liste (nom = titre YouTube) et un
+ * media_file par vidéo (les vidéos déjà en bibliothèque, repérées par leur id
+ * YouTube, sont réutilisées au lieu d'être dupliquées).
+ */
+export function useImportYtPlaylist() {
+  const queryClient = useQueryClient()
+  const { data: member } = useMember()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async (playlistId: string): Promise<{ name: string; count: number; reused: number; truncated: boolean }> => {
+      const { data: { session } } = await supabase.auth.getSession()
+      const r = await fetch(`${YT_IMPORT_ENV.url}/functions/v1/yt-search?playlist=${encodeURIComponent(playlistId)}`, {
+        headers: { apikey: YT_IMPORT_ENV.key, Authorization: `Bearer ${session?.access_token ?? ''}` },
+      })
+      const data = await r.json() as {
+        title?: string
+        items?: { videoId: string; title: string; channel: string }[]
+        truncated?: boolean
+        error?: string
+      }
+      if (data.error || !data.title) throw new Error(data.error ?? 'Playlist introuvable.')
+      const items = data.items ?? []
+      if (items.length === 0) throw new Error('Playlist vide.')
+
+      // Vidéos déjà en bibliothèque (dédup par id YouTube).
+      const { data: existing, error: exErr } = await supabase
+        .from('media_files')
+        .select('id, external_url')
+        .eq('household_id', HOUSEHOLD_ID)
+        .not('external_url', 'is', null)
+      if (exErr) throw exErr
+      const byYtId = new Map<string, string>()
+      for (const f of existing ?? []) {
+        const m = (f.external_url ?? '').match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/)([\w-]{11})/)
+        if (m) byYtId.set(m[1], f.id)
+      }
+
+      const missing = items.filter(it => !byYtId.has(it.videoId))
+      if (missing.length > 0) {
+        const { data: created, error: insErr } = await supabase
+          .from('media_files')
+          .insert(missing.map(it => ({
+            household_id: HOUSEHOLD_ID,
+            member_id: member?.id ?? null,
+            title: it.title.slice(0, 200),
+            external_url: `https://youtu.be/${it.videoId}`,
+            tags: [],
+          })) as never)
+          .select('id, external_url')
+        if (insErr) throw insErr
+        for (const f of created ?? []) {
+          const m = (f.external_url ?? '').match(/youtu\.be\/([\w-]{11})/)
+          if (m) byYtId.set(m[1], f.id)
+        }
+      }
+
+      // Crée la liste puis ses items dans l'ordre YouTube.
+      const { data: pl, error: plErr } = await supabase
+        .from('playlists')
+        .insert({
+          household_id: HOUSEHOLD_ID,
+          member_id: member?.id ?? null,
+          name: data.title.slice(0, 120),
+          type: 'manual',
+          smart_filters: null,
+        } as never)
+        .select('id, name')
+        .single()
+      if (plErr) throw plErr
+
+      const base = Date.now()
+      const rows = items
+        .map((it, i) => ({ playlist_id: pl.id, media_file_id: byYtId.get(it.videoId), position: base + i }))
+        .filter((r): r is { playlist_id: string; media_file_id: string; position: number } => !!r.media_file_id)
+      const { error: itemsErr } = await supabase.from('playlist_items').insert(rows as never)
+      if (itemsErr) throw itemsErr
+
+      return { name: pl.name, count: rows.length, reused: items.length - missing.length, truncated: !!data.truncated }
+    },
+    onSuccess: ({ name, count, reused, truncated }) => {
+      queryClient.invalidateQueries({ queryKey: LECTEUR_PL_KEY })
+      queryClient.invalidateQueries({ queryKey: MEDIA_FILES_KEY })
+      const extra = [
+        reused > 0 ? `${reused} déjà en bibliothèque` : '',
+        truncated ? 'playlist tronquée à 200' : '',
+      ].filter(Boolean).join(', ')
+      showToast({ type: 'success', message: `« ${name} » importée : ${count} morceaux${extra ? ` (${extra})` : ''}.` })
+    },
+    onError: (e: Error) => showToast({ type: 'error', message: e.message || 'Import impossible.' }),
   })
 }
 

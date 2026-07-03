@@ -44,7 +44,7 @@ Deno.serve(async (req: Request) => {
     if (!party) return json({ error: 'Lien invalide ou expiré' }, 404)
     const householdId = party.householdId
 
-    const [tracksRes, queueRes] = await Promise.all([
+    const [tracksRes, queueRes, nowRes] = await Promise.all([
       supabase
         .from('media_files')
         .select('id, title, member:members(display_name)')
@@ -57,8 +57,20 @@ Deno.serve(async (req: Request) => {
         .eq('played', false)
         .eq('approved', true)
         .order('position', { ascending: true }),
+      supabase
+        .from('lecteur_now_playing')
+        .select('queue_item_id, title, requested_by, updated_at')
+        .eq('household_id', householdId)
+        .maybeSingle(),
     ])
     if (tracksRes.error || queueRes.error) return json({ error: 'Erreur serveur' }, 500)
+
+    // Now-playing publié par l'appareil DJ. Garde-fou anti-stale (6 h) au cas où
+    // le DJ aurait quitté sans nettoyage (crash, onglet fermé).
+    const nowRow = nowRes.data as { queue_item_id: string | null; title: string; requested_by: string | null; updated_at: string } | null
+    const nowPlaying = nowRow && Date.now() - new Date(nowRow.updated_at).getTime() < 6 * 3600 * 1000
+      ? { id: nowRow.queue_item_id, title: nowRow.title, by: nowRow.requested_by }
+      : null
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tracks = (tracksRes.data ?? []).map((t: any) => ({
@@ -69,7 +81,7 @@ Deno.serve(async (req: Request) => {
       id: q.id, votes: q.votes ?? 0,
       title: q.media_file?.title ?? 'Morceau', by: q.added_by_member?.display_name ?? q.guest_name ?? null,
     }))
-    return json({ tracks, queue })
+    return json({ tracks, queue, now: nowPlaying })
   }
 
   // ── POST : un invité ajoute un morceau ──────────────────────────────────────

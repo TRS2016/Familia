@@ -10,7 +10,9 @@ import {
   useVoteQueueItem,
 } from './useLecteurQueue'
 import type { QueueItem } from './useLecteurQueue'
-import { useLecteurPlaylists, useLecteurPlaylistItems } from './useLecteur'
+import { useLecteurPlaylists, useLecteurPlaylistItems, bumpPlayCount } from './useLecteur'
+import { supabase } from '../../lib/supabase'
+import { HOUSEHOLD_ID } from '../../lib/config'
 import { useJukeboxToken } from './useJukeboxToken'
 import JukeboxAudioEngine from './JukeboxAudioEngine'
 import { isLocalAudio } from './lecteur.utils'
@@ -47,6 +49,34 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
 
   const current = queueItems[0] ?? null
   const upNext  = queueItems.slice(1)
+
+  // ── Now-playing partagé : l'appareil DJ publie le morceau en cours, l'edge
+  // jukebox le sert aux invités (qui pollent déjà toutes les 8 s). ──
+  const currentId = current?.id ?? null
+  useEffect(() => {
+    if (!djMode) return
+    if (!current) {
+      void supabase.from('lecteur_now_playing').delete().eq('household_id', HOUSEHOLD_ID)
+      return
+    }
+    void supabase.from('lecteur_now_playing').upsert({
+      household_id:  HOUSEHOLD_ID,
+      queue_item_id: current.id,
+      title:         current.media_file?.title ?? 'Morceau',
+      requested_by:  current.added_by_member?.display_name ?? current.guest_name ?? null,
+      updated_at:    new Date().toISOString(),
+    } as never, { onConflict: 'household_id' })
+    // Compteur d'écoutes : un incrément par piste lancée en mode DJ.
+    if (current.media_file?.id) bumpPlayCount(current.media_file.id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [djMode, currentId])
+
+  // Nettoyage à la sortie du mode DJ (fermeture brutale : l'edge applique de
+  // toute façon un garde-fou anti-stale de 6 h).
+  useEffect(() => {
+    if (!djMode) return
+    return () => { void supabase.from('lecteur_now_playing').delete().eq('household_id', HOUSEHOLD_ID) }
+  }, [djMode])
 
   // ── Volume (le MediaPlayer applique le réglage à l'audio/vidéo/YouTube) ──
   const [volume, setVolume] = useState(1)

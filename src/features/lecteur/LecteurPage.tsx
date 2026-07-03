@@ -15,7 +15,7 @@ import SlideUpModal from '../../components/SlideUpModal'
 import MediaPlayer, { mediaFileUrlKey, signMediaFileUrl } from '../media/MediaPlayer'
 import {
   useMediaFiles, useAddMediaFile, useDeleteMediaFile, useUploadMediaFile,
-  useToggleFavorite, useLecteurPlaylists, detectKind,
+  useToggleFavorite, useLecteurPlaylists, detectKind, bumpPlayCount,
 } from './useLecteur'
 import type { MediaFile, MediaFileKind } from './useLecteur'
 import { useLecteurRealtime } from './useLecteurRealtime'
@@ -30,6 +30,7 @@ import YouTubeSearchModal from './YouTubeSearchModal'
 import AddUrlModal from './AddUrlModal'
 import AddPlaylistModal from './AddPlaylistModal'
 import AddSmartPlaylistModal from './AddSmartPlaylistModal'
+import ImportYtPlaylistModal from './ImportYtPlaylistModal'
 import AddToPlaylistModal from './AddToPlaylistModal'
 import EditFileModal from './EditFileModal'
 import styles from './LecteurPage.module.css'
@@ -86,6 +87,12 @@ export default function LecteurPage() {
   const hasPrev = queueIndex > 0
   const hasNext = queueIndex < queue.length - 1
   const isAudioTrack = playingFile ? detectKind(playingFile) === 'audio' : false
+
+  // Compteur d'écoutes : un incrément par démarrage de piste dans le dock perso.
+  const playingFileId = playingFile?.id ?? null
+  useEffect(() => {
+    if (playingFileId) bumpPlayCount(playingFileId)
+  }, [playingFileId])
 
   // ── Mode DJ (soirée) : exclusif avec la file perso ──
   // L'état vit ici (et pas dans JukeboxPane) pour empêcher deux flux audio
@@ -296,6 +303,7 @@ export default function LecteurPage() {
   const [selectedPlaylistId,   setSelectedPlaylistId]   = useState<string | null>(null)
   const [showAddPlaylist,      setShowAddPlaylist]      = useState(false)
   const [showAddSmart,         setShowAddSmart]         = useState(false)
+  const [showImportYt,         setShowImportYt]         = useState(false)
   const [addToPlaylistFileId,  setAddToPlaylistFileId]  = useState<string | null>(null)
 
   // ── Derived ──
@@ -734,6 +742,7 @@ export default function LecteurPage() {
           onBack={() => setSelectedPlaylistId(null)}
           onNewManual={() => setShowAddPlaylist(true)}
           onNewSmart={() => setShowAddSmart(true)}
+          onImportYt={() => setShowImportYt(true)}
           onPlay={playFiles}
           playingFileId={playingFile?.id ?? null}
         />
@@ -768,6 +777,8 @@ export default function LecteurPage() {
       )}
 
       {showAddPlaylist && <AddPlaylistModal onClose={() => setShowAddPlaylist(false)} />}
+
+      {showImportYt && <ImportYtPlaylistModal onClose={() => setShowImportYt(false)} />}
 
       {showAddSmart && (
         <AddSmartPlaylistModal files={files} members={members} onClose={() => setShowAddSmart(false)} />

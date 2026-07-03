@@ -991,6 +991,38 @@ export type Database = {
           },
         ]
       }
+      lecteur_now_playing: {
+        Row: {
+          household_id: string
+          queue_item_id: string | null
+          requested_by: string | null
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          household_id: string
+          queue_item_id?: string | null
+          requested_by?: string | null
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          household_id?: string
+          queue_item_id?: string | null
+          requested_by?: string | null
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lecteur_now_playing_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: true
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lecteur_party_tokens: {
         Row: {
           created_at: string
@@ -1187,6 +1219,7 @@ export type Database = {
           is_favorite: boolean
           member_id: string | null
           mime_type: string | null
+          play_count: number
           tags: string[]
           title: string
         }
@@ -1201,6 +1234,7 @@ export type Database = {
           is_favorite?: boolean
           member_id?: string | null
           mime_type?: string | null
+          play_count?: number
           tags?: string[]
           title: string
         }
@@ -1215,6 +1249,7 @@ export type Database = {
           is_favorite?: boolean
           member_id?: string | null
           mime_type?: string | null
+          play_count?: number
           tags?: string[]
           title?: string
         }
@@ -2195,6 +2230,7 @@ export type Database = {
         }[]
       }
       get_my_household_id: { Args: never; Returns: string }
+      increment_media_play: { Args: { p_file_id: string }; Returns: undefined }
       log_chore: {
         Args: {
           p_assignment_id: string

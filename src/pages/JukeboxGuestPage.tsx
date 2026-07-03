@@ -12,6 +12,7 @@ const NAME_KEY = 'familia-guest-name'
 
 interface Track { id: string; title: string; by: string | null }
 interface QueueLine { id: string; votes: number; title: string; by: string | null }
+interface NowPlaying { id: string | null; title: string; by: string | null }
 
 // Empreinte locale stable du votant invité (dédup côté serveur).
 function guestVoterKey(): string {
@@ -29,6 +30,7 @@ export default function JukeboxGuestPage() {
 
   const [tracks, setTracks] = useState<Track[] | null>(null)
   const [queue, setQueue]   = useState<QueueLine[]>([])
+  const [nowPlaying, setNowPlaying] = useState<NowPlaying | null>(null)
   const [error, setError]   = useState<string | null>(token ? null : 'Lien manquant')
   const [loading, setLoading] = useState(!!token)
   const [name, setName]     = useState(() => localStorage.getItem(NAME_KEY) ?? '')
@@ -69,9 +71,9 @@ export default function JukeboxGuestPage() {
   async function loadState() {
     try {
       const r = await fetch(`${base}?token=${token}`, { headers: { apikey: SUPABASE_KEY } })
-      const data = await r.json() as { tracks?: Track[]; queue?: QueueLine[]; error?: string }
+      const data = await r.json() as { tracks?: Track[]; queue?: QueueLine[]; now?: NowPlaying | null; error?: string }
       if (data.error) setError(data.error)
-      else { setTracks(data.tracks ?? []); setQueue(data.queue ?? []) }
+      else { setTracks(data.tracks ?? []); setQueue(data.queue ?? []); setNowPlaying(data.now ?? null) }
     } catch {
       setError('Impossible de charger la soirée')
     } finally {
@@ -134,6 +136,13 @@ export default function JukeboxGuestPage() {
     }
   }
 
+  // La file renvoyée contient le morceau en cours de lecture (pas encore
+  // « joué ») : on le retire de la liste « À suivre » quand il est identifié.
+  const upcoming = useMemo(
+    () => nowPlaying?.id ? queue.filter(qu => qu.id !== nowPlaying.id) : queue,
+    [queue, nowPlaying],
+  )
+
   const libFiltered = useMemo(() => {
     const term = q.trim().toLowerCase()
     return (tracks ?? []).filter(t => !term || t.title.toLowerCase().includes(term))
@@ -165,11 +174,22 @@ export default function JukeboxGuestPage() {
         maxLength={40}
       />
 
-      {queue.length > 0 && (
+      {nowPlaying && (
+        <div className={styles.nowBox}>
+          <span className={styles.nowIcon} aria-hidden="true">🎶</span>
+          <span className={styles.nowText}>
+            <span className={styles.nowLabel}>En cours</span>
+            <span className={styles.nowTitle}>{nowPlaying.title}</span>
+            {nowPlaying.by && <span className={styles.nowBy}>demandé par {nowPlaying.by}</span>}
+          </span>
+        </div>
+      )}
+
+      {upcoming.length > 0 && (
         <div className={styles.queueBox}>
-          <div className={styles.queueHead}>À suivre · {queue.length}</div>
+          <div className={styles.queueHead}>À suivre · {upcoming.length}</div>
           <ol className={styles.queueList}>
-            {queue.slice(0, 8).map(qu => (
+            {upcoming.slice(0, 8).map(qu => (
               <li key={qu.id} className={styles.queueLine}>
                 <span className={styles.queueLineText}>
                   {qu.title}{qu.by ? <span className={styles.queueBy}> · {qu.by}</span> : null}
@@ -185,7 +205,7 @@ export default function JukeboxGuestPage() {
                 </button>
               </li>
             ))}
-            {queue.length > 8 && <li className={styles.queueMore}>+{queue.length - 8} autres…</li>}
+            {upcoming.length > 8 && <li className={styles.queueMore}>+{upcoming.length - 8} autres…</li>}
           </ol>
         </div>
       )}

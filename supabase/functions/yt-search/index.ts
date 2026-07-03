@@ -25,9 +25,10 @@ Deno.serve(async (req: Request) => {
   if (!apiKey) return json({ error: 'Recherche non configurée (clé YouTube manquante).' }, 503)
 
   const url = new URL(req.url)
-  const q     = (url.searchParams.get('q') ?? '').trim()
+  const q          = (url.searchParams.get('q') ?? '').trim()
+  const playlistId = (url.searchParams.get('playlist') ?? '').trim()
   const token = url.searchParams.get('token')
-  if (!q) return json({ results: [] })
+  if (!q && !playlistId) return json({ results: [] })
 
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
@@ -52,6 +53,46 @@ Deno.serve(async (req: Request) => {
     }
   }
   if (!authorized) return json({ error: 'Non autorisé' }, 401)
+
+  // ── Mode playlist : titre + items (import d'une playlist YouTube entière).
+  // Coût quota négligeable (1 unité/appel playlistItems vs 100 pour search) →
+  // ni cache ni throttle. Plafond 200 morceaux (4 pages de 50).
+  if (playlistId) {
+    if (!/^[\w-]+$/.test(playlistId)) return json({ error: 'Playlist invalide' }, 400)
+    const plRes = await fetch(
+      `https://www.googleapis.com/youtube/v3/playlists?part=snippet&id=${playlistId}&key=${apiKey}`,
+    )
+    if (!plRes.ok) return json({ error: 'Playlist introuvable' }, 502)
+    const plData = await plRes.json() as { items?: { snippet?: { title?: string } }[] }
+    const title = plData.items?.[0]?.snippet?.title
+    if (!title) return json({ error: 'Playlist introuvable ou privée' }, 404)
+
+    interface PlItem { snippet?: { title?: string; videoOwnerChannelTitle?: string; resourceId?: { videoId?: string } } }
+    const items: PlItem[] = []
+    let pageToken = ''
+    for (let page = 0; page < 4; page++) {
+      const r = await fetch(
+        `https://www.googleapis.com/youtube/v3/playlistItems?part=snippet&maxResults=50&playlistId=${playlistId}${pageToken ? `&pageToken=${pageToken}` : ''}&key=${apiKey}`,
+      )
+      if (!r.ok) return json({ error: 'Lecture de la playlist impossible' }, 502)
+      const d = await r.json() as { items?: PlItem[]; nextPageToken?: string }
+      items.push(...(d.items ?? []))
+      pageToken = d.nextPageToken ?? ''
+      if (!pageToken) break
+    }
+
+    const videos = items
+      .filter(it => it.snippet?.resourceId?.videoId
+        && it.snippet.title
+        && it.snippet.title !== 'Private video'
+        && it.snippet.title !== 'Deleted video')
+      .map(it => ({
+        videoId: it.snippet!.resourceId!.videoId!,
+        title:   it.snippet!.title!,
+        channel: it.snippet!.videoOwnerChannelTitle ?? '',
+      }))
+    return json({ title, items: videos, truncated: !!pageToken })
+  }
 
   // ── Cache 24 h : chaque appel API coûte 100 unités de quota (10 000/jour),
   // soit 100 recherches/jour au total — les requêtes identiques ne doivent
