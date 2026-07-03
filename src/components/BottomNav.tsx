@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import {
   Home, ShoppingCart, Calendar, Flame, Grid2x2,
-  BookOpen, Camera, Tv, Music, Settings, Dumbbell, Bike, ListChecks, ChefHat,
+  BookOpen, Camera, Tv, Music, Settings, Dumbbell, Bike, ListChecks, ChefHat, ScrollText,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import SlideUpModal from './SlideUpModal'
@@ -19,6 +19,7 @@ const MOBILE_TABS: { to: string; Icon: LucideIcon; label: string; exact: boolean
 
 const MOBILE_MORE: { to: string; Icon: LucideIcon; label: string }[] = [
   { to: '/chores',   Icon: ListChecks, label: 'Tâches' },
+  { to: '/rules',    Icon: ScrollText, label: 'Commandements' },
   { to: '/recipes',  Icon: ChefHat,  label: 'Recettes' },
   { to: '/calendar', Icon: Calendar, label: 'Agenda'   },
   { to: '/moments',  Icon: Camera,   label: 'Moments'  },
@@ -37,6 +38,7 @@ const SIDEBAR_ITEMS: { to: string; Icon: LucideIcon; label: string; exact: boole
   { to: '/calendar',  Icon: Calendar,     label: 'Agenda',     exact: false },
   { to: '/habits',    Icon: Flame,        label: 'Habitudes',  exact: false },
   { to: '/chores',    Icon: ListChecks,   label: 'Tâches',     exact: false },
+  { to: '/rules',     Icon: ScrollText,   label: 'Commandements', exact: false },
   { to: '/recipes',   Icon: ChefHat,      label: 'Recettes',   exact: false },
   { to: '/kakebo',    Icon: BookOpen,     label: 'Budget',     exact: false },
   { to: '/moments',   Icon: Camera,       label: 'Moments',    exact: false },

@@ -739,6 +739,86 @@ export type Database = {
           },
         ]
       }
+      household_rules: {
+        Row: {
+          action: string
+          created_at: string
+          decided_at: string | null
+          decided_by: string | null
+          emoji: string
+          household_id: string
+          id: string
+          points: number
+          position: number
+          priority: number
+          proposed_by: string | null
+          replaces_rule_id: string | null
+          status: string
+          text: string
+        }
+        Insert: {
+          action?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          emoji?: string
+          household_id: string
+          id?: string
+          points?: number
+          position?: number
+          priority?: number
+          proposed_by?: string | null
+          replaces_rule_id?: string | null
+          status?: string
+          text: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          decided_at?: string | null
+          decided_by?: string | null
+          emoji?: string
+          household_id?: string
+          id?: string
+          points?: number
+          position?: number
+          priority?: number
+          proposed_by?: string | null
+          replaces_rule_id?: string | null
+          status?: string
+          text?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "household_rules_decided_by_fkey"
+            columns: ["decided_by"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "household_rules_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "household_rules_proposed_by_fkey"
+            columns: ["proposed_by"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "household_rules_replaces_rule_id_fkey"
+            columns: ["replaces_rule_id"]
+            isOneToOne: false
+            referencedRelation: "household_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       households: {
         Row: {
           created_at: string

@@ -1,0 +1,195 @@
+.page {
+  max-width: var(--page-max-w, 800px);
+  margin: 0 auto;
+  padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
+}
+
+.header { display: flex; align-items: center; gap: 10px; padding: 20px 16px 8px; }
+.backLink { display: flex; align-items: center; justify-content: center; width: 36px; height: 36px; color: var(--text); border-radius: var(--radius-sm); }
+.pageTitle { flex: 1; margin: 0; font-size: var(--text-xl, 1.3rem); font-weight: 800; color: var(--text); }
+.proposeBtn {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 40px; padding: 0 14px;
+  border-radius: var(--radius-pill); border: none;
+  background: var(--accent); color: #fff;
+  font-family: var(--font-family); font-size: var(--text-sm); font-weight: 700;
+  cursor: pointer;
+}
+
+.preamble {
+  margin: 0 16px 16px;
+  padding: 12px 14px;
+  border-left: 3px solid var(--accent);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+  font-size: var(--text-sm);
+  font-style: italic;
+  color: var(--text-muted);
+  line-height: 1.55;
+}
+
+.spinnerWrap { display: flex; justify-content: center; padding: 40px 0; }
+
+/* ── Propositions en attente ─────────────────────────────────────────── */
+.pendingBlock { margin: 0 16px 18px; }
+.pendingTitle { margin: 0 0 8px; font-size: var(--text-sm); font-weight: 800; color: var(--text); }
+.pendingList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pendingCard {
+  padding: 12px 14px;
+  border: 1.5px dashed color-mix(in srgb, var(--accent) 55%, var(--border));
+  border-radius: var(--radius-md, 12px);
+  background: var(--bg-card);
+  display: flex; flex-direction: column; gap: 6px;
+}
+.pendingKind { font-size: var(--text-2xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; color: var(--accent); }
+.pendingText { margin: 0; font-size: var(--text-md); font-weight: 600; color: var(--text); line-height: 1.5; }
+.pendingMeta { display: flex; align-items: center; gap: 10px; font-size: var(--text-xs); color: var(--text-muted); }
+.pendingActions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.pendingWait { font-size: var(--text-xs); font-style: italic; color: var(--text-muted); }
+.approveBtn {
+  display: inline-flex; align-items: center; gap: 5px;
+  min-height: 36px; padding: 0 14px;
+  border: none; border-radius: var(--radius-pill);
+  background: #5B9E8F; color: #fff;
+  font-family: var(--font-family); font-size: var(--text-sm); font-weight: 700; cursor: pointer;
+}
+.rejectBtn {
+  display: inline-flex; align-items: center; gap: 5px;
+  min-height: 36px; padding: 0 14px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-pill);
+  background: transparent; color: var(--text-muted);
+  font-family: var(--font-family); font-size: var(--text-sm); font-weight: 700; cursor: pointer;
+}
+.rejectBtn:hover { border-color: var(--danger, #C0392B); color: var(--danger, #C0392B); }
+
+/* ── La loi ──────────────────────────────────────────────────────────── */
+.lawList { list-style: none; margin: 0; padding: 0 16px; display: flex; flex-direction: column; gap: 8px; counter-reset: law; }
+.lawItem {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md, 12px);
+  background: var(--bg-card);
+}
+.lawNumeral {
+  flex-shrink: 0;
+  min-width: 34px;
+  font-size: var(--text-sm);
+  font-weight: 800;
+  color: var(--accent);
+  text-align: center;
+  padding-top: 2px;
+  font-variant-numeric: lining-nums;
+}
+.lawBody { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.lawText { margin: 0; font-size: var(--text-md); font-weight: 600; color: var(--text); line-height: 1.5; }
+.lawMeta { display: flex; align-items: center; gap: 8px; }
+.priorityChip { font-size: var(--text-2xs); font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; }
+.pointsChip { font-size: var(--text-2xs); font-weight: 700; color: var(--text-muted); }
+.lawActions { flex-shrink: 0; display: flex; flex-direction: column; gap: 2px; }
+@media (min-width: 560px) { .lawActions { flex-direction: row; } }
+.lawActionBtn {
+  display: flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px;
+  border: none; background: transparent; color: var(--text-muted);
+  border-radius: var(--radius-sm); cursor: pointer;
+}
+.lawActionBtn:hover:not(:disabled) { color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.lawActionBtn:disabled { opacity: 0.35; cursor: default; }
+
+/* ── Manquements ─────────────────────────────────────────────────────── */
+.breachBlock { margin: 20px 16px 0; }
+.breachTitle { margin: 0 0 8px; font-size: var(--text-sm); font-weight: 800; color: var(--text); }
+.breachEmpty { margin: 0; font-size: var(--text-sm); color: var(--text-muted); }
+.breachTotals { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
+.breachTotal { font-size: var(--text-xs); font-weight: 800; color: var(--danger, #C0392B); }
+.breachList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.breachRow {
+  display: flex; align-items: baseline; gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  font-size: var(--text-sm);
+  min-width: 0;
+}
+.breachWho { flex-shrink: 0; font-weight: 800; color: var(--text); }
+.breachReason { flex: 1; min-width: 0; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.breachMeta { flex-shrink: 0; font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ── Formulaire ──────────────────────────────────────────────────────── */
+.form { display: flex; flex-direction: column; gap: 16px; padding-bottom: 8px; }
+.formLabel { display: flex; flex-direction: column; gap: 6px; font-size: var(--text-sm); font-weight: 700; color: var(--text); }
+.formInput, .formArea {
+  width: 100%;
+  min-height: 40px;
+  padding: 8px 12px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: var(--text-md);
+  font-weight: 500;
+}
+.formArea { resize: vertical; line-height: 1.5; }
+.formInput:focus, .formArea:focus { border-color: var(--accent); outline: none; }
+.chipRow { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  padding: 6px 12px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: var(--font-family);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  cursor: pointer;
+}
+.chipActive { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.submitBtn {
+  min-height: 44px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--font-family);
+  font-size: var(--text-md);
+  font-weight: 700;
+  cursor: pointer;
+}
+.submitBtn:disabled { opacity: 0.7; cursor: default; }
+
+/* ── Confirmations (confession / retrait) ────────────────────────────── */
+.overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(0, 0, 0, 0.4);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.confirmSheet {
+  width: 100%;
+  max-width: 380px;
+  background: var(--bg-card);
+  border-radius: var(--radius-md, 14px);
+  padding: 22px 18px 16px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  display: flex; flex-direction: column; gap: 10px;
+}
+.confirmTitle { margin: 0; font-size: var(--text-md); font-weight: 800; color: var(--text); }
+.confirmText { margin: 0; font-size: var(--text-sm); color: var(--text); line-height: 1.5; font-style: italic; }
+.confirmSub { margin: 0; font-size: var(--text-xs); color: var(--text-muted); }
+.confessBtn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px;
+  border: none; border-radius: var(--radius-sm);
+  background: var(--accent); color: #fff;
+  font-family: var(--font-family); font-size: var(--text-md); font-weight: 700; cursor: pointer;
+}
+.confessBtn:disabled { opacity: 0.7; cursor: default; }
+.cancelBtn {
+  min-height: 40px;
+  border: 1.5px solid var(--border); border-radius: var(--radius-sm);
+  background: transparent; color: var(--text-muted);
+  font-family: var(--font-family); font-size: var(--text-sm); font-weight: 600; cursor: pointer;
+}

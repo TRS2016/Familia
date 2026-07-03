@@ -15,6 +15,7 @@ import { useToggleCompletion, completionsKey } from '../features/habits/useHabit
 import { calcStreak } from '../features/habits/habits.utils'
 import ChoresHomeWidget from '../features/chores/ChoresHomeWidget'
 import MealPlanHomeWidget from '../features/recipes/MealPlanHomeWidget'
+import RuleOfDayWidget from '../features/rules/RuleOfDayWidget'
 import type { HabitCompletion } from '../features/habits/useHabits'
 import { QK } from '../lib/query-keys'
 import { useToast } from '../components/useToast'
@@ -407,6 +408,9 @@ export default function HomePage() {
           <p className={styles.quoteAuthor}>— {quote.author}</p>
         </div>
       </div>
+
+      {/* Widget — Commandement du jour (rendu nul si aucune règle active) */}
+      <RuleOfDayWidget />
 
       {/* Widget — Événements à venir */}
       {upcomingEvents && upcomingEvents.length > 0 && (

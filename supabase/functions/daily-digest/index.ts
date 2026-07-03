@@ -22,7 +22,7 @@ Deno.serve(async () => {
   const jsDay = now.getDay()
   const todayDow = jsDay === 0 ? 7 : jsDay // 1=lun…7=dim
 
-  const [eventsRes, assignRes, habitsRes, mealsRes, membersRes] = await Promise.all([
+  const [eventsRes, assignRes, habitsRes, mealsRes, membersRes, rulesRes] = await Promise.all([
     supabase.from('events')
       .select('household_id, member_id, title, all_day, start_time')
       .eq('date', todayStr),
@@ -39,6 +39,10 @@ Deno.serve(async () => {
     supabase.from('members')
       .select('id, household_id')
       .eq('notifications_enabled', true),
+    supabase.from('household_rules')
+      .select('household_id, emoji, text')
+      .eq('status', 'active')
+      .order('position', { ascending: true }),
   ])
   const dbError = eventsRes.error ?? assignRes.error ?? habitsRes.error ?? mealsRes.error ?? membersRes.error
   if (dbError) {
@@ -60,6 +64,18 @@ Deno.serve(async () => {
   })
   const meals = (mealsRes.data ?? []) as MealRow[]
   const members = (membersRes.data ?? []) as { id: string; household_id: string }[]
+  const rules = (rulesRes.data ?? []) as { household_id: string; emoji: string; text: string }[]
+
+  // Commandement du jour : même rotation déterministe que le widget Home.
+  const startOfYear = new Date(now.getFullYear(), 0, 0)
+  const dayOfYear = Math.floor((now.getTime() - startOfYear.getTime()) / 86_400_000)
+  const ruleOfDayByHousehold = new Map<string, string>()
+  for (const hh of new Set(rules.map(r => r.household_id))) {
+    const hhRules = rules.filter(r => r.household_id === hh)
+    const rule = hhRules[dayOfYear % hhRules.length]
+    const text = rule.text.length > 110 ? `${rule.text.slice(0, 110)}…` : rule.text
+    ruleOfDayByHousehold.set(hh, `📜 ${rule.emoji} ${text}`)
+  }
 
   if (members.length === 0) return json({ digests_sent: 0 })
 
@@ -106,7 +122,10 @@ Deno.serve(async () => {
       lines.push(`🍳 ${myMeals.map(m => `${MEAL_LABEL[m.meal_type] ?? m.meal_type} : ${m.recipe!.title}`).slice(0, 2).join(' · ')}`)
     }
 
+    // Commandement du jour (n'envoie pas de push s'il n'y a que lui).
     if (lines.length === 0) continue
+    const ruleLine = ruleOfDayByHousehold.get(member.household_id)
+    if (ruleLine) lines.push(ruleLine)
 
     const { data: subs } = await supabase.from('push_subscriptions')
       .select('endpoint, p256dh, auth').eq('member_id', member.id)
