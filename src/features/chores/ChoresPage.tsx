@@ -131,13 +131,21 @@ export default function ChoresPage() {
   const BIG_TASK_POINTS = 20
 
   function markDone(assignmentId: string, chore: Chore, memberId: string, doneOn: string = effectiveDay) {
-    logChore.mutate({ chore_id: chore.id, assignment_id: assignmentId, member_id: memberId, done_on: doneOn })
-    if (chore.points >= BIG_TASK_POINTS) {
-      const who = members.find(m => m.id === memberId)?.display_name ?? 'Quelqu\'un'
-      void supabase.functions.invoke('notify-household', {
-        body: { title: `${chore.emoji} Tâche faite`, body: `${who} a fait « ${chore.name} » (+${chore.points} pts)`, module: 'chores' },
-      })
-    }
+    logChore.mutate(
+      { chore_id: chore.id, assignment_id: assignmentId, member_id: memberId, done_on: doneOn },
+      {
+        // Notifie seulement une fois le pointage confirmé (pas de fausse annonce
+        // si la RPC échoue hors-ligne).
+        onSuccess: () => {
+          if (chore.points >= BIG_TASK_POINTS) {
+            const who = members.find(m => m.id === memberId)?.display_name ?? 'Quelqu\'un'
+            void supabase.functions.invoke('notify-household', {
+              body: { title: `${chore.emoji} Tâche faite`, body: `${who} a fait « ${chore.name} » (+${chore.points} pts)`, module: 'chores' },
+            })
+          }
+        },
+      },
+    )
   }
 
   // Tâche assignée → crédite l'assigné. Tâche libre + plusieurs membres →
@@ -438,7 +446,23 @@ export default function ChoresPage() {
           members={members}
           defaultMemberId={currentMember?.id ?? null}
           onClose={() => setAdHocOpen(false)}
-          onSubmit={(input) => { logChore.mutate(input); setAdHocOpen(false) }}
+          onSubmit={async (input) => {
+            setAdHocOpen(false)
+            // Si la tâche déclarée a une assignation ce jour-là, on la rattache :
+            // l'occurrence passe « fait » et log_chore (idempotent sur
+            // assignment_id) empêche un double crédit si elle était déjà pointée.
+            let assignmentId: string | null = null
+            if (input.chore_id) {
+              const { data } = await supabase
+                .from('chore_assignments')
+                .select('id')
+                .eq('chore_id', input.chore_id)
+                .eq('date', input.done_on)
+                .maybeSingle()
+              assignmentId = (data as { id: string } | null)?.id ?? null
+            }
+            logChore.mutate({ ...input, assignment_id: assignmentId })
+          }}
           onSaveAsChore={(input) => addChore.mutate(input)}
         />
       )}
@@ -557,7 +581,9 @@ interface AdHocProps {
 }
 
 function AdHocModal({ chores, members, defaultMemberId, onClose, onSubmit, onSaveAsChore }: AdHocProps) {
-  const [choreId, setChoreId] = useState<string | null>(chores[0]?.id ?? null)
+  // Catalogue vide → saisie libre d'office (sinon useFree resterait false alors
+  // que le select affiche « Autre » : on validerait un log fantôme sans libellé).
+  const [choreId, setChoreId] = useState<string | null>(chores[0]?.id ?? '__free__')
   const [label, setLabel] = useState('')
   const [points, setPoints] = useState(10)
   const [memberId, setMemberId] = useState<string | null>(defaultMemberId)

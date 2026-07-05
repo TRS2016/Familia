@@ -27,7 +27,7 @@ Deno.serve(async () => {
       .select('household_id, member_id, title, all_day, start_time')
       .eq('date', todayStr),
     supabase.from('chore_assignments')
-      .select('household_id, member_id, chore:chores(name, emoji, archived_at)')
+      .select('household_id, member_id, chore:chores(name, emoji)')
       .eq('date', todayStr)
       .eq('status', 'pending'),
     supabase.from('habits')
@@ -51,12 +51,12 @@ Deno.serve(async () => {
   }
 
   type EventRow = { household_id: string; member_id: string | null; title: string; all_day: boolean; start_time: string | null }
-  type AssignRow = { household_id: string; member_id: string | null; chore: { name: string; emoji: string; archived_at: string | null } | null }
+  type AssignRow = { household_id: string; member_id: string | null; chore: { name: string; emoji: string } | null }
   type HabitRow = { household_id: string; member_id: string | null; frequency_days: number[] | null; start_date: string | null }
   type MealRow = { household_id: string; meal_type: string; recipe: { title: string } | null }
 
   const events = (eventsRes.data ?? []) as EventRow[]
-  const assignments = ((assignRes.data ?? []) as AssignRow[]).filter(a => a.chore && !a.chore.archived_at)
+  const assignments = ((assignRes.data ?? []) as AssignRow[]).filter(a => a.chore)
   const habitsDue = ((habitsRes.data ?? []) as HabitRow[]).filter(h => {
     if (h.start_date && todayStr < h.start_date) return false
     if (h.frequency_days && h.frequency_days.length > 0 && !h.frequency_days.includes(todayDow)) return false

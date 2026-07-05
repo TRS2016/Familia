@@ -122,7 +122,8 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
     const byCategory = new Map<string, { cnt: number; pts: number }>()
     for (const l of monthLogs) {
       byMemberCount.set(l.member_id, (byMemberCount.get(l.member_id) ?? 0) + 1)
-      const cat = l.chore_id ? (choreById.get(l.chore_id)?.category ?? 'autre') : 'autre'
+      // Catégorie : snapshot du log d'abord (survit à la suppression du template).
+      const cat = l.category ?? (l.chore_id ? choreById.get(l.chore_id)?.category : null) ?? 'autre'
       const agg = byCategory.get(cat) ?? { cnt: 0, pts: 0 }
       agg.cnt += 1
       agg.pts += l.points_awarded

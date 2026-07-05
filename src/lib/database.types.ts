@@ -97,6 +97,7 @@ export type Database = {
       chore_logs: {
         Row: {
           assignment_id: string | null
+          category: string | null
           chore_id: string | null
           created_at: string
           done_on: string
@@ -110,6 +111,7 @@ export type Database = {
         }
         Insert: {
           assignment_id?: string | null
+          category?: string | null
           chore_id?: string | null
           created_at?: string
           done_on?: string
@@ -123,6 +125,7 @@ export type Database = {
         }
         Update: {
           assignment_id?: string | null
+          category?: string | null
           chore_id?: string | null
           created_at?: string
           done_on?: string
@@ -193,7 +196,6 @@ export type Database = {
       }
       chores: {
         Row: {
-          archived_at: string | null
           category: string
           color: string | null
           created_at: string
@@ -214,7 +216,6 @@ export type Database = {
           steps: string[]
         }
         Insert: {
-          archived_at?: string | null
           category?: string
           color?: string | null
           created_at?: string
@@ -235,7 +236,6 @@ export type Database = {
           steps?: string[]
         }
         Update: {
-          archived_at?: string | null
           category?: string
           color?: string | null
           created_at?: string
@@ -2341,10 +2341,7 @@ export type Database = {
         Args: { p_item: string; p_to_list: string }
         Returns: undefined
       }
-      redeem_reward: {
-        Args: { p_member_id: string; p_reward_id: string }
-        Returns: string
-      }
+      redeem_reward: { Args: { p_reward_id: string }; Returns: string }
       reorder_chores: { Args: { p_ids: string[] }; Returns: undefined }
       reorder_habits: { Args: { p_ids: string[] }; Returns: undefined }
       reorder_training_presets: {

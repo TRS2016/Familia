@@ -24,9 +24,10 @@ export function isApplicable(chore: Pick<Chore, 'frequency' | 'frequency_days' |
   if (chore.frequency === 'none') return false
   if (chore.start_date && dateStr < chore.start_date) return false
   // Mensuel : frequency_days[0] = jour du mois (clampé au dernier jour pour 29-31).
+  // Donnée incohérente (pas de jour) → jamais applicable, plutôt que tous les jours.
   if (chore.frequency === 'monthly') {
     const dom = chore.frequency_days?.[0]
-    if (!dom) return true
+    if (!dom) return false
     const [y, m, d] = dateStr.split('-').map(Number)
     const lastDay = new Date(y, m, 0).getDate()
     return d === Math.min(dom, lastDay)

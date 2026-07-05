@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import SlideUpModal from '../../components/SlideUpModal'
 import { CHORE_CATEGORIES, categoryOf } from './categories'
 import { EMOJI_PALETTE, WEEK_LABELS } from './chores.utils'
-import type { Chore, NewChoreInput, HouseholdMember } from './useChores'
+import type { Chore, ChoreFrequency, NewChoreInput, HouseholdMember } from './useChores'
 import { useRecipes, MEAL_TYPES, mealMeta } from '../recipes/useRecipes'
 import styles from './ChoresPage.module.css'
 
@@ -19,7 +19,7 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
   const [category, setCategory] = useState(initial?.category ?? 'autre')
   const [emoji, setEmoji] = useState(initial?.emoji ?? categoryOf(category).emoji)
   const [points, setPoints] = useState(initial?.points ?? 10)
-  const [frequency, setFrequency] = useState(initial?.frequency ?? 'daily')
+  const [frequency, setFrequency] = useState<ChoreFrequency>(initial?.frequency ?? 'daily')
   const [days, setDays] = useState<number[]>(initial?.frequency_days ?? [])
   const [rotation, setRotation] = useState<string[]>(initial?.rotation_member_ids ?? [])
   const [rotationPeriod, setRotationPeriod] = useState(initial?.rotation_period ?? 'week')
@@ -136,7 +136,7 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
         <div className={styles.field}>
           <span className={styles.label}>Récurrence</span>
           <div className={styles.chipRow}>
-            {[['daily', 'Tous les jours'], ['weekly', 'Jours choisis'], ['monthly', 'Mensuel'], ['none', 'À la demande']].map(([v, l]) => (
+            {([['daily', 'Tous les jours'], ['weekly', 'Jours choisis'], ['monthly', 'Mensuel'], ['none', 'À la demande']] as [ChoreFrequency, string][]).map(([v, l]) => (
               <button type="button" key={v}
                 className={[styles.chip, frequency === v ? styles.chipActive : ''].join(' ')}
                 onClick={() => setFrequency(v)}>{l}</button>

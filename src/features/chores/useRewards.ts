@@ -120,8 +120,9 @@ export function useRedeemReward() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   return useMutation({
-    mutationFn: async ({ rewardId, memberId }: { rewardId: string; memberId: string; label?: string; requesterName?: string }) => {
-      const { error } = await supabase.rpc('redeem_reward', { p_reward_id: rewardId, p_member_id: memberId })
+    // Le demandeur est dérivé de auth.uid() côté serveur (pas de member_id falsifiable).
+    mutationFn: async ({ rewardId }: { rewardId: string; label?: string; requesterName?: string }) => {
+      const { error } = await supabase.rpc('redeem_reward', { p_reward_id: rewardId })
       if (error) throw error
     },
     onSuccess: (_data, vars) => {

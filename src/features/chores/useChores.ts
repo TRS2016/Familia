@@ -3,9 +3,11 @@ import { format, subDays } from 'date-fns'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useToast } from '../../components/useToast'
-import { POINTS_KEY, COUNTS_KEY, maybeAwardStreakBonus, STREAK_BONUS_POINTS } from './useGamification'
+import { POINTS_KEY, COUNTS_KEY, STREAK_BONUS_POINTS } from './useGamification'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
+
+export type ChoreFrequency = 'daily' | 'weekly' | 'monthly' | 'none'
 
 export interface Chore {
   id: string
@@ -15,14 +17,13 @@ export interface Chore {
   color: string | null
   category: string
   points: number
-  frequency: string                  // daily | weekly | none
-  frequency_days: number[] | null    // 1=lun…7=dim
+  frequency: ChoreFrequency
+  frequency_days: number[] | null    // weekly : 1=lun…7=dim ; monthly : [jour du mois]
   start_date: string | null
   rotation_member_ids: string[] | null
   rotation_period: string            // 'week' | 'day'
   default_member_id: string | null
   position: number | null
-  archived_at: string | null
   created_at: string
   instructions: string | null
   steps: string[]
@@ -51,6 +52,7 @@ export interface ChoreLog {
   points_awarded: number
   note: string | null
   photo_path: string | null
+  category: string | null   // snapshot de la catégorie au moment du pointage
   created_at: string
 }
 
@@ -65,7 +67,7 @@ export interface NewChoreInput {
   color: string | null
   category: string
   points: number
-  frequency: string
+  frequency: ChoreFrequency
   frequency_days: number[] | null
   start_date: string | null
   rotation_member_ids: string[] | null
@@ -110,7 +112,6 @@ export function useChores() {
         .from('chores')
         .select('*')
         .eq('household_id', HOUSEHOLD_ID)
-        .is('archived_at', null)
         .order('position', { ascending: true, nullsFirst: false })
         .order('created_at', { ascending: true })
       if (error) throw error
@@ -181,25 +182,37 @@ export function useEditChore() {
   const { showToast } = useToast()
   return useMutation({
     mutationFn: async (input: EditChoreInput): Promise<Chore> => {
+      const before = (queryClient.getQueryData<Chore[]>(CHORES_KEY) ?? []).find(c => c.id === input.id)
+      const n = normalize(input)
       const { data, error } = await supabase
         .from('chores')
-        .update(normalize(input) as never)
+        .update(n as never)
         .eq('id', input.id)
         .select('*')
         .single()
       if (error) throw error
-      // La rotation/fréquence a pu changer. Les assignations futures déjà
-      // matérialisées gardent leur ancien membre (upsert ignoreDuplicates ne les
-      // met pas à jour) : on supprime les jours futurs encore « pending » pour
-      // qu'ils soient re-matérialisés avec le nouveau membre/calendrier. Les
-      // jours faits/passés/excusés sont préservés.
-      const todayStr = format(new Date(), 'yyyy-MM-dd')
-      await supabase
-        .from('chore_assignments')
-        .delete()
-        .eq('chore_id', input.id)
-        .gte('date', todayStr)
-        .eq('status', 'pending')
+      // Si le planning (récurrence/rotation/assignation) a changé, les
+      // assignations futures déjà matérialisées gardent leur ancien
+      // membre/calendrier (upsert ignoreDuplicates ne les met pas à jour) :
+      // on supprime les jours futurs encore « pending » pour qu'ils soient
+      // re-matérialisés. Un simple renommage/changement de points/étapes ne
+      // purge rien (la progression steps_done du jour est préservée).
+      const rescheduled = !before
+        || before.frequency !== n.frequency
+        || JSON.stringify(before.frequency_days ?? null) !== JSON.stringify(n.frequency_days)
+        || (before.start_date ?? null) !== n.start_date
+        || JSON.stringify(before.rotation_member_ids ?? null) !== JSON.stringify(n.rotation_member_ids)
+        || before.rotation_period !== n.rotation_period
+        || (before.default_member_id ?? null) !== n.default_member_id
+      if (rescheduled) {
+        const todayStr = format(new Date(), 'yyyy-MM-dd')
+        await supabase
+          .from('chore_assignments')
+          .delete()
+          .eq('chore_id', input.id)
+          .gte('date', todayStr)
+          .eq('status', 'pending')
+      }
       return data as unknown as Chore
     },
     onSuccess: (updated) => {
@@ -449,7 +462,7 @@ export function useLogChore() {
         id: `opt-${input.assignment_id}`, household_id: HOUSEHOLD_ID,
         chore_id: input.chore_id, assignment_id: input.assignment_id, member_id: input.member_id,
         done_on: input.done_on, label: input.label ?? null, points_awarded: 0,
-        note: input.note ?? null, photo_path: null, created_at: new Date().toISOString(),
+        note: input.note ?? null, photo_path: null, category: null, created_at: new Date().toISOString(),
       }
       queryClient.setQueryData<ChoreLog[]>(RECENT_LOGS_KEY, [optimistic, ...previous])
       return { previous }
@@ -458,12 +471,17 @@ export function useLogChore() {
       if (ctx?.previous) queryClient.setQueryData(RECENT_LOGS_KEY, ctx.previous)
       showToast({ type: 'error', message: 'Impossible d\'enregistrer la tâche.' })
     },
-    // Bonus de série : primé après le pointage (jamais bloquant pour lui).
-    onSuccess: async (_id, input) => {
-      const streak = await maybeAwardStreakBonus(input.member_id)
-      if (streak) {
-        queryClient.invalidateQueries({ queryKey: POINTS_KEY })
-        showToast({ type: 'success', message: `🔥 Série de ${streak} jours : +${STREAK_BONUS_POINTS} pts bonus !` })
+    // Bonus de série : octroyé côté serveur par log_chore (atomique). Ici on
+    // détecte seulement s'il a été primé sur ce pointage pour féliciter.
+    onSuccess: async (logId) => {
+      const { data } = await supabase
+        .from('point_events')
+        .select('id')
+        .eq('ref_type', 'streak_bonus')
+        .eq('ref_id', logId)
+        .limit(1)
+      if (data && data.length > 0) {
+        showToast({ type: 'success', message: `🔥 Palier de série atteint : +${STREAK_BONUS_POINTS} pts bonus !` })
       }
     },
     onSettled: () => {

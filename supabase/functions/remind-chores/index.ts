@@ -23,7 +23,7 @@ Deno.serve(async (_req: Request) => {
   // Assignations du jour encore à faire, avec le libellé de la tâche.
   const { data: assignments, error } = await supabase
     .from('chore_assignments')
-    .select('id, household_id, member_id, chore:chores(name, emoji, archived_at)')
+    .select('id, household_id, member_id, chore:chores(name, emoji)')
     .eq('date', todayStr)
     .eq('status', 'pending')
 
@@ -35,12 +35,13 @@ Deno.serve(async (_req: Request) => {
     return json({ reminders_sent: 0 })
   }
 
-  // Exclut les tâches dont le template a été archivé.
+  // Garde-fou : ignore une assignation orpheline (template supprimé en cascade
+  // normalement, mais on reste défensif).
   type Row = {
     id: string; household_id: string; member_id: string | null
-    chore: { name: string; emoji: string; archived_at: string | null } | null
+    chore: { name: string; emoji: string } | null
   }
-  const live = (assignments as Row[]).filter(a => a.chore && !a.chore.archived_at)
+  const live = (assignments as Row[]).filter(a => a.chore)
   if (live.length === 0) return json({ reminders_sent: 0 })
 
   // Dédup : assignations déjà rappelées aujourd'hui.
