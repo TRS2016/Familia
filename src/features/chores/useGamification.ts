@@ -209,3 +209,24 @@ export function useDeleteFamilyGoal() {
     onSuccess: () => queryClient.invalidateQueries({ queryKey: GOALS_KEY }),
   })
 }
+
+/** « Repartir de zéro » : efface toute l'activité du foyer (pointages, points,
+ *  badges, échanges, mercis, pénibilité) via la RPC reset_chores_data. Le
+ *  catalogue, les récompenses, les détestations et les objectifs sont
+ *  conservés. Irréversible — la confirmation est à la charge de l'appelant. */
+export function useResetChoresData() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase.rpc('reset_chores_data')
+      if (error) throw error
+    },
+    onSuccess: () => {
+      // Remise à zéro transversale : on invalide tout le cache (action rare).
+      queryClient.invalidateQueries()
+      showToast({ type: 'success', message: 'Compteurs remis à zéro. Nouvelle partie !' })
+    },
+    onError: () => showToast({ type: 'error', message: 'Impossible de remettre à zéro.' }),
+  })
+}

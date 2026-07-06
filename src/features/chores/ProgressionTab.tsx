@@ -9,6 +9,7 @@ import {
   useMemberTotals, useMemberPointsSince, useChoreCounts,
   useMemberAchievements, useFamilyGoals,
   useUnlockAchievements, useUpsertFamilyGoal, useDeleteFamilyGoal,
+  useResetChoresData,
   memberPoints, sumPoints,
   type FamilyGoal, type FamilyGoalInput, type PointMap,
 } from './useGamification'
@@ -39,7 +40,17 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
   const { data: goals = [] } = useFamilyGoals()
   const { data: counts = [] } = useChoreCounts()
   const unlock = useUnlockAchievements()
+  const resetData = useResetChoresData()
   const { showToast } = useToast()
+
+  function handleReset() {
+    if (!confirm(
+      'Repartir de zéro ?\n\nPoints, XP, niveaux, badges, séries, pointages, mercis et échanges de récompenses '
+      + 'seront effacés pour TOUT le foyer.\n\nLe catalogue des tâches, les récompenses et les objectifs sont conservés.',
+    )) return
+    if (!confirm('Dernière confirmation : cette remise à zéro est définitive.')) return
+    resetData.mutate()
+  }
 
   const weekStartStr = format(startOfWeek(new Date(), { weekStartsOn: 1 }), 'yyyy-MM-dd')
   const monthStartStr = format(startOfMonth(new Date()), 'yyyy-MM-dd')
@@ -337,6 +348,17 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
             </div>
           )
         })}
+      </section>
+
+      {/* ── Repartir de zéro (remise à zéro de l'activité du foyer) ── */}
+      <section className={styles.section}>
+        <button className={styles.deleteBtn} onClick={handleReset} disabled={resetData.isPending}>
+          {resetData.isPending ? 'Remise à zéro…' : 'Repartir de zéro'}
+        </button>
+        <p className={styles.hint} style={{ textAlign: 'center' }}>
+          Efface points, badges, pointages, mercis et échanges pour tout le foyer.
+          Le catalogue, les récompenses et les objectifs sont conservés.
+        </p>
       </section>
 
       {goalFormOpen && (

@@ -2524,6 +2524,7 @@ export type Database = {
         Returns: undefined
       }
       replace_grocery_catalog: { Args: { p_rows: Json }; Returns: number }
+      reset_chores_data: { Args: never; Returns: undefined }
       resolve_redemption: {
         Args: { p_redemption_id: string; p_status: string }
         Returns: undefined

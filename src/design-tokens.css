@@ -110,6 +110,9 @@
     --scrollbar-thumb: #3D3028;
     --star: #E8B84B;   /* or vif : excellent contraste sur fond sombre */
 
+    /* Fond teinté accent : version sombre (sinon texte clair sur pêche clair = illisible) */
+    --accent-soft: #4A362C;
+
     --plan-bg:   #3A324E;
     --plan-text: #C6B8EA;
     --bonus-bg:   #4A3A22;
@@ -131,6 +134,8 @@
 
   --scrollbar-thumb: #3D3028;
   --star: #E8B84B;
+
+  --accent-soft: #4A362C;
 
   --plan-bg:   #3A324E;
   --plan-text: #C6B8EA;
