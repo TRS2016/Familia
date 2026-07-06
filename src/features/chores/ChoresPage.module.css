@@ -70,7 +70,8 @@
 
 /* ── Vue semaine (toutes les tâches, groupées par jour) ──────────────────── */
 
-.viewToggle { display: flex; gap: 6px; padding: 0 16px 10px; }
+.viewToggle { display: flex; gap: 6px; padding: 10px 16px 10px; }
+.viewToggle .chip { flex: 1; text-align: center; }
 .weekLabel {
   flex: 1; text-align: center; font-size: var(--text-sm); font-weight: 800;
   color: var(--text); text-transform: capitalize;
