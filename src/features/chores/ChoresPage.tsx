@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { format, addDays, startOfWeek, subDays } from 'date-fns'
+import { format, addDays, startOfWeek, subDays, differenceInCalendarDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Check, Undo2, Pencil, Trash2, SkipForward, Camera, Copy, Sparkles, X, Heart } from 'lucide-react'
 import Spinner from '../../components/Spinner'
@@ -14,6 +14,7 @@ import {
   useAddChore, useEditChore, useDeleteChore,
   useMaterializeAssignments, useLogChore, useUndoChoreLog, useToggleStep,
   useSetAssignmentStatus, useReorderChores, useAddChoreProof, useChoreProofUrl,
+  useClaimAssignment,
 } from './useChores'
 import type { Chore, ChoreAssignment, ChoreLog, NewChoreInput } from './useChores'
 import { supabase } from '../../lib/supabase'
@@ -24,7 +25,7 @@ import {
   useDislikes, useToggleDislike, useFeedback, useAddFeedback, feedbackTendency,
 } from './useEquilibre'
 import type { FeedbackVerdict } from './useEquilibre'
-import { categoryOf, CHORE_SUGGESTIONS } from './categories'
+import { categoryOf, CHORE_CATEGORIES, CHORE_SUGGESTIONS } from './categories'
 import ChoreForm from './ChoreForm'
 import ProgressionTab from './ProgressionTab'
 import RewardsTab from './RewardsTab'
@@ -70,6 +71,7 @@ export default function ChoresPage() {
   const toggleStep = useToggleStep()
   const setStatus = useSetAssignmentStatus()
   const reorderChores = useReorderChores()
+  const claimAssignment = useClaimAssignment()
   const { data: recipes = [] } = useRecipes()
   const recipeById = useMemo(() => new Map(recipes.map(r => [r.id, r])), [recipes])
 
@@ -81,8 +83,8 @@ export default function ChoresPage() {
   const toggleDislike = useToggleDislike()
   const { data: feedbacks = [] } = useFeedback()
   const addFeedback = useAddFeedback()
-  // « C'était comment ? » après un pointage (optionnel, jamais bloquant).
-  const [feedbackFor, setFeedbackFor] = useState<{ choreId: string; logId: string; memberId: string; choreName: string } | null>(null)
+  // Après un pointage : mood optionnel (« C'était comment ? ») puis célébration.
+  const [feedbackFor, setFeedbackFor] = useState<{ choreId: string; logId: string; memberId: string; choreName: string; points: number } | null>(null)
 
   const dislikersByChore = useMemo(() => {
     const m = new Map<string, Set<string>>()
@@ -102,6 +104,12 @@ export default function ChoresPage() {
     return !set.has(doerId) && [...set].some(id => id !== doerId)
   }
 
+  // Prénoms de ceux qui détestent la tâche (hors exécutant) pour la chip dorée.
+  function dislikerNames(choreId: string, exceptId: string | null): string {
+    const set = dislikersByChore.get(choreId) ?? new Set<string>()
+    return members.filter(m => m.id !== exceptId && set.has(m.id)).map(m => m.display_name).join(', ')
+  }
+
   const myThanksByLog = useMemo(() => {
     const me = currentMember?.id
     const s = new Set<string>()
@@ -109,6 +117,17 @@ export default function ChoresPage() {
     for (const t of thanks) if (t.from_member === me && t.log_id) s.add(t.log_id)
     return s
   }, [thanks, currentMember?.id])
+
+  // « Fait récemment par l'autre » : ses pointages des 7 derniers jours (y
+  // compris les tâches déclarées à la volée), à remercier d'un tap.
+  const recentByOther = useMemo(() => {
+    const me = currentMember?.id
+    if (!me) return []
+    const cutoff = format(subDays(new Date(), 7), 'yyyy-MM-dd')
+    return logs
+      .filter(l => l.member_id !== me && l.done_on >= cutoff && !l.id.startsWith('opt-'))
+      .slice(0, 5)
+  }, [logs, currentMember?.id])
 
   const memberColorById = useMemo(() => {
     const m = new Map<string, string>()
@@ -170,9 +189,6 @@ export default function ChoresPage() {
     [assignments, effectiveDay, choreById],
   )
 
-  // Au-delà de ce seuil de points, on prévient le foyer qu'une grosse tâche est faite.
-  const BIG_TASK_POINTS = 20
-
   function markDone(assignmentId: string, chore: Chore, memberId: string, doneOn: string = effectiveDay) {
     logChore.mutate(
       { chore_id: chore.id, assignment_id: assignmentId, member_id: memberId, done_on: doneOn },
@@ -186,10 +202,10 @@ export default function ChoresPage() {
               body: { title: `${chore.emoji} Tâche faite`, body: `${who} a fait « ${chore.name} » (+${chore.points} pts)`, module: 'chores' },
             })
           }
-          // Recalibrage de pénibilité : question optionnelle, réservée à celui
-          // qui a fait la tâche sur cet appareil.
+          // Mood optionnel + célébration, réservés à celui qui a fait la
+          // tâche sur cet appareil.
           if (memberId === currentMember?.id) {
-            setFeedbackFor({ choreId: chore.id, logId, memberId, choreName: chore.name })
+            setFeedbackFor({ choreId: chore.id, logId, memberId, choreName: chore.name, points: chore.points })
           }
         },
       },
@@ -233,15 +249,31 @@ export default function ChoresPage() {
     })
   }
 
-  // Déplace une tâche dans le catalogue (réordonnancement persistant).
-  function moveChore(id: string, dir: -1 | 1) {
-    const i = chores.findIndex(c => c.id === id)
-    const j = i + dir
-    if (i < 0 || j < 0 || j >= chores.length) return
-    const ids = chores.map(c => c.id)
-    ;[ids[i], ids[j]] = [ids[j], ids[i]]
-    reorderChores.mutate(ids)
+  // Catalogue groupé par catégorie, dans l'ordre fixe du référentiel (handoff).
+  const catalogGroups = useMemo(() => {
+    return CHORE_CATEGORIES
+      .map(cat => ({ cat, items: chores.filter(c => categoryOf(c.category).value === cat.value) }))
+      .filter(g => g.items.length > 0)
+  }, [chores])
+
+  // Déplace une tâche AU SEIN de sa catégorie ; l'ordre global persisté est
+  // recomposé groupe par groupe (ordre des catégories, puis ordre interne).
+  function moveChoreInCategory(chore: Chore, dir: -1 | 1) {
+    const flat: string[] = []
+    for (const g of catalogGroups) {
+      const ids = g.items.map(c => c.id)
+      const i = ids.indexOf(chore.id)
+      if (i >= 0) {
+        const j = i + dir
+        if (j < 0 || j >= ids.length) return
+        ;[ids[i], ids[j]] = [ids[j], ids[i]]
+      }
+      flat.push(...ids)
+    }
+    reorderChores.mutate(flat)
   }
+
+  const FREQ_SHORT: Record<string, string> = { daily: 'Quotidien', weekly: 'Hebdo', monthly: 'Mensuel', none: 'Ponctuel' }
 
   return (
     <div className={styles.page}>
@@ -283,22 +315,23 @@ export default function ChoresPage() {
         <RewardsTab members={members} currentMemberId={currentMember?.id ?? null} />
       ) : tab === 'todo' ? (
         <>
-          {/* Tâches en retard (assignations passées jamais faites ni passées) */}
+          {/* Tâches en retard — ton factuel, jamais de rouge (handoff). */}
           {overdue.length > 0 && (
             <section className={styles.overdueBlock}>
-              <h2 className={styles.overdueTitle}>⏰ En retard ({overdue.length})</h2>
+              <h2 className={styles.overdueTitle}>⏳ En retard ({overdue.length})</h2>
               <ul className={styles.list}>
                 {overdue.map(a => {
                   const chore = choreById.get(a.chore_id)!
                   const assignee = a.member_id ? members.find(m => m.id === a.member_id) : null
                   const color = a.member_id ? memberColorById.get(a.member_id) : 'var(--accent)'
+                  const lateDays = Math.max(1, differenceInCalendarDays(new Date(), new Date(a.date + 'T12:00')))
                   return (
-                    <li key={a.id} className={styles.row}>
+                    <li key={a.id} className={[styles.row, styles.rowOverdue].join(' ')}>
                       <span className={styles.rowEmoji} style={{ background: (chore.color ?? categoryOf(chore.category).color) + '22' }}>{chore.emoji}</span>
                       <div className={styles.rowMain}>
                         <span className={styles.rowName}>{chore.name}</span>
                         <span className={styles.rowMeta}>
-                          <span className={styles.overdueDate}>{format(new Date(a.date + 'T12:00'), 'EEE d MMM', { locale: fr })}</span>
+                          <span className={styles.overdueSince}>En retard depuis {lateDays} j</span>
                           {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
                           <span className={styles.points}>+{chore.points} pts</span>
                         </span>
@@ -351,26 +384,40 @@ export default function ChoresPage() {
                 const skipped = a.status === 'skipped'
                 const assignee = a.member_id ? members.find(m => m.id === a.member_id) : null
                 const color = a.member_id ? memberColorById.get(a.member_id) : 'var(--accent)'
+                const free = !a.member_id && !done && !skipped
                 const hasDetail = !!chore.instructions || chore.steps.length > 0
                 const stepsTotal = chore.steps.length
                 const stepsDone = a.steps_done.filter(i => i < stepsTotal).length
                 return (
-                  <li key={a.id} className={[styles.row, done ? styles.rowDone : '', skipped ? styles.rowSkipped : ''].join(' ')}>
+                  <li key={a.id} className={[styles.row, done ? styles.rowDone : '', skipped ? styles.rowSkipped : '', free ? styles.rowFree : ''].join(' ')}>
                     <button className={styles.rowOpen} onClick={() => setDetailId(a.id)}>
                       <span className={styles.rowEmoji} style={{ background: (chore.color ?? categoryOf(chore.category).color) + '22' }}>{chore.emoji}</span>
                       <div className={styles.rowMain}>
                         <span className={styles.rowName}>{chore.name}</span>
                         <span className={styles.rowMeta}>
                           {skipped && <span className={styles.rotBadge}>passée</span>}
+                          <span className={styles.chipCatMini}>{categoryOf(chore.category).label}</span>
                           {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
+                          {free && <span className={styles.chipFree}>Libre · premier arrivé, premier servi</span>}
                           <span className={styles.points}>+{chore.points} pts</span>
-                          {chore.mental_load && <span className={styles.rotBadge}>🧠 charge mentale</span>}
-                          {!done && !skipped && dislikeHint(chore.id, a.member_id) && <span className={styles.rotBadge}>😖 +50%</span>}
+                          {chore.mental_load && <span className={styles.chipPlan}>Charge mentale</span>}
+                          {!done && !skipped && dislikeHint(chore.id, a.member_id) && (
+                            <span className={styles.chipBonus}>💛 détestée par {dislikerNames(chore.id, a.member_id)} · +50%</span>
+                          )}
                           {stepsTotal > 0 && <span className={styles.rotBadge}>{stepsDone}/{stepsTotal} étapes</span>}
                           {hasDetail && stepsTotal === 0 && <span className={styles.rotBadge}>consignes</span>}
                         </span>
                       </div>
                     </button>
+                    {free && currentMember && (
+                      <button
+                        className={styles.claimBtn}
+                        onClick={() => claimAssignment.mutate({ assignmentId: a.id, memberId: currentMember.id })}
+                        disabled={claimAssignment.isPending}
+                      >
+                        Je prends
+                      </button>
+                    )}
                     {done && (() => {
                       // Merci : sur une tâche faite par l'autre, une fois par personne.
                       const log = logObjByAssignment.get(a.id)
@@ -407,67 +454,115 @@ export default function ChoresPage() {
               })}
             </ul>
           )}
+
+          {/* Fait récemment par l'autre : reconnaissance en un tap. */}
+          {recentByOther.length > 0 && currentMember && (
+            <section className={styles.recentBlock}>
+              <h2 className={styles.recentTitle}>💛 Fait récemment par {members.find(m => m.id !== currentMember.id)?.display_name ?? 'l\'autre'}</h2>
+              <ul className={styles.list}>
+                {recentByOther.map(l => {
+                  const chore = l.chore_id ? choreById.get(l.chore_id) : undefined
+                  const label = chore?.name ?? l.label ?? 'Tâche'
+                  const thanked = myThanksByLog.has(l.id)
+                  return (
+                    <li key={l.id} className={styles.recentRow}>
+                      <span className={styles.recentEmoji}>{chore?.emoji ?? '✨'}</span>
+                      <div className={styles.rowMain}>
+                        <span className={styles.recentName}>{label}</span>
+                        <span className={styles.rowMeta}>
+                          <span>{format(new Date(l.done_on + 'T12:00'), 'EEE d MMM', { locale: fr })}</span>
+                          {l.points_awarded > 0 && <span className={styles.points}>+{l.points_awarded} pts</span>}
+                        </span>
+                      </div>
+                      <button
+                        className={[styles.merciPill, thanked ? styles.merciPillOn : ''].join(' ')}
+                        disabled={thanked || sendThanks.isPending}
+                        onClick={() => sendThanks.mutate({ logId: l.id, fromMember: currentMember.id, toMember: l.member_id, label })}
+                      >
+                        {thanked ? 'Merci envoyé 💛' : 'Merci'}
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            </section>
+          )}
         </>
       ) : (
-        // ── Catalogue ──────────────────────────────────────────────────────────
+        // ── Catalogue (groupé par catégorie, ordre fixe — handoff) ─────────────
         chores.length === 0 ? (
           <EmptyState emoji="✨" title="Aucune tâche" description="Crée ta première tâche familiale." />
         ) : (
-          <ul className={styles.list}>
-            {chores.map((chore, i) => {
-              const cat = categoryOf(chore.category)
-              const rot = chore.rotation_member_ids && chore.rotation_member_ids.length > 0
-              const dislikers = dislikersByChore.get(chore.id) ?? new Set<string>()
-              const me = currentMember?.id
-              const iDislike = !!me && dislikers.has(me)
-              const otherDislikers = members.filter(m => m.id !== me && dislikers.has(m.id))
-              const tendency = feedbackTendency(feedbacks, chore.id)
-              return (
-                <li key={chore.id} className={styles.row}>
-                  <span className={styles.rowEmoji} style={{ background: (chore.color ?? cat.color) + '22' }}>{chore.emoji}</span>
-                  <div className={styles.rowMain}>
-                    <span className={styles.rowName}>{chore.name}</span>
-                    <span className={styles.rowMeta}>
-                      <span>{cat.label}</span>
-                      <span className={styles.points}>+{chore.points} pts</span>
-                      {chore.mental_load && <span className={styles.rotBadge}>🧠 charge mentale</span>}
-                      {rot && <span className={styles.rotBadge}>rotation</span>}
-                      {otherDislikers.length > 0 && (
-                        <span className={styles.rotBadge}>😖 détestée par {otherDislikers.map(m => m.display_name).join(', ')}</span>
-                      )}
-                    </span>
-                    {tendency && (
-                      <span className={styles.tendencyHint}>
-                        {tendency === 'harder'
-                          ? '😮‍💨 Souvent plus pénible que prévu — augmenter les points ?'
-                          : '😅 Souvent plus facile que prévu — baisser les points ?'}
-                      </span>
-                    )}
-                  </div>
-                  {chores.length > 1 && (
-                    <span className={styles.moveCol}>
-                      <button className={styles.iconBtn} onClick={() => moveChore(chore.id, -1)} disabled={i === 0} aria-label="Monter"><ChevronUp size={15} /></button>
-                      <button className={styles.iconBtn} onClick={() => moveChore(chore.id, 1)} disabled={i === chores.length - 1} aria-label="Descendre"><ChevronDown size={15} /></button>
-                    </span>
-                  )}
-                  {me && (
-                    <button
-                      className={[styles.iconBtn, styles.dislikeBtn, iDislike ? styles.dislikeBtnOn : ''].join(' ')}
-                      onClick={() => toggleDislike.mutate({ choreId: chore.id, memberId: me, disliked: iDislike })}
-                      aria-pressed={iDislike}
-                      aria-label={iDislike ? 'Ne plus détester cette tâche' : 'Marquer comme détestée'}
-                      title={iDislike ? 'Je ne la déteste plus' : 'Je déteste cette tâche'}
-                    >
-                      😖
-                    </button>
-                  )}
-                  <button className={styles.iconBtn} onClick={() => { setEditing(chore); setFormOpen(true) }} aria-label="Modifier"><Pencil size={16} /></button>
-                  <button className={styles.iconBtn} onClick={() => duplicateChore(chore)} aria-label="Dupliquer"><Copy size={16} /></button>
-                  <button className={styles.iconBtn} onClick={() => { if (confirm(`Supprimer « ${chore.name} » ? Les points déjà gagnés sont conservés.`)) deleteChore.mutate(chore.id) }} aria-label="Supprimer"><Trash2 size={16} /></button>
-                </li>
-              )
-            })}
-          </ul>
+          <>
+            <p className={styles.catalogHint}>
+              Réordonnez avec les flèches. Marquez ce que vous détestez pour offrir un bonus à l'autre.
+            </p>
+            {catalogGroups.map(({ cat, items }) => (
+              <section key={cat.value} className={styles.catGroup}>
+                <h3 className={styles.catGroupTitle}>{cat.label}</h3>
+                <ul className={styles.list}>
+                  {items.map((chore, i) => {
+                    const rot = chore.rotation_member_ids && chore.rotation_member_ids.length > 0
+                    const fixedTo = !rot && chore.default_member_id
+                      ? members.find(m => m.id === chore.default_member_id)?.display_name : null
+                    const dislikers = dislikersByChore.get(chore.id) ?? new Set<string>()
+                    const me = currentMember?.id
+                    const iDislike = !!me && dislikers.has(me)
+                    const otherDislikers = members.filter(m => m.id !== me && dislikers.has(m.id))
+                    const otherName = members.length === 2
+                      ? members.find(m => m.id !== me)?.display_name ?? 'l\'autre' : 'les autres'
+                    const tendency = feedbackTendency(feedbacks, chore.id)
+                    return (
+                      <li key={chore.id} className={styles.catCard}>
+                        <div className={styles.catCardTop}>
+                          <span className={styles.rowEmoji} style={{ background: (chore.color ?? cat.color) + '22' }}>{chore.emoji}</span>
+                          <div className={styles.rowMain}>
+                            <span className={styles.rowName}>{chore.name}</span>
+                            <span className={styles.rowMeta}>
+                              <span className={styles.chipCatMini}>{FREQ_SHORT[chore.frequency]}</span>
+                              <span className={styles.chipCatMini}>{rot ? 'Rotation' : fixedTo ? `Fixe · ${fixedTo}` : 'Libre'}</span>
+                              {chore.mental_load && <span className={styles.chipPlan}>Charge mentale</span>}
+                              {otherDislikers.length > 0 && (
+                                <span className={styles.chipBonus}>💛 détestée par {otherDislikers.map(m => m.display_name).join(', ')}</span>
+                              )}
+                              <span className={styles.points}>+{chore.points} pts</span>
+                            </span>
+                            {tendency && (
+                              <span className={styles.tendencyHint}>
+                                {tendency === 'harder'
+                                  ? 'Souvent plus pénible que prévu — augmenter les points ?'
+                                  : 'Souvent plus facile que prévu — baisser les points ?'}
+                              </span>
+                            )}
+                          </div>
+                          {items.length > 1 && (
+                            <span className={styles.moveCol}>
+                              <button className={styles.iconBtn} onClick={() => moveChoreInCategory(chore, -1)} disabled={i === 0} aria-label="Monter"><ChevronUp size={15} /></button>
+                              <button className={styles.iconBtn} onClick={() => moveChoreInCategory(chore, 1)} disabled={i === items.length - 1} aria-label="Descendre"><ChevronDown size={15} /></button>
+                            </span>
+                          )}
+                          <button className={styles.iconBtn} onClick={() => { setEditing(chore); setFormOpen(true) }} aria-label="Modifier"><Pencil size={16} /></button>
+                          <button className={styles.iconBtn} onClick={() => duplicateChore(chore)} aria-label="Dupliquer"><Copy size={16} /></button>
+                          <button className={styles.iconBtn} onClick={() => { if (confirm(`Supprimer « ${chore.name} » ? Les points déjà gagnés sont conservés.`)) deleteChore.mutate(chore.id) }} aria-label="Supprimer"><Trash2 size={16} /></button>
+                        </div>
+                        {me && (
+                          <button
+                            className={iDislike ? styles.hateBtnOn : styles.hateBtn}
+                            onClick={() => toggleDislike.mutate({ choreId: chore.id, memberId: me, disliked: iDislike })}
+                            aria-pressed={iDislike}
+                          >
+                            {iDislike
+                              ? `💔 Tu détestes cette tâche — bonus pour ${otherName}`
+                              : 'Marquer « je déteste cette tâche »'}
+                          </button>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </section>
+            ))}
+          </>
         )
       )}
 
@@ -564,11 +659,11 @@ export default function ChoresPage() {
       )}
 
       {feedbackFor && (
-        <FeedbackModal
+        <PostDoneModal
           choreName={feedbackFor.choreName}
+          points={feedbackFor.points}
           onPick={(verdict) => {
             addFeedback.mutate({ choreId: feedbackFor.choreId, logId: feedbackFor.logId, memberId: feedbackFor.memberId, verdict })
-            setFeedbackFor(null)
           }}
           onClose={() => setFeedbackFor(null)}
         />
@@ -577,18 +672,33 @@ export default function ChoresPage() {
   )
 }
 
-// ── Recalibrage de pénibilité (question optionnelle après un pointage) ────────
+// Au-delà de ce seuil de points, on prévient le foyer qu'une grosse tâche est faite.
+const BIG_TASK_POINTS = 20
 
-function FeedbackModal({ choreName, onPick, onClose }: { choreName: string; onPick: (v: FeedbackVerdict) => void; onClose: () => void }) {
+// ── Après un pointage : mood optionnel puis célébration (handoff, 2 étapes) ───
+
+function PostDoneModal({ choreName, points, onPick, onClose }: { choreName: string; points: number; onPick: (v: FeedbackVerdict) => void; onClose: () => void }) {
+  const [step, setStep] = useState<'mood' | 'done'>('mood')
+  function pick(v: FeedbackVerdict) { onPick(v); setStep('done') }
   return (
-    <SlideUpModal title="C'était comment ?" onClose={onClose}>
-      <div className={styles.pickList}>
-        <p className={styles.hint} style={{ margin: 0 }}>« {choreName} » — ta réponse aide à garder des points justes. Optionnel, sans effet sur les points déjà gagnés.</p>
-        <button className={styles.pickBtn} onClick={() => onPick('easier')}>😅 Plus facile que prévu</button>
-        <button className={styles.pickBtn} onClick={() => onPick('as_expected')}>🙂 Comme prévu</button>
-        <button className={styles.pickBtn} onClick={() => onPick('harder')}>😮‍💨 Plus pénible que prévu</button>
-        <button className={styles.skipBtn} onClick={onClose}>Passer</button>
-      </div>
+    <SlideUpModal title={step === 'mood' ? 'C\'était comment ?' : 'Tâche validée'} onClose={onClose}>
+      {step === 'mood' ? (
+        <div className={styles.pickList}>
+          <p className={styles.hint} style={{ margin: 0 }}>« {choreName} » — ta réponse aide à garder des points justes. Optionnel, sans effet sur les points déjà gagnés.</p>
+          <button className={styles.pickBtn} onClick={() => pick('easier')}>😌 Plus facile que prévu</button>
+          <button className={styles.pickBtn} onClick={() => pick('as_expected')}>🙂 Comme prévu</button>
+          <button className={styles.pickBtn} onClick={() => pick('harder')}>😤 Plus pénible que prévu</button>
+          <button className={styles.skipBtn} onClick={() => setStep('done')}>Passer</button>
+        </div>
+      ) : (
+        <div className={styles.celebration}>
+          <span className={styles.celebrationCheck}><Check size={36} strokeWidth={3} /></span>
+          <span className={styles.celebrationTitle}>Bien joué</span>
+          <span className={styles.celebrationSub}>+{points} pts ajoutés à votre progression</span>
+          {points >= BIG_TASK_POINTS && <span className={styles.bigTaskBanner}>🏅 Grosse tâche — bravo !</span>}
+          <button className={styles.submitBtn} onClick={onClose}>Fermer</button>
+        </div>
+      )}
     </SlideUpModal>
   )
 }

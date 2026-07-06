@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Target, Pencil, Trophy } from 'lucide-react'
+import { Target, Pencil } from 'lucide-react'
 import { useToast } from '../../components/useToast'
 import { memberColor } from '../../lib/constants'
 import EmptyState from '../../components/EmptyState'
@@ -19,6 +19,7 @@ import {
   thanksReceived, thanksSentCount, lastCompletedWeekStart,
 } from './useEquilibre'
 import EquityBalance from './EquityBalance'
+import { useRedemptions, spendableBalance } from './useRewards'
 import { categoryOf } from './categories'
 import { format, startOfWeek, startOfMonth } from 'date-fns'
 import styles from './ChoresPage.module.css'
@@ -53,11 +54,14 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
   // ── Équilibre du foyer (pensé pour 2 adultes) ───────────────────────────────
   const { data: thanks = [] } = useThanks()
   const { data: weeklyRows = [] } = useWeeklyPoints()
+  const { data: redemptions = [] } = useRedemptions()
   const duo = members.length === 2 ? ([members[0], members[1]] as const) : null
   const balance = duo ? balanceOf(weekPoints, duo[0].id, duo[1].id) : null
   // Streak de couple : semaines TERMINÉES dans la zone équilibrée (la semaine
   // en cours ne compte qu'une fois finie — l'edge du dimanche la clôt).
   const coupleWeeks = duo ? coupleStreak(weeklyRows, duo[0].id, duo[1].id, lastCompletedWeekStart()) : 0
+  const mySpendable = currentMemberId ? spendableBalance(totals, redemptions, currentMemberId) : 0
+  const myThanks = currentMemberId ? thanksReceived(thanks, currentMemberId) : { week: 0, total: 0 }
 
   // Compteurs « à vie » par membre (total + par catégorie) depuis l'agrégat serveur.
   const countsByMember = useMemo(() => {
@@ -71,11 +75,6 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
     }
     return { total, byCat }
   }, [counts])
-
-  // Classement (XP décroissant).
-  const ranking = useMemo(() => members
-    .map((m, i) => ({ member: m, color: memberColor(i), xp: memberPoints(totals, m.id) }))
-    .sort((a, b) => b.xp - a.xp), [members, totals])
 
   // Progression d'un objectif selon sa période.
   function goalProgress(goal: FamilyGoal): number {
@@ -170,57 +169,63 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
 
   return (
     <div className={styles.progression}>
-      {/* ── Équilibre du foyer (balance + streak de couple + mercis) ── */}
+      {/* ── Équilibre du foyer : balance + streak de couple (handoff) ── */}
       {duo && balance && (
         <section className={styles.section}>
-          <h2 className={styles.sectionTitle}>⚖️ Équilibre de la semaine</h2>
           <div className={styles.balanceCardBox}>
             <EquityBalance
               aName={duo[0].display_name} bName={duo[1].display_name}
               aColor={memberColor(0)} bColor={memberColor(1)}
-              balance={balance} coupleStreak={coupleWeeks}
+              balance={balance} label="Équilibre du foyer"
             />
           </div>
-          {thanks.length > 0 && (
-            <div className={styles.thanksRow}>
-              <span>💛 Mercis reçus</span>
-              <span>
-                {members.map((m, i) => {
-                  const r = thanksReceived(thanks, m.id)
-                  return `${i > 0 ? ' · ' : ''}${m.display_name} : ${r.week} cette semaine (${r.total} en tout)`
-                }).join('')}
-              </span>
+          <div className={styles.streakCard}>
+            <span className={styles.streakCircle}>{coupleWeeks}</span>
+            <div className={styles.streakTexts}>
+              <span className={styles.streakCardLabel}>Semaine{coupleWeeks > 1 ? 's' : ''} d'équilibre en couple</span>
+              <span className={styles.streakCardSub}>Succès commun — bilan chaque dimanche soir</span>
             </div>
-          )}
+          </div>
         </section>
       )}
 
-      {/* ── Classement ─────────────────────────────────────────────── */}
+      {/* ── Niveaux (pas de podium : chacun sa pousse) ─────────────── */}
       <section className={styles.section}>
-        <h2 className={styles.sectionTitle}><Trophy size={16} /> Classement</h2>
-        <div className={styles.scoreCards}>
-          {ranking.map(({ member, color, xp }, i) => {
+        <h2 className={styles.sectionTitle}>🌱 Niveaux</h2>
+        <div className={styles.levelGrid}>
+          {members.map((member, i) => {
+            const xp = memberPoints(totals, member.id)
             const lvl = levelForXp(xp)
+            const color = memberColor(i)
             const streak = ctxByMember.get(member.id)?.streakDays ?? 0
             return (
-              <div key={member.id} className={styles.scoreCard}>
-                <div className={styles.scoreRank}>{i === 0 && xp > 0 ? '👑' : `#${i + 1}`}</div>
-                <div className={styles.scoreAvatar} style={{ background: color }}>{member.display_name.charAt(0).toUpperCase()}</div>
-                <div className={styles.scoreMain}>
-                  <span className={styles.scoreName}>
-                    {member.display_name}
-                    {streak >= 2 && <span className={styles.streakTag} title={`${streak} jours d'affilée`}>🔥 {streak}</span>}
-                  </span>
-                  <span className={styles.scoreLevel}>{levelEmoji(lvl.level)} Niveau {lvl.level} · {xp} XP</span>
-                  <div className={styles.progressTrack}>
-                    <div className={styles.progressFill} style={{ width: `${Math.round(lvl.progress * 100)}%`, background: color }} />
-                  </div>
-                  <span className={styles.scoreNext}>{lvl.toNext} XP avant niveau {lvl.level + 1}</span>
+              <div key={member.id} className={styles.levelCard}>
+                <span className={styles.levelEmblem} aria-hidden="true">{levelEmoji(lvl.level)}</span>
+                <span className={styles.scoreName}>
+                  {member.display_name}
+                  {streak >= 2 && <span className={styles.streakTag} title={`${streak} jours d'affilée`}>🔥 {streak}</span>}
+                </span>
+                <span className={styles.scoreLevel}>Niveau {lvl.level} · {xp} XP à vie</span>
+                <div className={styles.progressTrack}>
+                  <div className={styles.progressFill} style={{ width: `${Math.round(lvl.progress * 100)}%`, background: color }} />
                 </div>
+                <span className={styles.scoreNext}>{lvl.toNext} XP avant niveau {lvl.level + 1}</span>
               </div>
             )
           })}
         </div>
+        {currentMemberId && (
+          <div className={styles.counterPair}>
+            <div className={styles.counterBox}>
+              <span className={styles.counterLabel}>Solde à dépenser</span>
+              <span className={styles.counterValue}>{mySpendable} pts</span>
+            </div>
+            <div className={styles.counterBox}>
+              <span className={styles.counterLabel}>Mercis reçus</span>
+              <span className={styles.counterValue}>{myThanks.week} <span className={styles.counterSub}>/ {myThanks.total} total</span></span>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* ── Ce mois-ci : par membre + par catégorie ────────────────── */}
@@ -258,8 +263,9 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
             })}
           </div>
           {monthStats.mentalTotal > 0 && (
-            <div className={styles.monthStats}>
-              <p className={styles.statsSubTitle}>🧠 Charge mentale (la part invisible)</p>
+            <div className={[styles.monthStats, styles.mentalStats].join(' ')}>
+              <p className={styles.statsSubTitle}>🧠 Charge mentale — la répartition invisible</p>
+              <p className={styles.hint}>Planifier, anticiper, se souvenir — pas seulement exécuter.</p>
               {members.map((m, i) => {
                 const pts = monthStats.mentalByMember.get(m.id) ?? 0
                 const pct = Math.round((pts / monthStats.mentalTotal) * 100)
@@ -323,6 +329,7 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
                     <div key={a.key} className={[styles.badge, has ? styles.badgeOn : ''].join(' ')} title={a.description}>
                       <span className={styles.badgeEmoji}>{a.emoji}</span>
                       <span className={styles.badgeLabel}>{a.label}</span>
+                      <span className={styles.badgeDesc}>{a.description}</span>
                     </div>
                   )
                 })}

@@ -384,11 +384,12 @@
 .addMenu button:hover { background: var(--bg-input); }
 .addMenu button span { font-weight: 600; color: var(--text-muted, #999); }
 
-/* ── Taches en retard ─────────────────────────────────────────────────── */
-.overdueBlock { margin: 0 16px 14px; padding: 10px 12px; border: 1.5px solid color-mix(in srgb, var(--danger, #C0392B) 45%, var(--border)); border-radius: var(--radius-md, 12px); background: color-mix(in srgb, var(--danger, #C0392B) 6%, var(--bg-card)); }
+/* ── Tâches en retard — jamais de rouge (handoff) ─────────────────────── */
+.overdueBlock { margin: 0 16px 14px; padding: 10px 12px; border-radius: var(--radius-md, 12px); background: color-mix(in srgb, var(--accent) 10%, var(--bg-card)); }
 .overdueBlock .list { padding: 0; }
-.overdueTitle { margin: 0 0 8px; font-size: var(--text-sm); font-weight: 800; color: var(--danger, #C0392B); }
-.overdueDate { font-weight: 700; color: var(--danger, #C0392B); text-transform: capitalize; }
+.overdueTitle { margin: 0 0 8px; font-size: var(--text-sm); font-weight: 800; color: var(--text-sub); }
+.rowOverdue { background: var(--bg-card); }
+.overdueSince { font-weight: 700; color: var(--accent); }
 
 /* ── Stats du mois (Progression) ──────────────────────────────────────── */
 .monthStats { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius-md, 12px); background: var(--bg-card); }
@@ -410,20 +411,137 @@
 .thanksBtn:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 14%, var(--bg-input)); }
 .thanksBtnOn { color: var(--accent); opacity: 0.85; cursor: default; }
 
-/* Tâche détestée : toggle personnel au catalogue. */
-.dislikeBtn { font-size: 16px; filter: grayscale(1); opacity: 0.5; }
-.dislikeBtnOn { filter: none; opacity: 1; background: var(--bg-input); }
-
 /* Suggestion de recalibrage (jamais culpabilisante, ton informatif). */
 .tendencyHint { font-size: var(--text-2xs); color: var(--text-muted, #888); font-weight: 600; line-height: 1.35; }
 
-/* Compteurs de mercis (Progression). */
-.thanksRow {
-  display: flex; align-items: center; justify-content: space-between; gap: 8px;
-  padding: 8px 12px; border-radius: 12px; background: var(--bg-input);
-  font-size: var(--text-2xs); font-weight: 600; color: var(--text);
-}
 .balanceCardBox {
-  display: flex; flex-direction: column; gap: 10px; padding: 12px;
+  display: flex; flex-direction: column; gap: 10px; padding: 16px;
+  border-radius: 24px; background: var(--bg-card, #fff); box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+/* ── Chips sémantiques (handoff) ─────────────────────────────────────── */
+.chipCatMini {
+  background: var(--bg-input); border-radius: 99px; padding: 2px 9px;
+  font-weight: 700; font-size: 10.5px; color: var(--text-sub);
+}
+.chipPlan {
+  background: var(--plan-bg); color: var(--plan-text);
+  border-radius: 99px; padding: 2px 9px; font-weight: 700; font-size: 10.5px;
+}
+.chipBonus {
+  background: var(--bonus-bg); color: var(--bonus-text);
+  border-radius: 99px; padding: 2px 9px; font-weight: 700; font-size: 10.5px;
+}
+.chipFree {
+  border: 1.5px dashed var(--border, #d8cdb8); border-radius: 99px; padding: 1px 8px;
+  font-weight: 700; font-size: 10.5px; color: var(--text-muted);
+}
+
+/* Tâche libre : « premier arrivé, premier servi ». */
+.rowFree { box-shadow: none; border: 1.5px dashed var(--border, #d8cdb8); background: transparent; }
+.claimBtn {
+  flex-shrink: 0; padding: 8px 13px; border-radius: 99px; border: none; cursor: pointer;
+  background: var(--accent); color: #fff; font-family: var(--font-family);
+  font-weight: 800; font-size: var(--text-2xs); transition: filter 0.15s;
+}
+.claimBtn:hover:not(:disabled) { filter: brightness(1.05); }
+.claimBtn:disabled { opacity: 0.6; }
+
+/* ── Fait récemment par l'autre (mercis) ─────────────────────────────── */
+.recentBlock { margin-top: 18px; padding: 0 4px; }
+.recentTitle { margin: 0 16px 8px; font-size: var(--text-sm); font-weight: 800; color: var(--text); }
+.recentRow {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 14px; background: var(--bg-input);
+}
+.recentEmoji { font-size: 18px; flex-shrink: 0; }
+.recentName { font-weight: 700; color: var(--text); font-size: 14px; }
+.merciPill {
+  flex-shrink: 0; padding: 7px 13px; border-radius: 99px; border: none; cursor: pointer;
+  background: var(--accent); color: #fff; font-family: var(--font-family);
+  font-weight: 800; font-size: var(--text-2xs);
+}
+.merciPillOn { background: var(--accent-soft); color: var(--accent); cursor: default; }
+
+/* ── Célébration après pointage ──────────────────────────────────────── */
+.celebration {
+  display: flex; flex-direction: column; align-items: center; gap: 10px;
+  padding: 12px 16px 20px; text-align: center;
+}
+.celebrationCheck {
+  width: 72px; height: 72px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--accent-soft); color: var(--accent);
+  animation: celebratePop 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+@keyframes celebratePop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .celebrationCheck { animation: none; } }
+.celebrationTitle { font-family: var(--font-display); font-size: 20px; font-weight: 900; color: var(--text); }
+.celebrationSub { font-size: var(--text-sm); font-weight: 700; color: var(--text-sub); }
+.bigTaskBanner {
+  padding: 8px 14px; border-radius: 99px;
+  background: var(--bonus-bg); color: var(--bonus-text);
+  font-weight: 800; font-size: var(--text-sm);
+}
+.celebration .submitBtn { width: 100%; }
+
+/* ── Catalogue groupé par catégorie ──────────────────────────────────── */
+.catalogHint { margin: 0 16px 12px; font-size: var(--text-2xs); color: var(--text-muted); line-height: 1.4; }
+.catGroup { margin-bottom: 18px; }
+.catGroupTitle {
+  margin: 0 16px 8px; font-size: var(--text-sm); font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: 0.5px;
+}
+.catCard {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 12px; border-radius: 16px;
+  background: var(--bg-card, #fff); box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+.catCardTop { display: flex; align-items: center; gap: 10px; }
+.hateBtn {
+  width: 100%; padding: 9px 12px; border-radius: 12px; cursor: pointer;
+  border: 1.5px solid var(--border, #e5ddd0); background: transparent;
+  font-family: var(--font-family); font-weight: 700; font-size: var(--text-2xs); color: var(--text-sub);
+  transition: border-color 0.15s, color 0.15s;
+}
+.hateBtn:hover { border-color: var(--accent); color: var(--accent); }
+.hateBtnOn {
+  width: 100%; padding: 9px 12px; border-radius: 12px; cursor: pointer;
+  border: none; background: var(--bonus-bg);
+  font-family: var(--font-family); font-weight: 800; font-size: var(--text-2xs); color: var(--bonus-text);
+}
+
+/* ── Équilibre (Progression) : streak de couple + niveaux + compteurs ── */
+.streakCard {
+  display: flex; align-items: center; gap: 12px; padding: 14px;
+  border-radius: 16px; background: var(--accent-soft);
+}
+.streakCircle {
+  width: 46px; height: 46px; flex-shrink: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-card, #fff);
+  font-family: var(--font-display); font-size: 20px; font-weight: 900; color: var(--accent);
+}
+.streakTexts { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.streakCardLabel { font-weight: 800; font-size: 14px; color: var(--text); }
+.streakCardSub { font-size: var(--text-2xs); color: var(--text-sub); font-weight: 600; }
+
+.levelGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.levelCard {
+  display: flex; flex-direction: column; gap: 4px; padding: 12px;
   border-radius: 16px; background: var(--bg-card, #fff); box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
+.levelEmblem { font-size: 26px; line-height: 1.1; }
+
+.counterPair { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.counterBox {
+  display: flex; flex-direction: column; gap: 2px; padding: 12px;
+  border-radius: 14px; background: var(--bg-input);
+}
+.counterLabel { font-size: var(--text-2xs); font-weight: 700; color: var(--text-muted); }
+.counterValue { font-family: var(--font-display); font-size: 20px; font-weight: 900; color: var(--text); }
+.counterSub { font-size: var(--text-2xs); font-weight: 700; color: var(--text-muted); }
+
+.badgeDesc { font-size: 9px; color: var(--text-muted); line-height: 1.25; }
+.mentalStats { background: color-mix(in srgb, var(--plan-bg) 45%, var(--bg-card)); border-color: transparent; }
+.mentalStats .hint { margin: -4px 0 2px; }

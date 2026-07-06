@@ -3,7 +3,7 @@ import { ListChecks } from 'lucide-react'
 import { format, startOfWeek, startOfMonth } from 'date-fns'
 import { memberColor } from '../../lib/constants'
 import { useMemberTotals, useMemberPointsSince, useFamilyGoals, memberPoints, sumPoints, type PointMap } from './useGamification'
-import { useWeeklyPoints, balanceOf, coupleStreak, lastCompletedWeekStart } from './useEquilibre'
+import { balanceOf } from './useEquilibre'
 import EquityBalance from './EquityBalance'
 import { levelForXp, levelEmoji } from './achievements'
 import styles from './ChoresHomeWidget.module.css'
@@ -21,11 +21,9 @@ export default function ChoresHomeWidget({ members }: Props) {
   const monthStartStr = format(startOfMonth(new Date()), 'yyyy-MM-dd')
   const { data: weekPoints = {} as PointMap } = useMemberPointsSince(weekStartStr)
   const { data: monthPoints = {} as PointMap } = useMemberPointsSince(monthStartStr)
-  const { data: weeklyRows = [] } = useWeeklyPoints()
 
   const duo = members.length === 2 ? ([members[0], members[1]] as const) : null
   const balance = duo ? balanceOf(weekPoints, duo[0].id, duo[1].id) : null
-  const coupleWeeks = duo ? coupleStreak(weeklyRows, duo[0].id, duo[1].id, lastCompletedWeekStart()) : 0
 
   // Repli hors duo (foyer à 1 ou 3+ membres) : le meneur, comme avant.
   const ranked = members
@@ -51,7 +49,7 @@ export default function ChoresHomeWidget({ members }: Props) {
           <EquityBalance
             aName={duo[0].display_name} bName={duo[1].display_name}
             aColor={memberColor(0)} bColor={memberColor(1)}
-            balance={balance} coupleStreak={coupleWeeks} compact
+            balance={balance} label="Équilibre du foyer" compact
           />
         ) : leader && leader.xp > 0 ? (
           <div className={styles.line}>

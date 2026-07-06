@@ -32,6 +32,12 @@
   --chart-neutral: #C8B89A;   /* barres neutres : jours passés, dépenses historiques */
   --chart-violet:  #9B7AC4;   /* accent secondaire graphiques / réflexion */
 
+  /* Tâches — chips sémantiques (handoff « Tâches & Jeu ») */
+  --plan-bg:   #EAE3F5;   /* charge mentale (violet clair) */
+  --plan-text: #6B5B95;
+  --bonus-bg:   #FBEAC8;  /* bonus « tâche détestée » (doré) */
+  --bonus-text: #9A6B1E;
+
   /* Member palette — source unique : src/lib/constants.ts (MEMBER_PALETTE).
      Gardée en phase ici pour usage CSS éventuel. */
   --member-1: #E07B54;
@@ -103,6 +109,11 @@
 
     --scrollbar-thumb: #3D3028;
     --star: #E8B84B;   /* or vif : excellent contraste sur fond sombre */
+
+    --plan-bg:   #3A324E;
+    --plan-text: #C6B8EA;
+    --bonus-bg:   #4A3A22;
+    --bonus-text: #E8C583;
   }
 }
 
@@ -120,4 +131,9 @@
 
   --scrollbar-thumb: #3D3028;
   --star: #E8B84B;
+
+  --plan-bg:   #3A324E;
+  --plan-text: #C6B8EA;
+  --bonus-bg:   #4A3A22;
+  --bonus-text: #E8C583;
 }

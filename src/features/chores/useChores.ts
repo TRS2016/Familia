@@ -305,6 +305,44 @@ export function useToggleStep() {
   })
 }
 
+/** « Premier arrivé, premier servi » : s'attribue une tâche libre. Le filtre
+ *  `member_id IS NULL` fait arbitre en cas de course : si l'autre a déjà pris
+ *  la tâche, 0 ligne modifiée → on le signale et le realtime remet à jour. */
+export function useClaimAssignment() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+  return useMutation({
+    mutationFn: async ({ assignmentId, memberId }: { assignmentId: string; memberId: string }) => {
+      const { data, error } = await supabase
+        .from('chore_assignments')
+        .update({ member_id: memberId } as never)
+        .eq('id', assignmentId)
+        .is('member_id', null)
+        .select('id')
+      if (error) throw error
+      if (!data || data.length === 0) throw new Error('already-claimed')
+    },
+    onMutate: async ({ assignmentId, memberId }) => {
+      await queryClient.cancelQueries({ queryKey: ASSIGNMENTS_KEY })
+      const snapshots = queryClient.getQueriesData<ChoreAssignment[]>({ queryKey: ASSIGNMENTS_KEY })
+      for (const [key, data] of snapshots) {
+        if (!data) continue
+        queryClient.setQueryData<ChoreAssignment[]>(key,
+          data.map(a => a.id === assignmentId ? { ...a, member_id: memberId } : a))
+      }
+      return { snapshots }
+    },
+    onError: (err, _v, ctx) => {
+      ctx?.snapshots?.forEach(([key, data]) => queryClient.setQueryData(key, data))
+      const msg = err instanceof Error && err.message === 'already-claimed'
+        ? 'Trop tard, déjà prise !'
+        : 'Impossible de prendre la tâche.'
+      showToast({ type: 'error', message: msg })
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: ASSIGNMENTS_KEY }),
+  })
+}
+
 /** Passe une assignation en « skipped » (excusée) ou la remet « pending ». */
 export function useSetAssignmentStatus() {
   const queryClient = useQueryClient()

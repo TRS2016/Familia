@@ -34,13 +34,12 @@ export function levelForXp(xp: number): LevelInfo {
   }
 }
 
+// Emblème évolutif volontairement coopératif (pousse → arbre → couronne),
+// pas de médailles : on n'entretient pas un podium (handoff « Tâches & Jeu »).
 export function levelEmoji(level: number): string {
-  if (level >= 20) return '👑'
-  if (level >= 15) return '🏆'
-  if (level >= 10) return '💎'
-  if (level >= 7) return '🥇'
-  if (level >= 4) return '🥈'
-  if (level >= 2) return '🥉'
+  if (level >= 7) return '👑'
+  if (level >= 5) return '🌳'
+  if (level >= 3) return '🌿'
   return '🌱'
 }
 
