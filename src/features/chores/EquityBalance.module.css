@@ -1,0 +1,33 @@
+/* Balance d'équité — apaisante par design : couleurs des membres uniquement,
+   jamais de rouge ni d'alerte. */
+
+.wrap { display: flex; flex-direction: column; gap: 6px; }
+
+.namesRow {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  font-size: var(--text-2xs); font-weight: 700;
+}
+.name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.split {
+  flex-shrink: 0; font-family: var(--font-display);
+  font-size: 15px; font-weight: 900; color: var(--text);
+}
+
+.track {
+  position: relative; display: flex;
+  height: 10px; border-radius: 99px; background: var(--bg-input); overflow: hidden;
+}
+.fill { height: 100%; transition: width 0.3s; opacity: 0.9; }
+.fillRight { flex: 1; height: 100%; opacity: 0.9; }
+
+/* Repère discret de la zone équilibrée (40–60 %). */
+.zone {
+  position: absolute; left: 40%; width: 20%; top: 0; bottom: 0;
+  border-left: 1.5px solid color-mix(in srgb, var(--text) 25%, transparent);
+  border-right: 1.5px solid color-mix(in srgb, var(--text) 25%, transparent);
+  pointer-events: none;
+}
+
+.caption { font-size: var(--text-2xs); color: var(--text-muted, #888); font-weight: 600; line-height: 1.4; }
+.streak { color: var(--accent); font-weight: 700; }
+.empty { font-size: var(--text-2xs); color: var(--text-muted, #888); font-weight: 600; }

@@ -396,3 +396,34 @@
 .statRow { display: grid; grid-template-columns: 110px 1fr auto; align-items: center; gap: 10px; }
 .statName { font-size: var(--text-sm); font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .statMeta { font-size: var(--text-xs); color: var(--text-muted); font-weight: 600; white-space: nowrap; }
+.statsSubTitle { margin: 2px 0 0; font-size: var(--text-2xs); font-weight: 800; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; }
+
+/* ── Équilibre du foyer ──────────────────────────────────────────────────── */
+
+/* Merci : cœur sur une tâche faite par l'autre. */
+.thanksBtn {
+  flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  border: none; cursor: pointer; transition: background 0.15s, color 0.15s;
+  background: var(--bg-input); color: var(--accent);
+}
+.thanksBtn:hover:not(:disabled) { background: color-mix(in srgb, var(--accent) 14%, var(--bg-input)); }
+.thanksBtnOn { color: var(--accent); opacity: 0.85; cursor: default; }
+
+/* Tâche détestée : toggle personnel au catalogue. */
+.dislikeBtn { font-size: 16px; filter: grayscale(1); opacity: 0.5; }
+.dislikeBtnOn { filter: none; opacity: 1; background: var(--bg-input); }
+
+/* Suggestion de recalibrage (jamais culpabilisante, ton informatif). */
+.tendencyHint { font-size: var(--text-2xs); color: var(--text-muted, #888); font-weight: 600; line-height: 1.35; }
+
+/* Compteurs de mercis (Progression). */
+.thanksRow {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 12px; border-radius: 12px; background: var(--bg-input);
+  font-size: var(--text-2xs); font-weight: 600; color: var(--text);
+}
+.balanceCardBox {
+  display: flex; flex-direction: column; gap: 10px; padding: 12px;
+  border-radius: 16px; background: var(--bg-card, #fff); box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}

@@ -94,6 +94,111 @@ export type Database = {
           },
         ]
       }
+      chore_dislikes: {
+        Row: {
+          chore_id: string
+          created_at: string
+          household_id: string
+          id: string
+          member_id: string
+        }
+        Insert: {
+          chore_id: string
+          created_at?: string
+          household_id: string
+          id?: string
+          member_id: string
+        }
+        Update: {
+          chore_id?: string
+          created_at?: string
+          household_id?: string
+          id?: string
+          member_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chore_dislikes_chore_id_fkey"
+            columns: ["chore_id"]
+            isOneToOne: false
+            referencedRelation: "chores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_dislikes_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_dislikes_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      chore_feedback: {
+        Row: {
+          chore_id: string | null
+          created_at: string
+          household_id: string
+          id: string
+          log_id: string | null
+          member_id: string
+          verdict: string
+        }
+        Insert: {
+          chore_id?: string | null
+          created_at?: string
+          household_id: string
+          id?: string
+          log_id?: string | null
+          member_id: string
+          verdict: string
+        }
+        Update: {
+          chore_id?: string | null
+          created_at?: string
+          household_id?: string
+          id?: string
+          log_id?: string | null
+          member_id?: string
+          verdict?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chore_feedback_chore_id_fkey"
+            columns: ["chore_id"]
+            isOneToOne: false
+            referencedRelation: "chores"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_feedback_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_feedback_log_id_fkey"
+            columns: ["log_id"]
+            isOneToOne: false
+            referencedRelation: "chore_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_feedback_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chore_logs: {
         Row: {
           assignment_id: string | null
@@ -105,6 +210,7 @@ export type Database = {
           id: string
           label: string | null
           member_id: string
+          mental_load: boolean
           note: string | null
           photo_path: string | null
           points_awarded: number
@@ -119,6 +225,7 @@ export type Database = {
           id?: string
           label?: string | null
           member_id: string
+          mental_load?: boolean
           note?: string | null
           photo_path?: string | null
           points_awarded?: number
@@ -133,6 +240,7 @@ export type Database = {
           id?: string
           label?: string | null
           member_id?: string
+          mental_load?: boolean
           note?: string | null
           photo_path?: string | null
           points_awarded?: number
@@ -194,6 +302,62 @@ export type Database = {
           },
         ]
       }
+      chore_thanks: {
+        Row: {
+          created_at: string
+          from_member: string
+          household_id: string
+          id: string
+          log_id: string | null
+          to_member: string
+        }
+        Insert: {
+          created_at?: string
+          from_member: string
+          household_id: string
+          id?: string
+          log_id?: string | null
+          to_member: string
+        }
+        Update: {
+          created_at?: string
+          from_member?: string
+          household_id?: string
+          id?: string
+          log_id?: string | null
+          to_member?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "chore_thanks_from_member_fkey"
+            columns: ["from_member"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_thanks_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_thanks_log_id_fkey"
+            columns: ["log_id"]
+            isOneToOne: false
+            referencedRelation: "chore_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "chore_thanks_to_member_fkey"
+            columns: ["to_member"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chores: {
         Row: {
           category: string
@@ -206,6 +370,7 @@ export type Database = {
           household_id: string
           id: string
           instructions: string | null
+          mental_load: boolean
           name: string
           points: number
           position: number | null
@@ -226,6 +391,7 @@ export type Database = {
           household_id: string
           id?: string
           instructions?: string | null
+          mental_load?: boolean
           name: string
           points?: number
           position?: number | null
@@ -246,6 +412,7 @@ export type Database = {
           household_id?: string
           id?: string
           instructions?: string | null
+          mental_load?: boolean
           name?: string
           points?: number
           position?: number | null
@@ -2328,6 +2495,14 @@ export type Database = {
         Returns: {
           member_id: string
           total: number
+        }[]
+      }
+      member_points_by_week: {
+        Args: { p_since: string }
+        Returns: {
+          member_id: string
+          total: number
+          week_start: string
         }[]
       }
       member_points_since: {

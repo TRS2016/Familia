@@ -53,6 +53,7 @@ export interface AchievementCtx {
   streakDays: number     // jours consécutifs avec au moins une tâche faite
   weekShare: number      // part (0..1) des points du foyer cette semaine
   weekHasActivity: boolean
+  thanksSent: number     // mercis envoyés (à vie)
 }
 
 export interface Achievement {
@@ -76,4 +77,5 @@ export const ACHIEVEMENTS: Achievement[] = [
   { key: 'parent',    label: 'Super-parent',  emoji: '🧒', description: '10 tâches « Enfants »',            earned: c => (c.byCategory.enfants ?? 0) >= 10 },
   { key: 'clean',     label: 'Maison nickel', emoji: '🧹', description: '10 tâches « Ménage »',             earned: c => (c.byCategory.menage ?? 0) >= 10 },
   { key: 'fairshare', label: 'Équipier',      emoji: '🤝', description: 'Part équitable cette semaine (≥40%)', earned: c => c.weekHasActivity && c.weekShare >= 0.4 },
+  { key: 'grateful',  label: 'Reconnaissant·e', emoji: '💛', description: '50 mercis envoyés',               earned: c => c.thanksSent >= 50 },
 ]

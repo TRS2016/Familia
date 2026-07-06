@@ -2,6 +2,7 @@ import { useRealtimeInvalidation } from '../../lib/useRealtimeInvalidation'
 import { CHORES_KEY, ASSIGNMENTS_KEY, LOGS_KEY } from './useChores'
 import { POINTS_KEY, COUNTS_KEY, ACHIEVEMENTS_KEY, GOALS_KEY } from './useGamification'
 import { REWARDS_KEY, REDEMPTIONS_KEY } from './useRewards'
+import { THANKS_KEY, DISLIKES_KEY, FEEDBACK_KEY } from './useEquilibre'
 
 /** Invalide les queries chores + gamification sur tout changement Postgres du foyer. */
 export function useChoresRealtime() {
@@ -14,5 +15,8 @@ export function useChoresRealtime() {
     { table: 'family_goals',        keys: [GOALS_KEY] },
     { table: 'rewards',             keys: [REWARDS_KEY] },
     { table: 'reward_redemptions',  keys: [REDEMPTIONS_KEY] },
+    { table: 'chore_thanks',        keys: [THANKS_KEY] },
+    { table: 'chore_dislikes',      keys: [DISLIKES_KEY] },
+    { table: 'chore_feedback',      keys: [FEEDBACK_KEY] },
   ])
 }

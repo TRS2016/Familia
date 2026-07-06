@@ -28,6 +28,7 @@ export interface Chore {
   instructions: string | null
   steps: string[]
   recipe_id: string | null
+  mental_load: boolean               // tag « charge mentale » (transversal)
 }
 
 export interface ChoreAssignment {
@@ -53,6 +54,7 @@ export interface ChoreLog {
   note: string | null
   photo_path: string | null
   category: string | null   // snapshot de la catégorie au moment du pointage
+  mental_load: boolean      // snapshot du tag charge mentale au pointage
   created_at: string
 }
 
@@ -76,6 +78,7 @@ export interface NewChoreInput {
   instructions: string | null
   steps: string[]
   recipe_id: string | null
+  mental_load: boolean
 }
 
 export interface EditChoreInput extends NewChoreInput { id: string }
@@ -269,6 +272,7 @@ function normalize(input: NewChoreInput) {
     instructions: input.instructions?.trim() || null,
     steps: input.steps.map(s => s.trim()).filter(Boolean),
     recipe_id: input.recipe_id ?? null,
+    mental_load: input.mental_load,
   }
 }
 
@@ -462,7 +466,8 @@ export function useLogChore() {
         id: `opt-${input.assignment_id}`, household_id: HOUSEHOLD_ID,
         chore_id: input.chore_id, assignment_id: input.assignment_id, member_id: input.member_id,
         done_on: input.done_on, label: input.label ?? null, points_awarded: 0,
-        note: input.note ?? null, photo_path: null, category: null, created_at: new Date().toISOString(),
+        note: input.note ?? null, photo_path: null, category: null, mental_load: false,
+        created_at: new Date().toISOString(),
       }
       queryClient.setQueryData<ChoreLog[]>(RECENT_LOGS_KEY, [optimistic, ...previous])
       return { previous }
@@ -471,17 +476,20 @@ export function useLogChore() {
       if (ctx?.previous) queryClient.setQueryData(RECENT_LOGS_KEY, ctx.previous)
       showToast({ type: 'error', message: 'Impossible d\'enregistrer la tâche.' })
     },
-    // Bonus de série : octroyé côté serveur par log_chore (atomique). Ici on
-    // détecte seulement s'il a été primé sur ce pointage pour féliciter.
+    // Bonus (série, tâche détestée) : octroyés côté serveur par log_chore
+    // (atomique). Ici on détecte seulement ce qui a été primé pour féliciter.
     onSuccess: async (logId) => {
       const { data } = await supabase
         .from('point_events')
-        .select('id')
-        .eq('ref_type', 'streak_bonus')
+        .select('ref_type, points')
         .eq('ref_id', logId)
-        .limit(1)
-      if (data && data.length > 0) {
-        showToast({ type: 'success', message: `🔥 Palier de série atteint : +${STREAK_BONUS_POINTS} pts bonus !` })
+        .in('ref_type', ['streak_bonus', 'dislike_bonus'])
+      for (const b of (data ?? []) as { ref_type: string; points: number }[]) {
+        if (b.ref_type === 'streak_bonus') {
+          showToast({ type: 'success', message: `🔥 Palier de série atteint : +${STREAK_BONUS_POINTS} pts bonus !` })
+        } else if (b.ref_type === 'dislike_bonus') {
+          showToast({ type: 'success', message: `😖→😌 Tâche détestée par l'autre : +${b.points} pts bonus !` })
+        }
       }
     },
     onSettled: () => {

@@ -28,6 +28,7 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
   const [steps, setSteps] = useState<string[]>(initial?.steps ?? [])
   const [recipeId, setRecipeId] = useState<string | null>(initial?.recipe_id ?? null)
   const [monthDay, setMonthDay] = useState<number>(initial?.frequency === 'monthly' ? (initial?.frequency_days?.[0] ?? 1) : 1)
+  const [mentalLoad, setMentalLoad] = useState(initial?.mental_load ?? false)
   const [showAdvanced, setShowAdvanced] = useState(!!initial)
   const { data: recipes = [] } = useRecipes()
 
@@ -74,6 +75,7 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
       instructions: instructions.trim() || null,
       steps,
       recipe_id: recipeId,
+      mental_load: mentalLoad,
     })
     onClose()
   }
@@ -125,6 +127,19 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
           <input className={styles.input} type="number" min={0} max={100} value={points}
             onChange={e => setPoints(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} />
         </label>
+
+        <div className={styles.field}>
+          <span className={styles.label}>Charge mentale</span>
+          <p className={styles.hint}>Tâche d'organisation ou d'anticipation : les points valorisent le fait d'y avoir pensé, pas le temps passé.</p>
+          <div className={styles.chipRow}>
+            <button type="button"
+              className={[styles.chip, mentalLoad ? styles.chipActive : ''].join(' ')}
+              aria-pressed={mentalLoad}
+              onClick={() => setMentalLoad(v => !v)}>
+              🧠 Charge mentale
+            </button>
+          </div>
+        </div>
 
         {!showAdvanced && (
           <button type="button" className={styles.advancedToggle} onClick={() => setShowAdvanced(true)}>

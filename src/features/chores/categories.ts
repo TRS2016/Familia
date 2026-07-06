@@ -25,7 +25,9 @@ export function categoryOf(value: string): ChoreCategory {
 }
 
 // Suggestions de tâches courantes (pré-remplissage rapide à la création).
-export const CHORE_SUGGESTIONS: { name: string; emoji: string; category: string; points: number }[] = [
+// mental_load : tâches d'organisation/anticipation — la valeur reflète le fait
+// d'y avoir pensé, pas le temps passé.
+export const CHORE_SUGGESTIONS: { name: string; emoji: string; category: string; points: number; mental_load?: boolean }[] = [
   { name: 'Cuisiner le repas',        emoji: '🍳', category: 'cuisine', points: 15 },
   { name: 'Faire la vaisselle',       emoji: '🍽️', category: 'cuisine', points: 10 },
   { name: 'Récupérer les enfants',    emoji: '🚗', category: 'enfants', points: 15 },
@@ -37,4 +39,10 @@ export const CHORE_SUGGESTIONS: { name: string; emoji: string; category: string;
   { name: 'Faire les courses',        emoji: '🛒', category: 'courses', points: 20 },
   { name: 'Étendre le linge',         emoji: '👕', category: 'linge', points: 10 },
   { name: 'Sortir le chien',          emoji: '🐶', category: 'animaux', points: 10 },
+  // Charge mentale (planification / anticipation)
+  { name: 'Planifier les repas de la semaine',   emoji: '🧠', category: 'cuisine', points: 15, mental_load: true },
+  { name: 'Anticiper les courses de la semaine', emoji: '🧠', category: 'courses', points: 10, mental_load: true },
+  { name: 'Gérer l\'agenda des enfants',         emoji: '🧠', category: 'enfants', points: 15, mental_load: true },
+  { name: 'Prendre les rendez-vous (médecin, école…)', emoji: '🧠', category: 'admin', points: 15, mental_load: true },
+  { name: 'Penser aux anniversaires et cadeaux', emoji: '🧠', category: 'autre', points: 10, mental_load: true },
 ]

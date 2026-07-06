@@ -14,6 +14,11 @@ import {
 } from './useGamification'
 import { ACHIEVEMENTS, levelForXp, levelEmoji, type AchievementCtx } from './achievements'
 import { memberStreakDays } from './chores.utils'
+import {
+  useThanks, useWeeklyPoints, balanceOf, coupleStreak,
+  thanksReceived, thanksSentCount, lastCompletedWeekStart,
+} from './useEquilibre'
+import EquityBalance from './EquityBalance'
 import { categoryOf } from './categories'
 import { format, startOfWeek, startOfMonth } from 'date-fns'
 import styles from './ChoresPage.module.css'
@@ -45,6 +50,15 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
 
   const weekTotal = useMemo(() => sumPoints(weekPoints), [weekPoints])
 
+  // ── Équilibre du foyer (pensé pour 2 adultes) ───────────────────────────────
+  const { data: thanks = [] } = useThanks()
+  const { data: weeklyRows = [] } = useWeeklyPoints()
+  const duo = members.length === 2 ? ([members[0], members[1]] as const) : null
+  const balance = duo ? balanceOf(weekPoints, duo[0].id, duo[1].id) : null
+  // Streak de couple : semaines TERMINÉES dans la zone équilibrée (la semaine
+  // en cours ne compte qu'une fois finie — l'edge du dimanche la clôt).
+  const coupleWeeks = duo ? coupleStreak(weeklyRows, duo[0].id, duo[1].id, lastCompletedWeekStart()) : 0
+
   // Compteurs « à vie » par membre (total + par catégorie) depuis l'agrégat serveur.
   const countsByMember = useMemo(() => {
     const total = new Map<string, number>()
@@ -70,7 +84,7 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
     return sumPoints(totals)
   }
 
-  // Contexte de badges par membre (compteurs non fenêtrés + série 60 j).
+  // Contexte de badges par membre (compteurs non fenêtrés + série 120 j).
   const ctxByMember = useMemo(() => {
     const map = new Map<string, AchievementCtx>()
     for (const m of members) {
@@ -81,10 +95,11 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
         streakDays: memberStreakDays(logs, m.id),
         weekShare: weekTotal > 0 ? memberPoints(weekPoints, m.id) / weekTotal : 0,
         weekHasActivity: memberPoints(weekPoints, m.id) > 0,
+        thanksSent: thanksSentCount(thanks, m.id),
       })
     }
     return map
-  }, [members, logs, totals, countsByMember, weekPoints, weekTotal])
+  }, [members, logs, totals, countsByMember, weekPoints, weekTotal, thanks])
 
   // Évaluation + déblocage des badges manquants (idempotent). Une passe par
   // changement de contexte ; le toast n'annonce que les nouveautés réelles.
@@ -120,6 +135,9 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
     const monthLogs = logs.filter(l => l.done_on >= monthStartStr)
     const byMemberCount = new Map<string, number>()
     const byCategory = new Map<string, { cnt: number; pts: number }>()
+    // Charge mentale : la dimension invisible, rendue visible séparément.
+    const mentalByMember = new Map<string, number>()
+    let mentalTotal = 0
     for (const l of monthLogs) {
       byMemberCount.set(l.member_id, (byMemberCount.get(l.member_id) ?? 0) + 1)
       // Catégorie : snapshot du log d'abord (survit à la suppression du template).
@@ -128,11 +146,15 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
       agg.cnt += 1
       agg.pts += l.points_awarded
       byCategory.set(cat, agg)
+      if (l.mental_load) {
+        mentalByMember.set(l.member_id, (mentalByMember.get(l.member_id) ?? 0) + l.points_awarded)
+        mentalTotal += l.points_awarded
+      }
     }
     const categories = [...byCategory.entries()]
       .map(([value, agg]) => ({ ...categoryOf(value), ...agg }))
       .sort((a, b) => b.cnt - a.cnt)
-    return { byMemberCount, categories, total: monthLogs.length }
+    return { byMemberCount, categories, mentalByMember, mentalTotal, total: monthLogs.length }
   }, [chores, logs, monthStartStr])
 
   const earnedByMember = useMemo(() => {
@@ -148,6 +170,31 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
 
   return (
     <div className={styles.progression}>
+      {/* ── Équilibre du foyer (balance + streak de couple + mercis) ── */}
+      {duo && balance && (
+        <section className={styles.section}>
+          <h2 className={styles.sectionTitle}>⚖️ Équilibre de la semaine</h2>
+          <div className={styles.balanceCardBox}>
+            <EquityBalance
+              aName={duo[0].display_name} bName={duo[1].display_name}
+              aColor={memberColor(0)} bColor={memberColor(1)}
+              balance={balance} coupleStreak={coupleWeeks}
+            />
+          </div>
+          {thanks.length > 0 && (
+            <div className={styles.thanksRow}>
+              <span>💛 Mercis reçus</span>
+              <span>
+                {members.map((m, i) => {
+                  const r = thanksReceived(thanks, m.id)
+                  return `${i > 0 ? ' · ' : ''}${m.display_name} : ${r.week} cette semaine (${r.total} en tout)`
+                }).join('')}
+              </span>
+            </div>
+          )}
+        </section>
+      )}
+
       {/* ── Classement ─────────────────────────────────────────────── */}
       <section className={styles.section}>
         <h2 className={styles.sectionTitle}><Trophy size={16} /> Classement</h2>
@@ -210,6 +257,24 @@ export default function ProgressionTab({ members, chores, logs, currentMemberId 
               )
             })}
           </div>
+          {monthStats.mentalTotal > 0 && (
+            <div className={styles.monthStats}>
+              <p className={styles.statsSubTitle}>🧠 Charge mentale (la part invisible)</p>
+              {members.map((m, i) => {
+                const pts = monthStats.mentalByMember.get(m.id) ?? 0
+                const pct = Math.round((pts / monthStats.mentalTotal) * 100)
+                return (
+                  <div key={m.id} className={styles.statRow}>
+                    <span className={styles.statName} style={{ color: memberColor(i) }}>{m.display_name}</span>
+                    <div className={styles.progressTrack}>
+                      <div className={styles.progressFill} style={{ width: `${pct}%`, background: memberColor(i) }} />
+                    </div>
+                    <span className={styles.statMeta}>{pts} pts · {pct}%</span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </section>
       )}
 

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { format, addDays, startOfWeek, subDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Check, Undo2, Pencil, Trash2, SkipForward, Camera, Copy, Sparkles, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Check, Undo2, Pencil, Trash2, SkipForward, Camera, Copy, Sparkles, X, Heart } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -18,6 +19,11 @@ import type { Chore, ChoreAssignment, ChoreLog, NewChoreInput } from './useChore
 import { supabase } from '../../lib/supabase'
 import { useChoresRealtime } from './useChoresRealtime'
 import { isApplicable, dueMemberFor, weekDates } from './chores.utils'
+import {
+  useThanks, useSendThanks, useThanksCelebration,
+  useDislikes, useToggleDislike, useFeedback, useAddFeedback, feedbackTendency,
+} from './useEquilibre'
+import type { FeedbackVerdict } from './useEquilibre'
 import { categoryOf, CHORE_SUGGESTIONS } from './categories'
 import ChoreForm from './ChoreForm'
 import ProgressionTab from './ProgressionTab'
@@ -66,6 +72,43 @@ export default function ChoresPage() {
   const reorderChores = useReorderChores()
   const { data: recipes = [] } = useRecipes()
   const recipeById = useMemo(() => new Map(recipes.map(r => [r.id, r])), [recipes])
+
+  // ── Équilibre du foyer : mercis, tâches détestées, pénibilité ────────────────
+  const { data: thanks = [] } = useThanks()
+  const sendThanks = useSendThanks()
+  useThanksCelebration(currentMember?.id ?? null)
+  const { data: dislikes = [] } = useDislikes()
+  const toggleDislike = useToggleDislike()
+  const { data: feedbacks = [] } = useFeedback()
+  const addFeedback = useAddFeedback()
+  // « C'était comment ? » après un pointage (optionnel, jamais bloquant).
+  const [feedbackFor, setFeedbackFor] = useState<{ choreId: string; logId: string; memberId: string; choreName: string } | null>(null)
+
+  const dislikersByChore = useMemo(() => {
+    const m = new Map<string, Set<string>>()
+    for (const d of dislikes) {
+      if (!m.has(d.chore_id)) m.set(d.chore_id, new Set())
+      m.get(d.chore_id)!.add(d.member_id)
+    }
+    return m
+  }, [dislikes])
+
+  // Le bonus « détestée » s'applique si quelqu'un d'AUTRE la déteste et pas soi.
+  // Sans assigné connu, on l'affiche dès qu'au moins un membre la déteste.
+  function dislikeHint(choreId: string, doerId: string | null): boolean {
+    const set = dislikersByChore.get(choreId)
+    if (!set || set.size === 0) return false
+    if (doerId === null) return true
+    return !set.has(doerId) && [...set].some(id => id !== doerId)
+  }
+
+  const myThanksByLog = useMemo(() => {
+    const me = currentMember?.id
+    const s = new Set<string>()
+    if (!me) return s
+    for (const t of thanks) if (t.from_member === me && t.log_id) s.add(t.log_id)
+    return s
+  }, [thanks, currentMember?.id])
 
   const memberColorById = useMemo(() => {
     const m = new Map<string, string>()
@@ -136,12 +179,17 @@ export default function ChoresPage() {
       {
         // Notifie seulement une fois le pointage confirmé (pas de fausse annonce
         // si la RPC échoue hors-ligne).
-        onSuccess: () => {
+        onSuccess: (logId) => {
           if (chore.points >= BIG_TASK_POINTS) {
             const who = members.find(m => m.id === memberId)?.display_name ?? 'Quelqu\'un'
             void supabase.functions.invoke('notify-household', {
               body: { title: `${chore.emoji} Tâche faite`, body: `${who} a fait « ${chore.name} » (+${chore.points} pts)`, module: 'chores' },
             })
+          }
+          // Recalibrage de pénibilité : question optionnelle, réservée à celui
+          // qui a fait la tâche sur cet appareil.
+          if (memberId === currentMember?.id) {
+            setFeedbackFor({ choreId: chore.id, logId, memberId, choreName: chore.name })
           }
         },
       },
@@ -169,7 +217,7 @@ export default function ChoresPage() {
       name: s.name, emoji: s.emoji, color: null, category: s.category, points: s.points,
       frequency: 'none', frequency_days: null, start_date: null,
       rotation_member_ids: null, rotation_period: 'week', default_member_id: null,
-      instructions: null, steps: [], recipe_id: null,
+      instructions: null, steps: [], recipe_id: null, mental_load: s.mental_load ?? false,
     })
   }
 
@@ -181,6 +229,7 @@ export default function ChoresPage() {
       start_date: chore.start_date, rotation_member_ids: chore.rotation_member_ids,
       rotation_period: chore.rotation_period, default_member_id: chore.default_member_id,
       instructions: chore.instructions, steps: chore.steps, recipe_id: chore.recipe_id,
+      mental_load: chore.mental_load,
     })
   }
 
@@ -315,11 +364,31 @@ export default function ChoresPage() {
                           {skipped && <span className={styles.rotBadge}>passée</span>}
                           {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
                           <span className={styles.points}>+{chore.points} pts</span>
+                          {chore.mental_load && <span className={styles.rotBadge}>🧠 charge mentale</span>}
+                          {!done && !skipped && dislikeHint(chore.id, a.member_id) && <span className={styles.rotBadge}>😖 +50%</span>}
                           {stepsTotal > 0 && <span className={styles.rotBadge}>{stepsDone}/{stepsTotal} étapes</span>}
                           {hasDetail && stepsTotal === 0 && <span className={styles.rotBadge}>consignes</span>}
                         </span>
                       </div>
                     </button>
+                    {done && (() => {
+                      // Merci : sur une tâche faite par l'autre, une fois par personne.
+                      const log = logObjByAssignment.get(a.id)
+                      const me = currentMember?.id
+                      if (!log || log.id.startsWith('opt-') || !me || log.member_id === me) return null
+                      const thanked = myThanksByLog.has(log.id)
+                      return (
+                        <button
+                          className={[styles.thanksBtn, thanked ? styles.thanksBtnOn : ''].join(' ')}
+                          disabled={thanked || sendThanks.isPending}
+                          onClick={() => sendThanks.mutate({ logId: log.id, fromMember: me, toMember: log.member_id, label: chore.name })}
+                          aria-label={thanked ? 'Merci déjà envoyé' : 'Dire merci'}
+                          title={thanked ? 'Merci déjà envoyé' : 'Dire merci'}
+                        >
+                          <Heart size={16} fill={thanked ? 'currentColor' : 'none'} />
+                        </button>
+                      )
+                    })()}
                     {done ? (
                       <button className={styles.undoBtn} disabled={!logId || logId.startsWith('opt-')} onClick={() => logId && !logId.startsWith('opt-') && undoLog.mutate(logId)} aria-label="Annuler">
                         <Undo2 size={16} />
@@ -348,6 +417,11 @@ export default function ChoresPage() {
             {chores.map((chore, i) => {
               const cat = categoryOf(chore.category)
               const rot = chore.rotation_member_ids && chore.rotation_member_ids.length > 0
+              const dislikers = dislikersByChore.get(chore.id) ?? new Set<string>()
+              const me = currentMember?.id
+              const iDislike = !!me && dislikers.has(me)
+              const otherDislikers = members.filter(m => m.id !== me && dislikers.has(m.id))
+              const tendency = feedbackTendency(feedbacks, chore.id)
               return (
                 <li key={chore.id} className={styles.row}>
                   <span className={styles.rowEmoji} style={{ background: (chore.color ?? cat.color) + '22' }}>{chore.emoji}</span>
@@ -356,14 +430,36 @@ export default function ChoresPage() {
                     <span className={styles.rowMeta}>
                       <span>{cat.label}</span>
                       <span className={styles.points}>+{chore.points} pts</span>
+                      {chore.mental_load && <span className={styles.rotBadge}>🧠 charge mentale</span>}
                       {rot && <span className={styles.rotBadge}>rotation</span>}
+                      {otherDislikers.length > 0 && (
+                        <span className={styles.rotBadge}>😖 détestée par {otherDislikers.map(m => m.display_name).join(', ')}</span>
+                      )}
                     </span>
+                    {tendency && (
+                      <span className={styles.tendencyHint}>
+                        {tendency === 'harder'
+                          ? '😮‍💨 Souvent plus pénible que prévu — augmenter les points ?'
+                          : '😅 Souvent plus facile que prévu — baisser les points ?'}
+                      </span>
+                    )}
                   </div>
                   {chores.length > 1 && (
                     <span className={styles.moveCol}>
                       <button className={styles.iconBtn} onClick={() => moveChore(chore.id, -1)} disabled={i === 0} aria-label="Monter"><ChevronUp size={15} /></button>
                       <button className={styles.iconBtn} onClick={() => moveChore(chore.id, 1)} disabled={i === chores.length - 1} aria-label="Descendre"><ChevronDown size={15} /></button>
                     </span>
+                  )}
+                  {me && (
+                    <button
+                      className={[styles.iconBtn, styles.dislikeBtn, iDislike ? styles.dislikeBtnOn : ''].join(' ')}
+                      onClick={() => toggleDislike.mutate({ choreId: chore.id, memberId: me, disliked: iDislike })}
+                      aria-pressed={iDislike}
+                      aria-label={iDislike ? 'Ne plus détester cette tâche' : 'Marquer comme détestée'}
+                      title={iDislike ? 'Je ne la déteste plus' : 'Je déteste cette tâche'}
+                    >
+                      😖
+                    </button>
                   )}
                   <button className={styles.iconBtn} onClick={() => { setEditing(chore); setFormOpen(true) }} aria-label="Modifier"><Pencil size={16} /></button>
                   <button className={styles.iconBtn} onClick={() => duplicateChore(chore)} aria-label="Dupliquer"><Copy size={16} /></button>
@@ -466,7 +562,34 @@ export default function ChoresPage() {
           onSaveAsChore={(input) => addChore.mutate(input)}
         />
       )}
+
+      {feedbackFor && (
+        <FeedbackModal
+          choreName={feedbackFor.choreName}
+          onPick={(verdict) => {
+            addFeedback.mutate({ choreId: feedbackFor.choreId, logId: feedbackFor.logId, memberId: feedbackFor.memberId, verdict })
+            setFeedbackFor(null)
+          }}
+          onClose={() => setFeedbackFor(null)}
+        />
+      )}
     </div>
+  )
+}
+
+// ── Recalibrage de pénibilité (question optionnelle après un pointage) ────────
+
+function FeedbackModal({ choreName, onPick, onClose }: { choreName: string; onPick: (v: FeedbackVerdict) => void; onClose: () => void }) {
+  return (
+    <SlideUpModal title="C'était comment ?" onClose={onClose}>
+      <div className={styles.pickList}>
+        <p className={styles.hint} style={{ margin: 0 }}>« {choreName} » — ta réponse aide à garder des points justes. Optionnel, sans effet sur les points déjà gagnés.</p>
+        <button className={styles.pickBtn} onClick={() => onPick('easier')}>😅 Plus facile que prévu</button>
+        <button className={styles.pickBtn} onClick={() => onPick('as_expected')}>🙂 Comme prévu</button>
+        <button className={styles.pickBtn} onClick={() => onPick('harder')}>😮‍💨 Plus pénible que prévu</button>
+        <button className={styles.skipBtn} onClick={onClose}>Passer</button>
+      </div>
+    </SlideUpModal>
   )
 }
 
@@ -490,6 +613,21 @@ interface DetailProps {
 function TaskDetailSheet({ chore, assignment, done, log, linkedRecipe, onOpenRecipe, onToggleStep, onMarkDone, onSkip, onResume, onUndo, onClose }: DetailProps) {
   const addProof = useAddChoreProof()
   const { data: proofUrl } = useChoreProofUrl(log?.photo_path ?? null)
+  // Bonus « tâche détestée » crédité sur ce pointage (visible dans le détail).
+  const realLogId = log && !log.id.startsWith('opt-') ? log.id : null
+  const { data: dislikeBonus = 0 } = useQuery({
+    queryKey: ['chore-dislike-bonus', realLogId],
+    queryFn: async (): Promise<number> => {
+      const { data, error } = await supabase
+        .from('point_events')
+        .select('points')
+        .eq('ref_type', 'dislike_bonus')
+        .eq('ref_id', realLogId!)
+      if (error) throw error
+      return ((data ?? []) as { points: number }[]).reduce((s, e) => s + e.points, 0)
+    },
+    enabled: done && !!realLogId,
+  })
   const proofInputRef = useRef<HTMLInputElement>(null)
   const doneSet = new Set(assignment.steps_done)
   function toggle(i: number) {
@@ -502,7 +640,13 @@ function TaskDetailSheet({ chore, assignment, done, log, linkedRecipe, onOpenRec
   return (
     <SlideUpModal title={`${chore.emoji} ${chore.name}`} onClose={onClose}>
       <div className={styles.detail}>
-        <span className={styles.points}>+{chore.points} pts</span>
+        <span className={styles.points}>
+          +{chore.points} pts
+          {chore.mental_load && <span className={styles.rotBadge} style={{ marginLeft: 8 }}>🧠 charge mentale</span>}
+        </span>
+        {done && dislikeBonus > 0 && (
+          <span className={styles.tendencyHint}>😖→😌 +{dislikeBonus} pts de bonus : tâche détestée par l'autre, faite quand même. Chapeau.</span>
+        )}
 
         {linkedRecipe && onOpenRecipe && (
           <button type="button" className={styles.recipeLinkBtn} onClick={() => onOpenRecipe(linkedRecipe)}>
@@ -598,7 +742,7 @@ function AdHocModal({ chores, members, defaultMemberId, onClose, onSubmit, onSav
         name: label.trim(), emoji: '✨', color: null, category: 'autre', points,
         frequency: 'none', frequency_days: null, start_date: null,
         rotation_member_ids: null, rotation_period: 'week', default_member_id: null,
-        instructions: null, steps: [], recipe_id: null,
+        instructions: null, steps: [], recipe_id: null, mental_load: false,
       })
     }
     onSubmit({
