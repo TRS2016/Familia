@@ -9,6 +9,7 @@ import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useMember } from '../../auth/useMember'
 import { memberColor } from '../../lib/constants'
+import { useBoolPref } from '../../lib/usePrefs'
 import {
   useChores, useChoreAssignments, useRecentChoreLogs, useHouseholdMembers,
   useAddChore, useEditChore, useDeleteChore,
@@ -44,6 +45,8 @@ export default function ChoresPage() {
   useChoresRealtime()
 
   const [tab, setTab] = useState<Tab>('todo')
+  // Vue « À faire » : un jour à la fois ou toute la semaine (préférence locale).
+  const [weekView, setWeekView] = useBoolPref('chores-view-week', false)
   const [weekStart, setWeekStart] = useState(() => startOfWeek(new Date(), { weekStartsOn: 1 }))
   const days = useMemo(() => weekDates(weekStart), [weekStart])
   const from = days[0], to = days[6]
@@ -221,6 +224,83 @@ export default function ChoresPage() {
     if (me) markDone(a.id, chore, me, doneOn)
   }
 
+  // Ligne de tâche (partagée entre la vue jour et la vue semaine).
+  function renderAssignmentRow(a: ChoreAssignment) {
+    const chore = choreById.get(a.chore_id)!
+    const logId = logByAssignment.get(a.id)
+    const done = a.status === 'done' || !!logId
+    const skipped = a.status === 'skipped'
+    const assignee = a.member_id ? members.find(m => m.id === a.member_id) : null
+    const color = a.member_id ? memberColorById.get(a.member_id) : 'var(--accent)'
+    const free = !a.member_id && !done && !skipped
+    const hasDetail = !!chore.instructions || chore.steps.length > 0
+    const stepsTotal = chore.steps.length
+    const stepsDone = a.steps_done.filter(i => i < stepsTotal).length
+    return (
+      <li key={a.id} className={[styles.row, done ? styles.rowDone : '', skipped ? styles.rowSkipped : '', free ? styles.rowFree : ''].join(' ')}>
+        <button className={styles.rowOpen} onClick={() => setDetailId(a.id)}>
+          <span className={styles.rowEmoji} style={{ background: (chore.color ?? categoryOf(chore.category).color) + '22' }}>{chore.emoji}</span>
+          <div className={styles.rowMain}>
+            <span className={styles.rowName}>{chore.name}</span>
+            <span className={styles.rowMeta}>
+              {skipped && <span className={styles.rotBadge}>passée</span>}
+              <span className={styles.chipCatMini}>{categoryOf(chore.category).label}</span>
+              {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
+              {free && <span className={styles.chipFree}>Libre · premier arrivé, premier servi</span>}
+              <span className={styles.points}>+{chore.points} pts</span>
+              {chore.mental_load && <span className={styles.chipPlan}>Charge mentale</span>}
+              {!done && !skipped && dislikeHint(chore.id, a.member_id) && (
+                <span className={styles.chipBonus}>💛 détestée par {dislikerNames(chore.id, a.member_id)} · +50%</span>
+              )}
+              {stepsTotal > 0 && <span className={styles.rotBadge}>{stepsDone}/{stepsTotal} étapes</span>}
+              {hasDetail && stepsTotal === 0 && <span className={styles.rotBadge}>consignes</span>}
+            </span>
+          </div>
+        </button>
+        {free && currentMember && (
+          <button
+            className={styles.claimBtn}
+            onClick={() => claimAssignment.mutate({ assignmentId: a.id, memberId: currentMember.id })}
+            disabled={claimAssignment.isPending}
+          >
+            Je prends
+          </button>
+        )}
+        {done && (() => {
+          // Merci : sur une tâche faite par l'autre, une fois par personne.
+          const log = logObjByAssignment.get(a.id)
+          const me = currentMember?.id
+          if (!log || log.id.startsWith('opt-') || !me || log.member_id === me) return null
+          const thanked = myThanksByLog.has(log.id)
+          return (
+            <button
+              className={[styles.thanksBtn, thanked ? styles.thanksBtnOn : ''].join(' ')}
+              disabled={thanked || sendThanks.isPending}
+              onClick={() => sendThanks.mutate({ logId: log.id, fromMember: me, toMember: log.member_id, label: chore.name })}
+              aria-label={thanked ? 'Merci déjà envoyé' : 'Dire merci'}
+              title={thanked ? 'Merci déjà envoyé' : 'Dire merci'}
+            >
+              <Heart size={16} fill={thanked ? 'currentColor' : 'none'} />
+            </button>
+          )
+        })()}
+        {done ? (
+          <button className={styles.undoBtn} disabled={!logId || logId.startsWith('opt-')} onClick={() => logId && !logId.startsWith('opt-') && undoLog.mutate(logId)} aria-label="Annuler">
+            <Undo2 size={16} />
+          </button>
+        ) : skipped ? (
+          <button className={styles.undoBtn} onClick={() => setStatus.mutate({ assignmentId: a.id, status: 'pending' })} aria-label="Reprendre">
+            <Undo2 size={16} />
+          </button>
+        ) : (
+          <button className={styles.doneBtn} onClick={() => requestDone(a, chore, a.date)} aria-label="Marquer fait">
+            <Check size={18} />
+          </button>
+        )}
+      </li>
+    )
+  }
+
   // Suggestions de tâches courantes pas encore présentes dans le catalogue.
   const suggestions = useMemo(() => {
     const have = new Set(chores.map(c => c.name.trim().toLowerCase()))
@@ -354,104 +434,71 @@ export default function ChoresPage() {
             </section>
           )}
 
+          {/* Bascule Jour / Semaine */}
+          <div className={styles.viewToggle} role="group" aria-label="Affichage">
+            <button className={[styles.chip, !weekView ? styles.chipActive : ''].join(' ')} onClick={() => setWeekView(false)}>Jour</button>
+            <button className={[styles.chip, weekView ? styles.chipActive : ''].join(' ')} onClick={() => setWeekView(true)}>Semaine</button>
+          </div>
+
           {/* Sélecteur de semaine + jours */}
           <div className={styles.weekNav}>
             <button onClick={() => setWeekStart(s => subDays(s, 7))} aria-label="Semaine précédente"><ChevronLeft size={20} /></button>
-            <div className={styles.weekStrip}>
-              {days.map(d => {
-                const dt = new Date(d + 'T12:00')
-                const active = d === effectiveDay
-                return (
-                  <button key={d} className={[styles.dayBtn, active ? styles.dayBtnActive : '', d === today ? styles.dayToday : ''].join(' ')}
-                    onClick={() => setSelectedDay(d)}>
-                    <span className={styles.dayName}>{format(dt, 'EEEEE', { locale: fr })}</span>
-                    <span className={styles.dayNum}>{format(dt, 'd')}</span>
-                  </button>
-                )
-              })}
-            </div>
+            {weekView ? (
+              <span className={styles.weekLabel}>
+                Semaine du {format(new Date(from + 'T12:00'), 'd MMM', { locale: fr })} au {format(new Date(to + 'T12:00'), 'd MMM', { locale: fr })}
+              </span>
+            ) : (
+              <div className={styles.weekStrip}>
+                {days.map(d => {
+                  const dt = new Date(d + 'T12:00')
+                  const active = d === effectiveDay
+                  return (
+                    <button key={d} className={[styles.dayBtn, active ? styles.dayBtnActive : '', d === today ? styles.dayToday : ''].join(' ')}
+                      onClick={() => setSelectedDay(d)}>
+                      <span className={styles.dayName}>{format(dt, 'EEEEE', { locale: fr })}</span>
+                      <span className={styles.dayNum}>{format(dt, 'd')}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            )}
             <button onClick={() => setWeekStart(s => addDays(s, 7))} aria-label="Semaine suivante"><ChevronRight size={20} /></button>
           </div>
 
-          {dayAssignments.length === 0 ? (
+          {weekView ? (
+            // ── Vue semaine : toutes les tâches, groupées par jour ──────────────
+            <div className={styles.weekList}>
+              {days.map(d => {
+                const dt = new Date(d + 'T12:00')
+                const list = assignments
+                  .filter(a => a.date === d && choreById.has(a.chore_id))
+                  .sort((a, b) => (choreById.get(a.chore_id)?.name ?? '').localeCompare(choreById.get(b.chore_id)?.name ?? ''))
+                const active = list.filter(a => a.status !== 'skipped')
+                const doneCount = active.filter(a => a.status === 'done' || logByAssignment.has(a.id)).length
+                return (
+                  <section key={d} className={styles.weekDaySection}>
+                    <h3 className={[styles.weekDayTitle, d === today ? styles.weekDayToday : ''].join(' ')}>
+                      <span>{format(dt, 'EEEE d MMMM', { locale: fr })}{d === today ? ' · aujourd\'hui' : ''}</span>
+                      {active.length > 0 && (
+                        <span className={styles.weekDayCount}>
+                          {doneCount === active.length ? '✓ ' : ''}{doneCount}/{active.length}
+                        </span>
+                      )}
+                    </h3>
+                    {list.length === 0 ? (
+                      <p className={styles.weekDayEmpty}>Rien de prévu</p>
+                    ) : (
+                      <ul className={styles.list}>{list.map(renderAssignmentRow)}</ul>
+                    )}
+                  </section>
+                )
+              })}
+            </div>
+          ) : dayAssignments.length === 0 ? (
             <EmptyState emoji="🧹" title="Rien de prévu ce jour" description="Crée des tâches dans le Catalogue ou déclare une tâche faite." />
           ) : (
             <ul className={styles.list}>
-              {dayAssignments.map(a => {
-                const chore = choreById.get(a.chore_id)!
-                const logId = logByAssignment.get(a.id)
-                const done = a.status === 'done' || !!logId
-                const skipped = a.status === 'skipped'
-                const assignee = a.member_id ? members.find(m => m.id === a.member_id) : null
-                const color = a.member_id ? memberColorById.get(a.member_id) : 'var(--accent)'
-                const free = !a.member_id && !done && !skipped
-                const hasDetail = !!chore.instructions || chore.steps.length > 0
-                const stepsTotal = chore.steps.length
-                const stepsDone = a.steps_done.filter(i => i < stepsTotal).length
-                return (
-                  <li key={a.id} className={[styles.row, done ? styles.rowDone : '', skipped ? styles.rowSkipped : '', free ? styles.rowFree : ''].join(' ')}>
-                    <button className={styles.rowOpen} onClick={() => setDetailId(a.id)}>
-                      <span className={styles.rowEmoji} style={{ background: (chore.color ?? categoryOf(chore.category).color) + '22' }}>{chore.emoji}</span>
-                      <div className={styles.rowMain}>
-                        <span className={styles.rowName}>{chore.name}</span>
-                        <span className={styles.rowMeta}>
-                          {skipped && <span className={styles.rotBadge}>passée</span>}
-                          <span className={styles.chipCatMini}>{categoryOf(chore.category).label}</span>
-                          {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
-                          {free && <span className={styles.chipFree}>Libre · premier arrivé, premier servi</span>}
-                          <span className={styles.points}>+{chore.points} pts</span>
-                          {chore.mental_load && <span className={styles.chipPlan}>Charge mentale</span>}
-                          {!done && !skipped && dislikeHint(chore.id, a.member_id) && (
-                            <span className={styles.chipBonus}>💛 détestée par {dislikerNames(chore.id, a.member_id)} · +50%</span>
-                          )}
-                          {stepsTotal > 0 && <span className={styles.rotBadge}>{stepsDone}/{stepsTotal} étapes</span>}
-                          {hasDetail && stepsTotal === 0 && <span className={styles.rotBadge}>consignes</span>}
-                        </span>
-                      </div>
-                    </button>
-                    {free && currentMember && (
-                      <button
-                        className={styles.claimBtn}
-                        onClick={() => claimAssignment.mutate({ assignmentId: a.id, memberId: currentMember.id })}
-                        disabled={claimAssignment.isPending}
-                      >
-                        Je prends
-                      </button>
-                    )}
-                    {done && (() => {
-                      // Merci : sur une tâche faite par l'autre, une fois par personne.
-                      const log = logObjByAssignment.get(a.id)
-                      const me = currentMember?.id
-                      if (!log || log.id.startsWith('opt-') || !me || log.member_id === me) return null
-                      const thanked = myThanksByLog.has(log.id)
-                      return (
-                        <button
-                          className={[styles.thanksBtn, thanked ? styles.thanksBtnOn : ''].join(' ')}
-                          disabled={thanked || sendThanks.isPending}
-                          onClick={() => sendThanks.mutate({ logId: log.id, fromMember: me, toMember: log.member_id, label: chore.name })}
-                          aria-label={thanked ? 'Merci déjà envoyé' : 'Dire merci'}
-                          title={thanked ? 'Merci déjà envoyé' : 'Dire merci'}
-                        >
-                          <Heart size={16} fill={thanked ? 'currentColor' : 'none'} />
-                        </button>
-                      )
-                    })()}
-                    {done ? (
-                      <button className={styles.undoBtn} disabled={!logId || logId.startsWith('opt-')} onClick={() => logId && !logId.startsWith('opt-') && undoLog.mutate(logId)} aria-label="Annuler">
-                        <Undo2 size={16} />
-                      </button>
-                    ) : skipped ? (
-                      <button className={styles.undoBtn} onClick={() => setStatus.mutate({ assignmentId: a.id, status: 'pending' })} aria-label="Reprendre">
-                        <Undo2 size={16} />
-                      </button>
-                    ) : (
-                      <button className={styles.doneBtn} onClick={() => requestDone(a, chore)} aria-label="Marquer fait">
-                        <Check size={18} />
-                      </button>
-                    )}
-                  </li>
-                )
-              })}
+              {dayAssignments.map(renderAssignmentRow)}
             </ul>
           )}
 
@@ -593,7 +640,8 @@ export default function ChoresPage() {
       )}
 
       {detailId && (() => {
-        const a = dayAssignments.find(x => x.id === detailId)
+        // Fenêtre de la semaine entière : la fiche s'ouvre depuis les deux vues.
+        const a = assignments.find(x => x.id === detailId)
         const chore = a ? choreById.get(a.chore_id) : undefined
         if (!a || !chore) return null
         const logId = logByAssignment.get(a.id)
@@ -605,7 +653,7 @@ export default function ChoresPage() {
             linkedRecipe={chore.recipe_id ? recipeById.get(chore.recipe_id) ?? null : null}
             onOpenRecipe={(r) => setRecipeView(r)}
             onToggleStep={(stepsDone) => toggleStep.mutate({ assignmentId: a.id, stepsDone })}
-            onMarkDone={() => { setDetailId(null); requestDone(a, chore) }}
+            onMarkDone={() => { setDetailId(null); requestDone(a, chore, a.date) }}
             onSkip={() => { setStatus.mutate({ assignmentId: a.id, status: 'skipped' }); setDetailId(null) }}
             onResume={() => { setStatus.mutate({ assignmentId: a.id, status: 'pending' }); setDetailId(null) }}
             onUndo={() => { if (logId && !logId.startsWith('opt-')) undoLog.mutate(logId); setDetailId(null) }}
