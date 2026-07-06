@@ -84,7 +84,6 @@
 }
 .weekDayToday { color: var(--accent); }
 .weekDayCount { font-weight: 800; text-transform: none; letter-spacing: 0; }
-.weekDayEmpty { margin: 0 16px; font-size: var(--text-2xs); color: var(--text-muted); font-weight: 600; }
 
 /* ── List / rows ─────────────────────────────────────────────────────────── */
 

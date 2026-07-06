@@ -467,12 +467,13 @@ export default function ChoresPage() {
 
           {weekView ? (
             // ── Vue semaine : toutes les tâches, groupées par jour ──────────────
-            <div className={styles.weekList}>
-              {days.map(d => {
+            (() => {
+              const sections = days.map(d => {
                 const dt = new Date(d + 'T12:00')
                 const list = assignments
                   .filter(a => a.date === d && choreById.has(a.chore_id))
                   .sort((a, b) => (choreById.get(a.chore_id)?.name ?? '').localeCompare(choreById.get(b.chore_id)?.name ?? ''))
+                if (list.length === 0) return null
                 const active = list.filter(a => a.status !== 'skipped')
                 const doneCount = active.filter(a => a.status === 'done' || logByAssignment.has(a.id)).length
                 return (
@@ -485,15 +486,16 @@ export default function ChoresPage() {
                         </span>
                       )}
                     </h3>
-                    {list.length === 0 ? (
-                      <p className={styles.weekDayEmpty}>Rien de prévu</p>
-                    ) : (
-                      <ul className={styles.list}>{list.map(renderAssignmentRow)}</ul>
-                    )}
+                    <ul className={styles.list}>{list.map(renderAssignmentRow)}</ul>
                   </section>
                 )
-              })}
-            </div>
+              }).filter(Boolean)
+              return sections.length === 0 ? (
+                <EmptyState emoji="🧹" title="Rien de prévu cette semaine" description="Crée des tâches dans le Catalogue ou déclare une tâche faite." />
+              ) : (
+                <div className={styles.weekList}>{sections}</div>
+              )
+            })()
           ) : dayAssignments.length === 0 ? (
             <EmptyState emoji="🧹" title="Rien de prévu ce jour" description="Crée des tâches dans le Catalogue ou déclare une tâche faite." />
           ) : (
