@@ -47,8 +47,8 @@ function MapCenterUpdater({ position, visible }: { position: UserPosition | null
   return null
 }
 
-function MapFollower({ userPosition, followMode, onFollowModeOff }: {
-  userPosition: UserPosition | null; followMode: boolean; onFollowModeOff?: () => void
+function MapFollower({ userPosition, followMode, navActive = false, onFollowModeOff }: {
+  userPosition: UserPosition | null; followMode: boolean; navActive?: boolean; onFollowModeOff?: () => void
 }) {
   const map = useMap()
   useMapEvents({
@@ -57,8 +57,13 @@ function MapFollower({ userPosition, followMode, onFollowModeOff }: {
   useEffect(() => {
     if (!followMode || !userPosition) return
     if (!isFinite(userPosition.lat) || !isFinite(userPosition.lng)) return
-    map.panTo([userPosition.lat, userPosition.lng], { animate: true, duration: 0.5 })
-  }, [followMode, userPosition, map])
+    // En navigation active, garantit un zoom lisible (rues visibles).
+    if (navActive && map.getZoom() < 16) {
+      map.setView([userPosition.lat, userPosition.lng], 16, { animate: true })
+    } else {
+      map.panTo([userPosition.lat, userPosition.lng], { animate: true, duration: 0.5 })
+    }
+  }, [followMode, userPosition, navActive, map])
   return null
 }
 
@@ -203,6 +208,16 @@ const lowIcon = colorIcon('marker-icon-orange')
 const emptyIcon = colorIcon('marker-icon-red')
 const userIcon = colorIcon('marker-icon-blue')
 
+// Flèche orientée selon le cap GPS (uniquement en mouvement).
+function headingIcon(heading: number): L.DivIcon {
+  return new L.DivIcon({
+    className: '',
+    html: `<div style="transform:rotate(${Math.round(heading)}deg);width:34px;height:34px;filter:drop-shadow(0 1px 3px rgba(0,0,0,.4))"><svg viewBox="0 0 34 34" width="34" height="34"><path d="M17 2 L24.5 16 A8.6 8.6 0 1 1 9.5 16 Z" fill="${COLOR_USER}" stroke="#fff" stroke-width="2" stroke-linejoin="round"/></svg></div>`,
+    iconSize: [34, 34],
+    iconAnchor: [17, 19],
+  })
+}
+
 // Couleur d'occupation : vide (rouge), peu de vélos 1-2 (orange), dispo (vert).
 function pickStationIcon(s: Station): L.Icon {
   if (s.availableBikes === 0) return emptyIcon
@@ -225,6 +240,9 @@ export interface StationMapProps {
   stations: Station[]
   userPosition: UserPosition | null
   userAccuracy?: number | null
+  userHeading?: number | null
+  userIsManual?: boolean
+  navActive?: boolean
   followMode?: boolean
   onFollowModeOff?: () => void
   destination?: RoutePoint | null
@@ -246,7 +264,8 @@ export interface StationMapProps {
 }
 
 export function StationMap({
-  stations, userPosition, userAccuracy, followMode = false, onFollowModeOff,
+  stations, userPosition, userAccuracy, userHeading = null, userIsManual = false,
+  navActive = false, followMode = false, onFollowModeOff,
   destination, journeyDestination = null, routeGeometry,
   walkToStartGeometry, walkFromEndGeometry, walkNavGeometry = null,
   stationsAlongRoute = [], recommendedStartStations = [], recommendedEndStations = [],
@@ -293,7 +312,7 @@ export function StationMap({
         <MapClickHandler onClick={onMapClick} />
         <MapCenterUpdater position={userPosition} visible={visible} />
         <MapRouteFitter routeGeometry={routeGeometry} />
-        <MapFollower userPosition={userPosition} followMode={followMode} onFollowModeOff={onFollowModeOff} />
+        <MapFollower userPosition={userPosition} followMode={followMode} navActive={navActive} onFollowModeOff={onFollowModeOff} />
         <MapFocusSetter focusPosition={focusPosition} />
 
         {walkNavCoords && walkNavCoords.length > 1 && (
@@ -311,14 +330,19 @@ export function StationMap({
 
         {userPosition && (
           <>
-            <Marker position={[userPosition.lat, userPosition.lng]} icon={userIcon}>
-              <Popup>Vous êtes ici</Popup>
+            <Marker
+              position={[userPosition.lat, userPosition.lng]}
+              icon={userHeading != null ? headingIcon(userHeading) : userIcon}
+            >
+              <Popup>{userIsManual ? 'Position définie manuellement' : 'Vous êtes ici'}</Popup>
             </Marker>
-            <Circle
-              center={[userPosition.lat, userPosition.lng]}
-              radius={userAccuracy ?? 200}
-              pathOptions={{ color: COLOR_USER, fillColor: COLOR_USER, fillOpacity: 0.08 }}
-            />
+            {!userIsManual && (
+              <Circle
+                center={[userPosition.lat, userPosition.lng]}
+                radius={userAccuracy ?? 200}
+                pathOptions={{ color: COLOR_USER, fillColor: COLOR_USER, fillOpacity: 0.08 }}
+              />
+            )}
           </>
         )}
 
@@ -413,7 +437,9 @@ export function StationMap({
             <span className={[styles.legendDot, styles.dotUser].join(' ')} />Ma position
           </div>
         )}
-        {userAccuracy != null && (
+        {userIsManual ? (
+          <div className={styles.legendItem}>📌 Position manuelle</div>
+        ) : userAccuracy != null && (
           <div className={[styles.legendItem, gpsCls].join(' ')}>
             <span className={[styles.legendDot, gpsDot].join(' ')} />
             GPS ±{userAccuracy}m

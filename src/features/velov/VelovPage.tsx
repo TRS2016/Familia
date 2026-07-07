@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
-import { Bike, Map as MapIcon, Navigation, ParkingSquare, Star, Search, MapPin, Bell, RefreshCw, X, Check, ChevronUp, ChevronDown } from 'lucide-react'
+import { Bike, Map as MapIcon, Navigation, ParkingSquare, Star, Search, MapPin, Bell, RefreshCw, X, Check, ChevronUp, ChevronDown, LocateFixed } from 'lucide-react'
 import { StationCard } from './components/StationCard'
 import { SearchFilter, type StationFilter, type StationSort } from './components/SearchFilter'
 import { ProximityAlertBanner } from './components/ProximityAlertBanner'
@@ -74,7 +74,10 @@ function trimWalkGeometry(geometry: GeoLineString | null, userPos: { lat: number
 
 export default function VelovPage() {
   const { stations, loading, error, refresh, isFromCache, fetchedAt } = useStations()
-  const { position: userLocation, accuracy: geoAccuracy, error: geoError, startWatching, stopWatching } = useGeolocation()
+  const {
+    position: userLocation, accuracy: geoAccuracy, heading: geoHeading, isManual: isManualPos,
+    error: geoError, startWatching, stopWatching, setManualPosition,
+  } = useGeolocation()
   const { permission, requestPermission, sendNotification } = useNotifications()
   const { favorites, toggleFavorite } = useFavorites()
   const { history: searchHistory, addToHistory } = useSearchHistory()
@@ -89,6 +92,16 @@ export default function VelovPage() {
     return () => mq.removeEventListener('change', h)
   }, [])
   const dark = theme === 'dark' || (theme === 'system' && systemDark)
+
+  // Desktop (≥1024px) : carte affichée en permanence à droite, l'onglet
+  // « Carte » disparaît (les onglets restants pilotent la colonne de gauche).
+  const [isDesktop, setIsDesktop] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(min-width: 1024px)')
+    const h = () => setIsDesktop(mq.matches)
+    mq.addEventListener('change', h)
+    return () => mq.removeEventListener('change', h)
+  }, [])
 
   const {
     setShowRoutePlanner,
@@ -137,6 +150,18 @@ export default function VelovPage() {
   const [showPlannerForm, setShowPlannerForm] = useState(true)
   const [mapPlanStep, setMapPlanStep] = useState(0)
   const [mapPlanOrigin, setMapPlanOrigin] = useState<RoutePoint | null>(null)
+  // 1 = le prochain tap sur la carte définit la position manuelle (sans GPS).
+  const [manualPosStep, setManualPosStep] = useState(0)
+
+  useEffect(() => {
+    if (isDesktop && activeTab === 'map') setActiveTab('stations')
+  }, [isDesktop, activeTab])
+
+  // Ne relance pas le GPS quand la position a été posée à la main (poste fixe) :
+  // un fix wifi/IP imprécis écraserait la position choisie.
+  const ensureWatching = useCallback(() => {
+    if (!isManualPos) startWatching()
+  }, [isManualPos, startWatching])
   const routeInfoRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
@@ -542,8 +567,8 @@ export default function VelovPage() {
       setDestination({ id: `recommended-end-${station.id}`, name: `🅿️ ${station.name}`, lat: station.lat, lng: station.lng })
     } else if (routeDestination) setDestination(routeDestination)
     else return
-    setProximityEnabled(true); startWatching()
-  }, [recommendedEndStations, routeDestination, startWatching])
+    setProximityEnabled(true); ensureWatching()
+  }, [recommendedEndStations, routeDestination, ensureWatching])
 
   const handleEnableRouteProximity = useCallback(() => {
     if (permission === 'denied') { setNotifDenied(true); setTimeout(() => setNotifDenied(false), 4000); return }
@@ -560,12 +585,35 @@ export default function VelovPage() {
     const applyDest = (origin: RoutePoint | null) => {
       setRouteOrigin(origin); setRouteDestination(place); setShowRoutePlanner(true); setActiveTab('route')
     }
+    // Position déjà connue (GPS actif ou position manuelle) : pas de re-prompt.
+    if (userLocation) {
+      applyDest({ id: 'my-location', name: 'Ma position', lat: userLocation.lat, lng: userLocation.lng })
+      return
+    }
     if (!navigator.geolocation) { applyDest(null); return }
     navigator.geolocation.getCurrentPosition(
       (pos) => applyDest({ id: 'my-location', name: 'Ma position', lat: pos.coords.latitude, lng: pos.coords.longitude }),
       () => applyDest(null),
     )
-  }, [setRouteOrigin, setRouteDestination, setShowRoutePlanner])
+  }, [setRouteOrigin, setRouteDestination, setShowRoutePlanner, userLocation])
+
+  const handleManualPosClick = useCallback((latlng: { lat: number; lng: number }) => {
+    setManualPosition({ lat: latlng.lat, lng: latlng.lng })
+    setManualPosStep(0)
+  }, [setManualPosition])
+
+  // Démarrer la navigation vocale (vélo) bascule sur la carte, active le suivi
+  // et lance le GPS — sans quoi les annonces automatiques ne partent jamais.
+  const voiceNavActive = voiceNav.active
+  const prevVoiceActiveRef = useRef(false)
+  useEffect(() => {
+    if (voiceNavActive && !prevVoiceActiveRef.current) {
+      ensureWatching()
+      setMapFollowMode(true)
+      if (!isDesktop) setActiveTab('map')
+    }
+    prevVoiceActiveRef.current = voiceNavActive
+  }, [voiceNavActive, isDesktop, ensureWatching])
 
   const handleMapPlanClick = useCallback((latlng: { lat: number; lng: number }) => {
     if (mapPlanStep === 1) {
@@ -608,10 +656,12 @@ export default function VelovPage() {
 
   const handleWalkToStation = useCallback(async (station: Station) => {
     if (!userLocation) return
-    setWalkNavStation(station); setWalkNavRoute(null); setWalkNavLoading(true); setMapSheetStation(null); setActiveTab('map'); startWatching()
+    setWalkNavStation(station); setWalkNavRoute(null); setWalkNavLoading(true); setMapSheetStation(null)
+    if (!isDesktop) setActiveTab('map')
+    ensureWatching()
     try { setWalkNavRoute(await fetchWalkRoute(userLocation.lat, userLocation.lng, station.lat, station.lng)) }
     finally { setWalkNavLoading(false) }
-  }, [userLocation, startWatching])
+  }, [userLocation, ensureWatching, isDesktop])
 
   function dismissOnboarding() { setShowOnboarding(false); localStorage.setItem('velov-onboarded', '1') }
 
@@ -627,7 +677,9 @@ export default function VelovPage() {
     dismissOnboarding()
     const startStation = recommendedStartStations[0]
     setJourneyPhase('walk-to-start'); setJourneyStartTime(Date.now()); setWalkNavStation(startStation); setWalkNavRoute(null)
-    walkVoiceNav.startNavigation(); setWalkNavLoading(true); setMapSheetStation(null); setActiveTab('map'); setMapFollowMode(true); startWatching()
+    walkVoiceNav.startNavigation(); setWalkNavLoading(true); setMapSheetStation(null)
+    if (!isDesktop) setActiveTab('map')
+    setMapFollowMode(true); ensureWatching()
     try { setWalkNavRoute(await fetchWalkRoute(userLocation.lat, userLocation.lng, startStation.lat, startStation.lng)) }
     catch { /* route unavailable */ } finally { setWalkNavLoading(false) }
   }
@@ -682,9 +734,9 @@ export default function VelovPage() {
         onDisable={handleDisableProximity}
       />
 
-      {/* Tabs */}
+      {/* Tabs — sur desktop la carte est permanente, son onglet disparaît */}
       <div className={styles.tabs} role="tablist" aria-label="Vues Vélo'v">
-        {TABS.map(({ id, Icon, label }) => (
+        {(isDesktop ? TABS.filter((t) => t.id !== 'map') : TABS).map(({ id, Icon, label }) => (
           <button
             key={id}
             role="tab"
@@ -763,7 +815,16 @@ export default function VelovPage() {
                   <p className={styles.locateTitle}>Stations non triées</p>
                   <p className={styles.locateSub}>Activez la localisation pour voir les stations proches en premier</p>
                 </div>
-                <button onClick={startWatching} className={styles.locateBtn}><MapPin size={16} /> Localiser</button>
+                <div className={styles.locateActions}>
+                  <button onClick={startWatching} className={styles.locateBtn}><MapPin size={16} /> Localiser</button>
+                  <button
+                    onClick={() => { setManualPosStep(1); if (!isDesktop) setActiveTab('map') }}
+                    className={[styles.locateBtn, styles.locateBtnGhost].join(' ')}
+                    title="Sans GPS (ex. PC) : touchez la carte pour définir votre position"
+                  >
+                    <LocateFixed size={16} /> Sur la carte
+                  </button>
+                </div>
               </div>
               {geoError && <p role="alert" className={styles.geoError}>📍 {geoError}</p>}
             </div>
@@ -845,6 +906,9 @@ export default function VelovPage() {
               stations={mapFilteredStations}
               userPosition={userLocation}
               userAccuracy={geoAccuracy}
+              userHeading={geoHeading}
+              userIsManual={isManualPos}
+              navActive={walkNavStation != null || voiceNav.active || journeyPhase === 'biking'}
               followMode={mapFollowMode}
               onFollowModeOff={() => setMapFollowMode(false)}
               destination={journeyUnderway ? null : (routeDestination || destination)}
@@ -856,13 +920,17 @@ export default function VelovPage() {
               stationsAlongRoute={routeGeometry ? stationsAlongRoute : []}
               recommendedStartStations={recommendedStartStations}
               recommendedEndStations={recommendedEndStations}
-              onMapClick={mapPlanStep > 0 ? handleMapPlanClick : (mapSheetStation ? () => setMapSheetStation(null) : undefined)}
-              onStationClick={mapPlanStep === 0 ? setMapSheetStation : undefined}
+              onMapClick={
+                mapPlanStep > 0 ? handleMapPlanClick
+                : manualPosStep > 0 ? handleManualPosClick
+                : (mapSheetStation ? () => setMapSheetStation(null) : undefined)
+              }
+              onStationClick={mapPlanStep === 0 && manualPosStep === 0 ? setMapSheetStation : undefined}
               planOrigin={mapPlanOrigin}
               focusPosition={mapFocusPos}
               dark={dark}
               fullHeight
-              visible={activeTab === 'map'}
+              visible={activeTab === 'map' || isDesktop}
             />
           </Suspense>
 
@@ -882,7 +950,8 @@ export default function VelovPage() {
           <div className={styles.overlayLeft}>
             {mapPlanStep === 1 && <div className={[styles.hint, styles.hintStart].join(' ')}>Appuyez pour choisir le <strong>point de départ</strong></div>}
             {mapPlanStep === 2 && <div className={[styles.hint, styles.hintEnd].join(' ')}>Appuyez pour choisir la <strong>destination</strong></div>}
-            {mapPlanStep === 0 && (
+            {manualPosStep === 1 && <div className={[styles.hint, styles.hintPos].join(' ')}>Appuyez sur la carte pour <strong>définir votre position</strong></div>}
+            {mapPlanStep === 0 && manualPosStep === 0 && (
               <>
                 <div className={styles.mapFilters}>
                   {([
@@ -999,14 +1068,30 @@ export default function VelovPage() {
           )}
 
           <div className={styles.overlayRight}>
-            {userLocation && mapPlanStep === 0 && (
+            {userLocation && mapPlanStep === 0 && manualPosStep === 0 && (
               <button onClick={() => setMapFollowMode((v) => !v)} className={[styles.mapBtn, mapFollowMode ? styles.mapBtnActive : ''].join(' ')}>
                 <MapPin size={16} /> {mapFollowMode ? <>Suivi <Check size={14} /></> : 'Suivre'}
               </button>
             )}
-            {mapPlanStep === 0 ? (
-              <button onClick={() => setMapPlanStep(1)} className={styles.mapBtn}><MapIcon size={16} /> Planifier</button>
+            {mapPlanStep === 0 && (manualPosStep === 1 ? (
+              <button onClick={() => setManualPosStep(0)} className={[styles.mapBtn, styles.mapBtnDanger].join(' ')}><X size={14} /> Annuler</button>
             ) : (
+              <button
+                onClick={() => setManualPosStep(1)}
+                className={[styles.mapBtn, isManualPos ? styles.mapBtnActive : ''].join(' ')}
+                title="Définir ma position en touchant la carte (utile sans GPS, ex. sur PC)"
+              >
+                <LocateFixed size={16} /> {isManualPos ? 'Déplacer ma position' : 'Position manuelle'}
+              </button>
+            ))}
+            {isManualPos && mapPlanStep === 0 && manualPosStep === 0 && (
+              <button onClick={startWatching} className={styles.mapBtn} title="Abandonner la position manuelle et relancer le GPS">
+                <RefreshCw size={14} /> Reprendre le GPS
+              </button>
+            )}
+            {mapPlanStep === 0 && manualPosStep === 0 ? (
+              <button onClick={() => setMapPlanStep(1)} className={styles.mapBtn}><MapIcon size={16} /> Planifier</button>
+            ) : mapPlanStep > 0 && (
               <button onClick={() => { setMapPlanStep(0); setMapPlanOrigin(null) }} className={[styles.mapBtn, styles.mapBtnDanger].join(' ')}><X size={14} /> Annuler</button>
             )}
           </div>
@@ -1041,6 +1126,7 @@ export default function VelovPage() {
               onDestinationChange={setRouteDestination}
               onCalculate={() => void calculateRoute()}
               onClear={handleClearAll}
+              currentPosition={userLocation}
               customPlaces={customPlaces}
               loading={routeLoading}
               error={routeError}

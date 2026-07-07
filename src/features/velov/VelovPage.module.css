@@ -51,6 +51,15 @@
 .paneScroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; }
 .hidden { display: none; }
 
+/* ── Desktop : carte permanente à droite, onglets pour la colonne gauche ── */
+@media (min-width: 1024px) {
+  .content { display: grid; grid-template-columns: minmax(360px, 30rem) 1fr; }
+  .pane, .paneScroll { grid-column: 1; grid-row: 1; border-right: 1px solid var(--border); }
+  .paneMap { grid-column: 2; grid-row: 1; }
+  /* La carte ignore le masquage par onglet : elle reste toujours visible. */
+  .paneMap.hidden { display: block; }
+}
+
 /* ── Bandes (favoris / proches) ─────────────────────────── */
 .strip { background: var(--bg-card); border-bottom: 1px solid var(--border); padding: var(--space-2) var(--space-4); flex-shrink: 0; }
 .stripInner { max-width: var(--page-max-w, 800px); margin: 0 auto; }
@@ -72,6 +81,8 @@
 .locateTitle { font-size: var(--text-sm); font-weight: 600; color: var(--text); }
 .locateSub { font-size: var(--text-xs); color: var(--text-sub); margin-top: 2px; }
 .locateBtn { flex-shrink: 0; font-size: var(--text-xs); min-height: 40px; padding: 8px 12px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--info) 80%, black); color: #fff; border: none; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
+.locateActions { display: flex; flex-direction: column; gap: var(--space-2); flex-shrink: 0; }
+.locateBtnGhost { background: var(--bg-card); color: var(--text-sub); border: 1px solid var(--border); }
 .geoError { font-size: var(--text-xs); color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 28%, transparent); border-radius: var(--radius-sm); padding: 8px 12px; }
 
 /* ── Liste stations ─────────────────────────────────────── */
@@ -122,6 +133,7 @@
 .hint { border-radius: var(--radius-lg); padding: 8px 12px; font-size: var(--text-xs); box-shadow: var(--shadow-card); max-width: 13rem; }
 .hintStart { background: color-mix(in srgb, var(--success) 16%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--success) 34%, transparent); color: var(--text); }
 .hintEnd { background: color-mix(in srgb, var(--danger) 16%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--danger) 34%, transparent); color: var(--text); }
+.hintPos { background: color-mix(in srgb, var(--info) 16%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--info) 34%, transparent); color: var(--text); }
 .mapFilters { display: flex; gap: 6px; }
 .mapFilterBtn { font-size: var(--text-xs); min-height: 40px; min-width: 40px; padding: 6px 10px; border-radius: var(--radius-sm); box-shadow: var(--shadow-card); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-sub); cursor: pointer; }
 .mapFilterActive { background: var(--accent); color: #fff; border-color: var(--accent); }

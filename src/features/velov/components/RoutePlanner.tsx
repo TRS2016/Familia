@@ -74,6 +74,8 @@ export interface RoutePlannerProps {
   onDestinationChange: (p: RoutePoint | null) => void
   onCalculate: () => void
   onClear?: () => void
+  /** Position déjà connue (GPS actif ou position manuelle) : évite un re-prompt. */
+  currentPosition?: RoutePoint | null
   customPlaces?: SearchPlace[]
   loading?: boolean
   error?: string | null
@@ -86,7 +88,7 @@ export interface RoutePlannerProps {
 
 export function RoutePlanner({
   origin, destination, onOriginChange, onDestinationChange, onCalculate, onClear,
-  customPlaces = [], loading = false, error = null,
+  currentPosition = null, customPlaces = [], loading = false, error = null,
   searchHistory = [], onHistoryAdd,
   favoriteRoutes = [], onFavoriteRemove, onFavoriteSelect,
 }: RoutePlannerProps) {
@@ -104,6 +106,11 @@ export function RoutePlanner({
   const allPlaces = [...DESTINATIONS, ...customPlaces]
 
   function handleUseMyLocation() {
+    if (currentPosition) {
+      setLocationError(null)
+      onOriginChange({ id: 'my-location', name: 'Ma position', lat: currentPosition.lat, lng: currentPosition.lng })
+      return
+    }
     if (!navigator.geolocation) {
       setLocationError('Géolocalisation non supportée par votre navigateur')
       return
