@@ -192,6 +192,15 @@ export default function ChoresPage() {
     [assignments, effectiveDay, choreById],
   )
 
+  // Points encore à prendre sur la semaine affichée (récap vue Semaine).
+  const weekPendingPoints = useMemo(
+    () => assignments.reduce((sum, a) => {
+      if (a.status !== 'pending' || logByAssignment.has(a.id)) return sum
+      return sum + (choreById.get(a.chore_id)?.points ?? 0)
+    }, 0),
+    [assignments, choreById, logByAssignment],
+  )
+
   function markDone(assignmentId: string, chore: Chore, memberId: string, doneOn: string = effectiveDay) {
     logChore.mutate(
       { chore_id: chore.id, assignment_id: assignmentId, member_id: memberId, done_on: doneOn },
@@ -246,7 +255,7 @@ export default function ChoresPage() {
               {skipped && <span className={styles.rotBadge}>passée</span>}
               <span className={styles.chipCatMini}>{categoryOf(chore.category).label}</span>
               {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
-              {free && <span className={styles.chipFree}>Libre · premier arrivé, premier servi</span>}
+              {free && <span className={styles.chipFree}>Libre</span>}
               <span className={styles.points}>+{chore.points} pts</span>
               {chore.mental_load && <span className={styles.chipPlan}>Charge mentale</span>}
               {!done && !skipped && dislikeHint(chore.id, a.member_id) && (
@@ -434,10 +443,10 @@ export default function ChoresPage() {
             </section>
           )}
 
-          {/* Bascule Jour / Semaine */}
+          {/* Bascule Jour / Semaine (segmenté pleine largeur) */}
           <div className={styles.viewToggle} role="group" aria-label="Affichage">
-            <button className={[styles.chip, !weekView ? styles.chipActive : ''].join(' ')} onClick={() => setWeekView(false)}>Jour</button>
-            <button className={[styles.chip, weekView ? styles.chipActive : ''].join(' ')} onClick={() => setWeekView(true)}>Semaine</button>
+            <button className={[styles.segBtn, !weekView ? styles.segActive : ''].join(' ')} onClick={() => setWeekView(false)}>Jour</button>
+            <button className={[styles.segBtn, weekView ? styles.segActive : ''].join(' ')} onClick={() => setWeekView(true)}>Semaine</button>
           </div>
 
           {/* Sélecteur de semaine + jours */}
@@ -493,15 +502,45 @@ export default function ChoresPage() {
               return sections.length === 0 ? (
                 <EmptyState emoji="🧹" title="Rien de prévu cette semaine" description="Crée des tâches dans le Catalogue ou déclare une tâche faite." />
               ) : (
-                <div className={styles.weekList}>{sections}</div>
+                <div className={styles.weekList}>
+                  {weekPendingPoints > 0 && (
+                    <p className={styles.weekRecap}>⚡ {weekPendingPoints} pts à venir cette semaine</p>
+                  )}
+                  {sections}
+                </div>
               )
             })()
           ) : dayAssignments.length === 0 ? (
             <EmptyState emoji="🧹" title="Rien de prévu ce jour" description="Crée des tâches dans le Catalogue ou déclare une tâche faite." />
           ) : (
-            <ul className={styles.list}>
-              {dayAssignments.map(renderAssignmentRow)}
-            </ul>
+            // ── Vue jour : tâches du jour + tâches libres en section dédiée ────
+            (() => {
+              const freeList = dayAssignments.filter(a => !a.member_id && a.status === 'pending' && !logByAssignment.has(a.id))
+              const freeIds = new Set(freeList.map(a => a.id))
+              const mainList = dayAssignments.filter(a => !freeIds.has(a.id))
+              const dt = new Date(effectiveDay + 'T12:00')
+              return (
+                <div className={styles.weekList}>
+                  <section className={styles.weekDaySection}>
+                    <h3 className={[styles.weekDayTitle, effectiveDay === today ? styles.weekDayToday : ''].join(' ')}>
+                      <span>{format(dt, 'EEEE d', { locale: fr })} — tâches du jour</span>
+                    </h3>
+                    {mainList.length === 0 ? (
+                      <p className={styles.sectionEmpty}>Rien d'assigné ce jour.</p>
+                    ) : (
+                      <ul className={styles.list}>{mainList.map(renderAssignmentRow)}</ul>
+                    )}
+                  </section>
+                  {freeList.length > 0 && (
+                    <section className={styles.weekDaySection}>
+                      <h3 className={styles.weekDayTitle}><span>Tâches libres</span></h3>
+                      <p className={styles.sectionHint}>Premier arrivé, premier servi</p>
+                      <ul className={styles.list}>{freeList.map(renderAssignmentRow)}</ul>
+                    </section>
+                  )}
+                </div>
+              )
+            })()
           )}
 
           {/* Fait récemment par l'autre : reconnaissance en un tap. */}
@@ -536,6 +575,12 @@ export default function ChoresPage() {
               </ul>
             </section>
           )}
+
+          {/* FAB : déclarer une tâche faite (hors planning). */}
+          <div className={styles.fabSpacer} aria-hidden="true" />
+          <button className={styles.fab} onClick={() => setAdHocOpen(true)} aria-label="Déclarer une tâche faite">
+            <Plus size={26} strokeWidth={2.5} />
+          </button>
         </>
       ) : (
         // ── Catalogue (groupé par catégorie, ordre fixe — handoff) ─────────────

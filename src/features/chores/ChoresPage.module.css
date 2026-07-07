@@ -70,14 +70,30 @@
 
 /* ── Vue semaine (toutes les tâches, groupées par jour) ──────────────────── */
 
-.viewToggle { display: flex; gap: 6px; padding: 10px 16px 10px; }
-.viewToggle .chip { flex: 1; text-align: center; }
+/* Toggle segmenté Jour/Semaine : piste neutre, segment actif sur carte. */
+.viewToggle {
+  display: flex; gap: 4px;
+  margin: 10px 16px;
+  padding: 3px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--text) 7%, var(--bg));
+}
+.segBtn {
+  flex: 1; min-height: 38px; border: none; cursor: pointer;
+  border-radius: 11px; background: transparent; color: var(--text-sub);
+  font-family: var(--font-family); font-size: var(--text-xs); font-weight: 700;
+  transition: background 0.15s, color 0.15s;
+}
+.segActive { background: var(--bg-card); color: var(--text); box-shadow: var(--shadow-card); font-weight: 800; }
 .weekLabel {
   flex: 1; text-align: center; font-size: var(--text-sm); font-weight: 800;
   color: var(--text); text-transform: capitalize;
 }
 .weekList { display: flex; flex-direction: column; gap: 16px; }
+.weekRecap { margin: 0 16px; font-size: var(--text-sm); font-weight: 800; color: var(--text-sub); }
 .weekDaySection { display: flex; flex-direction: column; gap: 6px; }
+.sectionHint { margin: -2px 16px 2px; font-size: var(--text-2xs); font-weight: 600; color: var(--text-muted); }
+.sectionEmpty { margin: 0 16px; padding: 14px 0; text-align: center; font-size: var(--text-sm); font-weight: 600; color: var(--text-muted); }
 .weekDayTitle {
   display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
   margin: 0 16px; font-size: var(--text-sm); font-weight: 700; color: var(--text-muted);
@@ -92,7 +108,7 @@
 
 .row {
   display: flex; align-items: center; gap: 12px;
-  padding: 10px 12px; border-radius: 16px;
+  padding: 12px 14px; border-radius: 18px;
   background: var(--bg-card, #fff);
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
@@ -466,6 +482,22 @@
 .claimBtn:disabled { opacity: 0.6; }
 
 /* ── Fait récemment par l'autre (mercis) ─────────────────────────────── */
+/* ── FAB « déclarer une tâche faite » ────────────────────────────────────── */
+.fabSpacer { height: 76px; }
+.fab {
+  position: fixed;
+  right: 16px;
+  bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 16px);
+  width: 56px; height: 56px;
+  border: none; border-radius: 50%;
+  background: var(--accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: var(--shadow-btn);
+  cursor: pointer;
+  z-index: 150;
+}
+.fab:hover { filter: brightness(1.05); }
+
 .recentBlock { margin-top: 18px; padding: 0 4px; }
 .recentTitle { margin: 0 16px 8px; font-size: var(--text-sm); font-weight: 800; color: var(--text); }
 .recentRow {
