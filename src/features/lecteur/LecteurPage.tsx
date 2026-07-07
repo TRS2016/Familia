@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Upload, Link as LinkIcon, X,
-  ListMusic, Search, Moon, Star, PartyPopper, Repeat, Repeat1, Volume2,
+  ListMusic, Search, Moon, Star, PartyPopper, Repeat, Repeat1, Volume2, Sliders,
 } from 'lucide-react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -25,6 +25,7 @@ import EqBars from './EqBars'
 import FileRow from './FileRow'
 import JukeboxPane from './JukeboxPane'
 import PartyScreen from './PartyScreen'
+import MixConsole from './MixConsole'
 import PlaylistsPane from './PlaylistsPane'
 import YouTubeSearchModal from './YouTubeSearchModal'
 import AddUrlModal from './AddUrlModal'
@@ -60,7 +61,7 @@ export default function LecteurPage() {
   const fileRef = useRef<HTMLInputElement>(null)
 
   // ── Tabs ──
-  const [activeTab, setActiveTab] = useState<'bibliothèque' | 'listes' | 'soirée'>('bibliothèque')
+  const [activeTab, setActiveTab] = useState<'bibliothèque' | 'listes' | 'soirée' | 'mix'>('bibliothèque')
 
   // ── Filters ──
   const [filterKind,     setFilterKind]     = useState<MediaFileKind | null>(null)
@@ -598,6 +599,17 @@ export default function LecteurPage() {
           Soirée
           {queueItems.length > 0 && <span className={styles.tabBadge}>{queueItems.length}</span>}
         </button>
+        <button
+          role="tab"
+          id="lecteur-tab-mix"
+          aria-selected={activeTab === 'mix'}
+          aria-controls="lecteur-panel-mix"
+          className={[styles.tab, activeTab === 'mix' ? styles.tabActive : ''].join(' ')}
+          onClick={() => setActiveTab('mix')}
+        >
+          <Sliders size={13} strokeWidth={2} />
+          Mix
+        </button>
       </div>
 
       {/* ── Bibliothèque tab ─────────────────────────────────────── */}
@@ -759,6 +771,12 @@ export default function LecteurPage() {
           onToggleDj={toggleDj}
           onOpenScreen={openPartyScreen}
         />
+        </div>
+      )}
+
+      {activeTab === 'mix' && (
+        <div role="tabpanel" id="lecteur-panel-mix" aria-labelledby="lecteur-tab-mix">
+          <MixConsole files={files} />
         </div>
       )}
 
