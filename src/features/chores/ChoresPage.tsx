@@ -30,8 +30,9 @@ import { categoryOf, CHORE_CATEGORIES, CHORE_SUGGESTIONS } from './categories'
 import ChoreForm from './ChoreForm'
 import ProgressionTab from './ProgressionTab'
 import RewardsTab from './RewardsTab'
-import { useRecipes } from '../recipes/useRecipes'
+import { useRecipes, mealMeta, MEAL_TYPES } from '../recipes/useRecipes'
 import type { Recipe } from '../recipes/useRecipes'
+import { useMealPlanWeek, weekStartISO } from '../recipes/useMealPlan'
 import RecipeDetailModal from '../recipes/RecipeDetailModal'
 import styles from './ChoresPage.module.css'
 
@@ -70,6 +71,7 @@ export default function ChoresPage() {
   const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [recipeView, setRecipeView] = useState<Recipe | null>(null)
+  const [recipePickerOpen, setRecipePickerOpen] = useState(false)
   const [pickDone, setPickDone] = useState<{ a: ChoreAssignment; chore: Chore; doneOn: string } | null>(null)
   const toggleStep = useToggleStep()
   const setStatus = useSetAssignmentStatus()
@@ -697,8 +699,10 @@ export default function ChoresPage() {
           <TaskDetailSheet
             chore={chore} assignment={a} done={done}
             log={logObjByAssignment.get(a.id) ?? null}
+            recipes={recipes}
             linkedRecipe={chore.recipe_id ? recipeById.get(chore.recipe_id) ?? null : null}
             onOpenRecipe={(r) => setRecipeView(r)}
+            onBrowseRecipes={() => setRecipePickerOpen(true)}
             onToggleStep={(stepsDone) => toggleStep.mutate({ assignmentId: a.id, stepsDone })}
             onMarkDone={() => { setDetailId(null); requestDone(a, chore, a.date) }}
             onSkip={() => { setStatus.mutate({ assignmentId: a.id, status: 'skipped' }); setDetailId(null) }}
@@ -708,6 +712,14 @@ export default function ChoresPage() {
           />
         )
       })()}
+
+      {recipePickerOpen && (
+        <RecipePickerSheet
+          recipes={recipes}
+          onPick={(r) => { setRecipePickerOpen(false); setRecipeView(r) }}
+          onClose={() => setRecipePickerOpen(false)}
+        />
+      )}
 
       {recipeView && (
         <RecipeDetailModal recipe={recipeView} showCooked={false} onClose={() => setRecipeView(null)} />
@@ -798,6 +810,78 @@ function PostDoneModal({ choreName, points, onPick, onClose }: { choreName: stri
   )
 }
 
+// ── Recettes liées à une tâche de cuisine ────────────────────────────────────
+// Pour une tâche de cuisine : suggère la recette prévue ce jour-là (planning
+// repas) et permet d'en parcourir une autre depuis le carnet. Le choix est
+// par occurrence (on n'écrit pas recipe_id sur le modèle de tâche).
+
+function CuisineRecipeSection({ assignment, recipes, linkedRecipeId, onOpenRecipe, onBrowseRecipes }: {
+  assignment: ChoreAssignment
+  recipes: Recipe[]
+  linkedRecipeId: string | null
+  onOpenRecipe: (r: Recipe) => void
+  onBrowseRecipes: () => void
+}) {
+  const weekStart = weekStartISO(new Date(assignment.date + 'T12:00'))
+  const { data: planEntries = [] } = useMealPlanWeek(weekStart)
+  const recipeById = useMemo(() => new Map(recipes.map(r => [r.id, r])), [recipes])
+
+  // Recettes prévues ce jour (hors celle déjà liée au modèle, déjà affichée).
+  const plannedToday = useMemo(() => {
+    const seen = new Set<string>(linkedRecipeId ? [linkedRecipeId] : [])
+    const out: Recipe[] = []
+    for (const e of planEntries) {
+      if (e.date !== assignment.date || seen.has(e.recipe_id)) continue
+      const r = recipeById.get(e.recipe_id)
+      if (r) { seen.add(e.recipe_id); out.push(r) }
+    }
+    return out
+  }, [planEntries, assignment.date, recipeById, linkedRecipeId])
+
+  return (
+    <div className={styles.detailBlock}>
+      {plannedToday.map(r => (
+        <button key={r.id} type="button" className={styles.recipeLinkBtn} onClick={() => onOpenRecipe(r)}>
+          🍽️ Prévu ce jour — {r.title}
+        </button>
+      ))}
+      <button type="button" className={styles.recipePickBtn} onClick={onBrowseRecipes} disabled={recipes.length === 0}>
+        📖 {recipes.length === 0 ? 'Aucune recette dans le carnet' : 'Choisir une recette du carnet'}
+      </button>
+    </div>
+  )
+}
+
+// ── Sélecteur de recette (depuis une tâche de cuisine) ────────────────────────
+
+function RecipePickerSheet({ recipes, onPick, onClose }: {
+  recipes: Recipe[]
+  onPick: (r: Recipe) => void
+  onClose: () => void
+}) {
+  const groups = MEAL_TYPES
+    .map(t => ({ meta: mealMeta(t), items: recipes.filter(r => r.meal_type === t) }))
+    .filter(g => g.items.length > 0)
+
+  return (
+    <SlideUpModal title="Choisir une recette" onClose={onClose}>
+      <div className={styles.pickList}>
+        {groups.map(({ meta, items }) => (
+          <div key={meta.label} className={styles.detailBlock}>
+            <span className={styles.label}>{meta.emoji} {meta.label}</span>
+            {items.map(r => (
+              <button key={r.id} className={styles.pickBtn} onClick={() => onPick(r)}>
+                {r.title}
+                <span className={styles.points} style={{ marginLeft: 'auto' }}>+{r.points} pts</span>
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    </SlideUpModal>
+  )
+}
+
 // ── Fiche de détail d'une tâche (consignes + étapes partagées) ────────────────
 
 interface DetailProps {
@@ -805,8 +889,10 @@ interface DetailProps {
   assignment: ChoreAssignment
   done: boolean
   log?: ChoreLog | null
+  recipes?: Recipe[]
   linkedRecipe?: Recipe | null
   onOpenRecipe?: (r: Recipe) => void
+  onBrowseRecipes?: () => void
   onToggleStep: (stepsDone: number[]) => void
   onMarkDone: () => void
   onSkip: () => void
@@ -815,7 +901,7 @@ interface DetailProps {
   onClose: () => void
 }
 
-function TaskDetailSheet({ chore, assignment, done, log, linkedRecipe, onOpenRecipe, onToggleStep, onMarkDone, onSkip, onResume, onUndo, onClose }: DetailProps) {
+function TaskDetailSheet({ chore, assignment, done, log, recipes = [], linkedRecipe, onOpenRecipe, onBrowseRecipes, onToggleStep, onMarkDone, onSkip, onResume, onUndo, onClose }: DetailProps) {
   const addProof = useAddChoreProof()
   const { data: proofUrl } = useChoreProofUrl(log?.photo_path ?? null)
   // Bonus « tâche détestée » crédité sur ce pointage (visible dans le détail).
@@ -857,6 +943,16 @@ function TaskDetailSheet({ chore, assignment, done, log, linkedRecipe, onOpenRec
           <button type="button" className={styles.recipeLinkBtn} onClick={() => onOpenRecipe(linkedRecipe)}>
             📖 Voir la recette — {linkedRecipe.title}
           </button>
+        )}
+
+        {categoryOf(chore.category).value === 'cuisine' && onOpenRecipe && onBrowseRecipes && (
+          <CuisineRecipeSection
+            assignment={assignment}
+            recipes={recipes}
+            linkedRecipeId={chore.recipe_id}
+            onOpenRecipe={onOpenRecipe}
+            onBrowseRecipes={onBrowseRecipes}
+          />
         )}
 
         {chore.instructions && (
