@@ -424,9 +424,7 @@ export default function CalendarPage() {
           <div style={{ display: 'flex', justifyContent: 'center', padding: '32px 0' }}>
             <Spinner size={28} />
           </div>
-        ) : searchResults.length === 0 ? (
-          <EmptyState emoji="🔎" title="Aucun résultat" description="Essaie d'autres mots ou un autre lieu." />
-        ) : (
+        ) : searchResults.length === 0 ? null : (
           <ul className={styles.agendaEvents} style={{ padding: '0 16px' }}>
             {searchResults.map(event => {
               const color = getMemberColor(event.member_id, householdMembers)

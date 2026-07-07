@@ -1000,9 +1000,7 @@ export default function MomentsPage() {
       {searchActive ? (
         searchLoading ? (
           <div className={styles.skeletonList}>{[0, 1].map(i => <div key={i} className={styles.skeletonCard} />)}</div>
-        ) : searchResults.length === 0 ? (
-          <EmptyState emoji="🔎" title="Aucun résultat" description="Essaie d'autres mots ou un autre mois." />
-        ) : (
+        ) : searchResults.length === 0 ? null : (
           <div className={styles.feed}>
             {searchResults.map(m => (
               <MomentCard

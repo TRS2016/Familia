@@ -280,9 +280,6 @@ export default function MediaPage() {
             </>
           )}
 
-          {filtered.length === 0 && (filterType || filterMemberId || q || filterTopRated) && (
-            <EmptyState emoji="🔍" title="Aucun résultat." description="Modifiez vos filtres ou la recherche." />
-          )}
         </>
       )}
 

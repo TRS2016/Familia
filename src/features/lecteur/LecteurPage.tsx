@@ -716,9 +716,7 @@ export default function LecteurPage() {
               title="Bibliothèque vide"
               description="Uploadez un fichier audio/vidéo ou ajoutez un lien YouTube/Spotify."
             />
-          ) : filtered.length === 0 ? (
-            <EmptyState emoji="🔍" title="Aucun résultat" description="Modifiez les filtres ou la recherche." />
-          ) : (
+          ) : filtered.length === 0 ? null : (
             <ul className={[styles.list, styles.libraryGrid].join(' ')}>
               {filtered.map((file, i) => (
                 <FileRow

@@ -38,6 +38,10 @@ export default function ChoresHomeWidget({ members }: Props) {
     : sumPoints(totals)
   const goalPct = goal ? Math.min(100, Math.round((goalCurrent / goal.target_points) * 100)) : 0
 
+  // Rien à montrer tant qu'aucune tâche n'a rapporté de points et qu'aucun
+  // objectif n'est fixé : on masque le widget plutôt qu'un placeholder vide.
+  if (!goal && sumPoints(totals) === 0) return null
+
   return (
     <div className={styles.wrap}>
       <div className={styles.head}>

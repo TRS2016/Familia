@@ -154,13 +154,7 @@ export default function RecipesPage() {
           description="Importe ton ebook de recettes en PDF : l'IA en extrait les recettes automatiquement."
           action={{ label: 'Importer un PDF', onClick: () => fileRef.current?.click() }}
         />
-      ) : shown.length === 0 ? (
-        <EmptyState
-          emoji={mealMeta(filter ?? '').emoji}
-          title="Rien dans cette catégorie"
-          description="Aucune recette de ce type dans le carnet pour l'instant."
-        />
-      ) : (
+      ) : shown.length === 0 ? null : (
         <ul className={styles.grid}>
           {shown.map(r => {
             const meta = mealMeta(r.meal_type)

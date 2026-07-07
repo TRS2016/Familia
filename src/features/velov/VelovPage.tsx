@@ -856,9 +856,7 @@ export default function VelovPage() {
                   <p className={styles.errorMsg}>{error}</p>
                   <button onClick={refresh} className={styles.locateBtn} style={{ marginTop: 12 }}>Réessayer</button>
                 </div>
-              ) : filteredStations.length === 0 ? (
-                <div className={styles.empty}>Aucune station trouvée</div>
-              ) : (
+              ) : filteredStations.length === 0 ? null : (
                 <>
                   {notifDenied && <div role="alert" className={styles.denied}>Notifications bloquées par le navigateur. Autorisez-les dans les paramètres.</div>}
                   <div className={styles.listHead}>
