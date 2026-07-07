@@ -4,6 +4,8 @@ import { addDays, format, isToday, parseISO } from 'date-fns'
 import { fr } from 'date-fns/locale'
 import SlideUpModal from '../../components/SlideUpModal'
 import Spinner from '../../components/Spinner'
+import { useToast } from '../../components/useToast'
+import { useHouseholdMembers } from '../chores/useChores'
 import { MEAL_TYPES, mealMeta } from './useRecipes'
 import type { MealType, Recipe } from './useRecipes'
 import {
@@ -25,9 +27,28 @@ export default function WeekPlanner({ recipes, onShowRecipe }: {
   const [picker, setPicker] = useState<{ date: string; meal_type: MealType } | null>(null)
 
   const { data: entries = [], isLoading } = useMealPlanWeek(weekStart)
+  const { data: members = [] } = useHouseholdMembers()
+  const { showToast } = useToast()
   const setEntry = useSetMealPlanEntry()
   const removeEntry = useRemoveMealPlanEntry()
   const addWeek = useAddWeekToGroceries()
+
+  // Rotation « qui cuisine » : stable par date (numéro de jour absolu), donc
+  // identique sur tous les appareils sans rien stocker. Purement indicatif.
+  function cookFor(date: string) {
+    if (members.length < 2) return null
+    return members[Math.floor(Date.parse(date + 'T12:00') / 86400000) % members.length]
+  }
+
+  // 🎲 : tire une recette au hasard du carnet et la planifie sur son créneau.
+  function rollDay(date: string) {
+    if (recipes.length === 0) return
+    const r = recipes[Math.floor(Math.random() * recipes.length)]
+    setEntry.mutate(
+      { date, meal_type: r.meal_type as MealType, recipe_id: r.id },
+      { onSuccess: () => showToast({ type: 'success', message: `🎲 « ${r.title} » ajouté au planning.` }) },
+    )
+  }
 
   const recipeById = useMemo(() => new Map(recipes.map(r => [r.id, r])), [recipes])
   const entryBySlot = useMemo(() => {
@@ -88,11 +109,28 @@ export default function WeekPlanner({ recipes, onShowRecipe }: {
         <div className={styles.plannerDays}>
           {days.map(d => {
             const dt = parseISO(d)
+            const cook = cookFor(d)
+            const dayEmpty = !MEAL_TYPES.some(t => entryBySlot.has(`${d}|${t}`))
             return (
               <div key={d} className={[styles.plannerDay, isToday(dt) ? styles.plannerDayToday : ''].join(' ')}>
-                <span className={styles.plannerDayLabel}>
-                  {format(dt, 'EEEE d', { locale: fr })}
-                </span>
+                <div className={styles.plannerDayHead}>
+                  <span className={styles.plannerDayLabel}>
+                    {format(dt, 'EEEE d', { locale: fr })}
+                    {dayEmpty && <span className={styles.plannerDayEmpty}> · à définir</span>}
+                  </span>
+                  {cook && <span className={styles.cookChip}>👨‍🍳 {cook.display_name}</span>}
+                  {dayEmpty && recipes.length > 0 && (
+                    <button
+                      className={styles.diceBtn}
+                      onClick={() => rollDay(d)}
+                      disabled={setEntry.isPending}
+                      aria-label="Tirer une recette au hasard pour ce jour"
+                      title="Tirer une recette au hasard"
+                    >
+                      🎲
+                    </button>
+                  )}
+                </div>
                 <div className={styles.plannerSlots}>
                   {MEAL_TYPES.map(t => {
                     const meta = mealMeta(t)

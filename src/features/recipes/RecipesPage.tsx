@@ -1,6 +1,6 @@
 import { useState, useRef, useMemo } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, Plus, Upload, Trash2, X } from 'lucide-react'
+import { ChevronLeft, Plus, Upload, X } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import { useToast } from '../../components/useToast'
@@ -8,6 +8,7 @@ import {
   useRecipes, useRecipesRealtime, useImportRecipes, useDeleteRecipe,
   MEAL_TYPES, mealMeta,
 } from './useRecipes'
+import { useFavoriteRecipes } from './useFavoriteRecipes'
 import RecipeDetailModal from './RecipeDetailModal'
 import RecipeFormModal from './RecipeFormModal'
 import WeekPlanner from './WeekPlanner'
@@ -38,13 +39,19 @@ export default function RecipesPage() {
   const [view, setView] = useState<'carnet' | 'semaine'>('carnet')
   const fileRef = useRef<HTMLInputElement>(null)
 
+  const { favorites, toggleFavorite } = useFavoriteRecipes()
+
   const countByMeal = useMemo(() => {
     const m: Record<string, number> = {}
     for (const r of recipes) m[r.meal_type] = (m[r.meal_type] ?? 0) + 1
     return m
   }, [recipes])
 
-  const shown = filter ? recipes.filter(r => r.meal_type === filter) : recipes
+  // Favoris d'abord, puis l'ordre d'origine (plus récentes en premier).
+  const shown = useMemo(() => {
+    const base = filter ? recipes.filter(r => r.meal_type === filter) : recipes
+    return [...base].sort((a, b) => Number(favorites.has(b.id)) - Number(favorites.has(a.id)))
+  }, [recipes, filter, favorites])
 
   async function handleFile(file: File | undefined) {
     if (!file) return
@@ -92,15 +99,19 @@ export default function RecipesPage() {
         />
       </header>
 
-      <div className={styles.tabRow}>
+      <div className={styles.segmented} role="tablist" aria-label="Vue recettes">
         <button
-          className={[styles.chip, view === 'carnet' ? styles.chipActive : ''].join(' ')}
+          role="tab"
+          aria-selected={view === 'carnet'}
+          className={[styles.segBtn, view === 'carnet' ? styles.segActive : ''].join(' ')}
           onClick={() => setView('carnet')}
         >
           📖 Carnet
         </button>
         <button
-          className={[styles.chip, view === 'semaine' ? styles.chipActive : ''].join(' ')}
+          role="tab"
+          aria-selected={view === 'semaine'}
+          className={[styles.segBtn, view === 'semaine' ? styles.segActive : ''].join(' ')}
           onClick={() => setView('semaine')}
         >
           📅 Semaine
@@ -115,7 +126,7 @@ export default function RecipesPage() {
             className={[styles.chip, !filter ? styles.chipActive : ''].join(' ')}
             onClick={() => setFilter(null)}
           >
-            Tout · {recipes.length}
+            Toutes · {recipes.length}
           </button>
           {MEAL_TYPES.map(t => {
             const meta = mealMeta(t)
@@ -143,25 +154,38 @@ export default function RecipesPage() {
           description="Importe ton ebook de recettes en PDF : l'IA en extrait les recettes automatiquement."
           action={{ label: 'Importer un PDF', onClick: () => fileRef.current?.click() }}
         />
+      ) : shown.length === 0 ? (
+        <EmptyState
+          emoji={mealMeta(filter ?? '').emoji}
+          title="Rien dans cette catégorie"
+          description="Aucune recette de ce type dans le carnet pour l'instant."
+        />
       ) : (
-        <ul className={styles.list}>
+        <ul className={styles.grid}>
           {shown.map(r => {
             const meta = mealMeta(r.meal_type)
+            const fav = favorites.has(r.id)
             return (
-              <li key={r.id} className={styles.row} onClick={() => setDetail(r)}>
-                <span className={styles.rowEmoji}>{meta.emoji}</span>
-                <div className={styles.rowBody}>
-                  <span className={styles.rowTitle}>{r.title}</span>
-                  <span className={styles.rowSub}>
-                    {meta.label} · {r.ingredients.length} ingrédient{r.ingredients.length > 1 ? 's' : ''} · 🏆 {r.points} pts
+              <li key={r.id} className={styles.cardWrap}>
+                <button className={styles.card} onClick={() => setDetail(r)}>
+                  <span className={[styles.cardTile, styles[`tile_${r.meal_type}`] ?? ''].join(' ')} aria-hidden="true">
+                    {meta.emoji}
                   </span>
-                </div>
+                  <span className={styles.cardName}>{r.title}</span>
+                  <span className={styles.cardFoot}>
+                    <span className={[styles.cardBadge, styles[`badge_${r.meal_type}`] ?? ''].join(' ')}>{meta.label}</span>
+                    <span className={styles.cardMeta}>
+                      🥕 {r.ingredients.length} · 🏆 {r.points} pts
+                    </span>
+                  </span>
+                </button>
                 <button
-                  className={styles.rowDelete}
-                  onClick={e => { e.stopPropagation(); setConfirmDel(r) }}
-                  aria-label="Supprimer"
+                  className={styles.cardFav}
+                  onClick={e => { e.stopPropagation(); toggleFavorite(r.id) }}
+                  aria-label={fav ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                  aria-pressed={fav}
                 >
-                  <Trash2 size={15} strokeWidth={2} />
+                  {fav ? '❤️' : '🤍'}
                 </button>
               </li>
             )
@@ -174,6 +198,7 @@ export default function RecipesPage() {
           recipe={detail}
           onClose={() => setDetail(null)}
           onEdit={r => { setDetail(null); setForm(r) }}
+          onDelete={r => { setDetail(null); setConfirmDel(r) }}
         />
       )}
 

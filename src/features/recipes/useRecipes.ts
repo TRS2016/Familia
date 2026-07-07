@@ -103,29 +103,52 @@ export function useDeleteRecipe() {
   })
 }
 
-/** Ajoute les ingrédients d'une recette à la liste de courses (insert en lot). */
+/** Noms (minuscules) des articles encore à acheter — pour ne pas dupliquer. */
+export async function pendingGroceryNames(): Promise<Set<string>> {
+  const { data, error } = await supabase
+    .from('groceries')
+    .select('name')
+    .eq('household_id', HOUSEHOLD_ID)
+    .eq('checked', false)
+  if (error) throw error
+  return new Set((data ?? []).map(g => g.name.trim().toLowerCase()))
+}
+
+/**
+ * Ajoute les ingrédients d'une recette à la liste de courses (insert en lot).
+ * Les ingrédients déjà présents dans la liste (non cochés) sont ignorés.
+ */
 export function useAddRecipeToGroceries() {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
   const { showToast } = useToast()
   return useMutation({
-    mutationFn: async (ingredients: Ingredient[]): Promise<number> => {
-      const rows = ingredients
-        .filter(i => i.name.trim())
+    mutationFn: async (ingredients: Ingredient[]): Promise<{ added: number; skipped: number }> => {
+      const wanted = ingredients.filter(i => i.name.trim())
+      if (wanted.length === 0) return { added: 0, skipped: 0 }
+      const present = await pendingGroceryNames()
+      const rows = wanted
+        .filter(i => !present.has(i.name.trim().toLowerCase()))
         .map(i => ({
           household_id: HOUSEHOLD_ID,
           created_by: member?.id ?? null,
           name: i.name.trim(),
           quantity: i.quantity.trim() || null,
         }))
-      if (rows.length === 0) return 0
-      const { error } = await supabase.from('groceries').insert(rows as never)
-      if (error) throw error
-      return rows.length
+      if (rows.length > 0) {
+        const { error } = await supabase.from('groceries').insert(rows as never)
+        if (error) throw error
+      }
+      return { added: rows.length, skipped: wanted.length - rows.length }
     },
-    onSuccess: (n) => {
+    onSuccess: ({ added, skipped }) => {
       queryClient.invalidateQueries({ queryKey: GROCERIES_KEY })
-      showToast({ type: 'success', message: `${n} ingrédient${n > 1 ? 's' : ''} ajouté${n > 1 ? 's' : ''} à la liste de courses.` })
+      if (added === 0) {
+        showToast({ type: 'success', message: 'Tout est déjà dans la liste de courses.' })
+        return
+      }
+      const skippedPart = skipped > 0 ? ` (${skipped} déjà dans la liste)` : ''
+      showToast({ type: 'success', message: `${added} ingrédient${added > 1 ? 's' : ''} ajouté${added > 1 ? 's' : ''} aux courses${skippedPart}.` })
     },
     onError: () => showToast({ type: 'error', message: 'Impossible d\'ajouter à la liste.' }),
   })

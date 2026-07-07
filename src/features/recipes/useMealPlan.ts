@@ -5,6 +5,7 @@ import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useToast } from '../../components/useToast'
 import { GROCERIES_KEY } from '../groceries/useGroceries'
+import { pendingGroceryNames } from './useRecipes'
 import type { Ingredient, MealType, Recipe } from './useRecipes'
 
 // ── Types & helpers ───────────────────────────────────────────────────────────
@@ -107,12 +108,16 @@ export function useAddWeekToGroceries() {
           byName.set(key, agg)
         }
       }
-      const rows = [...byName.values()].map(a => ({
-        household_id: HOUSEHOLD_ID,
-        created_by: member?.id ?? null,
-        name: a.name,
-        quantity: a.quantities.length > 0 ? a.quantities.join(' + ') : null,
-      }))
+      // Ignore ce qui est déjà dans la liste (non coché) — pas de doublons.
+      const present = await pendingGroceryNames()
+      const rows = [...byName.values()]
+        .filter(a => !present.has(a.name.toLowerCase()))
+        .map(a => ({
+          household_id: HOUSEHOLD_ID,
+          created_by: member?.id ?? null,
+          name: a.name,
+          quantity: a.quantities.length > 0 ? a.quantities.join(' + ') : null,
+        }))
       if (rows.length === 0) return 0
       const { error } = await supabase.from('groceries').insert(rows as never)
       if (error) throw error
@@ -123,7 +128,7 @@ export function useAddWeekToGroceries() {
       showToast({
         type: 'success',
         message: n === 0
-          ? 'Aucun ingrédient dans les recettes planifiées.'
+          ? 'Rien à ajouter : ingrédients déjà dans la liste ou recettes sans ingrédients.'
           : `${n} ingrédient${n > 1 ? 's' : ''} de la semaine ajouté${n > 1 ? 's' : ''} aux courses.`,
       })
     },
