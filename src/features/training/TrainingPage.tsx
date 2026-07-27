@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { format } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronUp, ChevronDown, ChevronRight, Play, Trash2, Bookmark, Copy, Plus, Sparkles } from 'lucide-react'
+import { ChevronLeft, ChevronUp, ChevronDown, ChevronRight, Play, Trash2, Bookmark, Copy, Plus, Sparkles, RotateCcw } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
 import { useNumPref } from '../../lib/usePrefs'
 import {
@@ -417,7 +417,10 @@ export default function TrainingPage() {
           )}
           <div className={styles.historyCard}>
             <ul className={styles.historyList}>
-              {shownSessions.map(s => (
+              {shownSessions.map(s => {
+                // « Refaire » : recharge le preset de même nom+mode s'il existe encore.
+                const srcPreset = presets.find(p => p.mode === s.mode && p.name === s.name)
+                return (
                 <li key={s.id} className={styles.historyRow}>
                   <span className={styles.historyEmoji}>{MODE_META[s.mode]?.emoji ?? '🏋️'}</span>
                   <span className={styles.historyName}>
@@ -431,6 +434,16 @@ export default function TrainingPage() {
                   <span className={styles.historyDate}>
                     {format(new Date(s.completed_at), 'd MMM', { locale: fr })}
                   </span>
+                  {srcPreset && (
+                    <button
+                      className={styles.historyReplay}
+                      onClick={() => loadPreset(srcPreset)}
+                      aria-label={`Refaire ${s.name}`}
+                      title="Refaire cette séance"
+                    >
+                      <RotateCcw size={13} strokeWidth={2} />
+                    </button>
+                  )}
                   <button
                     className={styles.historyDelete}
                     onClick={() => setConfirmDel({ kind: 'session', id: s.id, label: s.name })}
@@ -439,7 +452,8 @@ export default function TrainingPage() {
                     <Trash2 size={13} strokeWidth={2} />
                   </button>
                 </li>
-              ))}
+                )
+              })}
             </ul>
           </div>
         </>
