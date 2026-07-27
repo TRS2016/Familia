@@ -5,7 +5,7 @@ import MediaPlayer from '../media/MediaPlayer'
 import { useMember } from '../../auth/useMember'
 import { useBoolPref } from '../../lib/usePrefs'
 import { useWakeLock } from '../../lib/useWakeLock'
-import { MODE_META, fmtClock, isCountUp, normalizeExercises, exerciseHasVideo } from './training'
+import { fmtClock, isCountUp, normalizeExercises, exerciseHasVideo } from './training'
 import type { TrainingMode, TrainingConfig, Exercise } from './training'
 import { useTrainingTimer } from './useTrainingTimer'
 import { useLogTrainingSession, useTrainingRecords } from './useTraining'
@@ -21,10 +21,11 @@ const PHASE_COLOR: Record<string, string> = {
 const RING = { size: 290, r: 135 }
 const RING_C = 2 * Math.PI * RING.r
 
-export default function RunScreen({ mode, config, title, onExit }: {
+export default function RunScreen({ mode, config, title, named, onExit }: {
   mode: TrainingMode
   config: TrainingConfig
   title: string
+  named: boolean   // séance issue d'un preset/suggestion (titre stable) → records fiables
   onExit: () => void
 }) {
   const [muted, setMuted] = useBoolPref('training.muted', false)
@@ -42,7 +43,7 @@ export default function RunScreen({ mode, config, title, onExit }: {
   // Record For Time : capture le meilleur temps connu AVANT cette séance.
   // Seulement pour une séance nommée (preset) : les runs anonymes partagent tous
   // le libellé du mode (« For Time »), ce qui mélangerait des records sans rapport.
-  const isNamed = title !== MODE_META[mode].label
+  const isNamed = named
   const [prevBest, setPrevBest] = useState<number | undefined>(undefined)
   const prevBestCaptured = useRef(false)
   useEffect(() => {
@@ -105,7 +106,9 @@ export default function RunScreen({ mode, config, title, onExit }: {
   let subtitle = ''
   if (done) subtitle = `Séance de ${fmtClock(view.elapsedTotal)}`
   else if (mode === 'amrap') subtitle = `${taps} tour${taps > 1 ? 's' : ''}`
-  else if (mode === 'fortime') subtitle = `${taps} / ${config.target ?? 0} tours`
+  else if (mode === 'fortime') subtitle = config.target
+    ? `${taps} / ${config.target} tours`
+    : `${taps} tour${taps > 1 ? 's' : ''}`
   else if (view.totalRounds > 0) {
     subtitle = view.totalSets > 1
       ? `Série ${view.set}/${view.totalSets} · Ronde ${view.round}/${view.totalRounds}`

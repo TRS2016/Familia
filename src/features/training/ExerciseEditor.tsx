@@ -10,14 +10,12 @@ import styles from './TrainingPage.module.css'
 
 // ── Éditeur d'exercices (un par round/série) + vidéos ───────────────────────────
 
-export default function ExerciseEditor({ mode, rounds, sets, exercises, exercisePer, onChange, onExercisePerChange }: {
+export default function ExerciseEditor({ mode, rounds, sets, exercises, onChange }: {
   mode: TrainingMode
   rounds: number
   sets: number
   exercises: Exercise[]
-  exercisePer: 'round' | 'set'
   onChange: (list: Exercise[]) => void
-  onExercisePerChange: (v: 'round' | 'set') => void
 }) {
   const seriesBased = mode === 'tabata' || mode === 'intervals'
   const perMinute   = mode === 'emom'
@@ -47,11 +45,10 @@ export default function ExerciseEditor({ mode, rounds, sets, exercises, exercise
     setFreeInput('')
   }
 
-  // Liste libre pour tous les modes : si moins d'exercices que de rounds/séries,
+  // Liste libre pour tous les modes : si moins d'exercices que de séries/minutes,
   // le moteur les fait cycler. « cible » = à quoi se rapporte chaque exercice.
-  const cycleLen = seriesBased ? (exercisePer === 'round' ? Math.max(1, rounds) : Math.max(1, sets))
-    : perMinute ? Math.max(1, rounds) : 0
-  const unit = seriesBased ? (exercisePer === 'round' ? 'round' : 'série') : perMinute ? 'minute' : ''
+  const cycleLen = seriesBased ? Math.max(1, sets) : perMinute ? Math.max(1, rounds) : 0
+  const unit = seriesBased ? 'série' : perMinute ? 'minute' : ''
   const hint = unit
     ? `un par ${unit}${exercises.length > 0 && exercises.length < cycleLen ? ' · cycle' : ''}`
     : 'défilent à l\'effort'
@@ -61,25 +58,6 @@ export default function ExerciseEditor({ mode, rounds, sets, exercises, exercise
       <span className={styles.cfgSectionLabel}>
         Exercices <span className={styles.cfgSectionHint}>· {hint}</span>
       </span>
-
-      {seriesBased && (
-        <div className={styles.exPerRow}>
-          <button
-            type="button"
-            className={[styles.exPerBtn, exercisePer !== 'round' ? styles.exPerBtnActive : ''].join(' ')}
-            onClick={() => onExercisePerChange('set')}
-          >
-            Par série
-          </button>
-          <button
-            type="button"
-            className={[styles.exPerBtn, exercisePer === 'round' ? styles.exPerBtnActive : ''].join(' ')}
-            onClick={() => onExercisePerChange('round')}
-          >
-            Par round
-          </button>
-        </div>
-      )}
 
       <ul className={styles.exList}>
         {exercises.map((ex, i) => (

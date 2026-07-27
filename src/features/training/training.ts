@@ -14,7 +14,7 @@ export interface TrainingConfig {
   cap?:     number  // plafond For Time (s, 0 = aucun)
   target?:  number  // objectif de tours For Time (0 = aucun)
   exercises?: Exercise[] // exercices qui défilent pendant l'effort (cyclent si moins nombreux que les rounds/séries)
-  exercisePer?: 'round' | 'set' // tabata/intervals : un exercice par round (Tabata classique) ou par série. Défaut 'set' (compat).
+  exercisePer?: 'round' | 'set' // legacy : plus utilisé (indexation toujours par série). Conservé pour lire les anciens presets sans planter.
   focus?:   string  // zone travaillée (Abdos, Jambes…) — pour ranger/filtrer
 }
 

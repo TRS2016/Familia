@@ -26,7 +26,7 @@ import styles from './TrainingPage.module.css'
 
 type Screen =
   | { name: 'home' }
-  | { name: 'run'; mode: TrainingMode; config: TrainingConfig; title: string }
+  | { name: 'run'; mode: TrainingMode; config: TrainingConfig; title: string; named: boolean }
 
 // ── Page (écran unique : onglets de mode + config inline) ──────────────────────
 
@@ -114,6 +114,7 @@ export default function TrainingPage() {
         mode={screen.mode}
         config={screen.config}
         title={screen.title}
+        named={screen.named}
         onExit={() => setScreen({ name: 'home' })}
       />
     )
@@ -200,9 +201,7 @@ export default function TrainingPage() {
         rounds={cfg.rounds ?? 0}
         sets={cfg.sets ?? 1}
         exercises={normalizeExercises(cfg.exercises)}
-        exercisePer={cfg.exercisePer ?? 'set'}
         onChange={list => set({ exercises: list })}
-        onExercisePerChange={v => set({ exercisePer: v })}
       />
       </div>{/* /configMain */}
       </div>{/* /configZone */}
@@ -211,7 +210,7 @@ export default function TrainingPage() {
       <div className={styles.configActions}>
         <button
           className={styles.startBtn}
-          onClick={() => { primeTrainingAudio(); setScreen({ name: 'run', mode, config: cfg, title }) }}
+          onClick={() => { primeTrainingAudio(); setScreen({ name: 'run', mode, config: cfg, title, named: presetName != null }) }}
         >
           <Play size={18} strokeWidth={2.5} fill="currentColor" /> Démarrer{startDur ? ` · ${startDur}` : ''}
         </button>
@@ -529,24 +528,6 @@ export default function TrainingPage() {
             <button type="submit" className={styles.startBtn} disabled={!saveName.trim()}>
               {editingPresetId ? 'Mettre à jour' : 'Enregistrer le preset'}
             </button>
-            {editingPresetId && (
-              <button
-                type="button"
-                className={styles.saveBtn}
-                style={{ justifyContent: 'center' }}
-                disabled={!saveName.trim()}
-                onClick={() => {
-                  const n = saveName.trim()
-                  if (!n) return
-                  addPreset.mutate({ name: n, mode, config: { ...cfg, focus: saveFocus || undefined } })
-                  setPresetName(n)
-                  setEditingPresetId(null)
-                  setShowSave(false)
-                }}
-              >
-                Enregistrer comme nouvelle
-              </button>
-            )}
           </form>
         </SlideUpModal>
       )}

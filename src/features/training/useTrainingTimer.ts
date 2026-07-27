@@ -140,8 +140,6 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
   const countUp = isCountUp(mode)
   const cap = config.cap ?? 0
   const target = config.target ?? 0
-  // tabata/intervals : exercice indexé par round (Tabata classique) ou par série.
-  const perRound = config.exercisePer === 'round'
 
   const cfgKey = JSON.stringify(config)
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -197,7 +195,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
     if (n > 0) {
       const seriesBased = mode === 'tabata' || mode === 'intervals'
       const idxOf = (p: typeof ph) => {
-        const base = (seriesBased && !perRound) ? (p.set ?? 1) : (p.round ?? 1)
+        const base = seriesBased ? (p.set ?? 1) : (p.round ?? 1)
         return ((base - 1) % n + n) % n
       }
       if (ph.kind === 'work') { exerciseObj = exObjs[idxOf(ph)]; exercise = exerciseObj.name }
@@ -235,7 +233,7 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
             exerciseNextObj,
           }
     )
-  }, [phases, exObjs, mode, perRound])
+  }, [phases, exObjs, mode])
 
   const emitCountUp = useCallback(() => {
     const value = Math.floor(elapsedRef.current)
@@ -259,9 +257,9 @@ export function useTrainingTimer(mode: TrainingMode, config: TrainingConfig, opt
     const n = exObjs.length
     if (n === 0 || ph.kind !== 'work') return ''
     const seriesBased = mode === 'tabata' || mode === 'intervals'
-    const base = (seriesBased && !perRound) ? (ph.set ?? 1) : (ph.round ?? 1)
+    const base = seriesBased ? (ph.set ?? 1) : (ph.round ?? 1)
     return exObjs[((base - 1) % n + n) % n]?.name ?? ''
-  }, [exObjs, mode, perRound])
+  }, [exObjs, mode])
 
   const finish = useCallback(() => {
     statusRef.current = 'done'

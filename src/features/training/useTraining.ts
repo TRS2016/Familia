@@ -255,7 +255,7 @@ export function useDeleteTrainingSession() {
 export interface TrainingStats {
   weekCount:    number   // séances cette semaine (lun→dim)
   weekSeconds:  number   // temps total cette semaine
-  totalCount:   number   // séances all-time (sur la fenêtre récupérée)
+  totalCount:   number   // séances all-time (compte exact, hors fenêtre 120 j)
   streakDays:   number   // jours consécutifs avec ≥1 séance (jusqu'à aujourd'hui/hier)
   perDay:       { date: string; seconds: number }[] // 7 derniers jours (du + ancien au + récent)
   zones:        { focus: string; count: number }[]  // répartition par zone (desc), sur la fenêtre
@@ -280,13 +280,22 @@ export function useTrainingStats() {
     queryFn: async (): Promise<TrainingStats> => {
       const since = new Date()
       since.setDate(since.getDate() - 120)
-      const { data, error } = await supabase
-        .from('training_sessions')
-        .select('duration_seconds, completed_at, focus')
-        .eq('household_id', HOUSEHOLD_ID)
-        .gte('completed_at', since.toISOString())
-        .order('completed_at', { ascending: false })
+      // Fenêtre 120 j pour semaine/série/zones/graphe ; compte all-time séparé
+      // (head:true = aucun row transféré) pour que la tuile « Total » soit honnête.
+      const [{ data, error }, { count, error: countErr }] = await Promise.all([
+        supabase
+          .from('training_sessions')
+          .select('duration_seconds, completed_at, focus')
+          .eq('household_id', HOUSEHOLD_ID)
+          .gte('completed_at', since.toISOString())
+          .order('completed_at', { ascending: false }),
+        supabase
+          .from('training_sessions')
+          .select('*', { count: 'exact', head: true })
+          .eq('household_id', HOUSEHOLD_ID),
+      ])
       if (error) throw error
+      if (countErr) throw countErr
       const rows = (data ?? []) as { duration_seconds: number; completed_at: string; focus: string | null }[]
 
       const now = new Date()
@@ -320,7 +329,7 @@ export function useTrainingStats() {
         perDay.push({ date: dayKey(d), seconds: secByDay.get(dayKey(d)) ?? 0 })
       }
 
-      return { weekCount, weekSeconds, totalCount: rows.length, streakDays, perDay, zones }
+      return { weekCount, weekSeconds, totalCount: count ?? rows.length, streakDays, perDay, zones }
     },
   })
 }
