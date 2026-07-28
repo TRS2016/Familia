@@ -113,9 +113,9 @@ export default function VelovPage() {
   const [mapPlanStep, setMapPlanStep] = useState(0)
   const [mapPlanOrigin, setMapPlanOrigin] = useState<RoutePoint | null>(null)
 
-  useEffect(() => {
-    if (isDesktop && activeTab === 'map') setActiveTab('stations')
-  }, [isDesktop, activeTab])
+  // Sur desktop l'onglet Carte n'existe pas (carte permanente) : on corrige la
+  // sélection pendant le rendu plutôt qu'en effet (React re-rend aussitôt, pas de flash).
+  if (isDesktop && activeTab === 'map') setActiveTab('stations')
 
   const ensureWatching = useCallback(() => { startWatching() }, [startWatching])
   const routeInfoRef = useRef<HTMLDivElement>(null)
@@ -382,8 +382,13 @@ export default function VelovPage() {
   useEffect(() => {
     if (voiceNavActive && !prevVoiceActiveRef.current) {
       ensureWatching()
-      setMapFollowMode(true)
-      if (!isDesktop) setActiveTab('map')
+      // Réaction à un événement (front montant de l'activation vocale) : les setState
+      // sont différés d'un micro-tick, comme ailleurs dans ce fichier, pour ne pas
+      // déclencher de rendu en cascade synchrone depuis l'effet.
+      void Promise.resolve().then(() => {
+        setMapFollowMode(true)
+        if (!isDesktop) setActiveTab('map')
+      })
     }
     prevVoiceActiveRef.current = voiceNavActive
   }, [voiceNavActive, isDesktop, ensureWatching])
