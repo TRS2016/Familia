@@ -3,12 +3,12 @@ import { X, Play, Pause, RotateCcw, SkipForward, Video, Volume2, VolumeX, Megaph
 import SlideUpModal from '../../components/SlideUpModal'
 import MediaPlayer from '../media/MediaPlayer'
 import { useMember } from '../../auth/useMember'
-import { useBoolPref } from '../../lib/usePrefs'
+import { useBoolPref, useNumPref } from '../../lib/usePrefs'
 import { useWakeLock } from '../../lib/useWakeLock'
 import { fmtClock, isCountUp, normalizeExercises, exerciseHasVideo } from './training'
 import type { TrainingMode, TrainingConfig, Exercise } from './training'
 import { useTrainingTimer } from './useTrainingTimer'
-import { useLogTrainingSession, useTrainingRecords } from './useTraining'
+import { useLogTrainingSession, useTrainingRecords, useTrainingStats } from './useTraining'
 import styles from './TrainingPage.module.css'
 
 const PHASE_COLOR: Record<string, string> = {
@@ -35,6 +35,8 @@ export default function RunScreen({ mode, config, title, named, onExit }: {
   const logSession = useLogTrainingSession()
   const { data: member } = useMember()
   const { data: records } = useTrainingRecords()
+  const { data: stats } = useTrainingStats()
+  const [weeklyGoal] = useNumPref('training.weeklyGoal', 3)
   const loggedRef = useRef(false)
   const startedRef = useRef(false)
   const [confirmExit, setConfirmExit] = useState(false)
@@ -273,6 +275,28 @@ export default function RunScreen({ mode, config, title, named, onExit }: {
           ) : prevBest !== undefined ? (
             <span className={styles.runRecordPrev}>Record : {fmtClock(prevBest)}</span>
           ) : null
+        )}
+
+        {/* Bilan de la semaine (les stats se rafraîchissent après l'enregistrement) */}
+        {done && stats && (
+          <div className={styles.recapStrip}>
+            <div className={styles.recapCell}>
+              <span className={[styles.recapVal, weeklyGoal > 0 && stats.weekCount >= weeklyGoal ? styles.recapValAccent : ''].join(' ')}>
+                {stats.weekCount}{weeklyGoal > 0 ? `/${weeklyGoal}` : ''}
+              </span>
+              <span className={styles.recapLabel}>Cette sem.</span>
+            </div>
+            {stats.streakDays > 0 && (
+              <div className={styles.recapCell}>
+                <span className={[styles.recapVal, styles.recapValAccent].join(' ')}>{stats.streakDays}🔥</span>
+                <span className={styles.recapLabel}>Série</span>
+              </div>
+            )}
+            <div className={styles.recapCell}>
+              <span className={styles.recapVal}>{fmtClock(stats.weekSeconds)}</span>
+              <span className={styles.recapLabel}>Temps</span>
+            </div>
+          </div>
         )}
 
         {showTap && (
