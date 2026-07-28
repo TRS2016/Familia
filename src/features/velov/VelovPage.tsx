@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback, useEffect, useRef, lazy, Suspense } from 'react'
-import { Bike, Map as MapIcon, Navigation, ParkingSquare, Star, Search, MapPin, Bell, RefreshCw, X, Check, ChevronUp, ChevronDown, LocateFixed } from 'lucide-react'
+import { Bike, Map as MapIcon, Navigation, ParkingSquare, Star, MapPin, Bell, RefreshCw, X, Check, ChevronUp, ChevronDown } from 'lucide-react'
 import { StationCard } from './components/StationCard'
 import { SearchFilter, type StationFilter, type StationSort } from './components/SearchFilter'
 import { ProximityAlertBanner } from './components/ProximityAlertBanner'
@@ -30,7 +30,6 @@ import { usePullToRefresh } from './hooks/usePullToRefresh'
 import { useWalkingLegs } from './hooks/useWalkingLegs'
 import { fetchWalkRoute } from './route'
 import { calculateDistance, formatWalkTime, timeAgo } from './geo'
-import { getHourlyPattern } from './historyDB'
 import { useTheme } from '../../lib/useTheme'
 import type { FavoriteRoute, GeoLineString, RoutePoint, SearchPlace, Station } from './types'
 import styles from './VelovPage.module.css'
@@ -75,8 +74,8 @@ function trimWalkGeometry(geometry: GeoLineString | null, userPos: { lat: number
 export default function VelovPage() {
   const { stations, loading, error, refresh, isFromCache, fetchedAt } = useStations()
   const {
-    position: userLocation, accuracy: geoAccuracy, heading: geoHeading, isManual: isManualPos,
-    error: geoError, startWatching, stopWatching, setManualPosition,
+    position: userLocation, accuracy: geoAccuracy, heading: geoHeading,
+    error: geoError, startWatching, stopWatching,
   } = useGeolocation()
   const { permission, requestPermission, sendNotification } = useNotifications()
   const { favorites, toggleFavorite } = useFavorites()
@@ -150,18 +149,12 @@ export default function VelovPage() {
   const [showPlannerForm, setShowPlannerForm] = useState(true)
   const [mapPlanStep, setMapPlanStep] = useState(0)
   const [mapPlanOrigin, setMapPlanOrigin] = useState<RoutePoint | null>(null)
-  // 1 = le prochain tap sur la carte définit la position manuelle (sans GPS).
-  const [manualPosStep, setManualPosStep] = useState(0)
 
   useEffect(() => {
     if (isDesktop && activeTab === 'map') setActiveTab('stations')
   }, [isDesktop, activeTab])
 
-  // Ne relance pas le GPS quand la position a été posée à la main (poste fixe) :
-  // un fix wifi/IP imprécis écraserait la position choisie.
-  const ensureWatching = useCallback(() => {
-    if (!isManualPos) startWatching()
-  }, [isManualPos, startWatching])
+  const ensureWatching = useCallback(() => { startWatching() }, [startWatching])
   const routeInfoRef = useRef<HTMLDivElement>(null)
   const sentinelRef = useRef<HTMLDivElement>(null)
 
@@ -177,14 +170,7 @@ export default function VelovPage() {
   const [mapFollowMode, setMapFollowMode] = useState(false)
   const [mapFilter, setMapFilter] = useState<'all' | 'bikes' | 'stands' | 'favorites'>('all')
   const [eta, setEta] = useState<string | null>(null)
-  const [mapSearch, setMapSearch] = useState('')
-  const [mapSearchOpen, setMapSearchOpen] = useState(false)
-  const [mapFocusPos, setMapFocusPos] = useState<{ lat: number; lng: number } | null>(null)
-  const [reminderEnd, setReminderEnd] = useState<number | null>(null)
-  const [reminderCountdown, setReminderCountdown] = useState<string | null>(null)
   const [autoRecalcCountdown, setAutoRecalcCountdown] = useState<number | null>(null)
-  const [startForecast, setStartForecast] = useState<(number | null)[] | null>(null)
-  const [endForecast, setEndForecast] = useState<(number | null)[] | null>(null)
   const [journeyStartTime, setJourneyStartTime] = useState<number | null>(null)
   const [journeyElapsedMins, setJourneyElapsedMins] = useState<number | null>(null)
   const [notifDenied, setNotifDenied] = useState(false)
@@ -247,7 +233,6 @@ export default function VelovPage() {
   const totalJourneyMins = (routeInfo && recommendedStartStations.length && recommendedEndStations.length)
     ? Math.round((startWalkSecs + routeInfo.duration + endWalkSecs) / 60)
     : null
-  const currentHour = new Date().getHours()
 
   useEffect(() => {
     const compute = () => {
@@ -287,60 +272,24 @@ export default function VelovPage() {
       : stations
   ), [mapFilter, stations, favorites])
 
-  const mapSearchResults = useMemo(() => (
-    mapSearch.length > 1
-      ? stations.filter((s) => s.name.toLowerCase().includes(mapSearch.toLowerCase()) || s.address.toLowerCase().includes(mapSearch.toLowerCase())).slice(0, 5)
-      : []
-  ), [mapSearch, stations])
-
   // Badge OS : vélos à la station la plus proche si localisé, sinon nb de favoris
   // (le total de vélos sur tout Lyon n'a aucun sens en badge — saturerait à 99+).
-  const badgeCount = userLocation && filteredStations.length > 0 ? filteredStations[0].availableBikes : favorites.length
+  // Vraie station la plus proche, indépendamment du tri de la liste affichée.
+  const nearestBikes = useMemo(() => {
+    if (!userLocation || stations.length === 0) return null
+    let best: Station | null = null, bestD = Infinity
+    for (const s of stations) {
+      const d = calculateDistance(userLocation.lat, userLocation.lng, s.lat, s.lng)
+      if (d < bestD) { bestD = d; best = s }
+    }
+    return best?.availableBikes ?? null
+  }, [userLocation, stations])
+  const badgeCount = nearestBikes ?? favorites.length
   useEffect(() => {
     if (!('setAppBadge' in navigator)) return
     navigator.setAppBadge(badgeCount).catch(() => {})
     return () => { navigator.clearAppBadge?.().catch(() => {}) }
   }, [badgeCount])
-
-  useEffect(() => {
-    let cancelled = false
-    if (!reminderEnd) {
-      void Promise.resolve().then(() => { if (!cancelled) setReminderCountdown(null) })
-      return () => { cancelled = true }
-    }
-    const id = setInterval(() => {
-      if (cancelled) return
-      const remaining = reminderEnd - Date.now()
-      if (remaining <= 0) {
-        clearInterval(id)
-        setReminderEnd(null); setReminderCountdown(null)
-        sendNotification("Vélo'v — C'est l'heure !", { body: 'Il est temps de partir pour votre trajet à vélo.', tag: 'velov-reminder' })
-        if ('vibrate' in navigator) navigator.vibrate([200, 100, 200])
-      } else {
-        const mins = Math.floor(remaining / 60000)
-        const secs = Math.floor((remaining % 60000) / 1000)
-        setReminderCountdown(`${mins}:${secs.toString().padStart(2, '0')}`)
-      }
-    }, 1000)
-    return () => { cancelled = true; clearInterval(id) }
-  }, [reminderEnd, sendNotification])
-
-  const startStationId = recommendedStartStations[0]?.id ?? null
-  const endStationId = recommendedEndStations[0]?.id ?? null
-
-  useEffect(() => {
-    let cancelled = false
-    if (!startStationId) { void Promise.resolve().then(() => { if (!cancelled) setStartForecast(null) }); return () => { cancelled = true } }
-    void getHourlyPattern(startStationId).then((p) => { if (!cancelled) setStartForecast(p) })
-    return () => { cancelled = true }
-  }, [startStationId])
-
-  useEffect(() => {
-    let cancelled = false
-    if (!endStationId) { void Promise.resolve().then(() => { if (!cancelled) setEndForecast(null) }); return () => { cancelled = true } }
-    void getHourlyPattern(endStationId).then((p) => { if (!cancelled) setEndForecast(p) })
-    return () => { cancelled = true }
-  }, [endStationId])
 
   const journeyUnderway = journeyPhase === 'biking' || journeyPhase === 'walk-to-end'
 
@@ -597,11 +546,6 @@ export default function VelovPage() {
     )
   }, [setRouteOrigin, setRouteDestination, setShowRoutePlanner, userLocation])
 
-  const handleManualPosClick = useCallback((latlng: { lat: number; lng: number }) => {
-    setManualPosition({ lat: latlng.lat, lng: latlng.lng })
-    setManualPosStep(0)
-  }, [setManualPosition])
-
   // Démarrer la navigation vocale (vélo) bascule sur la carte, active le suivi
   // et lance le GPS — sans quoi les annonces automatiques ne partent jamais.
   const voiceNavActive = voiceNav.active
@@ -650,10 +594,6 @@ export default function VelovPage() {
     setShowRoutePlanner(true); setMapSheetStation(null); setActiveTab('route')
   }, [setRouteDestination, setShowRoutePlanner])
 
-  const handleSetReminder = useCallback((mins: number) => {
-    setReminderEnd(Date.now() + mins * 60000); setReminderCountdown(`${mins}:00`)
-  }, [])
-
   const handleWalkToStation = useCallback(async (station: Station) => {
     if (!userLocation) return
     setWalkNavStation(station); setWalkNavRoute(null); setWalkNavLoading(true); setMapSheetStation(null)
@@ -688,16 +628,6 @@ export default function VelovPage() {
     setJourneyPhase('idle'); setJourneyStartTime(null); setJourneyElapsedMins(null); setWalkNavStation(null); setWalkNavRoute(null)
     walkVoiceNav.stopNavigation(); voiceNav.stopNavigation()
   }
-
-  const handleExportGPX = useCallback(() => {
-    if (!routeGeometry?.coordinates?.length) return
-    const pts = routeGeometry.coordinates.map(([lng, lat]) => `      <trkpt lat="${lat.toFixed(6)}" lon="${lng.toFixed(6)}"/>`).join('\n')
-    const gpx = `<?xml version="1.0" encoding="UTF-8"?>\n<gpx version="1.1" creator="Vélov Monitor" xmlns="http://www.topografix.com/GPX/1/1">\n  <trk>\n    <name>${(routeOrigin?.name ?? 'Départ').replace(/&/g, '&amp;')} → ${(routeDestination?.name ?? 'Arrivée').replace(/&/g, '&amp;')}</name>\n    <trkseg>\n${pts}\n    </trkseg>\n  </trk>\n</gpx>`
-    const url = URL.createObjectURL(new Blob([gpx], { type: 'application/gpx+xml' }))
-    const a = document.createElement('a')
-    a.href = url; a.download = 'velov-itineraire.gpx'; a.click()
-    URL.revokeObjectURL(url)
-  }, [routeGeometry, routeOrigin, routeDestination])
 
   const handleRecalculateFromPosition = () => {
     if (!userLocation) return
@@ -817,13 +747,6 @@ export default function VelovPage() {
                 </div>
                 <div className={styles.locateActions}>
                   <button onClick={startWatching} className={styles.locateBtn}><MapPin size={16} /> Localiser</button>
-                  <button
-                    onClick={() => { setManualPosStep(1); if (!isDesktop) setActiveTab('map') }}
-                    className={[styles.locateBtn, styles.locateBtnGhost].join(' ')}
-                    title="Sans GPS (ex. PC) : touchez la carte pour définir votre position"
-                  >
-                    <LocateFixed size={16} /> Sur la carte
-                  </button>
                 </div>
               </div>
               {geoError && <p role="alert" className={styles.geoError}>📍 {geoError}</p>}
@@ -905,7 +828,6 @@ export default function VelovPage() {
               userPosition={userLocation}
               userAccuracy={geoAccuracy}
               userHeading={geoHeading}
-              userIsManual={isManualPos}
               navActive={walkNavStation != null || voiceNav.active || journeyPhase === 'biking'}
               followMode={mapFollowMode}
               onFollowModeOff={() => setMapFollowMode(false)}
@@ -920,12 +842,10 @@ export default function VelovPage() {
               recommendedEndStations={recommendedEndStations}
               onMapClick={
                 mapPlanStep > 0 ? handleMapPlanClick
-                : manualPosStep > 0 ? handleManualPosClick
                 : (mapSheetStation ? () => setMapSheetStation(null) : undefined)
               }
-              onStationClick={mapPlanStep === 0 && manualPosStep === 0 ? setMapSheetStation : undefined}
+              onStationClick={mapPlanStep === 0 ? setMapSheetStation : undefined}
               planOrigin={mapPlanOrigin}
-              focusPosition={mapFocusPos}
               dark={dark}
               fullHeight
               visible={activeTab === 'map' || isDesktop}
@@ -948,9 +868,7 @@ export default function VelovPage() {
           <div className={styles.overlayLeft}>
             {mapPlanStep === 1 && <div className={[styles.hint, styles.hintStart].join(' ')}>Appuyez pour choisir le <strong>point de départ</strong></div>}
             {mapPlanStep === 2 && <div className={[styles.hint, styles.hintEnd].join(' ')}>Appuyez pour choisir la <strong>destination</strong></div>}
-            {manualPosStep === 1 && <div className={[styles.hint, styles.hintPos].join(' ')}>Appuyez sur la carte pour <strong>définir votre position</strong></div>}
-            {mapPlanStep === 0 && manualPosStep === 0 && (
-              <>
+            {mapPlanStep === 0 && (
                 <div className={styles.mapFilters}>
                   {([
                     { value: 'all' as const, label: 'Tout', text: 'Tout' },
@@ -969,33 +887,6 @@ export default function VelovPage() {
                     </button>
                   ))}
                 </div>
-                <div className={styles.mapSearchWrap}>
-                  <input
-                    type="text"
-                    value={mapSearch}
-                    onChange={(e) => { setMapSearch(e.target.value); setMapSearchOpen(true) }}
-                    onFocus={() => setMapSearchOpen(true)}
-                    onBlur={() => setTimeout(() => setMapSearchOpen(false), 150)}
-                    placeholder="Chercher une station…"
-                    className={styles.mapSearchInput}
-                  />
-                  <Search size={16} className={styles.mapSearchIcon} />
-                  {mapSearchOpen && mapSearchResults.length > 0 && (
-                    <div className={styles.mapSearchDrop}>
-                      {mapSearchResults.map((s) => (
-                        <button
-                          key={s.id}
-                          onMouseDown={() => { setMapFocusPos(s); setMapSearch(''); setMapSearchOpen(false); setMapSheetStation(s) }}
-                          className={styles.mapSearchItem}
-                        >
-                          <span className={s.availableBikes > 0 ? styles.mapSearchStat : styles.mapSearchStatEmpty}>{s.availableBikes}<Bike size={14} /></span>{' '}
-                          {s.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </>
             )}
           </div>
 
@@ -1066,28 +957,12 @@ export default function VelovPage() {
           )}
 
           <div className={styles.overlayRight}>
-            {userLocation && mapPlanStep === 0 && manualPosStep === 0 && (
+            {userLocation && mapPlanStep === 0 && (
               <button onClick={() => setMapFollowMode((v) => !v)} className={[styles.mapBtn, mapFollowMode ? styles.mapBtnActive : ''].join(' ')}>
                 <MapPin size={16} /> {mapFollowMode ? <>Suivi <Check size={14} /></> : 'Suivre'}
               </button>
             )}
-            {mapPlanStep === 0 && (manualPosStep === 1 ? (
-              <button onClick={() => setManualPosStep(0)} className={[styles.mapBtn, styles.mapBtnDanger].join(' ')}><X size={14} /> Annuler</button>
-            ) : (
-              <button
-                onClick={() => setManualPosStep(1)}
-                className={[styles.mapBtn, isManualPos ? styles.mapBtnActive : ''].join(' ')}
-                title="Définir ma position en touchant la carte (utile sans GPS, ex. sur PC)"
-              >
-                <LocateFixed size={16} /> {isManualPos ? 'Déplacer ma position' : 'Position manuelle'}
-              </button>
-            ))}
-            {isManualPos && mapPlanStep === 0 && manualPosStep === 0 && (
-              <button onClick={startWatching} className={styles.mapBtn} title="Abandonner la position manuelle et relancer le GPS">
-                <RefreshCw size={14} /> Reprendre le GPS
-              </button>
-            )}
-            {mapPlanStep === 0 && manualPosStep === 0 ? (
+            {mapPlanStep === 0 ? (
               <button onClick={() => setMapPlanStep(1)} className={styles.mapBtn}><MapIcon size={16} /> Planifier</button>
             ) : mapPlanStep > 0 && (
               <button onClick={() => { setMapPlanStep(0); setMapPlanOrigin(null) }} className={[styles.mapBtn, styles.mapBtnDanger].join(' ')}><X size={14} /> Annuler</button>
@@ -1174,7 +1049,6 @@ export default function VelovPage() {
                         <p className={styles.recoName}>{recommendedStartStations[0].name}</p>
                         <p className={styles.recoMeta}>
                           {recommendedStartStations[0].availableBikes} vélo{recommendedStartStations[0].availableBikes > 1 ? 's' : ''} · 🚶 {formatWalkTime(startWalkSecs)}
-                          {startForecast?.[currentHour] != null && <span className={styles.recoForecast}> · ~{startForecast[currentHour]} hab.</span>}
                         </p>
                       </>
                     ) : routeOrigin ? <p className={styles.recoWarnText}>⚠️ Aucun vélo à 500m</p> : <p className={styles.recoEmpty}>—</p>}
@@ -1186,7 +1060,6 @@ export default function VelovPage() {
                         <p className={styles.recoName}>{recommendedEndStations[0].name}</p>
                         <p className={styles.recoMeta}>
                           {recommendedEndStations[0].availableStands} place{recommendedEndStations[0].availableStands > 1 ? 's' : ''} · 🚶 {formatWalkTime(endWalkSecs)}
-                          {endForecast?.[currentHour] != null && <span className={styles.recoForecast}> · ~{endForecast[currentHour]} hab.</span>}
                         </p>
                       </>
                     ) : routeDestination ? <p className={styles.recoWarnText}>⚠️ Aucune place à 500m</p> : <p className={styles.recoEmpty}>—</p>}
@@ -1241,29 +1114,10 @@ export default function VelovPage() {
             </div>
           )}
 
-          {routeInfo && (
-            <div className={styles.reminderWrap}>
-              <div className={styles.reminderBar}>
-                <span className={styles.reminderLabel}>⏰ Rappel dans :</span>
-                {!reminderEnd ? (
-                  [5, 10, 15, 20, 30].map((m) => (
-                    <button key={m} onClick={() => handleSetReminder(m)} className={styles.reminderChip}>{m}min</button>
-                  ))
-                ) : (
-                  <>
-                    <span className={styles.reminderCountdown}>{reminderCountdown ?? '…'}</span>
-                    <button onClick={() => setReminderEnd(null)} className={styles.reminderCancel}>Annuler</button>
-                  </>
-                )}
-              </div>
-            </div>
-          )}
-
           {routeInfo && routeOrigin && routeDestination && (
             <div className={styles.saveShare}>
               <button onClick={() => saveRoute(routeOrigin, routeDestination)} className={styles.saveBtn}><Star size={14} /> Sauvegarder</button>
               <button onClick={() => void handleShareRoute()} className={styles.shareBtn}>{shareCopied ? <><Check size={14} /> Lien copié !</> : '🔗 Partager'}</button>
-              <button onClick={handleExportGPX} className={styles.shareBtn}>📥 GPX</button>
             </div>
           )}
 

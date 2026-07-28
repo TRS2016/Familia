@@ -1,6 +1,4 @@
-import { useState } from 'react'
-import { Star, Navigation, BarChart3, Bell } from 'lucide-react'
-import { HistoryChart } from './HistoryChart'
+import { Star, Navigation, Bell } from 'lucide-react'
 import type { Station } from '../types'
 import styles from './StationCard.module.css'
 
@@ -35,8 +33,6 @@ export function StationCard({
   isFavorite, onToggleFavorite,
   alertThreshold, onSetThreshold,
 }: StationCardProps) {
-  const [showHistory, setShowHistory] = useState(false)
-
   const hasBikes = station.availableBikes > 0
   const hasStands = station.availableStands > 0
 
@@ -91,8 +87,6 @@ export function StationCard({
       </div>
       <OccupancyBar bikes={station.availableBikes} stands={station.availableStands} capacity={station.capacity} />
 
-      {showHistory && <HistoryChart stationId={station.id} />}
-
       <div className={styles.footer}>
         <div className={styles.statusWrap}>
           <span className={[styles.dot, station.isRenting ? styles.dotOpen : styles.dotClosed].join(' ')} />
@@ -100,15 +94,6 @@ export function StationCard({
         </div>
 
         <div className={styles.actions}>
-          <button
-            onClick={() => setShowHistory(!showHistory)}
-            title={showHistory ? "Masquer l'historique" : "Voir l'historique"}
-            className={[styles.toolBtn, showHistory ? styles.toolActive : ''].join(' ')}
-            aria-label={showHistory ? "Masquer l'historique" : "Voir l'historique"}
-          >
-            <BarChart3 size={16} />
-          </button>
-
           <button
             onClick={() => onToggleAlert(station.id)}
             disabled={!station.isRenting}

@@ -1,6 +1,5 @@
 import { useState, useRef } from 'react'
-import { Star, BarChart3, Bell, Map as MapIcon, PersonStanding, Navigation, X } from 'lucide-react'
-import { HistoryChart } from './HistoryChart'
+import { Star, Bell, Map as MapIcon, PersonStanding, Navigation, X } from 'lucide-react'
 import type { Station } from '../types'
 import styles from './StationBottomSheet.module.css'
 
@@ -35,7 +34,6 @@ export function StationBottomSheet({
   station, onClose, distance, isFavorite, onToggleFavorite, isAlerted, onToggleAlert,
   onPlanRoute, onWalkToStation, hasLocation = false,
 }: StationBottomSheetProps) {
-  const [showHistory, setShowHistory] = useState(false)
   const [dragY, setDragY] = useState(0)
   const dragStartRef = useRef<number | null>(null)
 
@@ -113,8 +111,6 @@ export function StationBottomSheet({
         </div>
         <OccupancyBar bikes={station.availableBikes} stands={station.availableStands} capacity={station.capacity} />
 
-        {showHistory && <HistoryChart stationId={station.id} />}
-
         <div className={styles.footer}>
           <div className={styles.status}>
             <span className={[styles.dot, station.isRenting ? styles.dotOpen : styles.dotClosed].join(' ')} />
@@ -122,13 +118,6 @@ export function StationBottomSheet({
             {distance !== undefined && <span className={styles.distChip}>{distance.toFixed(0)}m</span>}
           </div>
           <div className={styles.actions}>
-            <button
-              onClick={() => setShowHistory((v) => !v)}
-              aria-label={showHistory ? "Masquer l'historique" : "Voir l'historique"}
-              className={[styles.toolBtn, showHistory ? styles.toolActive : ''].join(' ')}
-            >
-              <BarChart3 size={16} />
-            </button>
             <button
               onClick={() => onToggleAlert?.(station.id)}
               disabled={!station.isRenting}
