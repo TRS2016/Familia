@@ -28,48 +28,22 @@ import { useRouteProgress } from './hooks/useRouteProgress'
 import { useVoiceNavigation } from './hooks/useVoiceNavigation'
 import { usePullToRefresh } from './hooks/usePullToRefresh'
 import { useWalkingLegs } from './hooks/useWalkingLegs'
-import { fetchWalkRoute } from './route'
+import { useJourney } from './hooks/useJourney'
 import { calculateDistance, formatWalkTime, timeAgo } from './geo'
 import { useTheme } from '../../lib/useTheme'
-import type { FavoriteRoute, GeoLineString, RoutePoint, SearchPlace, Station } from './types'
+import type { FavoriteRoute, RoutePoint, SearchPlace, Station } from './types'
 import styles from './VelovPage.module.css'
 
 const StationMap = lazy(() => import('./components/StationMap').then((m) => ({ default: m.StationMap })))
 
 const PAGE_SIZE = 30
-// Seuils de proximité (mètres) de la machine à états trajet.
-const ARRIVAL_RADIUS = 50      // station/destination atteinte
-const DROP_BIKE_RADIUS = 100   // approche station d'arrivée à vélo
-const WALK_ANNOUNCE_FAR = 300  // 1re annonce vocale d'approche
-const WALK_ANNOUNCE_NEAR = 80  // 2e annonce vocale d'approche
 type Tab = 'stations' | 'map' | 'route'
-type JourneyPhase = 'idle' | 'walk-to-start' | 'biking' | 'walk-to-end' | 'arrived'
-type WalkTarget = Station | RoutePoint
 
 const TABS: { id: Tab; Icon: typeof Bike; label: string }[] = [
   { id: 'stations', Icon: Bike, label: 'Stations' },
   { id: 'map', Icon: MapIcon, label: 'Carte' },
   { id: 'route', Icon: Navigation, label: 'Itinéraire' },
 ]
-
-interface SavedJourney { phase: JourneyPhase; walkNavStation: WalkTarget | null }
-const _savedJourney: SavedJourney | null = (() => {
-  try { return JSON.parse(sessionStorage.getItem('velov-journey') ?? 'null') as SavedJourney | null } catch { return null }
-})()
-
-function trimWalkGeometry(geometry: GeoLineString | null, userPos: { lat: number; lng: number } | null): GeoLineString | null {
-  if (!geometry?.coordinates?.length || !userPos) return geometry
-  const coords = geometry.coordinates
-  let minDist = Infinity, minIdx = 0
-  for (let i = 0; i < coords.length; i++) {
-    const [lng, lat] = coords[i]
-    const d = calculateDistance(userPos.lat, userPos.lng, lat, lng)
-    if (d < minDist) { minDist = d; minIdx = i }
-    if (d < 15) break
-  }
-  const sliced = coords.slice(minIdx)
-  return sliced.length < 2 ? null : { ...geometry, coordinates: sliced }
-}
 
 export default function VelovPage() {
   const { stations, loading, error, refresh, isFromCache, fetchedAt } = useStations()
@@ -114,17 +88,6 @@ export default function VelovPage() {
   const { deviated } = useRouteDeviation({ routeGeometry, userPosition: userLocation })
   const routeProgress = useRouteProgress({ routeGeometry, userPosition: userLocation })
   const voiceNav = useVoiceNavigation({ steps: routeInfo?.steps ?? null, userPosition: userLocation })
-
-  const [walkNavStation, setWalkNavStation] = useState<WalkTarget | null>(_savedJourney?.walkNavStation ?? null)
-  const [walkNavRoute, setWalkNavRoute] = useState<Awaited<ReturnType<typeof fetchWalkRoute>>>(null)
-  const [walkNavLoading, setWalkNavLoading] = useState(false)
-  const [journeyPhase, setJourneyPhase] = useState<JourneyPhase>(_savedJourney?.phase ?? 'idle')
-  const journeyRestoredRef = useRef(_savedJourney != null && _savedJourney.phase !== 'idle')
-  const walkNavProgress = useRouteProgress({ routeGeometry: walkNavRoute?.geometry ?? null, userPosition: userLocation })
-  const walkVoiceNav = useVoiceNavigation({ steps: walkNavRoute?.steps ?? null, userPosition: userLocation })
-  const walkVoiceActive = walkVoiceNav.active
-  const walkVoiceSpeakFn = walkVoiceNav.speak
-  const { deviated: walkDeviated } = useRouteDeviation({ routeGeometry: walkNavRoute?.geometry ?? null, userPosition: userLocation })
 
   const { recommendedStartStations, recommendedEndStations, startWalkSeconds, endWalkSeconds } = useRecommendedStations({
     routeOrigin, routeDestination, stations, sendNotification, permission,
@@ -171,8 +134,6 @@ export default function VelovPage() {
   const [mapFilter, setMapFilter] = useState<'all' | 'bikes' | 'stands' | 'favorites'>('all')
   const [eta, setEta] = useState<string | null>(null)
   const [autoRecalcCountdown, setAutoRecalcCountdown] = useState<number | null>(null)
-  const [journeyStartTime, setJourneyStartTime] = useState<number | null>(null)
-  const [journeyElapsedMins, setJourneyElapsedMins] = useState<number | null>(null)
   const [notifDenied, setNotifDenied] = useState(false)
   const [showNotifExplainer, setShowNotifExplainer] = useState(false)
   const pendingNotifActionRef = useRef<(() => void) | null>(null)
@@ -184,6 +145,19 @@ export default function VelovPage() {
       const stored = localStorage.getItem('velov-custom-places')
       return stored ? (JSON.parse(stored) as SearchPlace[]) : []
     } catch { return [] }
+  })
+
+  // Machine à états du trajet complet (marche → vélo → marche) extraite dans useJourney.
+  const {
+    journeyPhase, journeyUnderway,
+    walkNavStation, walkNavRoute, walkNavLoading, walkNavProgress, walkVoiceNav,
+    trimmedWalkNavGeometry, distToWalkNavStation,
+    endStationForJourney, endStationIsFallback, distToEndStation, journeyElapsedMins,
+    startJourney, cancelJourney, walkToStation, stopWalkNav,
+  } = useJourney({
+    userLocation, stations, recommendedStartStations, recommendedEndStations, routeDestination,
+    sendNotification, ensureWatching, startWatching, setMapFollowMode, setActiveTab, isDesktop,
+    setMapSheetStation, voiceNav,
   })
 
   const [urlParams] = useState(() => {
@@ -291,8 +265,6 @@ export default function VelovPage() {
     return () => { navigator.clearAppBadge?.().catch(() => {}) }
   }, [badgeCount])
 
-  const journeyUnderway = journeyPhase === 'biking' || journeyPhase === 'walk-to-end'
-
   useEffect(() => {
     let cancelled = false
     if (!deviated || !userLocation || journeyUnderway) {
@@ -315,148 +287,6 @@ export default function VelovPage() {
     }, 1000)
     return () => { cancelled = true; clearInterval(id) }
   }, [deviated, userLocation, journeyUnderway, setRouteOrigin, calculateRoute])
-
-  const distToWalkNavStation = walkNavStation && userLocation
-    ? calculateDistance(userLocation.lat, userLocation.lng, walkNavStation.lat, walkNavStation.lng) : null
-  const walkNavStationName = walkNavStation?.name ?? ''
-  const endStationForJourney = recommendedEndStations.find((s) => s.availableStands > 0) ?? recommendedEndStations[0] ?? null
-  const endStationIsFallback = recommendedEndStations.length > 0 && endStationForJourney?.id !== recommendedEndStations[0]?.id
-  const distToEndStation = journeyPhase === 'biking' && endStationForJourney && userLocation
-    ? calculateDistance(userLocation.lat, userLocation.lng, endStationForJourney.lat, endStationForJourney.lng) : null
-  const trimmedWalkNavGeometry = useMemo(
-    () => trimWalkGeometry(walkNavRoute?.geometry ?? null, userLocation),
-    [walkNavRoute, userLocation],
-  )
-  const liveWalkStationBikes = useMemo(() => {
-    if (journeyPhase !== 'walk-to-start' || !walkNavStation) return null
-    return stations.find((s) => s.id === walkNavStation.id)?.availableBikes ?? null
-  }, [journeyPhase, walkNavStation, stations])
-  const walkApproachAnnouncedRef = useRef({ t300: false, t80: false })
-  const startStationEmptyNotifiedRef = useRef(false)
-
-  useEffect(() => {
-    if (distToWalkNavStation === null || distToWalkNavStation > ARRIVAL_RADIUS) return
-    if ('vibrate' in navigator) navigator.vibrate([100, 50, 100])
-    if (journeyPhase === 'walk-to-start') {
-      sendNotification('Prenez un vélo !', { body: `Station ${walkNavStationName} atteinte — votre trajet à vélo commence.`, tag: 'velov-journey' })
-      void Promise.resolve().then(() => { setJourneyPhase('biking'); setWalkNavStation(null); setWalkNavRoute(null) })
-    } else if (journeyPhase === 'walk-to-end') {
-      sendNotification('Vous êtes arrivé !', { body: 'Vous avez atteint votre destination. Bravo !', tag: 'velov-journey' })
-      void Promise.resolve().then(() => {
-        setJourneyPhase('arrived')
-        setJourneyElapsedMins(journeyStartTime ? Math.round((Date.now() - journeyStartTime) / 60000) : null)
-        setWalkNavStation(null); setWalkNavRoute(null)
-      })
-    } else {
-      sendNotification('Vous êtes arrivé !', { body: `Station ${walkNavStationName} à portée.`, tag: 'velov-walk' })
-      void Promise.resolve().then(() => { setWalkNavStation(null); setWalkNavRoute(null) })
-    }
-  }, [distToWalkNavStation, walkNavStationName, sendNotification, journeyPhase, journeyStartTime])
-
-  useEffect(() => {
-    if (!walkNavStation) return
-    walkApproachAnnouncedRef.current = { t300: false, t80: false }
-    startStationEmptyNotifiedRef.current = false
-    void Promise.resolve().then(() => setMapFollowMode(true))
-  }, [walkNavStation])
-
-  useEffect(() => {
-    if (journeyPhase !== 'biking' || distToEndStation === null || distToEndStation > DROP_BIKE_RADIUS) return
-    const station = endStationForJourney
-    const dest = routeDestination
-    const pos = userLocation
-    if (!station || !dest || !pos) return
-    let cancelled = false
-    sendNotification('Déposez le vélo', { body: `Station ${station.name} à portée — continuez à pied.`, tag: 'velov-journey' })
-    if ('vibrate' in navigator) navigator.vibrate([200, 100, 200])
-    void Promise.resolve().then(() => {
-      if (cancelled) return
-      setJourneyPhase('walk-to-end'); setWalkNavStation(dest); setWalkNavRoute(null); setWalkNavLoading(true)
-    })
-    fetchWalkRoute(pos.lat, pos.lng, dest.lat, dest.lng)
-      .then((route) => { if (!cancelled) setWalkNavRoute(route) })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) setWalkNavLoading(false) })
-    return () => { cancelled = true }
-  }, [journeyPhase, distToEndStation, endStationForJourney, routeDestination, userLocation, sendNotification])
-
-  useEffect(() => {
-    if (journeyPhase === 'idle') sessionStorage.removeItem('velov-journey')
-    else sessionStorage.setItem('velov-journey', JSON.stringify({ phase: journeyPhase, walkNavStation }))
-  }, [journeyPhase, walkNavStation])
-
-  useEffect(() => {
-    if (journeyPhase !== 'arrived') return
-    const timer = setTimeout(() => {
-      setJourneyPhase('idle'); setJourneyStartTime(null); setJourneyElapsedMins(null); setWalkNavStation(null); setWalkNavRoute(null)
-    }, 8000)
-    return () => clearTimeout(timer)
-  }, [journeyPhase])
-
-  useEffect(() => {
-    if (journeyRestoredRef.current) startWatching()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    if (!journeyRestoredRef.current || !walkNavStation || !userLocation) return
-    if (journeyPhase !== 'walk-to-start' && journeyPhase !== 'walk-to-end') return
-    journeyRestoredRef.current = false
-    let cancelled = false
-    void Promise.resolve().then(() => { if (!cancelled) setWalkNavLoading(true) })
-    fetchWalkRoute(userLocation.lat, userLocation.lng, walkNavStation.lat, walkNavStation.lng)
-      .then((route) => { if (!cancelled) setWalkNavRoute(route) })
-      .catch(() => {})
-      .finally(() => { if (!cancelled) void Promise.resolve().then(() => setWalkNavLoading(false)) })
-    return () => { cancelled = true }
-  }, [journeyPhase, walkNavStation, userLocation])
-
-  useEffect(() => {
-    if (!walkDeviated || !walkNavStation || !userLocation) return
-    let cancelled = false
-    const timer = setTimeout(() => {
-      if (cancelled) return
-      fetchWalkRoute(userLocation.lat, userLocation.lng, walkNavStation.lat, walkNavStation.lng)
-        .then((route) => { if (!cancelled && route) setWalkNavRoute(route) })
-        .catch(() => {})
-    }, 5000)
-    return () => { cancelled = true; clearTimeout(timer) }
-  }, [walkDeviated, walkNavStation, userLocation])
-
-  useEffect(() => {
-    if (!walkVoiceActive || distToWalkNavStation === null || !walkNavStation) return
-    const isStation = (walkNavStation as Station).availableBikes != null
-    const label = isStation ? `station ${walkNavStation.name}` : (walkNavStation.name ?? 'destination')
-    if (distToWalkNavStation <= WALK_ANNOUNCE_NEAR && !walkApproachAnnouncedRef.current.t80) {
-      walkApproachAnnouncedRef.current.t80 = true
-      const dist = Math.round(distToWalkNavStation / 10) * 10
-      walkVoiceSpeakFn(`${label.charAt(0).toUpperCase()}${label.slice(1)} dans ${dist} mètres.`)
-    } else if (distToWalkNavStation <= WALK_ANNOUNCE_FAR && !walkApproachAnnouncedRef.current.t300) {
-      walkApproachAnnouncedRef.current.t300 = true
-      const dist = Math.round(distToWalkNavStation / 25) * 25
-      walkVoiceSpeakFn(`Dans ${dist} mètres, ${label}.`)
-    }
-  }, [walkVoiceActive, distToWalkNavStation, walkNavStation, walkVoiceSpeakFn])
-
-  useEffect(() => {
-    if (liveWalkStationBikes === null || liveWalkStationBikes > 0 || !walkNavStation || !userLocation) return
-    if (startStationEmptyNotifiedRef.current) return
-    const nextStation = recommendedStartStations.find((s) => s.id !== walkNavStation.id && s.availableBikes > 0)
-    startStationEmptyNotifiedRef.current = true
-    if (!nextStation) {
-      sendNotification('Plus de vélos !', { body: `La station ${walkNavStation.name} est vide. Aucune alternative proche.`, tag: 'velov-redirect' })
-      return
-    }
-    sendNotification('Station vide', { body: `Redirection vers ${nextStation.name}.`, tag: 'velov-redirect' })
-    const pos = { lat: userLocation.lat, lng: userLocation.lng }
-    const newStation = { ...nextStation }
-    void Promise.resolve().then(() => {
-      setWalkNavStation(newStation); setWalkNavRoute(null); setWalkNavLoading(true)
-      fetchWalkRoute(pos.lat, pos.lng, newStation.lat, newStation.lng)
-        .then((route) => { if (route) setWalkNavRoute(route) })
-        .catch(() => {})
-        .finally(() => setWalkNavLoading(false))
-    })
-  }, [liveWalkStationBikes, walkNavStation, recommendedStartStations, userLocation, sendNotification])
 
   useEffect(() => {
     const t = setTimeout(() => setShowPlannerForm(!routeInfo), 0)
@@ -506,9 +336,8 @@ export default function VelovPage() {
 
   const handleClearAll = useCallback(() => {
     clearRoute(); setDestination(null); setProximityEnabled(false)
-    setJourneyPhase('idle'); setJourneyStartTime(null); setJourneyElapsedMins(null); setWalkNavStation(null); stopWatching()
-    voiceNav.stopNavigation(); walkVoiceNav.stopNavigation()
-  }, [clearRoute, stopWatching, voiceNav, walkVoiceNav])
+    cancelJourney(); stopWatching()
+  }, [clearRoute, stopWatching, cancelJourney])
 
   const doEnableProximity = useCallback(() => {
     if (recommendedEndStations.length > 0) {
@@ -594,15 +423,6 @@ export default function VelovPage() {
     setShowRoutePlanner(true); setMapSheetStation(null); setActiveTab('route')
   }, [setRouteDestination, setShowRoutePlanner])
 
-  const handleWalkToStation = useCallback(async (station: Station) => {
-    if (!userLocation) return
-    setWalkNavStation(station); setWalkNavRoute(null); setWalkNavLoading(true); setMapSheetStation(null)
-    if (!isDesktop) setActiveTab('map')
-    ensureWatching()
-    try { setWalkNavRoute(await fetchWalkRoute(userLocation.lat, userLocation.lng, station.lat, station.lng)) }
-    finally { setWalkNavLoading(false) }
-  }, [userLocation, ensureWatching, isDesktop])
-
   function dismissOnboarding() { setShowOnboarding(false); localStorage.setItem('velov-onboarded', '1') }
 
   async function handleConfirmNotif() {
@@ -610,23 +430,6 @@ export default function VelovPage() {
     const granted = await requestPermission()
     if (granted) pendingNotifActionRef.current?.()
     pendingNotifActionRef.current = null
-  }
-
-  async function handleStartJourney() {
-    if (!userLocation || !recommendedStartStations[0]) return
-    dismissOnboarding()
-    const startStation = recommendedStartStations[0]
-    setJourneyPhase('walk-to-start'); setJourneyStartTime(Date.now()); setWalkNavStation(startStation); setWalkNavRoute(null)
-    walkVoiceNav.startNavigation(); setWalkNavLoading(true); setMapSheetStation(null)
-    if (!isDesktop) setActiveTab('map')
-    setMapFollowMode(true); ensureWatching()
-    try { setWalkNavRoute(await fetchWalkRoute(userLocation.lat, userLocation.lng, startStation.lat, startStation.lng)) }
-    catch { /* route unavailable */ } finally { setWalkNavLoading(false) }
-  }
-
-  function handleCancelJourney() {
-    setJourneyPhase('idle'); setJourneyStartTime(null); setJourneyElapsedMins(null); setWalkNavStation(null); setWalkNavRoute(null)
-    walkVoiceNav.stopNavigation(); voiceNav.stopNavigation()
   }
 
   const handleRecalculateFromPosition = () => {
@@ -861,7 +664,7 @@ export default function VelovPage() {
             isAlerted={mapSheetStation ? alertedStationIds.has(mapSheetStation.id) : false}
             onToggleAlert={handleToggleAlert}
             onPlanRoute={handlePlanRouteFromStation}
-            onWalkToStation={handleWalkToStation}
+            onWalkToStation={walkToStation}
             hasLocation={!!userLocation}
           />
 
@@ -907,7 +710,7 @@ export default function VelovPage() {
                   )}
                 </div>
                 <span className={styles.bannerStands}>{endStationForJourney?.availableStands ?? '?'} <ParkingSquare size={14} /></span>
-                <button onClick={handleCancelJourney} aria-label="Annuler le trajet" className={styles.bannerClose}><X size={16} /></button>
+                <button onClick={cancelJourney} aria-label="Annuler le trajet" className={styles.bannerClose}><X size={16} /></button>
               </div>
             </div>
           )}
@@ -920,7 +723,7 @@ export default function VelovPage() {
               progress={walkNavProgress}
               distToStation={distToWalkNavStation}
               voiceNav={walkVoiceNav}
-              onStop={() => { walkVoiceNav.stopNavigation(); setWalkNavStation(null); setWalkNavRoute(null); setJourneyPhase('idle') }}
+              onStop={stopWalkNav}
             />
           )}
 
@@ -945,7 +748,7 @@ export default function VelovPage() {
                     <p className={styles.bannerSub}>{journeyElapsedMins} min{routeInfo?.distanceFormatted && ` · ${routeInfo.distanceFormatted} à vélo`}</p>
                   )}
                 </div>
-                <button onClick={handleCancelJourney} className={styles.bannerDone}>Terminer</button>
+                <button onClick={cancelJourney} className={styles.bannerDone}>Terminer</button>
               </div>
             </div>
           )}
@@ -1093,7 +896,7 @@ export default function VelovPage() {
                         <button onClick={dismissOnboarding} aria-label="Fermer" className={styles.tipClose}><X size={14} /></button>
                       </div>
                     )}
-                    <button onClick={() => void handleStartJourney()} className={styles.journeyCta}>
+                    <button onClick={() => { dismissOnboarding(); void startJourney() }} className={styles.journeyCta}>
                       <Navigation size={16} /> Démarrer le trajet complet
                     </button>
                   </>
@@ -1107,7 +910,7 @@ export default function VelovPage() {
                       {journeyPhase === 'walk-to-end' && '🚶 À pied jusqu\'à la destination…'}
                       {journeyPhase === 'arrived' && '✅ Vous êtes arrivé à destination !'}
                     </p>
-                    <button onClick={handleCancelJourney} aria-label="Annuler le trajet" className={styles.journeyStatusClose}><X size={14} /></button>
+                    <button onClick={cancelJourney} aria-label="Annuler le trajet" className={styles.journeyStatusClose}><X size={14} /></button>
                   </div>
                 )}
               </div>
