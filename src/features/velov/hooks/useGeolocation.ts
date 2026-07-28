@@ -1,6 +1,13 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import type { UserPosition } from '../types'
 
+// NOTE arrière-plan : `watchPosition` s'arrête dès que l'écran se verrouille ou que
+// l'app passe en arrière-plan (iOS suspend, Android throttle). La géoloc en tâche
+// de fond est une capacité NATIVE uniquement — indisponible en PWA. La navigation
+// vélo verrouillée nécessiterait un repackaging Capacitor (cf. velov-integration).
+// Le Wake Lock (useVoiceNavigation) garde l'écran allumé pendant le guidage actif,
+// ce qui suffit tant que l'app reste au premier plan.
+
 // Traduit les erreurs de géolocalisation (codes + messages) en français.
 function frGeoError(err: GeolocationPositionError | { code?: number; message?: string }): string {
   const code = err?.code

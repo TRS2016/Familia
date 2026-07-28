@@ -93,16 +93,28 @@ export default function JukeboxAudioEngine({ current, next, volume, crossfadeSec
     const incoming = el(inIdx)
     if (!outgoing || !incoming) return
 
-    fadingRef.current = true
     incoming.src = nx.url
     incoming.currentTime = 0
-    incoming.volume = 0
-    incoming.play().catch(() => { /* bloqué */ })
     // L'élément entrant devient l'actif tout de suite (réconciliation à l'avance).
     activeRef.current = inIdx
     playingIdRef.current = nx.id
-
     const target = Math.min(1, Math.max(0, volumeRef.current))
+
+    // Écran verrouillé / onglet masqué : requestAnimationFrame est gelé → pas de
+    // fondu possible. On bascule d'un coup pour que la file continue d'avancer
+    // (l'audio, lui, continue de jouer verrouillé). Le fondu revient à l'écran allumé.
+    if (document.hidden) {
+      incoming.volume = target
+      incoming.play().catch(() => { /* bloqué */ })
+      try { outgoing.pause() } catch { /* ignore */ }
+      onEnded(outgoingId)
+      return
+    }
+
+    fadingRef.current = true
+    incoming.volume = 0
+    incoming.play().catch(() => { /* bloqué */ })
+
     const dur = Math.max(0.4, Math.min(cfRef.current, (outgoing.duration || cfRef.current) - outgoing.currentTime))
     const t0 = performance.now()
     const tick = (now: number) => {
