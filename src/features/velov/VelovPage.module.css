@@ -82,7 +82,6 @@
 .locateSub { font-size: var(--text-xs); color: var(--text-sub); margin-top: 2px; }
 .locateBtn { flex-shrink: 0; font-size: var(--text-xs); min-height: 40px; padding: 8px 12px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--info) 80%, black); color: #fff; border: none; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 4px; }
 .locateActions { display: flex; flex-direction: column; gap: var(--space-2); flex-shrink: 0; }
-.locateBtnGhost { background: var(--bg-card); color: var(--text-sub); border: 1px solid var(--border); }
 .geoError { font-size: var(--text-xs); color: var(--warning); background: color-mix(in srgb, var(--warning) 12%, transparent); border: 1px solid color-mix(in srgb, var(--warning) 28%, transparent); border-radius: var(--radius-sm); padding: 8px 12px; }
 
 /* ── Liste stations ─────────────────────────────────────── */
@@ -133,19 +132,9 @@
 .hint { border-radius: var(--radius-lg); padding: 8px 12px; font-size: var(--text-xs); box-shadow: var(--shadow-card); max-width: 13rem; }
 .hintStart { background: color-mix(in srgb, var(--success) 16%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--success) 34%, transparent); color: var(--text); }
 .hintEnd { background: color-mix(in srgb, var(--danger) 16%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--danger) 34%, transparent); color: var(--text); }
-.hintPos { background: color-mix(in srgb, var(--info) 16%, var(--bg-card)); border: 1px solid color-mix(in srgb, var(--info) 34%, transparent); color: var(--text); }
 .mapFilters { display: flex; gap: 6px; }
 .mapFilterBtn { font-size: var(--text-xs); min-height: 40px; min-width: 40px; padding: 6px 10px; border-radius: var(--radius-sm); box-shadow: var(--shadow-card); font-weight: 600; display: inline-flex; align-items: center; justify-content: center; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-sub); cursor: pointer; }
 .mapFilterActive { background: var(--accent); color: #fff; border-color: var(--accent); }
-.mapSearchWrap { position: relative; width: 13rem; }
-.mapSearchInput { width: 100%; font-size: var(--text-xs); padding: 8px 12px 8px 30px; border-radius: var(--radius-md); border: 1px solid var(--border); background: var(--bg-card); box-shadow: var(--shadow-card); color: var(--text); outline: none; }
-.mapSearchIcon { position: absolute; left: 9px; top: 50%; transform: translateY(-50%); color: var(--text-muted); pointer-events: none; }
-.mapSearchDrop { position: absolute; top: 100%; left: 0; right: 0; margin-top: 4px; background: var(--bg-card); border-radius: var(--radius-md); box-shadow: var(--shadow-card-hover); border: 1px solid var(--border); overflow: hidden; }
-.mapSearchItem { display: block; width: 100%; text-align: left; padding: 8px 12px; font-size: var(--text-xs); border: none; border-bottom: 1px solid var(--border-subtle); background: none; cursor: pointer; color: var(--text-sub); }
-.mapSearchItem:last-child { border-bottom: none; }
-.mapSearchItem:hover { background: var(--accent-soft); }
-.mapSearchStat { font-weight: 700; color: var(--success); }
-.mapSearchStatEmpty { font-weight: 700; color: var(--danger); }
 
 .mapBtn { font-size: var(--text-xs); min-height: 40px; padding: 8px 12px; border-radius: var(--radius-md); box-shadow: var(--shadow-card); font-weight: 600; display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-sub); cursor: pointer; }
 .mapBtnActive { background: var(--accent); color: #fff; border-color: var(--accent); }
@@ -197,7 +186,6 @@
 .recoLabelEnd { color: var(--info); }
 .recoName { font-size: var(--text-xs); font-weight: 600; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .recoMeta { font-size: var(--text-xs); color: var(--text-sub); margin-top: 2px; }
-.recoForecast { color: var(--accent); }
 .recoWarnText { font-size: var(--text-xs); color: var(--warning); }
 .recoEmpty { font-size: var(--text-xs); color: var(--text-muted); }
 .journeyLine { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
@@ -212,13 +200,6 @@
 .journeyStatus { display: flex; align-items: center; gap: var(--space-2); background: color-mix(in srgb, var(--positive) 12%, transparent); border: 1px solid color-mix(in srgb, var(--positive) 28%, transparent); border-radius: var(--radius-lg); padding: 8px 12px; }
 .journeyStatusText { flex: 1; font-size: var(--text-xs); color: var(--positive); font-weight: 600; }
 .journeyStatusClose { font-size: var(--text-xs); color: var(--positive); background: none; border: none; cursor: pointer; flex-shrink: 0; }
-
-.reminderWrap { max-width: var(--page-max-w, 800px); margin: 0 auto; width: 100%; padding: var(--space-2) var(--space-4) 0; }
-.reminderBar { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); border-radius: var(--radius-lg); padding: 8px 12px; }
-.reminderLabel { font-size: var(--text-xs); font-weight: 600; color: var(--accent); flex-shrink: 0; }
-.reminderChip { font-size: var(--text-xs); min-height: 40px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--bg-card); color: var(--text-sub); border: 1px solid var(--border); cursor: pointer; }
-.reminderCountdown { font-size: var(--text-xs); font-family: monospace; color: var(--accent); }
-.reminderCancel { font-size: var(--text-xs); padding: 2px 8px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); border: none; cursor: pointer; }
 
 .saveShare { max-width: var(--page-max-w, 800px); margin: 0 auto; width: 100%; padding: var(--space-2) var(--space-4) 0; display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: center; }
 .saveBtn { font-size: var(--text-xs); min-height: 40px; padding: 8px 12px; border-radius: var(--radius-sm); background: color-mix(in srgb, var(--warning) 14%, transparent); color: var(--warning); border: 1px solid color-mix(in srgb, var(--warning) 30%, transparent); cursor: pointer; display: inline-flex; align-items: center; gap: 4px; }
