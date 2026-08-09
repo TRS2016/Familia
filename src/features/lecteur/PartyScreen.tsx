@@ -16,7 +16,7 @@ export default function PartyScreen({ queueItems, onClose }: {
   onClose: () => void
 }) {
   const markPlayed = useMarkQueuePlayed()
-  const { query, create } = useJukeboxToken()
+  const { query } = useJukeboxToken()
   const [qr, setQr] = useState<string | null>(null)
   useWakeLock(true)
 
@@ -24,12 +24,11 @@ export default function PartyScreen({ queueItems, onClose }: {
   const upNext  = queueItems.slice(1, 4)
   const requester = current ? (current.added_by_member?.display_name ?? current.guest_name) : null
 
-  // Lien d'invitation (créé s'il n'en existe pas) → QR permanent à l'écran.
+  // Affiche le lien d'invitation existant. La CRÉATION passe uniquement par
+  // « Inviter des amis » : deux voies de création concurrentes se supprimaient
+  // le token l'une à l'autre (create() purge d'abord les tokens du foyer),
+  // invalidant un QR déjà scanné.
   const token = query.data?.token ?? null
-  useEffect(() => {
-    if (!query.isLoading && !token && !create.isPending && !create.isSuccess) create.mutate()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query.isLoading, token])
   const url = token ? `${window.location.origin}/soiree/${token}` : null
   useEffect(() => {
     if (url) QRCode.toDataURL(url, { width: 200, margin: 1 }).then(setQr).catch(() => setQr(null))
@@ -90,11 +89,15 @@ export default function PartyScreen({ queueItems, onClose }: {
       )}
 
       <div className={styles.partyFooter}>
-        {qr && (
+        {qr ? (
           <div className={styles.partyJoin}>
             <img src={qr} alt="QR pour rejoindre la soirée" className={styles.partyQr} />
             <span className={styles.partyJoinLabel}>Rejoindre<br />la soirée</span>
           </div>
+        ) : (
+          <p className={styles.partyNoQr}>
+            Pas de lien actif — ouvre « Inviter des amis » dans l'onglet Soirée pour afficher le QR.
+          </p>
         )}
         <div className={styles.partyControls}>
           {current && (

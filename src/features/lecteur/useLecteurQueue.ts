@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useToast } from '../../components/useToast'
-import type { MediaFile } from './useLecteur'
+import { MEDIA_FILES_KEY, type MediaFile } from './useLecteur'
 
 // ── Type ────────────────────────────────────────────────────────────────────
 export interface QueueItem {
@@ -92,26 +92,45 @@ export function useApproveRequest() {
   })
 }
 
-// Le DJ refuse une demande : suppression définitive.
+// Le DJ refuse une demande : suppression définitive. Si le morceau avait été
+// créé par l'Edge Function pour cet invité (lien collé → media_files taggué
+// « soirée », sans membre) et qu'il n'est plus référencé nulle part, on le
+// retire aussi : sinon chaque refus laissait un résidu dans la bibliothèque.
 export function useRejectRequest() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('lecteur_queue').delete().eq('id', id)
+    mutationFn: async (item: QueueItem) => {
+      const { error } = await supabase.from('lecteur_queue').delete().eq('id', item.id)
       if (error) throw error
+
+      const mf = item.media_file
+      if (!mf || mf.member_id !== null || !(mf.tags ?? []).includes('soirée')) return
+
+      const [{ count: queued }, { count: listed }] = await Promise.all([
+        supabase.from('lecteur_queue').select('id', { count: 'exact', head: true })
+          .eq('media_file_id', mf.id),
+        supabase.from('playlist_items').select('id', { count: 'exact', head: true })
+          .eq('media_file_id', mf.id),
+      ])
+      if ((queued ?? 0) === 0 && (listed ?? 0) === 0) {
+        await supabase.from('media_files').delete().eq('id', mf.id)
+      }
     },
-    onMutate: async (id) => {
+    onMutate: async (item) => {
       await queryClient.cancelQueries({ queryKey: LECTEUR_PENDING_KEY })
       const previous = queryClient.getQueryData<QueueItem[]>(LECTEUR_PENDING_KEY) ?? []
-      queryClient.setQueryData<QueueItem[]>(LECTEUR_PENDING_KEY, previous.filter(q => q.id !== id))
+      queryClient.setQueryData<QueueItem[]>(LECTEUR_PENDING_KEY, previous.filter(q => q.id !== item.id))
       return { previous }
     },
-    onError: (_e, _id, ctx) => {
+    onError: (_e, _item, ctx) => {
       queryClient.setQueryData(LECTEUR_PENDING_KEY, ctx?.previous ?? [])
       showToast({ type: 'error', message: 'Action impossible.' })
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: LECTEUR_PENDING_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: LECTEUR_PENDING_KEY })
+      queryClient.invalidateQueries({ queryKey: MEDIA_FILES_KEY })
+    },
   })
 }
 
@@ -249,7 +268,9 @@ export function useVoteQueueItem() {
   return useMutation({
     mutationFn: async (itemId: string) => {
       if (!member?.id) throw new Error('Membre inconnu')
-      const { error } = await supabase.rpc('vote_lecteur_queue', { p_item_id: itemId, p_voter_key: member.id })
+      // La clé de vote est dérivée de auth.uid() côté serveur : l'envoyer depuis
+      // le client permettait d'usurper l'empreinte d'un invité.
+      const { error } = await supabase.rpc('vote_lecteur_queue', { p_item_id: itemId })
       if (error) throw error
     },
     onMutate: async (itemId) => {

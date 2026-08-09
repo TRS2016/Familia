@@ -2111,3 +2111,24 @@
   .partyControls { justify-content: center; }
   .partyJoin { justify-content: center; }
 }
+
+
+/* ── Lecteur DJ (monté hors des onglets) ─────────────────────────────────── */
+
+.djDock { margin: 0 var(--page-pad, 16px) 12px; padding: 10px 12px; border: 1.5px solid var(--accent); border-radius: var(--radius-md); background: var(--surface); }
+.djDockHead { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; min-width: 0; }
+.djDockBadge { flex: 0 0 auto; padding: 2px 7px; border-radius: 999px; background: var(--accent); color: #fff; font-size: 10px; font-weight: 900; letter-spacing: 0.04em; }
+.djDockTitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--text-sm); font-weight: 800; color: var(--text); }
+
+/* Badge d'alerte (demandes invitées en attente) : se distingue du compteur de file. */
+.tabBadgeAlert { display: inline-flex; align-items: center; justify-content: center; min-width: 17px; height: 17px; margin-left: 4px; padding: 0 5px; border-radius: 999px; background: var(--danger, #C0392B); color: #fff; font-size: 10px; font-weight: 900; }
+
+/* ── Édition d'un média : visibilité en soirée ───────────────────────────── */
+
+.hideRow { display: flex; align-items: flex-start; gap: 8px; font-size: var(--text-sm); line-height: 1.4; color: var(--text-sub); cursor: pointer; }
+.hideRow input { margin-top: 2px; flex: 0 0 auto; }
+.hideHint { color: var(--text-muted); }
+
+/* ── Mode écran : pas de lien actif ──────────────────────────────────────── */
+
+.partyNoQr { max-width: 260px; margin: 0; font-size: var(--text-xs); line-height: 1.45; color: rgba(255, 255, 255, 0.65); }

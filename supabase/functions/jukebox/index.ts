@@ -49,14 +49,19 @@ Deno.serve(async (req: Request) => {
         .from('media_files')
         .select('id, title, member:members(display_name)')
         .eq('household_id', householdId)
-        .order('title', { ascending: true }),
+        // Un fichier peut être masqué aux invités : le lien de soirée expose
+        // sinon l'intégralité de la bibliothèque familiale à qui l'ouvre.
+        .eq('party_hidden', false)
+        .order('title', { ascending: true })
+        .limit(500),
       supabase
         .from('lecteur_queue')
         .select('id, votes, media_file:media_files(title), added_by_member:members!lecteur_queue_added_by_fkey(display_name), guest_name, position')
         .eq('household_id', householdId)
         .eq('played', false)
         .eq('approved', true)
-        .order('position', { ascending: true }),
+        .order('position', { ascending: true })
+        .limit(200),
       supabase
         .from('lecteur_now_playing')
         .select('queue_item_id, title, requested_by, updated_at')
@@ -154,6 +159,7 @@ Deno.serve(async (req: Request) => {
         .select('id')
         .eq('id', mediaFileId)
         .eq('household_id', householdId)
+        .eq('party_hidden', false)
         .maybeSingle()
       if (!file) return json({ error: 'Morceau introuvable' }, 404)
     }

@@ -21,6 +21,8 @@ export interface MediaFile {
   duration_seconds: number | null
   tags: string[]
   is_favorite: boolean
+  /** Masqué aux invités de soirée (le lien d'invitation expose la bibliothèque). */
+  party_hidden: boolean
   play_count: number
   created_at: string
   member: { display_name: string } | null
@@ -95,6 +97,8 @@ export function useMediaFiles() {
         .select('*, member:members(display_name)')
         .eq('household_id', HOUSEHOLD_ID)
         .order('created_at', { ascending: false })
+        // Borne explicite : PostgREST tronque à max_rows (1000) sans le dire.
+        .limit(2000)
       if (error) throw error
       return data as unknown as MediaFile[]
     },
@@ -169,20 +173,26 @@ export function useEditMediaFile() {
   const { showToast } = useToast()
 
   return useMutation({
-    mutationFn: async ({ id, title, tags }: { id: string; title: string; tags?: string[] }) => {
+    mutationFn: async ({ id, title, tags, party_hidden }: { id: string; title: string; tags?: string[]; party_hidden?: boolean }) => {
       const patch: Record<string, unknown> = { title: title.trim() }
       if (tags !== undefined) patch.tags = tags
+      if (party_hidden !== undefined) patch.party_hidden = party_hidden
       const { error } = await supabase
         .from('media_files')
         .update(patch as never)
         .eq('id', id)
       if (error) throw error
     },
-    onMutate: async ({ id, title, tags }) => {
+    onMutate: async ({ id, title, tags, party_hidden }) => {
       await queryClient.cancelQueries({ queryKey: MEDIA_FILES_KEY })
       const previous = queryClient.getQueryData<MediaFile[]>(MEDIA_FILES_KEY) ?? []
       queryClient.setQueryData<MediaFile[]>(MEDIA_FILES_KEY,
-        previous.map(f => f.id === id ? { ...f, title: title.trim(), ...(tags !== undefined ? { tags } : {}) } : f)
+        previous.map(f => f.id === id ? {
+          ...f,
+          title: title.trim(),
+          ...(tags !== undefined ? { tags } : {}),
+          ...(party_hidden !== undefined ? { party_hidden } : {}),
+        } : f)
       )
       return { previous }
     },

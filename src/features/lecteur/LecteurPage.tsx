@@ -4,6 +4,7 @@ import {
   ChevronLeft, ChevronRight, Upload, Link as LinkIcon, X,
   ListMusic, Search, Moon, Star, PartyPopper, Repeat, Repeat1, Volume2, Sliders,
 } from 'lucide-react'
+import { useToast } from '../../components/useToast'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
@@ -19,8 +20,12 @@ import {
 } from './useLecteur'
 import type { MediaFile, MediaFileKind } from './useLecteur'
 import { useLecteurRealtime } from './useLecteurRealtime'
-import { useLecteurQueue, useAddToQueue } from './useLecteurQueue'
+import { useLecteurQueue, useAddToQueue, usePendingRequests } from './useLecteurQueue'
 import { KIND_META, probeDuration, youtubeThumb } from './lecteur.utils'
+import { useSleepTimer } from './useSleepTimer'
+import { useMediaSession } from './useMediaSession'
+import { useDjLock } from './useDjLock'
+import DjPlayer, { type DjSettings } from './DjPlayer'
 import EqBars from './EqBars'
 import FileRow from './FileRow'
 import JukeboxPane from './JukeboxPane'
@@ -45,6 +50,7 @@ export default function LecteurPage() {
   const uploadFile = useUploadMediaFile()
   const toggleFav  = useToggleFavorite()
   const { data: queueItems = [] } = useLecteurQueue()
+  const { data: pendingRequests = [] } = usePendingRequests()
   const addToQueue = useAddToQueue()
 
   const { data: members = [] } = useQuery({
@@ -89,20 +95,37 @@ export default function LecteurPage() {
   const hasNext = queueIndex < queue.length - 1
   const isAudioTrack = playingFile ? detectKind(playingFile) === 'audio' : false
 
-  // Compteur d'écoutes : un incrément par démarrage de piste dans le dock perso.
-  const playingFileId = playingFile?.id ?? null
-  useEffect(() => {
-    if (playingFileId) bumpPlayCount(playingFileId)
-  }, [playingFileId])
+  // Compteur d'écoutes : déclenché par une lecture réellement engagée (3 s), une
+  // seule fois par piste. Compter au montage inflatait le total à chaque
+  // aller-retour d'onglet ou remontage du composant.
+  const countedRef = useRef<Set<string>>(new Set())
+  function countPlay(id: string, currentTime: number) {
+    if (currentTime < 3 || countedRef.current.has(id)) return
+    countedRef.current.add(id)
+    bumpPlayCount(id)
+  }
 
   // ── Mode DJ (soirée) : exclusif avec la file perso ──
   // L'état vit ici (et pas dans JukeboxPane) pour empêcher deux flux audio
   // simultanés : activer le DJ coupe la file perso, et inversement.
   const [djMode, setDjMode] = useState(false)
+  const { showToast } = useToast()
+  // Verrou serveur : un seul appareil joue la file. Sans lui, deux téléphones
+  // sur l'onglet Soirée produisaient deux flux et des morceaux sautés.
+  useDjLock(djMode, () => {
+    setDjMode(false)
+    showToast({ type: 'error', message: 'Un autre appareil est déjà DJ pour cette soirée.' })
+  })
   function toggleDj(on: boolean) {
     if (on) stop()
     setDjMode(on)
   }
+
+  // Réglages du lecteur DJ : ils vivent ici parce que le lecteur est monté hors
+  // des onglets (JukeboxPane ne porte plus que les commandes).
+  const [djSettings, setDjSettings] = useState<DjSettings>({
+    volume: 1, crossfade: false, crossfadeSec: 6, autoFill: false, fillPlaylistId: null,
+  })
 
   // Mode écran « soirée » plein écran : overlay au-dessus du lecteur DJ (qui
   // porte l'audio). L'ouvrir active le DJ pour qu'un son soit joué sur cet appareil.
@@ -116,11 +139,12 @@ export default function LecteurPage() {
   // ── Contrôles de lecture ──
   const [repeatMode, setRepeatMode] = useState<'off' | 'all' | 'one'>('off')
   const [speed, setSpeed]           = useState(1)
-  const [sleepUntil, setSleepUntil] = useState<number | null>(null)  // epoch ms
-  const [sleepEndOfTrack, setSleepEndOfTrack] = useState(false)
   const [showSleepModal, setShowSleepModal]   = useState(false)
   const [customSleepMin, setCustomSleepMin]   = useState('')
-  const [now, setNow] = useState(Date.now())
+  const sleep = useSleepTimer(() => stop())
+  // stop() est déclaré plus bas et appelle sleep.clear() : la réf casse le cycle.
+  const sleepRef = useRef(sleep)
+  useEffect(() => { sleepRef.current = sleep })
   // Volume (audio uniquement) : slider du dock × facteur de fondu du minuteur.
   // Persisté par appareil pour retrouver son réglage entre les sessions.
   const VOLUME_STORAGE_KEY = 'familia-lecteur-volume'
@@ -128,7 +152,6 @@ export default function LecteurPage() {
     const v = Number(localStorage.getItem(VOLUME_STORAGE_KEY))
     return Number.isFinite(v) && v >= 0 && v <= 1 ? v : 1
   })
-  const [fadeFactor, setFadeFactor] = useState(1)
   useEffect(() => {
     try { localStorage.setItem(VOLUME_STORAGE_KEY, String(userVolume)) } catch { /* quota */ }
   }, [userVolume])
@@ -138,8 +161,8 @@ export default function LecteurPage() {
   //  - vidéo / YouTube : uniquement pendant le fondu de sortie, pour ne pas écraser
   //    le volume natif réglé par l'utilisateur le reste du temps.
   const playerVolume = isAudioTrack
-    ? userVolume * fadeFactor
-    : (fadeFactor < 1 ? fadeFactor : undefined)
+    ? userVolume * sleep.fadeFactor
+    : (sleep.fadeFactor < 1 ? sleep.fadeFactor : undefined)
   // Progression du mini-lecteur (audio/vidéo) : le scrubber complet défile hors
   // écran, le dock collant garde un repère de position. Clé par piste pour
   // retomber à 0 au changement sans effet (set-state-in-effect).
@@ -149,50 +172,12 @@ export default function LecteurPage() {
   function cycleSpeed() { setSpeed(s => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length]) }
   function cycleRepeat() { setRepeatMode(m => m === 'off' ? 'all' : m === 'all' ? 'one' : 'off') }
 
-  const sleepActive = sleepUntil != null || sleepEndOfTrack
-  const sleepMinutesLeft = sleepUntil != null ? Math.max(0, Math.ceil((sleepUntil - now) / 60_000)) : null
-
-  // Minuteur de sommeil : fondu de sortie (audio) sur les dernières secondes puis
-  // coupe la lecture à l'échéance. fadeFactor est remis à 1 par setSleep/extendSleep
-  // (pas ici, pour éviter un set-state synchrone en corps d'effet).
-  useEffect(() => {
-    if (sleepUntil == null) return
-    const FADE_MS = 8000
-    const tick  = setInterval(() => setNow(Date.now()), 20_000)
-    const total = sleepUntil - Date.now()
-    let fadeInt: ReturnType<typeof setInterval> | null = null
-    const fadeStart = setTimeout(() => {
-      const start = Date.now()
-      fadeInt = setInterval(() => {
-        const p = Math.min(1, (Date.now() - start) / FADE_MS)
-        setFadeFactor(1 - p)
-      }, 200)
-    }, Math.max(0, total - FADE_MS))
-    const timer = setTimeout(() => { stop(); setSleepUntil(null); setFadeFactor(1) }, Math.max(0, total))
-    return () => { clearInterval(tick); clearTimeout(fadeStart); clearTimeout(timer); if (fadeInt) clearInterval(fadeInt) }
-  }, [sleepUntil])
-
-  function setSleep(minutes: number | null, endOfTrack = false) {
-    setSleepEndOfTrack(endOfTrack)
-    setSleepUntil(minutes != null ? Date.now() + minutes * 60_000 : null)
-    setNow(Date.now())
-    setFadeFactor(1)
-    setCustomSleepMin('')
-    setShowSleepModal(false)
-  }
-
-  // Prolonge un minuteur en cours de 5 minutes (sans fermer la modale).
-  function extendSleep() {
-    setSleepEndOfTrack(false)
-    setSleepUntil(u => (u ?? Date.now()) + 5 * 60_000)
-    setNow(Date.now())
-    setFadeFactor(1)
-  }
-
   function startCustomSleep() {
     const m = Math.round(Number(customSleepMin))
     if (!Number.isFinite(m) || m <= 0) return
-    setSleep(Math.min(m, 600))
+    sleep.set(Math.min(m, 600))
+    setCustomSleepMin('')
+    setShowSleepModal(false)
   }
 
   // Précharge l'URL signée de la piste suivante pour lisser l'auto-advance.
@@ -207,40 +192,14 @@ export default function LecteurPage() {
     })
   }, [queue, queueIndex, queryClient])
 
-  // ── MediaSession : contrôles natifs (écran verrouillé, casque BT, centre de
-  // contrôle). Métadonnées + précédent/suivant/stop câblés sur la queue.
-  // Play/pause + seek sont gérés nativement par le navigateur pour les éléments
-  // <audio>/<video> ; les embeds YouTube/Spotify gèrent les leurs.
-  useEffect(() => {
-    if (!('mediaSession' in navigator)) return
-    const ms = navigator.mediaSession
-
-    if (!playingFile) {
-      ms.metadata = null
-      ms.playbackState = 'none'
-      return
-    }
-
-    // Artwork de l'écran verrouillé : vignette YouTube si disponible.
-    const thumb = youtubeThumb(playingFile.external_url)
-    ms.metadata = new MediaMetadata({
-      title:  playingFile.title,
-      artist: playingFile.member?.display_name ?? 'Familia',
-      album:  queue.length > 1 ? `Familia · ${queueIndex + 1}/${queue.length}` : 'Familia · Lecteur',
-      artwork: thumb ? [{ src: thumb, sizes: '320x180', type: 'image/jpeg' }] : [],
-    })
-    // playbackState n'est PAS forcé ici : les éléments <audio>/<video> le mettent
-    // à jour sur play/pause. Le forcer écrasait l'état réel (pause affichée « play »).
-    ms.setActionHandler('previoustrack', hasPrev ? () => setQueueIndex(i => Math.max(0, i - 1)) : null)
-    ms.setActionHandler('nexttrack',     hasNext ? () => setQueueIndex(i => i + 1) : null)
-    ms.setActionHandler('stop', () => stop())
-
-    return () => {
-      ms.setActionHandler('previoustrack', null)
-      ms.setActionHandler('nexttrack', null)
-      ms.setActionHandler('stop', null)
-    }
-  }, [playingFile, hasPrev, hasNext, queue.length, queueIndex])
+  useMediaSession({
+    file: playingFile,
+    index: queueIndex,
+    total: queue.length,
+    onPrev: hasPrev ? () => setQueueIndex(i => Math.max(0, i - 1)) : null,
+    onNext: hasNext ? () => setQueueIndex(i => i + 1) : null,
+    onStop: () => stop(),
+  })
 
   // Raccourcis clavier (desktop) : ←/→ = piste précédente/suivante. On ignore
   // la frappe dans un champ de saisie. (Espace play/pause viendra avec le contrôle
@@ -269,8 +228,7 @@ export default function LecteurPage() {
   function stop() {
     setQueue([])
     setQueueIndex(0)
-    setSleepUntil(null)
-    setSleepEndOfTrack(false)
+    sleepRef.current.clear()
   }
 
   // « Lire ensuite » : insère le morceau juste après la piste en cours (file
@@ -287,7 +245,7 @@ export default function LecteurPage() {
 
   // Fin de piste : applique répétition / file d'attente / minuteur « fin de piste ».
   function handleTrackEnded() {
-    if (sleepEndOfTrack) { stop(); return }
+    if (sleep.endOfTrack) { stop(); return }
     if (hasNext) setQueueIndex(i => i + 1)
     else if (repeatMode === 'all') {
       // File à plusieurs pistes : on revient au début. File d'une seule piste :
@@ -506,14 +464,14 @@ export default function LecteurPage() {
             )}
 
             <button
-              className={[styles.dockCtrlBtn, sleepActive ? styles.dockCtrlActive : ''].join(' ')}
+              className={[styles.dockCtrlBtn, sleep.active ? styles.dockCtrlActive : ''].join(' ')}
               onClick={() => setShowSleepModal(true)}
               aria-label="Minuteur de sommeil"
               title="Minuteur de sommeil"
             >
               <Moon size={15} strokeWidth={2.5} />
-              {sleepActive && (
-                <span className={styles.dockSleepLabel}>{sleepEndOfTrack ? 'fin' : `${sleepMinutesLeft}′`}</span>
+              {sleep.active && (
+                <span className={styles.dockSleepLabel}>{sleep.endOfTrack ? 'fin' : `${sleep.minutesLeft}′`}</span>
               )}
             </button>
 
@@ -552,15 +510,28 @@ export default function LecteurPage() {
               mimeType={playingFile.mime_type}
               title={playingFile.title}
               autoPlay
-              loop={repeatMode === 'one' && !sleepEndOfTrack}
+              loop={repeatMode === 'one' && !sleep.endOfTrack}
               playbackRate={speed}
               resumeKey={playingFile.id}
               onEnded={handleTrackEnded}
-              onProgress={(c, d) => setDockProgress({ id: playingFile.id, pct: d > 0 ? (c / d) * 100 : 0 })}
+              onProgress={(c, d) => {
+                setDockProgress({ id: playingFile.id, pct: d > 0 ? (c / d) * 100 : 0 })
+                countPlay(playingFile.id, c)
+              }}
               volume={playerVolume}
             />
           </div>
         </>
+      )}
+
+      {/* ── Lecteur DJ : hors des onglets, sinon changer d'onglet démontait
+          le lecteur (musique coupée, morceau repris au début au retour). ── */}
+      {djMode && (
+        <DjPlayer
+          current={queueItems[0] ?? null}
+          next={queueItems[1] ?? null}
+          settings={djSettings}
+        />
       )}
 
       {/* ── Tabs ─────────────────────────────────────────────────── */}
@@ -598,6 +569,11 @@ export default function LecteurPage() {
           <PartyPopper size={13} strokeWidth={2} />
           Soirée
           {queueItems.length > 0 && <span className={styles.tabBadge}>{queueItems.length}</span>}
+          {pendingRequests.length > 0 && (
+            <span className={styles.tabBadgeAlert} title={`${pendingRequests.length} demande(s) en attente de validation`}>
+              {pendingRequests.length}
+            </span>
+          )}
         </button>
         <button
           role="tab"
@@ -716,7 +692,20 @@ export default function LecteurPage() {
               title="Bibliothèque vide"
               description="Uploadez un fichier audio/vidéo ou ajoutez un lien YouTube/Spotify."
             />
-          ) : filtered.length === 0 ? null : (
+          ) : filtered.length === 0 ? (
+            <EmptyState
+              emoji="🔍"
+              title="Aucun résultat"
+              description="Aucun média ne correspond à ces filtres."
+              action={{
+                label: 'Réinitialiser les filtres',
+                onClick: () => {
+                  setFilterKind(null); setFilterMemberId(null); setFilterTag(null)
+                  setFilterTitle(''); setFilterFavorite(false)
+                },
+              }}
+            />
+          ) : (
             <ul className={[styles.list, styles.libraryGrid].join(' ')}>
               {filtered.map((file, i) => (
                 <FileRow
@@ -768,6 +757,8 @@ export default function LecteurPage() {
           djMode={djMode}
           onToggleDj={toggleDj}
           onOpenScreen={openPartyScreen}
+          settings={djSettings}
+          onSettings={patch => setDjSettings(s => ({ ...s, ...patch }))}
         />
         </div>
       )}
@@ -815,29 +806,39 @@ export default function LecteurPage() {
       {showSleepModal && (
         <SlideUpModal title="Minuteur de sommeil" onClose={() => setShowSleepModal(false)}>
           <div className={styles.sleepBody}>
-            {sleepActive && (
+            {sleep.active && (
               <div className={styles.sleepActiveRow}>
                 <p className={styles.sleepActiveLabel}>
-                  {sleepEndOfTrack
+                  {sleep.endOfTrack
                     ? 'La lecture s’arrêtera à la fin de la piste.'
-                    : `Arrêt dans ${sleepMinutesLeft} min.`}
+                    : `Arrêt dans ${sleep.minutesLeft} min.`}
                 </p>
-                {!sleepEndOfTrack && (
-                  <button className={styles.sleepExtendBtn} onClick={extendSleep}>+5 min</button>
+                {!sleep.endOfTrack && (
+                  <button className={styles.sleepExtendBtn} onClick={sleep.extend}>+5 min</button>
                 )}
               </div>
             )}
             <div className={styles.sleepGrid}>
               {[15, 30, 45, 60].map(min => (
-                <button key={min} className={styles.sleepOption} onClick={() => setSleep(min)}>
+                <button
+                  key={min}
+                  className={styles.sleepOption}
+                  onClick={() => { sleep.set(min); setShowSleepModal(false) }}
+                >
                   {min} min
                 </button>
               ))}
-              <button className={styles.sleepOption} onClick={() => setSleep(null, true)}>
+              <button
+                className={styles.sleepOption}
+                onClick={() => { sleep.set(null, true); setShowSleepModal(false) }}
+              >
                 Fin de la piste
               </button>
-              {sleepActive && (
-                <button className={[styles.sleepOption, styles.sleepCancel].join(' ')} onClick={() => setSleep(null, false)}>
+              {sleep.active && (
+                <button
+                  className={[styles.sleepOption, styles.sleepCancel].join(' ')}
+                  onClick={() => { sleep.clear(); setShowSleepModal(false) }}
+                >
                   Annuler
                 </button>
               )}

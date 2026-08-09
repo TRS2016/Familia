@@ -1267,6 +1267,42 @@ export type Database = {
           },
         ]
       }
+      lecteur_dj_lock: {
+        Row: {
+          device_id: string
+          heartbeat_at: string
+          household_id: string
+          member_id: string | null
+        }
+        Insert: {
+          device_id: string
+          heartbeat_at?: string
+          household_id: string
+          member_id?: string | null
+        }
+        Update: {
+          device_id?: string
+          heartbeat_at?: string
+          household_id?: string
+          member_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lecteur_dj_lock_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: true
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "lecteur_dj_lock_member_id_fkey"
+            columns: ["member_id"]
+            isOneToOne: false
+            referencedRelation: "members"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lecteur_now_playing: {
         Row: {
           household_id: string
@@ -1495,6 +1531,7 @@ export type Database = {
           is_favorite: boolean
           member_id: string | null
           mime_type: string | null
+          party_hidden: boolean
           play_count: number
           tags: string[]
           title: string
@@ -1510,6 +1547,7 @@ export type Database = {
           is_favorite?: boolean
           member_id?: string | null
           mime_type?: string | null
+          party_hidden?: boolean
           play_count?: number
           tags?: string[]
           title: string
@@ -1525,6 +1563,7 @@ export type Database = {
           is_favorite?: boolean
           member_id?: string | null
           mime_type?: string | null
+          party_hidden?: boolean
           play_count?: number
           tags?: string[]
           title?: string
@@ -2505,6 +2544,14 @@ export type Database = {
           member_id: string
         }[]
       }
+      claim_lecteur_dj: {
+        Args: {
+          p_device: string
+          p_household: string
+          p_stale_seconds?: number
+        }
+        Returns: boolean
+      }
       get_my_household_id: { Args: never; Returns: string }
       increment_media_play: { Args: { p_file_id: string }; Returns: undefined }
       kakebo_saving_goal_totals: {
@@ -2553,6 +2600,10 @@ export type Database = {
         Returns: undefined
       }
       redeem_reward: { Args: { p_reward_id: string }; Returns: string }
+      release_lecteur_dj: {
+        Args: { p_device: string; p_household: string }
+        Returns: undefined
+      }
       reorder_chores: { Args: { p_ids: string[] }; Returns: undefined }
       reorder_habits: { Args: { p_ids: string[] }; Returns: undefined }
       reorder_training_presets: {
@@ -2584,7 +2635,7 @@ export type Database = {
       }
       undo_chore_log: { Args: { p_log_id: string }; Returns: undefined }
       vote_lecteur_queue: {
-        Args: { p_item_id: string; p_voter_key: string }
+        Args: { p_item_id: string; p_voter_key?: string }
         Returns: boolean
       }
     }

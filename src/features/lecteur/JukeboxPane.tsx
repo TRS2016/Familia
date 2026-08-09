@@ -1,31 +1,33 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { ArrowDownWideNarrow, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsUp, History, PartyPopper, Play, Plus, Share2, Shield, Tv, Volume2, X } from 'lucide-react'
 import EmptyState from '../../components/EmptyState'
-import MediaPlayer, { canAutoAdvance } from '../media/MediaPlayer'
+import { canAutoAdvance } from '../media/MediaPlayer'
 import EqBars from './EqBars'
 import InviteModal from './InviteModal'
 import {
-  useAddToQueue, useApproveRequest, useClearQueue, useLecteurPlayedHistory, useMarkQueuePlayed,
+  useApproveRequest, useClearQueue, useLecteurPlayedHistory, useMarkQueuePlayed,
   useMoveQueueItem, usePendingRequests, useRejectRequest, useRemoveFromQueue, useSortQueueByVotes,
   useVoteQueueItem,
 } from './useLecteurQueue'
 import type { QueueItem } from './useLecteurQueue'
-import { useLecteurPlaylists, useLecteurPlaylistItems, bumpPlayCount } from './useLecteur'
-import { supabase } from '../../lib/supabase'
-import { HOUSEHOLD_ID } from '../../lib/config'
+import { useLecteurPlaylists } from './useLecteur'
 import { useJukeboxToken } from './useJukeboxToken'
-import JukeboxAudioEngine from './JukeboxAudioEngine'
-import { isLocalAudio } from './lecteur.utils'
+import type { DjSettings } from './DjPlayer'
 import styles from './LecteurPage.module.css'
 
 // File d'attente partagée de soirée. Le mode DJ (lecture sur cet appareil) est
 // remonté dans LecteurPage pour garantir l'exclusivité avec la file perso.
-export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggleDj, onOpenScreen }: {
+export default function JukeboxPane({
+  queueItems, onGoToLibrary, djMode, onToggleDj, onOpenScreen, settings, onSettings,
+}: {
   queueItems: QueueItem[]
   onGoToLibrary: () => void
   djMode: boolean
   onToggleDj: (on: boolean) => void
   onOpenScreen: () => void
+  /** Réglages du lecteur DJ (le lecteur lui-même vit dans LecteurPage). */
+  settings: DjSettings
+  onSettings: (patch: Partial<DjSettings>) => void
 }) {
   const markPlayed = useMarkQueuePlayed()
   const removeItem = useRemoveFromQueue()
@@ -50,66 +52,7 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
   const current = queueItems[0] ?? null
   const upNext  = queueItems.slice(1)
 
-  // ── Now-playing partagé : l'appareil DJ publie le morceau en cours, l'edge
-  // jukebox le sert aux invités (qui pollent déjà toutes les 8 s). ──
-  const currentId = current?.id ?? null
-  useEffect(() => {
-    if (!djMode) return
-    if (!current) {
-      void supabase.from('lecteur_now_playing').delete().eq('household_id', HOUSEHOLD_ID)
-      return
-    }
-    void supabase.from('lecteur_now_playing').upsert({
-      household_id:  HOUSEHOLD_ID,
-      queue_item_id: current.id,
-      title:         current.media_file?.title ?? 'Morceau',
-      requested_by:  current.added_by_member?.display_name ?? current.guest_name ?? null,
-      updated_at:    new Date().toISOString(),
-    } as never, { onConflict: 'household_id' })
-    // Compteur d'écoutes : un incrément par piste lancée en mode DJ.
-    if (current.media_file?.id) bumpPlayCount(current.media_file.id)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [djMode, currentId])
-
-  // Nettoyage à la sortie du mode DJ (fermeture brutale : l'edge applique de
-  // toute façon un garde-fou anti-stale de 6 h).
-  useEffect(() => {
-    if (!djMode) return
-    return () => { void supabase.from('lecteur_now_playing').delete().eq('household_id', HOUSEHOLD_ID) }
-  }, [djMode])
-
-  // ── Volume (le MediaPlayer applique le réglage à l'audio/vidéo/YouTube) ──
-  const [volume, setVolume] = useState(1)
-  // ── Crossfade (fondu enchaîné) : opt-in, fichiers audio locaux uniquement ──
-  const [crossfade, setCrossfade] = useState(false)
-  const [crossfadeSec, setCrossfadeSec] = useState(6)
-  const useEngine = crossfade && isLocalAudio(current?.media_file ?? null)
-
-  // ── Anti-silence : quand la file se vide en mode DJ, on enchaîne sur une
-  // playlist manuelle choisie (un morceau à la fois → enchaînement perpétuel). ──
-  const [autoFill, setAutoFill] = useState(false)
-  const [fillPlaylistId, setFillPlaylistId] = useState<string | null>(null)
-  const { data: playlists = [] } = useLecteurPlaylists()
-  const manualPlaylists = playlists.filter(p => p.type === 'manual')
-  const { data: fillItems = [] } = useLecteurPlaylistItems(autoFill ? fillPlaylistId : null)
-  const addToQueue = useAddToQueue()
-  const fillingRef = useRef(false)
-
-  useEffect(() => {
-    if (!djMode || !autoFill || !fillPlaylistId) return
-    if (queueItems.length > 0 || fillItems.length === 0) return
-    if (fillingRef.current || addToQueue.isPending) return
-    // Évite de répéter ce qui vient de passer (sauf si toute la playlist est jouée).
-    const playedIds = new Set(played.map(p => p.media_file_id))
-    const fresh = fillItems.filter(it => !playedIds.has(it.media_file_id))
-    const pool = fresh.length ? fresh : fillItems
-    const pick = pool[Math.floor(Math.random() * pool.length)]
-    if (!pick) return
-    fillingRef.current = true
-    addToQueue.mutate({ mediaFileId: pick.media_file_id, silent: true }, {
-      onSettled: () => { fillingRef.current = false },
-    })
-  }, [djMode, autoFill, fillPlaylistId, queueItems.length, fillItems, played, addToQueue])
+  const manualPlaylists = useLecteurPlaylists().data?.filter(p => p.type === 'manual') ?? []
 
   // Durée totale restante (en cours + à suivre) + heure de fin estimée.
   // Les liens/embeds sans durée connue sont exclus → « ≈ au moins ».
@@ -166,7 +109,7 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
               </button>
               <button
                 className={styles.pendingReject}
-                onClick={() => reject.mutate(item.id)}
+                onClick={() => reject.mutate(item)}
                 disabled={reject.isPending}
                 aria-label={`Refuser ${title}`}
               >
@@ -254,36 +197,12 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
           <div className={styles.jukeboxNowBy}>demandé par {current.added_by_member?.display_name ?? current.guest_name}</div>
         )}
 
-        {djMode && current.media_file && (
-          <div className={styles.playerWrap}>
-            {useEngine ? (
-              <JukeboxAudioEngine
-                current={current}
-                next={upNext[0] ?? null}
-                volume={volume}
-                crossfadeSec={crossfadeSec}
-                onEnded={(id) => markPlayed.mutate(id)}
-              />
-            ) : (
-              <MediaPlayer
-                key={current.id}
-                filePath={current.media_file.file_path}
-                externalUrl={current.media_file.external_url}
-                mimeType={current.media_file.mime_type}
-                title={current.media_file.title}
-                autoPlay
-                volume={volume}
-                onEnded={() => markPlayed.mutate(current.id)}
-              />
-            )}
-          </div>
-        )}
         {djMode && (
           <label className={styles.volumeRow}>
             <Volume2 size={15} strokeWidth={2.5} />
             <input
-              type="range" min={0} max={1} step={0.05} value={volume}
-              onChange={e => setVolume(parseFloat(e.target.value))}
+              type="range" min={0} max={1} step={0.05} value={settings.volume}
+              onChange={e => onSettings({ volume: parseFloat(e.target.value) })}
               className={styles.volumeSlider}
               aria-label="Volume"
             />
@@ -292,14 +211,18 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
         {djMode && (
           <div className={styles.autoFillRow} style={{ marginTop: 8 }}>
             <label className={styles.autoFillToggle}>
-              <input type="checkbox" checked={crossfade} onChange={e => setCrossfade(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={settings.crossfade}
+                onChange={e => onSettings({ crossfade: e.target.checked })}
+              />
               Fondu enchaîné
             </label>
-            {crossfade ? (
+            {settings.crossfade ? (
               <select
                 className={styles.autoFillSelect}
-                value={crossfadeSec}
-                onChange={e => setCrossfadeSec(Number(e.target.value))}
+                value={settings.crossfadeSec}
+                onChange={e => onSettings({ crossfadeSec: Number(e.target.value) })}
                 aria-label="Durée du fondu"
               >
                 {[2, 3, 4, 6, 8, 10, 12].map(s => <option key={s} value={s}>{s}s</option>)}
@@ -352,25 +275,27 @@ export default function JukeboxPane({ queueItems, onGoToLibrary, djMode, onToggl
           <label className={styles.autoFillToggle}>
             <input
               type="checkbox"
-              checked={autoFill}
-              onChange={e => {
-                setAutoFill(e.target.checked)
-                if (e.target.checked && !fillPlaylistId) setFillPlaylistId(manualPlaylists[0].id)
-              }}
+              checked={settings.autoFill}
+              onChange={e => onSettings({
+                autoFill: e.target.checked,
+                ...(e.target.checked && !settings.fillPlaylistId
+                  ? { fillPlaylistId: manualPlaylists[0].id }
+                  : {}),
+              })}
             />
             Anti-silence
           </label>
-          {autoFill && (
+          {settings.autoFill && (
             <select
               className={styles.autoFillSelect}
-              value={fillPlaylistId ?? ''}
-              onChange={e => setFillPlaylistId(e.target.value || null)}
+              value={settings.fillPlaylistId ?? ''}
+              onChange={e => onSettings({ fillPlaylistId: e.target.value || null })}
               aria-label="Playlist d'enchaînement"
             >
               {manualPlaylists.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
           )}
-          {autoFill && !djMode && <span className={styles.autoFillNote}>actif en mode DJ</span>}
+          {settings.autoFill && !djMode && <span className={styles.autoFillNote}>actif en mode DJ</span>}
         </div>
       )}
       {upNext.length === 0 ? (

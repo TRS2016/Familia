@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useParams } from 'react-router-dom'
 import { Search, Plus, Check, PartyPopper, Music, ListMusic, Link as LinkIcon, ChevronsUp } from 'lucide-react'
@@ -44,6 +44,9 @@ export default function JukeboxGuestPage() {
   const [urlVal, setUrlVal]   = useState('')
 
   const [justAdded, setJustAdded] = useState<Set<string>>(new Set())
+  // Titre demandé pour chaque clé : sert à savoir quand le morceau a quitté la
+  // file, donc quand le bouton « ajouté ✓ » doit redevenir disponible.
+  const addedTitlesRef = useRef<Map<string, string>>(new Map())
   const [sending, setSending]     = useState<string | null>(null)
   const [voterKey] = useState(guestVoterKey)
   const [info, setInfo] = useState<string | null>(null)
@@ -73,7 +76,24 @@ export default function JukeboxGuestPage() {
       const r = await fetch(`${base}?token=${token}`, { headers: { apikey: SUPABASE_KEY } })
       const data = await r.json() as { tracks?: Track[]; queue?: QueueLine[]; now?: NowPlaying | null; error?: string }
       if (data.error) setError(data.error)
-      else { setTracks(data.tracks ?? []); setQueue(data.queue ?? []); setNowPlaying(data.now ?? null) }
+      else {
+        setTracks(data.tracks ?? [])
+        setQueue(data.queue ?? [])
+        setNowPlaying(data.now ?? null)
+        // Un morceau qui a quitté la file (joué, retiré, refusé) redevient
+        // demandable : sans ça, le bouton restait coché toute la soirée.
+        const live = new Set((data.queue ?? []).map(qu => qu.title))
+        setJustAdded(prev => {
+          if (prev.size === 0) return prev
+          const next = new Set(
+            [...prev].filter(k => {
+              const title = addedTitlesRef.current.get(k)
+              return !title || live.has(title)
+            }),
+          )
+          return next.size === prev.size ? prev : next
+        })
+      }
     } catch {
       setError('Impossible de charger la soirée')
     } finally {
@@ -92,7 +112,7 @@ export default function JukeboxGuestPage() {
   }, [token])
 
   // POST générique d'ajout à la file. `key` sert au feedback visuel "ajouté".
-  async function add(key: string, payload: Record<string, unknown>) {
+  async function add(key: string, payload: Record<string, unknown>, title?: string) {
     if (sending) return
     localStorage.setItem(NAME_KEY, name.trim())
     setSending(key)
@@ -104,6 +124,7 @@ export default function JukeboxGuestPage() {
       })
       const data = await r.json() as { ok?: boolean; pending?: boolean; error?: string }
       if (data.ok) {
+        if (title) addedTitlesRef.current.set(key, title)
         setJustAdded(prev => new Set(prev).add(key))
         setInfo(data.pending
           ? 'Demande envoyée — en attente de validation du DJ 👌'
@@ -264,7 +285,7 @@ export default function JukeboxGuestPage() {
                 </div>
                 <button
                   className={[styles.addBtn, added ? styles.addBtnDone : ''].join(' ')}
-                  onClick={() => add(r.videoId, { external_url: `https://youtu.be/${r.videoId}`, title: r.title })}
+                  onClick={() => add(r.videoId, { external_url: `https://youtu.be/${r.videoId}`, title: r.title }, r.title)}
                   disabled={sending === r.videoId || added}
                   aria-label={`Demander ${r.title}`}
                 >
@@ -288,7 +309,7 @@ export default function JukeboxGuestPage() {
                 </div>
                 <button
                   className={[styles.addBtn, added ? styles.addBtnDone : ''].join(' ')}
-                  onClick={() => add(track.id, { media_file_id: track.id })}
+                  onClick={() => add(track.id, { media_file_id: track.id }, track.title)}
                   disabled={sending === track.id || added}
                   aria-label={`Demander ${track.title}`}
                 >

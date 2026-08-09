@@ -46,7 +46,7 @@ export function useJukeboxToken() {
       const { data, error } = await supabase
         .from('lecteur_party_tokens')
         .insert({ household_id: HOUSEHOLD_ID, created_by: member?.id ?? null } as never)
-        .select('token, expires_at')
+        .select('token, expires_at, moderated')
         .single()
       if (error) throw error
       return data as unknown as PartyToken

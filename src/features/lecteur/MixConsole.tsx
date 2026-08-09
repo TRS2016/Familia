@@ -127,7 +127,9 @@ function Deck({ side, track, weight, capable, ctxRef, onSilence, onPick, onClear
     let cancelled = false
     const el = audioRef.current
     if (!el) return
-    if (!track?.file_path) { el.removeAttribute('src'); el.load(); setPlaying(false); setPosition(0); setDuration(0); return }
+    // Platine vidée : on coupe l'élément sans toucher à l'état React (les
+    // valeurs affichées sont masquées plus bas quand il n'y a pas de morceau).
+    if (!track?.file_path) { el.pause(); el.removeAttribute('src'); el.load(); return }
     signMediaFileUrl(track.file_path)
       .then(url => {
         if (cancelled || !el) return
@@ -174,6 +176,11 @@ function Deck({ side, track, weight, capable, ctxRef, onSilence, onPick, onClear
     setPosition(v)
   }
 
+  // Sans morceau chargé, l'état de l'élément précédent n'a plus de sens.
+  const shownPos     = track ? position : 0
+  const shownDur     = track ? duration : 0
+  const shownPlaying = track ? playing : false
+
   return (
     <div className={styles.deck}>
       <div className={styles.deckHead}>
@@ -182,7 +189,7 @@ function Deck({ side, track, weight, capable, ctxRef, onSilence, onPick, onClear
           {track ? (
             <>
               <span className={styles.deckTitle}>{track.title}</span>
-              <span className={styles.deckSub}>{fmtDuration(position)} / {duration > 0 ? fmtDuration(duration) : (track.duration_seconds ? fmtDuration(track.duration_seconds) : '—')}</span>
+              <span className={styles.deckSub}>{fmtDuration(shownPos)} / {shownDur > 0 ? fmtDuration(shownDur) : (track.duration_seconds ? fmtDuration(track.duration_seconds) : '—')}</span>
             </>
           ) : (
             <span className={styles.deckEmpty}>Aucun morceau chargé</span>
@@ -202,7 +209,7 @@ function Deck({ side, track, weight, capable, ctxRef, onSilence, onPick, onClear
 
       <input
         className={styles.seek}
-        type="range" min={0} max={duration || 1} step={0.1} value={position}
+        type="range" min={0} max={shownDur || 1} step={0.1} value={shownPos}
         onChange={e => seek(Number(e.target.value))}
         disabled={!track}
         aria-label={`Position platine ${side}`}
@@ -210,8 +217,8 @@ function Deck({ side, track, weight, capable, ctxRef, onSilence, onPick, onClear
 
       <div className={styles.transport}>
         <button className={styles.cueBtn} onClick={cue} disabled={!track} aria-label="Retour au début"><SkipBack size={16} /></button>
-        <button className={[styles.playBtn, playing ? styles.playBtnOn : ''].join(' ')} onClick={toggle} disabled={!track} aria-label={playing ? 'Pause' : 'Lecture'}>
-          {playing ? <Pause size={20} /> : <Play size={20} />}
+        <button className={[styles.playBtn, shownPlaying ? styles.playBtnOn : ''].join(' ')} onClick={toggle} disabled={!track} aria-label={shownPlaying ? 'Pause' : 'Lecture'}>
+          {shownPlaying ? <Pause size={20} /> : <Play size={20} />}
         </button>
         {track
           ? <button className={styles.loadBtn} onClick={onClear} aria-label="Décharger">Vider</button>
