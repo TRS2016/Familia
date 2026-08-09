@@ -25,7 +25,9 @@ import type { KakeboEntry } from './useKakebo'
 import { memberColor } from '../../lib/constants'
 import styles from './KakeboPage.module.css'
 
-import { isSpendType, isSavingType, csvCell, lastDayOfMonth, EMPTY_DRAFT } from './kakebo.utils'
+import {
+  isSpendType, isSavingType, isPocketDetail, pocketBreakdown, csvCell, lastDayOfMonth, spendTotal, EMPTY_DRAFT,
+} from './kakebo.utils'
 import type { EntryDraft } from './kakebo.utils'
 import SavingGoalsCard from './SavingGoalsCard'
 import { useSavingGoals, useArchivedSavingGoals } from './useSavingGoals'
@@ -147,21 +149,22 @@ export default function KakeboPage() {
 
   const prevMonthExpenses = useMemo(() => {
     const prefix = format(subMonths(refDate, 1), 'yyyy-MM')
-    return displayTrendEntries
-      .filter(e => e.date.startsWith(prefix) && isSpendType(e.category?.type))
-      .reduce((s, e) => s + Number(e.amount), 0)
+    return spendTotal(displayTrendEntries.filter(e => e.date.startsWith(prefix)))
   }, [displayTrendEntries, refDate])
 
   // ── Computations ──────────────────────────────────────────────────────────
 
   const {
-    totalRevenusMois, totalByCategory, totalDepenses, totalEpargneMiseDeCote,
-    epargneReelle, solde, expenseEntries,
+    totalRevenusMois, totalByCategory, catSpendTotal, totalDepenses, totalEpargneMiseDeCote,
+    epargneReelle, solde, expenseEntries, pocket,
   } = useMemo(() => {
     const incomeEntries  = displayEntries.filter(e => e.category?.type === 'income')
-    const expenses       = displayEntries.filter(e => isSpendType(e.category?.type))
+    // Le détail taggué « argent de poche » est exclu : l'enveloppe qui l'a
+    // financé est déjà comptée dans sa propre catégorie (type allowance).
+    const expenses       = displayEntries.filter(e => isSpendType(e.category?.type) && !isPocketDetail(e))
     const savingEntries  = displayEntries.filter(e => isSavingType(e.category?.type))
     const revenus = incomeEntries.reduce((s, e) => s + Number(e.amount), 0)
+    const pocketInfo = pocketBreakdown(displayEntries)
 
     // Dépenses de consommation uniquement (l'épargne est comptée à part).
     const byCat: Record<string, number> = {}
@@ -169,7 +172,10 @@ export default function KakeboPage() {
     for (const e of expenses) {
       if (e.category_id) byCat[e.category_id] = (byCat[e.category_id] ?? 0) + Number(e.amount)
     }
-    const depenses = Object.values(byCat).reduce((s, v) => s + v, 0)
+    const parCategorie = Object.values(byCat).reduce((s, v) => s + v, 0)
+    // Le dépassement de l'enveloppe vient d'ailleurs que de l'enveloppe : c'est
+    // une dépense supplémentaire réelle, rattachée à aucune catégorie.
+    const depenses = parCategorie + pocketInfo.overflow
     // Épargne mise de côté : virements vers l'épargne (sortie du courant, pas une
     // dépense). Suivie séparément, n'entre pas dans l'épargne réelle résiduelle.
     const miseDeCote = savingEntries.reduce((s, e) => s + Number(e.amount), 0)
@@ -177,11 +183,13 @@ export default function KakeboPage() {
     return {
       totalRevenusMois: revenus,
       totalByCategory: byCat,
+      catSpendTotal: parCategorie,
       totalDepenses: depenses,
       totalEpargneMiseDeCote: miseDeCote,
       epargneReelle: reelle,
       solde: reelle - effectiveObjectif,
       expenseEntries: expenses,
+      pocket: pocketInfo,
     }
   }, [displayEntries, displayCategories, effectiveObjectif])
 
@@ -196,12 +204,12 @@ export default function KakeboPage() {
   const arcs = useMemo(() => {
     const bases = spendCats.map(cat => {
       const v = totalByCategory[cat.id] ?? 0
-      return { cat, pct: totalDepenses > 0 ? v / totalDepenses : 0, value: v }
+      return { cat, pct: catSpendTotal > 0 ? v / catSpendTotal : 0, value: v }
     })
     // Prefix sums: cumPcts[i] = sum of pcts before index i (no mutation needed)
     const cumPcts = bases.reduce<number[]>((acc, a) => [...acc, acc[acc.length - 1] + a.pct], [0])
     return bases.map((a, i) => ({ ...a, dash: a.pct * donutC, offset: -cumPcts[i] * donutC }))
-  }, [spendCats, totalByCategory, totalDepenses, donutC])
+  }, [spendCats, totalByCategory, catSpendTotal, donutC])
 
   // Daily rhythm
   const daysCount = getDaysInMonth(refDate)
@@ -326,6 +334,11 @@ export default function KakeboPage() {
       `\nTotal revenus,,,,,,,${totalRevenusMois.toFixed(2)}`,
       `Total dépenses,,,,,,,${(-totalDepenses).toFixed(2)}`,
       `Épargne mise de côté,,,,,,,${(-totalEpargneMiseDeCote).toFixed(2)}`,
+      ...(pocket.envelope > 0 || pocket.spent > 0 ? [
+        `Argent de poche alloué,,,,,,,${pocket.envelope.toFixed(2)}`,
+        `Argent de poche dépensé (détail non recompté),,,,,,,${pocket.spent.toFixed(2)}`,
+        `Dépassement argent de poche (compté),,,,,,,${(-pocket.overflow).toFixed(2)}`,
+      ] : []),
       `Épargne réelle,,,,,,,${epargneReelle.toFixed(2)}`,
     ].join('\n')
     const blob = new Blob(['﻿' + header + rows + totals], { type: 'text/csv;charset=utf-8;' })
@@ -486,6 +499,7 @@ export default function KakeboPage() {
               todayDay={todayDay}
               entries={displayEntries}
               prevMonthExpenses={prevMonthExpenses}
+              pocket={pocket}
               onSelectCat={setSelectedCatId}
               onShowDetail={() => setView('detail')}
               onEdit={openEdit}

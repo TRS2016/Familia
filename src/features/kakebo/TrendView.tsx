@@ -1,5 +1,5 @@
 import Spinner from '../../components/Spinner'
-import { catColor, fmtEur, isSpendType, MONTH_LABELS_FR } from './kakebo.utils'
+import { catColor, fmtEur, isSpendType, isPocketDetail, spendTotal, MONTH_LABELS_FR } from './kakebo.utils'
 import type { KakeboCategory, KakeboEntry } from './useKakebo'
 import styles from './KakeboPage.module.css'
 
@@ -27,7 +27,7 @@ export default function TrendView({ entries, isLoading, categories, onSelectMont
 
   const byMonth = months.map(m => {
     const mes      = entries.filter(e => e.date.startsWith(m.prefix))
-    const depenses = mes.filter(e => isSpendType(e.category?.type)).reduce((s, e) => s + Number(e.amount), 0)
+    const depenses = spendTotal(mes)
     const revenus  = mes.filter(e => e.category?.type === 'income').reduce((s, e) => s + Number(e.amount), 0)
     return { ...m, depenses, revenus, savings: revenus - depenses }
   })
@@ -65,7 +65,11 @@ export default function TrendView({ entries, isLoading, categories, onSelectMont
 
   const year         = now.getFullYear()
   const yearEntries  = entries.filter(e => e.date.startsWith(`${year}-`))
-  const yearExpenses = yearEntries.filter(e => isSpendType(e.category?.type)).reduce((s, e) => s + Number(e.amount), 0)
+  // Somme des totaux mensuels : le dépassement d'enveloppe se calcule mois par
+  // mois, l'agréger sur l'année d'un coup donnerait un chiffre différent.
+  const yearExpenses = byMonth
+    .filter(m => m.prefix.startsWith(`${year}-`))
+    .reduce((s, m) => s + m.depenses, 0)
   const yearIncome   = yearEntries.filter(e => e.category?.type === 'income').reduce((s, e) => s + Number(e.amount), 0)
   const yearBalance  = yearIncome - yearExpenses
 
@@ -73,7 +77,9 @@ export default function TrendView({ entries, isLoading, categories, onSelectMont
   const byCat = spendCats
     .map(cat => ({
       cat,
-      total: yearEntries.filter(e => e.category_id === cat.id).reduce((s, e) => s + Number(e.amount), 0),
+      total: yearEntries
+        .filter(e => e.category_id === cat.id && !isPocketDetail(e))
+        .reduce((s, e) => s + Number(e.amount), 0),
     }))
     .filter(x => x.total > 0)
     .sort((a, b) => b.total - a.total)

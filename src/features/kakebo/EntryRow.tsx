@@ -1,5 +1,5 @@
 import { RefreshCcw, Pencil, Trash2 } from 'lucide-react'
-import { catColor, fmtEur, MONTH_LABELS_FR } from './kakebo.utils'
+import { catColor, fmtEur, isPocketDetail, MONTH_LABELS_FR } from './kakebo.utils'
 import type { KakeboEntry } from './useKakebo'
 import styles from './KakeboPage.module.css'
 
@@ -12,6 +12,7 @@ export default function EntryRow({ entry, showBorder, onEdit, onDelete, onReplay
 }) {
   const cat = entry.category
   const isIncome = cat?.type === 'income'
+  const onPocket = isPocketDetail(entry)
   return (
     <div className={[styles.entryRow, showBorder ? styles.entryRowBorder : ''].join(' ')}>
       <div className={styles.entryDateBox} style={{ background: `${catColor(cat)}1F` }}>
@@ -31,7 +32,10 @@ export default function EntryRow({ entry, showBorder, onEdit, onDelete, onReplay
             </span>
           )}
         </p>
-        <p className={styles.entryMeta}>{cat?.name}{entry.member?.display_name ? ` · ${entry.member.display_name}` : ''}</p>
+        <p className={styles.entryMeta}>
+          {cat?.name}{entry.member?.display_name ? ` · ${entry.member.display_name}` : ''}
+          {onPocket && <span className={styles.pocketBadge} title="Détail de l'enveloppe d'argent de poche — non recompté dans les dépenses">sur enveloppe</span>}
+        </p>
         {(entry.tags ?? []).length > 0 && (
           <div className={styles.entryTags}>
             {(entry.tags ?? []).map(t => (
@@ -41,7 +45,10 @@ export default function EntryRow({ entry, showBorder, onEdit, onDelete, onReplay
         )}
       </div>
       <div className={styles.entryRight}>
-        <span className={styles.entryAmount} style={isIncome ? { color: '#5B9E8F' } : undefined}>
+        <span
+          className={styles.entryAmount}
+          style={isIncome ? { color: '#5B9E8F' } : onPocket ? { color: 'var(--text-muted)' } : undefined}
+        >
           {isIncome ? '+' : '−'}{fmtEur(Number(entry.amount))} €
         </span>
         {onReplay && (

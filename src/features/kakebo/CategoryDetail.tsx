@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { X } from 'lucide-react'
-import { catColor, catDesc, catGlyph, fmtEur, MONTH_LABELS_FR } from './kakebo.utils'
+import { catColor, catDesc, catGlyph, fmtEur, isPocketDetail, MONTH_LABELS_FR } from './kakebo.utils'
 import EntryRow from './EntryRow'
 import type { KakeboCategory, KakeboEntry } from './useKakebo'
 import styles from './KakeboPage.module.css'
@@ -39,8 +39,11 @@ export default function CategoryDetail({
       })
     : entries
 
-  const total    = shown.reduce((s, e) => s + Number(e.amount), 0)
-  const count    = shown.length
+  // Le détail taggué #argent-poche est listé mais hors total : l'enveloppe qui
+  // l'a financé est déjà comptée dans la catégorie « Argent de poche ».
+  const counted  = shown.filter(e => !isPocketDetail(e))
+  const total    = counted.reduce((s, e) => s + Number(e.amount), 0)
+  const count    = counted.length
   const avg      = count > 0 ? total / count : 0
   const pctRev   = revenus > 0 ? (total / revenus) * 100 : 0
   const sorted   = [...shown].sort((a, b) => b.date.localeCompare(a.date))
@@ -51,7 +54,7 @@ export default function CategoryDetail({
     const d      = new Date(now.getFullYear(), now.getMonth() - 11 + i, 1)
     const prefix = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
     const tot    = trendEntries
-      .filter(e => e.date.startsWith(prefix))
+      .filter(e => e.date.startsWith(prefix) && !isPocketDetail(e))
       .reduce((s, e) => s + Number(e.amount), 0)
     return { label: MONTH_LABELS_FR[d.getMonth()], total: tot, isCurrent: i === 11 }
   })

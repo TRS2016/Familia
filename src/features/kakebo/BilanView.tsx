@@ -1,5 +1,5 @@
-import { ChevronRight, AlertTriangle, PiggyBank } from 'lucide-react'
-import { catColor, catGlyph, fmtEur, isSpendType } from './kakebo.utils'
+import { ChevronRight, AlertTriangle, PiggyBank, Wallet } from 'lucide-react'
+import { catColor, catGlyph, fmtEur, isSpendType, isPocketDetail, type PocketBreakdown } from './kakebo.utils'
 import EntryRow from './EntryRow'
 import type { KakeboCategory, KakeboEntry } from './useKakebo'
 import styles from './KakeboPage.module.css'
@@ -8,7 +8,7 @@ export default function BilanView({
   arcs, donutR, donutC, totalDepenses, revenus, objectifEpargne,
   epargneReelle, epargneMiseDeCote, solde, moodEmoji, moodLabel,
   dailyTotals, maxDaily, todayDay,
-  entries, prevMonthExpenses,
+  entries, prevMonthExpenses, pocket,
   onSelectCat, onShowDetail, onEdit, onReplay, readOnly = false,
 }: {
   arcs: { cat: KakeboCategory; pct: number; dash: number; offset: number; value: number }[]
@@ -19,6 +19,7 @@ export default function BilanView({
   dailyTotals: number[]; maxDaily: number; todayDay: number
   entries: KakeboEntry[]
   prevMonthExpenses?: number
+  pocket: PocketBreakdown
   onSelectCat: (id: string) => void
   onShowDetail: () => void
   onEdit: (entry: KakeboEntry) => void
@@ -39,7 +40,7 @@ export default function BilanView({
     : null
 
   const top3 = [...entries]
-    .filter(e => isSpendType(e.category?.type) && Number(e.amount) > 0)
+    .filter(e => isSpendType(e.category?.type) && !isPocketDetail(e) && Number(e.amount) > 0)
     .sort((a, b) => Number(b.amount) - Number(a.amount))
     .slice(0, 3)
 
@@ -129,6 +130,35 @@ export default function BilanView({
           ))}
         </div>
       </div>
+
+      {/* Argent de poche */}
+      {(pocket.envelope > 0 || pocket.spent > 0) && (
+        <div className={styles.pocketCard}>
+          <div className={styles.pocketHead}>
+            <Wallet size={14} strokeWidth={2} color="#C77DBA" />
+            <span className={styles.pocketTitle}>Argent de poche</span>
+            <span className={styles.pocketAmount}>
+              {fmtEur(pocket.spent)} € / {fmtEur(pocket.envelope)} €
+            </span>
+          </div>
+          <div className={styles.pocketTrack}>
+            <div
+              className={styles.pocketFill}
+              style={{
+                width: `${pocket.envelope > 0 ? Math.min(100, (pocket.spent / pocket.envelope) * 100) : 100}%`,
+                background: pocket.overflow > 0 ? 'var(--danger)' : '#C77DBA',
+              }}
+            />
+          </div>
+          <p className={styles.pocketNote}>
+            {pocket.envelope === 0
+              ? 'Aucune enveloppe allouée ce mois : ces dépenses comptent normalement. Saisis le montant alloué dans la catégorie « Argent de poche » pour qu\'elles n\'y soient plus recomptées.'
+              : pocket.overflow > 0
+                ? `Enveloppe dépassée de ${fmtEur(pocket.overflow)} € — ce dépassement est compté dans les dépenses du mois.`
+                : `Reste ${fmtEur(pocket.remaining)} €. Le détail taggué #argent-poche n'est pas recompté : l'enveloppe l'est déjà.`}
+          </p>
+        </div>
+      )}
 
       {/* Daily rhythm */}
       <div className={styles.rhythmCard}>

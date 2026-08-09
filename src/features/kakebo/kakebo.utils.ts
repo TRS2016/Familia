@@ -1,12 +1,13 @@
 import type { KakeboCategory } from './useKakebo'
 
 export const CAT_META: Record<string, { glyph: string; desc: string }> = {
-  fixed:    { glyph: '必', desc: 'Loyer, courses, transport' },
-  leisure:  { glyph: '楽', desc: 'Sorties, restaurants, sport' },
-  variable: { glyph: '知', desc: 'Livres, abonnements, ciné' },
-  extra:    { glyph: '他', desc: 'Imprévus, cadeaux, divers' },
-  income:   { glyph: '入', desc: 'Salaires, aides, revenus' },
-  saving:   { glyph: '貯', desc: 'Virements vers le compte épargne' },
+  fixed:     { glyph: '必', desc: 'Loyer, courses, transport' },
+  leisure:   { glyph: '楽', desc: 'Sorties, restaurants, sport' },
+  variable:  { glyph: '知', desc: 'Livres, abonnements, ciné' },
+  extra:     { glyph: '他', desc: 'Imprévus, cadeaux, divers' },
+  income:    { glyph: '入', desc: 'Salaires, aides, revenus' },
+  saving:    { glyph: '貯', desc: 'Virements vers le compte épargne' },
+  allowance: { glyph: '銭', desc: 'Enveloppe dépensée librement' },
 }
 
 export function catGlyph(type: string) { return CAT_META[type]?.glyph ?? '•' }
@@ -21,6 +22,61 @@ export function catColor(cat: KakeboCategory | null | undefined) { return cat?.c
 export const isIncomeType = (t: string | null | undefined) => t === 'income'
 export const isSavingType = (t: string | null | undefined) => t === 'saving'
 export const isSpendType  = (t: string | null | undefined) => !!t && t !== 'income' && t !== 'saving'
+/** Catégorie portant la somme ALLOUÉE à l'argent de poche (une vraie dépense). */
+export const isAllowanceType = (t: string | null | undefined) => t === 'allowance'
+
+// ── Argent de poche ────────────────────────────────────────────────────────
+// Une catégorie `allowance` porte l'enveloppe allouée (ex. retrait de 200 €),
+// comptée comme une dépense normale. Les opérations tagguées `argent-poche`
+// dans une AUTRE catégorie ne sont que le détail de ce que l'enveloppe est
+// devenue : elles ne sont pas recomptées (les 200 € le seraient deux fois).
+// Seul le dépassement (détail − alloué) s'ajoute aux dépenses.
+
+export const POCKET_TAG = 'argent-poche'
+
+type PocketEntry = { amount: number; tags?: string[] | null; category?: { type: string } | null }
+
+/** Détail d'une enveloppe : taggué, mais hors catégorie d'allocation. */
+export function isPocketDetail(e: PocketEntry): boolean {
+  return (e.tags ?? []).includes(POCKET_TAG) && !isAllowanceType(e.category?.type)
+}
+
+export interface PocketBreakdown {
+  /** Somme allouée ce mois (catégories de type allowance). */
+  envelope: number
+  /** Détail dépensé sur l'enveloppe (opérations tagguées). */
+  spent: number
+  /** Part du détail qui excède l'enveloppe : compte en dépense supplémentaire. */
+  overflow: number
+  /** Reste disponible sur l'enveloppe. */
+  remaining: number
+}
+
+export function pocketBreakdown(entries: PocketEntry[]): PocketBreakdown {
+  let envelope = 0
+  let spent = 0
+  for (const e of entries) {
+    if (isAllowanceType(e.category?.type)) envelope += Number(e.amount)
+    else if (isPocketDetail(e)) spent += Number(e.amount)
+  }
+  return {
+    envelope,
+    spent,
+    overflow: Math.max(0, spent - envelope),
+    remaining: Math.max(0, envelope - spent),
+  }
+}
+
+/**
+ * Total des dépenses d'un lot d'opérations, règle de l'argent de poche
+ * appliquée : le détail taggué est exclu, le dépassement éventuel ajouté.
+ */
+export function spendTotal(entries: PocketEntry[]): number {
+  const base = entries
+    .filter(e => isSpendType(e.category?.type) && !isPocketDetail(e))
+    .reduce((s, e) => s + Number(e.amount), 0)
+  return base + pocketBreakdown(entries).overflow
+}
 
 export function fmtEur(n: number) {
   return n.toLocaleString('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 2 })

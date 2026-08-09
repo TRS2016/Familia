@@ -6,7 +6,7 @@ function json(data: unknown, status = 200): Response {
 }
 
 interface Cat { id: string; household_id: string; name: string; type: string; monthly_budget: number | null }
-interface Entry { household_id: string; category_id: string | null; member_id: string | null; amount: number }
+interface Entry { household_id: string; category_id: string | null; member_id: string | null; amount: number; tags: string[] | null }
 interface MemberBudget { member_id: string; category_id: string; household_id: string; monthly_budget: number | null }
 
 Deno.serve(async () => {
@@ -27,7 +27,7 @@ Deno.serve(async () => {
   // ── Données ────────────────────────────────────────────────────────────────
   const [catsRes, entriesRes, mbRes] = await Promise.all([
     supabase.from('kakebo_categories').select('id, household_id, name, type, monthly_budget'),
-    supabase.from('kakebo_entries').select('household_id, category_id, member_id, amount')
+    supabase.from('kakebo_entries').select('household_id, category_id, member_id, amount, tags')
       .gte('date', monthStart).lte('date', monthEnd),
     supabase.from('kakebo_member_budgets').select('member_id, category_id, household_id, monthly_budget'),
   ])
@@ -46,6 +46,11 @@ Deno.serve(async () => {
   // catégories 'saving' sont des virements vers l'épargne, pas des dépenses —
   // les inclure aurait produit des alertes « budget dépassé » sur une épargne.
   const isSpendType = (t: string) => t !== 'income' && t !== 'saving'
+  // Détail de l'enveloppe « argent de poche » : l'enveloppe elle-même (type
+  // allowance) est déjà comptée, recompter le détail ferait sonner l'alerte à
+  // tort. Aligné sur isPocketDetail du client.
+  const isPocketDetail = (e: Entry, catType: string) =>
+    (e.tags ?? []).includes('argent-poche') && catType !== 'allowance'
 
   // ── Agrégats du mois (dépenses uniquement, hors revenus) ────────────────────
   const foyerSpend = new Map<string, number>()                 // `${hh}|${cat}`
@@ -54,6 +59,7 @@ Deno.serve(async () => {
     if (!e.category_id) continue
     const cat = catById.get(e.category_id)
     if (!cat || !isSpendType(cat.type)) continue
+    if (isPocketDetail(e, cat.type)) continue
     const amt = Number(e.amount)
     if (e.member_id == null) {
       const k = `${e.household_id}|${e.category_id}`

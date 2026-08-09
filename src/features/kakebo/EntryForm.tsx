@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { Dispatch, FormEvent, SetStateAction } from 'react'
 import { X } from 'lucide-react'
-import { catGlyph, catColor, isSavingType, monthInputToEndDate } from './kakebo.utils'
+import { catGlyph, catColor, isSavingType, isAllowanceType, monthInputToEndDate, POCKET_TAG } from './kakebo.utils'
 import type { EntryDraft } from './kakebo.utils'
 import type { KakeboCategory, KakeboMember } from './useKakebo'
 import type { SavingGoal } from './useSavingGoals'
@@ -37,6 +37,17 @@ export default function EntryForm({
   // En portée « toute la série », la date reste propre à chaque occurrence :
   // l'exposer ferait croire qu'on peut décaler le jour d'échéance de la série.
   const showDate = scope !== 'series'
+  // Sur une catégorie d'allocation, l'opération EST l'enveloppe : la marquer
+  // comme détail de cette même enveloppe n'aurait pas de sens.
+  const canBePocket = !!selectedCat && !isAllowanceType(selectedCat.type) && !isSavingType(selectedCat.type) && selectedCat.type !== 'income'
+  const onPocket = draft.tags.includes(POCKET_TAG)
+
+  function togglePocket(checked: boolean) {
+    setDraft(d => ({
+      ...d,
+      tags: checked ? [...d.tags.filter(t => t !== POCKET_TAG), POCKET_TAG] : d.tags.filter(t => t !== POCKET_TAG),
+    }))
+  }
 
   return (
     <form onSubmit={onSubmit} className={styles.form}>
@@ -145,6 +156,18 @@ export default function EntryForm({
           placeholder="Ex. Restaurant, Loyer, Netflix…"
         />
       </div>
+
+      {canBePocket && (
+        <label className={styles.recurRow}>
+          <input type="checkbox" checked={onPocket} onChange={e => togglePocket(e.target.checked)} />
+          <span>
+            💸 Payé avec l'argent de poche
+            <span className={styles.recurHint}>
+              {' '}— détail de l'enveloppe, non recompté dans les dépenses (sauf dépassement)
+            </span>
+          </span>
+        </label>
+      )}
 
       <div className={styles.fieldGroup}>
         <label className={styles.fieldLabel}>Tags</label>

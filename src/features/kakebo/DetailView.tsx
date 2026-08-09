@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { catColor, catGlyph, fmtEur, isSpendType, MONTH_LABELS_FR } from './kakebo.utils'
+import { catColor, catGlyph, fmtEur, isSpendType, isPocketDetail, MONTH_LABELS_FR } from './kakebo.utils'
 import EntryRow from './EntryRow'
 import type { KakeboCategory, KakeboEntry } from './useKakebo'
 import styles from './KakeboPage.module.css'
@@ -42,7 +42,7 @@ export default function DetailView({
 
   const filterActive = selectedTags.length > 0
   const filteredExpense = filtered
-    .filter(e => isSpendType(e.category?.type))
+    .filter(e => isSpendType(e.category?.type) && !isPocketDetail(e))
     .reduce((s, e) => s + Number(e.amount), 0)
 
   return (
@@ -92,7 +92,10 @@ export default function DetailView({
         const catEntries = filtered
           .filter(e => e.category_id === cat.id)
           .sort((a, b) => b.date.localeCompare(a.date))
-        const total = catEntries.reduce((s, e) => s + Number(e.amount), 0)
+        // Le détail d'enveloppe est affiché mais pas additionné : il est déjà
+        // couvert par la catégorie « Argent de poche ».
+        const total = catEntries.filter(e => !isPocketDetail(e)).reduce((s, e) => s + Number(e.amount), 0)
+        const pocketCount = catEntries.filter(isPocketDetail).length
         return (
           <div key={cat.id} className={styles.detailGroup}>
             <div className={styles.detailGroupHeader}>
@@ -101,7 +104,9 @@ export default function DetailView({
                   {catGlyph(cat.type)}
                 </div>
                 <span className={styles.detailGroupName}>{cat.name}</span>
-                <span className={styles.detailGroupCount}>· {catEntries.length}</span>
+                <span className={styles.detailGroupCount}>
+                  · {catEntries.length}{pocketCount > 0 ? ` · ${pocketCount} sur enveloppe` : ''}
+                </span>
               </div>
               <span className={styles.detailGroupTotal} style={{ color: catColor(cat) }}>
                 {fmtEur(total)} €
@@ -138,7 +143,7 @@ export default function DetailView({
         if (sorted.length === 0) return <p className={styles.detailEmpty}>Aucune opération ce mois.</p>
         return [...byDate.entries()].map(([date, dayEntries]) => {
           const dayTotal = dayEntries
-            .filter(e => isSpendType(e.category?.type))
+            .filter(e => isSpendType(e.category?.type) && !isPocketDetail(e))
             .reduce((s, e) => s + Number(e.amount), 0)
           return (
             <div key={date} className={styles.dateGroup}>

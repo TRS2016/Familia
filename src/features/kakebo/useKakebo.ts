@@ -12,7 +12,7 @@ export interface KakeboCategory {
   id: string
   household_id: string
   name: string
-  type: 'income' | 'fixed' | 'variable' | 'leisure' | 'extra' | 'saving'
+  type: 'income' | 'fixed' | 'variable' | 'leisure' | 'extra' | 'saving' | 'allowance'
   color: string | null
   monthly_budget: number | null
   created_at: string
@@ -124,6 +124,7 @@ export function useKakeboCategories() {
       const backfill: { name: string; type: KakeboCategory['type']; color: string }[] = []
       if (!working.some(c => c.type === 'income')) backfill.push({ name: 'Revenus', type: 'income', color: '#E8B84B' })
       if (!working.some(c => c.type === 'saving')) backfill.push({ name: 'Épargne', type: 'saving', color: '#3D80B8' })
+      if (!working.some(c => c.type === 'allowance')) backfill.push({ name: 'Argent de poche', type: 'allowance', color: '#C77DBA' })
 
       for (const cat of backfill) {
         const { data: newCat, error: insertErr } = await supabase

@@ -10,10 +10,10 @@ import {
 import styles from './KakeboPage.module.css'
 
 const NEW_CAT_COLORS = ['#E07B54', '#5B9E8F', '#9B7AC4', '#C89A5B', '#3D80B8', '#E8B84B', '#B85C5C', '#7A9B4C']
-const CAT_TYPES: KakeboCategory['type'][] = ['fixed', 'variable', 'leisure', 'extra', 'income', 'saving']
+const CAT_TYPES: KakeboCategory['type'][] = ['fixed', 'variable', 'leisure', 'extra', 'income', 'saving', 'allowance']
 const TYPE_LABELS: Record<KakeboCategory['type'], string> = {
   fixed: 'Survie', variable: 'Culture', leisure: 'Loisirs',
-  extra: 'Extras', income: 'Revenus', saving: 'Épargne',
+  extra: 'Extras', income: 'Revenus', saving: 'Épargne', allowance: 'Argent de poche',
 }
 
 /**
