@@ -27,3 +27,47 @@ export function fmtEur(n: number) {
 }
 
 export const MONTH_LABELS_FR = ['jan','fév','mar','avr','mai','jun','jul','aoû','sep','oct','nov','déc']
+
+/**
+ * Convertit la valeur d'un `<input type="month">` ('YYYY-MM' ou '') en date de
+ * fin d'échéance = dernier jour du mois (inclut tout le mois choisi).
+ */
+export function monthInputToEndDate(ym: string): string | null {
+  if (!ym) return null
+  const [y, m] = ym.split('-').map(Number)
+  if (!y || !m) return null
+  const lastDay = new Date(y, m, 0).getDate()
+  return `${ym}-${String(lastDay).padStart(2, '0')}`
+}
+
+/** Dernier jour du mois affiché, au format 'YYYY-MM-DD'. */
+export function lastDayOfMonth(year: number, month: number): string {
+  return `${year}-${String(month).padStart(2, '0')}-${String(new Date(year, month, 0).getDate()).padStart(2, '0')}`
+}
+
+/** Échappement CSV : les noms de catégorie sont libres et peuvent contenir des virgules. */
+export function csvCell(value: string | number): string {
+  const s = String(value)
+  return /[",\n;]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+
+/** État commun aux formulaires d'ajout et d'édition d'une opération. */
+export interface EntryDraft {
+  category_id: string
+  amount: string
+  description: string
+  date: string
+  member_id: string | null
+  tags: string[]
+  recurring: boolean
+  series_id: string | null
+  series_end: string | null
+  saving_goal_id: string | null
+}
+
+export const EMPTY_DRAFT: EntryDraft = {
+  category_id: '', amount: '', description: '', date: '',
+  member_id: null, tags: [], recurring: false,
+  series_id: null, series_end: null, saving_goal_id: null,
+}

@@ -13,7 +13,7 @@ export default function CategoryDetail({
   trendEntries: KakeboEntry[]
   revenus: number
   onEdit: (entry: KakeboEntry) => void
-  onDelete: (id: string) => void
+  onDelete: (entry: KakeboEntry) => void
   onReplay: (entry: KakeboEntry) => void
   readOnly?: boolean
 }) {
@@ -162,7 +162,7 @@ export default function CategoryDetail({
                 entry={e}
                 showBorder={i < sorted.length - 1}
                 onEdit={readOnly ? undefined : () => onEdit(e)}
-                onDelete={readOnly ? undefined : () => onDelete(e.id)}
+                onDelete={readOnly ? undefined : () => onDelete(e)}
                 onReplay={() => onReplay(e)}
               />
             ))}

@@ -10,7 +10,7 @@ export default function DetailView({
   categories: KakeboCategory[]
   entries: KakeboEntry[]
   onEdit: (entry: KakeboEntry) => void
-  onDelete: (id: string) => void
+  onDelete: (entry: KakeboEntry) => void
   onReplay: (entry: KakeboEntry) => void
   readOnly?: boolean
 }) {
@@ -117,7 +117,7 @@ export default function DetailView({
                       entry={e}
                       showBorder={i < catEntries.length - 1}
                       onEdit={readOnly ? undefined : () => onEdit(e)}
-                      onDelete={readOnly ? undefined : () => onDelete(e.id)}
+                      onDelete={readOnly ? undefined : () => onDelete(e)}
                       onReplay={() => onReplay(e)}
                     />
                   ))}
@@ -157,7 +157,7 @@ export default function DetailView({
                     entry={e}
                     showBorder={i < dayEntries.length - 1}
                     onEdit={readOnly ? undefined : () => onEdit(e)}
-                    onDelete={readOnly ? undefined : () => onDelete(e.id)}
+                    onDelete={readOnly ? undefined : () => onDelete(e)}
                     onReplay={() => onReplay(e)}
                   />
                 ))}

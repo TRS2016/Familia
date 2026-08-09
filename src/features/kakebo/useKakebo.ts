@@ -1,8 +1,10 @@
+import { useEffect } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
 import { HOUSEHOLD_ID } from '../../lib/config'
 import { useMember } from '../../auth/useMember'
 import { useToast } from '../../components/useToast'
+import { SAVING_GOAL_TOTALS_KEY } from './useSavingGoals'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -69,6 +71,11 @@ export const KAKEBO_CATS_KEY = ['kakebo-categories', HOUSEHOLD_ID] as const
 
 export function kakeboEntriesKey(year: number, month: number) {
   return ['kakebo-entries', HOUSEHOLD_ID, year, month] as const
+}
+
+/** Clé du mois auquel appartient une date 'YYYY-MM-DD'. */
+export function kakeboEntriesKeyForDate(date: string) {
+  return kakeboEntriesKey(Number(date.slice(0, 4)), Number(date.slice(5, 7)))
 }
 
 // ── Default categories seeded on first load ───────────────────────────────────
@@ -162,86 +169,136 @@ export function useKakeboEntries(year: number, month: number) {
 
 // ── Récurrences : génère les occurrences manquantes du mois affiché ─────────────
 
-export function useMaterializeRecurring(year: number, month: number) {
-  const queryClient = useQueryClient()
-  return useQuery({
-    queryKey: ['kakebo-materialize', HOUSEHOLD_ID, year, month],
-    queryFn: async (): Promise<number> => {
-      const { data, error } = await supabase
-        .from('kakebo_entries')
-        .select('*')
-        .eq('household_id', HOUSEHOLD_ID)
-        .not('series_id', 'is', null)
-        .order('date', { ascending: true })
-      if (error) throw error
-      const rows = (data ?? []) as unknown as KakeboEntry[]
+/** Nombre de mois d'historique lus pour retrouver la dernière occurrence d'une série. */
+const MATERIALIZE_WINDOW_MONTHS = 13
 
-      const bySeries = new Map<string, KakeboEntry[]>()
-      for (const r of rows) {
-        const k = r.series_id as string
-        const arr = bySeries.get(k) ?? []
-        arr.push(r); bySeries.set(k, arr)
+/** Mois déjà traité pendant cette session (évite de rejouer à chaque remount). */
+let lastMaterializedMonth: string | null = null
+
+async function materializeRecurring(targetKey: string): Promise<number> {
+  // Fenêtre glissante : une série dont la dernière occurrence a plus d'un an
+  // est considérée dormante — on ne rattrape pas un backlog arbitraire, et la
+  // requête reste très en deçà du plafond `max_rows` de PostgREST.
+  const [ty, tm] = targetKey.split('-').map(Number)
+  const winStart = new Date(ty, tm - 1 - MATERIALIZE_WINDOW_MONTHS, 1)
+  const from = `${winStart.getFullYear()}-${String(winStart.getMonth() + 1).padStart(2, '0')}-01`
+
+  const [entriesRes, skipsRes] = await Promise.all([
+    supabase
+      .from('kakebo_entries')
+      .select('*')
+      .eq('household_id', HOUSEHOLD_ID)
+      .not('series_id', 'is', null)
+      .gte('date', from)
+      .order('date', { ascending: true }),
+    supabase
+      .from('kakebo_series_skips')
+      .select('series_id, date')
+      .eq('household_id', HOUSEHOLD_ID),
+  ])
+  if (entriesRes.error) throw entriesRes.error
+  if (skipsRes.error) throw skipsRes.error
+
+  const rows = (entriesRes.data ?? []) as unknown as KakeboEntry[]
+  // Occurrence supprimée à la main : on ne la régénère pas. La pierre tombale
+  // vaut pour le mois entier (le jour d'échéance peut bouger avec la série).
+  const skipped = new Set(
+    (skipsRes.data ?? []).map((s: { series_id: string; date: string }) => `${s.series_id}|${s.date.slice(0, 7)}`),
+  )
+
+  const bySeries = new Map<string, KakeboEntry[]>()
+  for (const r of rows) {
+    const k = r.series_id as string
+    const arr = bySeries.get(k) ?? []
+    arr.push(r); bySeries.set(k, arr)
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const toInsert: any[] = []
+
+  for (const [sid, occ] of bySeries) {
+    occ.sort((a, b) => a.date.localeCompare(b.date))
+    const latest = occ[occ.length - 1]
+    if (!latest.recurring) continue // série arrêtée (décochée)
+    const end = latest.series_end // dernier jour du mois d'échéance, ou null
+    const latestKey = latest.date.slice(0, 7)
+    if (targetKey <= latestKey) continue // déjà à jour jusqu'au mois courant
+
+    const existingMonths = new Set(occ.map(o => o.date.slice(0, 7)))
+    const day = Number(latest.date.slice(8, 10))
+    let [y, m] = latest.date.split('-').map(Number)
+    let guard = 0
+    while (guard++ <= MATERIALIZE_WINDOW_MONTHS) {
+      m++; if (m > 12) { m = 1; y++ }
+      const mk = `${y}-${String(m).padStart(2, '0')}`
+      const lastDay = new Date(y, m, 0).getDate()
+      const occDate = `${mk}-${String(Math.min(day, lastDay)).padStart(2, '0')}`
+      if (end && occDate > end) break // échéance dépassée : on arrête la série
+      if (!existingMonths.has(mk) && !skipped.has(`${sid}|${mk}`)) {
+        toInsert.push({
+          household_id: HOUSEHOLD_ID,
+          category_id: latest.category_id,
+          member_id: latest.member_id,
+          amount: latest.amount,
+          date: occDate,
+          description: latest.description,
+          tags: latest.tags ?? [],
+          recurring: true,
+          series_id: sid,
+          series_end: end,
+          saving_goal_id: latest.saving_goal_id,
+        })
       }
+      if (mk >= targetKey) break
+    }
+  }
 
-      const targetKey = `${year}-${String(month).padStart(2, '0')}`
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const toInsert: any[] = []
-
-      for (const [sid, occ] of bySeries) {
-        occ.sort((a, b) => a.date.localeCompare(b.date))
-        const latest = occ[occ.length - 1]
-        if (!latest.recurring) continue // série arrêtée (décochée)
-        const end = latest.series_end // dernier jour du mois d'échéance, ou null
-        const latestKey = latest.date.slice(0, 7)
-        if (targetKey <= latestKey) continue // déjà à jour jusqu'au mois affiché
-
-        const existingMonths = new Set(occ.map(o => o.date.slice(0, 7)))
-        const day = Number(latest.date.slice(8, 10))
-        let [y, m] = latest.date.split('-').map(Number)
-        let guard = 0
-        while (guard++ < 24) {
-          m++; if (m > 12) { m = 1; y++ }
-          const mk = `${y}-${String(m).padStart(2, '0')}`
-          const lastDay = new Date(y, m, 0).getDate()
-          const occDate = `${mk}-${String(Math.min(day, lastDay)).padStart(2, '0')}`
-          if (end && occDate > end) break // échéance dépassée : on arrête la série
-          if (!existingMonths.has(mk)) {
-            toInsert.push({
-              household_id: HOUSEHOLD_ID,
-              category_id: latest.category_id,
-              member_id: latest.member_id,
-              amount: latest.amount,
-              date: occDate,
-              description: latest.description,
-              tags: latest.tags ?? [],
-              recurring: true,
-              series_id: sid,
-              series_end: end,
-            })
-          }
-          if (mk >= targetKey) break
-        }
-      }
-
-      if (toInsert.length > 0) {
-        const { error: insErr } = await supabase
-          .from('kakebo_entries')
-          .upsert(toInsert as never, { onConflict: 'series_id,date', ignoreDuplicates: true })
-        if (insErr) throw insErr
-        queryClient.invalidateQueries({ queryKey: kakeboEntriesKey(year, month) })
-        queryClient.invalidateQueries({ queryKey: ['kakebo-trend', HOUSEHOLD_ID] })
-      }
-      return toInsert.length
-    },
-    staleTime: 5 * 60 * 1000,
-  })
+  if (toInsert.length > 0) {
+    const { error } = await supabase
+      .from('kakebo_entries')
+      .upsert(toInsert as never, { onConflict: 'series_id,date', ignoreDuplicates: true })
+    if (error) throw error
+  }
+  return toInsert.length
 }
 
-export function useAddEntry(year: number, month: number) {
+/**
+ * Génère les occurrences manquantes des charges fixes, jusqu'au mois **courant**
+ * uniquement — naviguer vers un mois futur ne doit pas écrire en base des lignes
+ * qui deviendront ensuite des « mois passés » verrouillés en lecture seule.
+ * Une seule exécution par mois et par session.
+ */
+export function useMaterializeRecurring() {
+  const queryClient = useQueryClient()
+
+  useEffect(() => {
+    const now = new Date()
+    const targetKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+    if (lastMaterializedMonth === targetKey) return
+    lastMaterializedMonth = targetKey
+
+    materializeRecurring(targetKey)
+      .then(count => {
+        if (count > 0) {
+          queryClient.invalidateQueries({ queryKey: ['kakebo-entries', HOUSEHOLD_ID] })
+          queryClient.invalidateQueries({ queryKey: ['kakebo-trend', HOUSEHOLD_ID] })
+          queryClient.invalidateQueries({ queryKey: SAVING_GOAL_TOTALS_KEY })
+        }
+      })
+      .catch(() => { lastMaterializedMonth = null }) // réessaiera au prochain montage
+  }, [queryClient])
+}
+
+/**
+ * Ajout d'une opération. La query key visée est déduite de la **date saisie**,
+ * jamais du mois affiché : dupliquer une opération d'un mois passé vers
+ * aujourd'hui, ou saisir une date hors du mois consulté, doit atterrir dans le
+ * bon cache.
+ */
+export function useAddEntry() {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
   const { showToast } = useToast()
-  const key = kakeboEntriesKey(year, month)
 
   return useMutation({
     mutationFn: async (input: NewEntryInput): Promise<KakeboEntry> => {
@@ -267,6 +324,7 @@ export function useAddEntry(year: number, month: number) {
       return data as unknown as KakeboEntry
     },
     onMutate: async (input: NewEntryInput) => {
+      const key = kakeboEntriesKeyForDate(input.date)
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<KakeboEntry[]>(key) ?? []
       const categories = queryClient.getQueryData<KakeboCategory[]>(KAKEBO_CATS_KEY) ?? []
@@ -290,15 +348,19 @@ export function useAddEntry(year: number, month: number) {
           : null,
       }
       queryClient.setQueryData<KakeboEntry[]>(key, [optimistic, ...previous])
-      return { previous, optimisticId: optimistic.id }
+      return { previous, optimisticId: optimistic.id, key }
     },
     onSuccess: (newEntry, _input, context) => {
-      queryClient.setQueryData<KakeboEntry[]>(key, old =>
-        (old ?? []).map(e => e.id === context?.optimisticId ? newEntry : e)
+      if (!context) return
+      queryClient.setQueryData<KakeboEntry[]>(context.key, old =>
+        (old ?? []).map(e => e.id === context.optimisticId ? newEntry : e)
       )
+      if (newEntry.saving_goal_id) {
+        queryClient.invalidateQueries({ queryKey: SAVING_GOAL_TOTALS_KEY })
+      }
     },
     onError: (_err, _input, context) => {
-      queryClient.setQueryData(key, context?.previous ?? [])
+      if (context) queryClient.setQueryData(context.key, context.previous)
       showToast({ type: 'error', message: 'Impossible d\'ajouter l\'opération.' })
     },
   })
@@ -308,6 +370,7 @@ export function useEditEntry(year: number, month: number) {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   const key = kakeboEntriesKey(year, month)
+  const monthPrefix = `${year}-${String(month).padStart(2, '0')}`
 
   return useMutation({
     mutationFn: async (input: EditEntryInput): Promise<KakeboEntry | null> => {
@@ -372,6 +435,11 @@ export function useEditEntry(year: number, month: number) {
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<KakeboEntry[]>(key) ?? []
       const categories = queryClient.getQueryData<KakeboCategory[]>(KAKEBO_CATS_KEY) ?? []
+      // Date déplacée hors du mois affiché : l'opération quitte cette liste.
+      if (input.date.slice(0, 7) !== monthPrefix) {
+        queryClient.setQueryData<KakeboEntry[]>(key, previous.filter(e => e.id !== input.id))
+        return { previous }
+      }
       queryClient.setQueryData<KakeboEntry[]>(key, old =>
         (old ?? []).map(e => e.id !== input.id ? e : {
           ...e,
@@ -389,11 +457,18 @@ export function useEditEntry(year: number, month: number) {
       return { previous }
     },
     onSuccess: (updated, input) => {
+      queryClient.invalidateQueries({ queryKey: SAVING_GOAL_TOTALS_KEY })
       if (input.scope === 'series' || !updated) {
         // Plusieurs mois touchés (+ régénération récurrente) → on invalide large.
         queryClient.invalidateQueries({ queryKey: ['kakebo-entries', HOUSEHOLD_ID] })
         queryClient.invalidateQueries({ queryKey: ['kakebo-trend', HOUSEHOLD_ID] })
-        queryClient.invalidateQueries({ queryKey: ['kakebo-materialize', HOUSEHOLD_ID] })
+        return
+      }
+      if (updated.date.slice(0, 7) !== monthPrefix) {
+        // L'opération a changé de mois : rafraîchir la destination (et la
+        // tendance, dont la fenêtre 12 mois couvre les deux).
+        queryClient.invalidateQueries({ queryKey: kakeboEntriesKeyForDate(updated.date) })
+        queryClient.invalidateQueries({ queryKey: ['kakebo-trend', HOUSEHOLD_ID] })
         return
       }
       queryClient.setQueryData<KakeboEntry[]>(key, old =>
@@ -456,7 +531,9 @@ export function useKakeboTrend(monthsBack = 6) {
   const to = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(lastDay)}`
 
   return useQuery({
-    queryKey: ['kakebo-trend', HOUSEHOLD_ID, monthsBack],
+    // `to` est inclus dans la clé : sans lui, une session laissée ouverte au
+    // passage d'un mois continuerait de servir la fenêtre de l'ancien mois.
+    queryKey: ['kakebo-trend', HOUSEHOLD_ID, monthsBack, to],
     queryFn: async (): Promise<KakeboEntry[]> => {
       const { data, error } = await supabase
         .from('kakebo_entries')
@@ -625,19 +702,87 @@ export function useDeleteEntry(year: number, month: number) {
   const key = kakeboEntriesKey(year, month)
 
   return useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from('kakebo_entries').delete().eq('id', id)
+    mutationFn: async (entry: KakeboEntry) => {
+      // Occurrence d'une charge fixe : sans pierre tombale, la matérialisation
+      // la régénère au prochain chargement. On pose le marqueur AVANT la
+      // suppression — l'inverse laisserait une fenêtre de résurrection.
+      if (entry.series_id) {
+        const { error: skipErr } = await supabase
+          .from('kakebo_series_skips')
+          .upsert(
+            { series_id: entry.series_id, date: entry.date, household_id: HOUSEHOLD_ID } as never,
+            { onConflict: 'series_id,date', ignoreDuplicates: true },
+          )
+        if (skipErr) throw skipErr
+      }
+      const { error } = await supabase.from('kakebo_entries').delete().eq('id', entry.id)
       if (error) throw error
     },
-    onMutate: async (id: string) => {
+    onMutate: async (entry: KakeboEntry) => {
       await queryClient.cancelQueries({ queryKey: key })
       const previous = queryClient.getQueryData<KakeboEntry[]>(key) ?? []
-      queryClient.setQueryData<KakeboEntry[]>(key, previous.filter(e => e.id !== id))
+      queryClient.setQueryData<KakeboEntry[]>(key, previous.filter(e => e.id !== entry.id))
       return { previous }
     },
-    onError: (_err, _id, context) => {
+    onSuccess: (_data, entry) => {
+      queryClient.invalidateQueries({ queryKey: ['kakebo-trend', HOUSEHOLD_ID] })
+      if (entry.saving_goal_id) queryClient.invalidateQueries({ queryKey: SAVING_GOAL_TOTALS_KEY })
+    },
+    onError: (_err, _entry, context) => {
       queryClient.setQueryData(key, context?.previous ?? [])
       showToast({ type: 'error', message: 'Impossible de supprimer l\'opération.' })
+    },
+  })
+}
+
+// ── Création / suppression de catégorie ───────────────────────────────────────
+
+export function useCreateCategory() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async (input: { name: string; type: KakeboCategory['type']; color: string }) => {
+      const { error } = await supabase
+        .from('kakebo_categories')
+        .insert({ ...input, name: input.name.trim(), household_id: HOUSEHOLD_ID } as never)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KAKEBO_CATS_KEY }),
+    onError: () => showToast({ type: 'error', message: 'Impossible de créer la catégorie.' }),
+  })
+}
+
+/**
+ * Suppression d'une catégorie. Refusée si des opérations y sont rattachées :
+ * la FK est en ON DELETE SET NULL, une opération orpheline disparaîtrait de
+ * tous les totaux sans disparaître de la base — une perte comptable muette.
+ */
+export function useDeleteCategory() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const { count, error: countErr } = await supabase
+        .from('kakebo_entries')
+        .select('id', { count: 'exact', head: true })
+        .eq('category_id', id)
+      if (countErr) throw countErr
+      if ((count ?? 0) > 0) throw new Error(`USED:${count}`)
+
+      const { error } = await supabase.from('kakebo_categories').delete().eq('id', id)
+      if (error) throw error
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: KAKEBO_CATS_KEY }),
+    onError: (err: Error) => {
+      const used = err.message.startsWith('USED:') ? err.message.slice(5) : null
+      showToast({
+        type: 'error',
+        message: used
+          ? `Impossible : ${used} opération${Number(used) > 1 ? 's' : ''} utilisent encore cette catégorie.`
+          : 'Impossible de supprimer la catégorie.',
+      })
     },
   })
 }

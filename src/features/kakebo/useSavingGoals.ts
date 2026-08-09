@@ -16,7 +16,10 @@ export interface SavingGoal {
 }
 
 export const SAVING_GOALS_KEY = ['kakebo-saving-goals', HOUSEHOLD_ID] as const
+export const ARCHIVED_SAVING_GOALS_KEY = ['kakebo-saving-goals-archived', HOUSEHOLD_ID] as const
 export const SAVING_GOAL_TOTALS_KEY = ['kakebo-saving-goal-totals', HOUSEHOLD_ID] as const
+
+const toGoal = (g: SavingGoal) => ({ ...g, target_amount: Number(g.target_amount) })
 
 // ── Hooks ─────────────────────────────────────────────────────────────────────
 
@@ -31,26 +34,48 @@ export function useSavingGoals() {
         .is('archived_at', null)
         .order('created_at', { ascending: true })
       if (error) throw error
-      return (data as unknown as SavingGoal[]).map(g => ({ ...g, target_amount: Number(g.target_amount) }))
+      return (data as unknown as SavingGoal[]).map(toGoal)
     },
   })
 }
 
-/** Montant cumulé par projet (toutes les opérations rattachées, tous mois). */
+/**
+ * Projets archivés. Nécessaires malgré leur nom : des opérations restent
+ * rattachées à un projet archivé, et sans cette liste elles deviennent
+ * invisibles et non réaffectables.
+ */
+export function useArchivedSavingGoals() {
+  return useQuery({
+    queryKey: ARCHIVED_SAVING_GOALS_KEY,
+    queryFn: async (): Promise<SavingGoal[]> => {
+      const { data, error } = await supabase
+        .from('kakebo_saving_goals')
+        .select('*')
+        .eq('household_id', HOUSEHOLD_ID)
+        .not('archived_at', 'is', null)
+        .order('archived_at', { ascending: false })
+      if (error) throw error
+      return (data as unknown as SavingGoal[]).map(toGoal)
+    },
+  })
+}
+
+/**
+ * Montant cumulé par projet (toutes les opérations rattachées, tous mois).
+ * Agrégé côté serveur : sommer côté client plafonnait à `max_rows` (1000) et
+ * devenait silencieusement faux au-delà.
+ */
 export function useSavingGoalTotals() {
   return useQuery({
     queryKey: SAVING_GOAL_TOTALS_KEY,
     queryFn: async (): Promise<Record<string, number>> => {
-      const { data, error } = await supabase
-        .from('kakebo_entries')
-        .select('saving_goal_id, amount')
-        .eq('household_id', HOUSEHOLD_ID)
-        .not('saving_goal_id', 'is', null)
+      const { data, error } = await supabase.rpc('kakebo_saving_goal_totals', {
+        p_household_id: HOUSEHOLD_ID,
+      })
       if (error) throw error
       const totals: Record<string, number> = {}
-      for (const row of data as { saving_goal_id: string | null; amount: number }[]) {
-        if (!row.saving_goal_id) continue
-        totals[row.saving_goal_id] = (totals[row.saving_goal_id] ?? 0) + Number(row.amount)
+      for (const row of (data ?? []) as { saving_goal_id: string; total: number }[]) {
+        totals[row.saving_goal_id] = Number(row.total)
       }
       return totals
     },
@@ -72,7 +97,10 @@ export function useUpsertSavingGoal() {
         if (error) throw error
       }
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: SAVING_GOALS_KEY }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SAVING_GOALS_KEY })
+      queryClient.invalidateQueries({ queryKey: ARCHIVED_SAVING_GOALS_KEY })
+    },
     onError: () => showToast({ type: 'error', message: 'Impossible d\'enregistrer le projet.' }),
   })
 }
@@ -82,14 +110,17 @@ export function useArchiveSavingGoal() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()
   return useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async ({ id, archived }: { id: string; archived: boolean }) => {
       const { error } = await supabase
         .from('kakebo_saving_goals')
-        .update({ archived_at: new Date().toISOString() } as never)
+        .update({ archived_at: archived ? new Date().toISOString() : null } as never)
         .eq('id', id)
       if (error) throw error
     },
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: SAVING_GOALS_KEY }),
-    onError: () => showToast({ type: 'error', message: 'Impossible d\'archiver le projet.' }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: SAVING_GOALS_KEY })
+      queryClient.invalidateQueries({ queryKey: ARCHIVED_SAVING_GOALS_KEY })
+    },
+    onError: () => showToast({ type: 'error', message: 'Impossible de modifier le projet.' }),
   })
 }

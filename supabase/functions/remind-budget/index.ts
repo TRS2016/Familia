@@ -18,7 +18,11 @@ Deno.serve(async () => {
   const now = new Date()
   const period = parisDate(now).slice(0, 7)         // 'YYYY-MM' Paris
   const monthStart = `${period}-01`
-  const monthEnd = parisDate(now)                    // jusqu'à aujourd'hui inclus
+  // Mois entier, pas « jusqu'à aujourd'hui » : les charges fixes sont
+  // matérialisées à leur date d'échéance, souvent en fin de mois. S'arrêter à
+  // aujourd'hui retardait la détection du dépassement sur ces catégories.
+  const [py, pm] = period.split('-').map(Number)
+  const monthEnd = `${period}-${String(new Date(py, pm, 0).getDate()).padStart(2, '0')}`
 
   // ── Données ────────────────────────────────────────────────────────────────
   const [catsRes, entriesRes, mbRes] = await Promise.all([
@@ -37,13 +41,19 @@ Deno.serve(async () => {
 
   const catById = new Map(cats.map(c => [c.id, c]))
 
+  // Types comptés comme dépense de consommation. Doit rester aligné sur
+  // `isSpendType` du client (src/features/kakebo/kakebo.utils.ts) : les
+  // catégories 'saving' sont des virements vers l'épargne, pas des dépenses —
+  // les inclure aurait produit des alertes « budget dépassé » sur une épargne.
+  const isSpendType = (t: string) => t !== 'income' && t !== 'saving'
+
   // ── Agrégats du mois (dépenses uniquement, hors revenus) ────────────────────
   const foyerSpend = new Map<string, number>()                 // `${hh}|${cat}`
   const memberSpend = new Map<string, number>()                // `${member}|${cat}`
   for (const e of entries) {
     if (!e.category_id) continue
     const cat = catById.get(e.category_id)
-    if (!cat || cat.type === 'income') continue
+    if (!cat || !isSpendType(cat.type)) continue
     const amt = Number(e.amount)
     if (e.member_id == null) {
       const k = `${e.household_id}|${e.category_id}`
@@ -60,7 +70,7 @@ Deno.serve(async () => {
   const candidates: Alert[] = []
 
   for (const c of cats) {
-    if (c.type === 'income' || c.monthly_budget == null) continue
+    if (!isSpendType(c.type) || c.monthly_budget == null) continue
     const spent = foyerSpend.get(`${c.household_id}|${c.id}`) ?? 0
     if (spent > Number(c.monthly_budget)) {
       candidates.push({
@@ -74,7 +84,7 @@ Deno.serve(async () => {
   for (const mb of memberBudgets) {
     if (mb.monthly_budget == null) continue
     const cat = catById.get(mb.category_id)
-    if (!cat || cat.type === 'income') continue
+    if (!cat || !isSpendType(cat.type)) continue
     const spent = memberSpend.get(`${mb.member_id}|${mb.category_id}`) ?? 0
     if (spent > Number(mb.monthly_budget)) {
       candidates.push({

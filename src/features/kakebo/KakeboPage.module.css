@@ -1341,9 +1341,9 @@
 .entryRecur { font-size: var(--text-2xs); }
 
 /* Ligne nom + budget côte à côte dans les paramètres */
-.catEditRow { display: flex; gap: 8px; }
+.catEditRow { display: flex; gap: 8px; align-items: stretch; }
+.catEditRow > input { flex: 1; min-width: 84px; }
 .catEditRow > input:first-child { flex: 2; }
-.catEditRow > input:last-child { flex: 1; min-width: 84px; }
 
 /* Filtre par tag (détail catégorie) */
 .tagFilterRow {
@@ -1906,3 +1906,37 @@
 .goalItemMeta { font-size: var(--text-xs); color: var(--text-muted); font-weight: 600; }
 .goalArchiveBtn { margin-top: 4px; min-height: 40px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); font-family: var(--font-family); font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
 .goalArchiveBtn:hover { border-color: var(--danger, #C0392B); color: var(--danger, #C0392B); }
+
+
+/* ── Paramètres : gestion des catégories ─────────────────────────────────── */
+
+.catDeleteBtn { flex: 0 0 auto; width: 40px; display: inline-flex; align-items: center; justify-content: center; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); cursor: pointer; }
+.catDeleteBtn:hover { border-color: var(--danger, #C0392B); color: var(--danger, #C0392B); }
+
+.addCatBtn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 44px; margin-top: 4px; border: 1.5px dashed var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-sub); font-family: var(--font-family); font-size: var(--text-sm); font-weight: 700; cursor: pointer; }
+.addCatBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+.newCatBox { display: flex; flex-direction: column; gap: 12px; padding: 12px; border: 1.5px solid var(--border); border-radius: var(--radius-md); background: var(--surface-alt, transparent); }
+.newCatActions { display: flex; gap: 8px; }
+.newCatCancel { flex: 1; min-height: 40px; border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: transparent; color: var(--text-muted); font-family: var(--font-family); font-size: var(--text-sm); font-weight: 600; cursor: pointer; }
+.newCatConfirm { flex: 1; min-height: 40px; border: none; border-radius: var(--radius-sm); background: var(--accent); color: #fff; font-family: var(--font-family); font-size: var(--text-sm); font-weight: 800; cursor: pointer; }
+.newCatConfirm:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.colorRow { display: flex; flex-wrap: wrap; gap: 8px; }
+.colorDot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.colorDotActive { border-color: var(--text); box-shadow: 0 0 0 2px var(--surface); }
+
+.confirmText { margin: 0; font-size: var(--text-sm); line-height: 1.5; color: var(--text-sub); }
+.dangerBtn { min-height: 44px; border: none; border-radius: var(--radius-sm); background: var(--danger, #C0392B); color: #fff; font-family: var(--font-family); font-size: var(--text-sm); font-weight: 800; cursor: pointer; }
+.dangerBtn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.readOnlyNote { margin: 0 var(--page-pad, 16px) 8px; font-size: var(--text-xs); color: var(--text-muted); text-align: center; }
+
+/* ── Projets d'épargne archivés ──────────────────────────────────────────── */
+
+.goalsArchived { margin-top: 10px; border-top: 1px solid var(--border); padding-top: 8px; }
+.goalsArchivedSummary { font-size: var(--text-xs); font-weight: 700; color: var(--text-muted); cursor: pointer; }
+.goalsArchivedRow { display: flex; align-items: center; gap: 8px; padding: 6px 0; }
+.goalsArchivedRow .goalItemName { flex: 1; opacity: 0.75; }
+.goalsUnarchive { border: 1.5px solid var(--border); border-radius: var(--radius-sm); background: transparent; padding: 3px 8px; color: var(--text-sub); font-family: var(--font-family); font-size: var(--text-xs); font-weight: 700; cursor: pointer; }
+.goalsUnarchive:hover { border-color: var(--accent); color: var(--accent); }

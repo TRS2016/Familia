@@ -4,7 +4,7 @@ import { Pencil, Plus } from 'lucide-react'
 import SlideUpModal from '../../components/SlideUpModal'
 import { fmtEur } from './kakebo.utils'
 import {
-  useSavingGoals, useSavingGoalTotals, useUpsertSavingGoal, useArchiveSavingGoal,
+  useSavingGoals, useArchivedSavingGoals, useSavingGoalTotals, useUpsertSavingGoal, useArchiveSavingGoal,
   type SavingGoal,
 } from './useSavingGoals'
 import styles from './KakeboPage.module.css'
@@ -18,6 +18,7 @@ const GOAL_EMOJIS = ['🎯', '🏖️', '🏠', '🚗', '💍', '🎓', '👶', 
  */
 export default function SavingGoalsCard() {
   const { data: goals = [] } = useSavingGoals()
+  const { data: archived = [] } = useArchivedSavingGoals()
   const { data: totals = {} } = useSavingGoalTotals()
   const upsertGoal = useUpsertSavingGoal()
   const archiveGoal = useArchiveSavingGoal()
@@ -87,6 +88,28 @@ export default function SavingGoalsCard() {
         </div>
       )}
 
+      {/* Projets archivés portant encore des versements : sans cette section
+          leurs opérations devenaient invisibles et le cumul introuvable. */}
+      {archived.some(g => (totals[g.id] ?? 0) > 0) && (
+        <details className={styles.goalsArchived}>
+          <summary className={styles.goalsArchivedSummary}>
+            Projets archivés ({archived.filter(g => (totals[g.id] ?? 0) > 0).length})
+          </summary>
+          {archived.filter(g => (totals[g.id] ?? 0) > 0).map(g => (
+            <div key={g.id} className={styles.goalsArchivedRow}>
+              <span className={styles.goalItemName}>{g.emoji} {g.name}</span>
+              <span className={styles.goalItemMeta}>{fmtEur(totals[g.id] ?? 0)} €</span>
+              <button
+                className={styles.goalsUnarchive}
+                onClick={() => archiveGoal.mutate({ id: g.id, archived: false })}
+              >
+                Réactiver
+              </button>
+            </div>
+          ))}
+        </details>
+      )}
+
       {form !== false && (
         <SlideUpModal title={form ? 'Modifier le projet' : 'Nouveau projet d\'épargne'} onClose={() => setForm(false)}>
           <form onSubmit={handleSubmit} className={styles.form}>
@@ -140,7 +163,7 @@ export default function SavingGoalsCard() {
               <button
                 type="button"
                 className={styles.goalArchiveBtn}
-                onClick={() => archiveGoal.mutate(form.id, { onSuccess: () => setForm(false) })}
+                onClick={() => archiveGoal.mutate({ id: form.id, archived: true }, { onSuccess: () => setForm(false) })}
               >
                 Archiver ce projet (l'historique est conservé)
               </button>

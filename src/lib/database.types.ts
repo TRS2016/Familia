@@ -1238,6 +1238,35 @@ export type Database = {
           },
         ]
       }
+      kakebo_series_skips: {
+        Row: {
+          created_at: string
+          date: string
+          household_id: string
+          series_id: string
+        }
+        Insert: {
+          created_at?: string
+          date: string
+          household_id: string
+          series_id: string
+        }
+        Update: {
+          created_at?: string
+          date?: string
+          household_id?: string
+          series_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "kakebo_series_skips_household_id_fkey"
+            columns: ["household_id"]
+            isOneToOne: false
+            referencedRelation: "households"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       lecteur_now_playing: {
         Row: {
           household_id: string
@@ -2478,6 +2507,13 @@ export type Database = {
       }
       get_my_household_id: { Args: never; Returns: string }
       increment_media_play: { Args: { p_file_id: string }; Returns: undefined }
+      kakebo_saving_goal_totals: {
+        Args: { p_household_id: string }
+        Returns: {
+          saving_goal_id: string
+          total: number
+        }[]
+      }
       log_chore: {
         Args: {
           p_assignment_id: string

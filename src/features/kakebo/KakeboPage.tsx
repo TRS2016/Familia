@@ -1,9 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import type { FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { format, addMonths, subMonths, getDaysInMonth } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, Plus, Settings, Download, X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Plus, Settings, Download } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
@@ -16,12 +16,8 @@ import {
   useAddEntry,
   useEditEntry,
   useDeleteEntry,
-  useUpdateCategoryBudget,
   useKakeboMembers,
   useKakeboMemberBudgets,
-  useUpdateMemberBudget,
-  useUpdateMemberObjectif,
-  useRenameCategory,
   useMaterializeRecurring,
 } from './useKakebo'
 import { useKakeboRealtime } from './useKakeboRealtime'
@@ -29,27 +25,19 @@ import type { KakeboEntry } from './useKakebo'
 import { memberColor } from '../../lib/constants'
 import styles from './KakeboPage.module.css'
 
-import { catGlyph, catColor, isSpendType, isSavingType } from './kakebo.utils'
+import { isSpendType, isSavingType, csvCell, lastDayOfMonth, EMPTY_DRAFT } from './kakebo.utils'
+import type { EntryDraft } from './kakebo.utils'
 import SavingGoalsCard from './SavingGoalsCard'
-import { useSavingGoals } from './useSavingGoals'
+import { useSavingGoals, useArchivedSavingGoals } from './useSavingGoals'
+import EntryForm from './EntryForm'
+import BudgetSettings from './BudgetSettings'
 import BilanView from './BilanView'
 import DetailView from './DetailView'
 import CategoryDetail from './CategoryDetail'
 import ReflexionView from './ReflexionView'
 import TrendView from './TrendView'
 
-
 type View = 'bilan' | 'detail' | 'reflexion' | 'tendance'
-
-// Convertit la valeur d'un <input type="month"> ('YYYY-MM' ou '') en date de fin
-// d'échéance = dernier jour du mois (inclut tout le mois choisi), ou null si vide.
-function monthInputToEndDate(ym: string): string | null {
-  if (!ym) return null
-  const [y, m] = ym.split('-').map(Number)
-  if (!y || !m) return null
-  const lastDay = new Date(y, m, 0).getDate()
-  return `${ym}-${String(lastDay).padStart(2, '0')}`
-}
 
 // ── Main component ────────────────────────────────────────────────────────────
 
@@ -57,75 +45,51 @@ export default function KakeboPage() {
   const [refDate, setRefDate] = useState(() => new Date())
   const year  = refDate.getFullYear()
   const month = refDate.getMonth() + 1 // 1-based
+  const monthPrefix = `${year}-${String(month).padStart(2, '0')}`
 
-  // Les mois passés sont en lecture seule : on ne peut plus éditer/supprimer,
-  // uniquement dupliquer une opération vers le mois courant (rejouer).
+  // Les mois passés sont en lecture seule : ni ajout, ni édition, ni
+  // suppression — uniquement la duplication d'une opération vers aujourd'hui.
   const _now = new Date()
+  const isCurrentMonth = year === _now.getFullYear() && month === _now.getMonth() + 1
   const isPastMonth = year < _now.getFullYear() || (year === _now.getFullYear() && month < _now.getMonth() + 1)
 
   const { data: categories = [], isLoading: catsLoading } = useKakeboCategories()
   const { data: entries = [], isLoading: entriesLoading } = useKakeboEntries(year, month)
-  const { objectif, update: updateObjectif } = useKakeboObjectif()
+  const { objectif } = useKakeboObjectif()
   const { data: trendEntries = [], isLoading: trendLoading } = useKakeboTrend(12)
   const { data: members = [] } = useKakeboMembers()
-  useMaterializeRecurring(year, month) // génère les occurrences récurrentes manquantes du mois
+  useMaterializeRecurring() // génère les occurrences récurrentes manquantes du mois courant
   useKakeboRealtime()
 
   const { showToast } = useToast()
 
-  const addEntry    = useAddEntry(year, month)
+  const addEntry    = useAddEntry()
+  const replayEntry = useAddEntry()
   const editEntry   = useEditEntry(year, month)
   const deleteEntry = useDeleteEntry(year, month)
-
-  // Replay always targets the actual current month, regardless of the displayed month
-  const nowYear  = new Date().getFullYear()
-  const nowMonth = new Date().getMonth() + 1
-  const replayEntry = useAddEntry(nowYear, nowMonth)
 
   const [view, setView]             = useState<View>('bilan')
   const [selectedCatId, setSelectedCatId] = useState<string | null>(null)
   const [selectedMemberId, setSelectedMemberId] = useState<string | null>(null)
 
-  const updateCategoryBudget  = useUpdateCategoryBudget()
-  const updateMemberBudget    = useUpdateMemberBudget()
-  const updateMemberObjectif  = useUpdateMemberObjectif()
-  const renameCategory        = useRenameCategory()
-  const [nameDrafts, setNameDrafts] = useState<Record<string, string>>({})
-
   const { data: memberBudgets = [] } = useKakeboMemberBudgets(selectedMemberId)
   const selectedMember = members.find(m => m.id === selectedMemberId) ?? null
 
   const { data: savingGoals = [] } = useSavingGoals()
+  const { data: archivedGoals = [] } = useArchivedSavingGoals()
   const [showAdd, setShowAdd]       = useState(false)
   const [showBudget, setShowBudget] = useState(false)
-  const [budgetDraft, setBudgetDraft] = useState(400)
-  const [budgetDrafts, setBudgetDrafts] = useState<Record<string, string>>({})
 
-  // Edit entry state
   const [editTarget, setEditTarget] = useState<KakeboEntry | null>(null)
-  const [editDraft, setEditDraft]   = useState({ category_id: '', amount: '', description: '', date: '', member_id: null as string | null, tags: [] as string[], recurring: false, series_id: null as string | null, series_end: null as string | null, saving_goal_id: null as string | null })
+  const [editDraft, setEditDraft]   = useState<EntryDraft>(EMPTY_DRAFT)
   // Portée de l'édition d'une charge récurrente : cette occurrence ou toute la série.
   const [editScope, setEditScope]   = useState<'one' | 'series'>('one')
 
-  // Add form state
   const firstCatId = categories.find(c => c.type !== 'income')?.id ?? ''
-  const [draft, setDraft] = useState({
-    category_id: '',
-    amount: '',
-    description: '',
+  const [draft, setDraft] = useState<EntryDraft>(() => ({
+    ...EMPTY_DRAFT,
     date: format(new Date(), 'yyyy-MM-dd'),
-    member_id: null as string | null,
-    tags: [] as string[],
-    recurring: false,
-    series_end: null as string | null,
-    saving_goal_id: null as string | null,
-  })
-
-  // Ouvre le modal d'ajout en pré-affectant à la vue courante (Foyer ou membre)
-  function openAddModal() {
-    setDraft(d => ({ ...d, member_id: selectedMemberId }))
-    setShowAdd(true)
-  }
+  }))
 
   // Reset draft category when categories load
   /* eslint-disable react-hooks/set-state-in-effect */
@@ -136,25 +100,44 @@ export default function KakeboPage() {
   }, [categories, firstCatId, draft.category_id])
   /* eslint-enable react-hooks/set-state-in-effect */
 
+  /**
+   * Ouvre le modal d'ajout en pré-affectant à la vue courante (Foyer ou membre)
+   * et en calant la date sur le mois consulté : sans ça, on saisissait une
+   * opération datée d'aujourd'hui tout en consultant un autre mois, et elle
+   * disparaissait de la liste au premier refetch.
+   */
+  function openAddModal() {
+    setDraft(d => ({
+      ...d,
+      member_id: selectedMemberId,
+      date: isCurrentMonth ? format(new Date(), 'yyyy-MM-dd') : `${monthPrefix}-01`,
+    }))
+    setShowAdd(true)
+  }
+
   // ── Member-aware derived data ──────────────────────────────────────────────
 
   // Buckets séparés : Foyer = dépenses communes (member_id null),
   // membre = ses dépenses perso uniquement. Pas de chevauchement.
-  const displayEntries = selectedMemberId
-    ? entries.filter(e => e.member_id === selectedMemberId)
-    : entries.filter(e => e.member_id === null)
+  const displayEntries = useMemo(() => (
+    selectedMemberId
+      ? entries.filter(e => e.member_id === selectedMemberId)
+      : entries.filter(e => e.member_id === null)
+  ), [entries, selectedMemberId])
 
-  const displayTrendEntries = selectedMemberId
-    ? trendEntries.filter(e => e.member_id === selectedMemberId)
-    : trendEntries.filter(e => e.member_id === null)
+  const displayTrendEntries = useMemo(() => (
+    selectedMemberId
+      ? trendEntries.filter(e => e.member_id === selectedMemberId)
+      : trendEntries.filter(e => e.member_id === null)
+  ), [trendEntries, selectedMemberId])
 
   // Override monthly_budget per category with member-specific values when a member is selected
-  const displayCategories = categories.map(cat => ({
+  const displayCategories = useMemo(() => categories.map(cat => ({
     ...cat,
     monthly_budget: selectedMemberId
       ? (memberBudgets.find(b => b.category_id === cat.id)?.monthly_budget ?? null)
       : cat.monthly_budget,
-  }))
+  })), [categories, selectedMemberId, memberBudgets])
 
   const effectiveObjectif = selectedMemberId
     ? (selectedMember?.kakebo_objectif_epargne ?? 0)
@@ -162,30 +145,45 @@ export default function KakeboPage() {
 
   // ── Previous month expenses (for delta badge in BilanView) ────────────────
 
-  const prevMonthPrefix    = format(subMonths(refDate, 1), 'yyyy-MM')
-  const prevMonthExpenses  = displayTrendEntries
-    .filter(e => e.date.startsWith(prevMonthPrefix) && isSpendType(e.category?.type))
-    .reduce((s, e) => s + Number(e.amount), 0)
+  const prevMonthExpenses = useMemo(() => {
+    const prefix = format(subMonths(refDate, 1), 'yyyy-MM')
+    return displayTrendEntries
+      .filter(e => e.date.startsWith(prefix) && isSpendType(e.category?.type))
+      .reduce((s, e) => s + Number(e.amount), 0)
+  }, [displayTrendEntries, refDate])
 
   // ── Computations ──────────────────────────────────────────────────────────
 
-  const incomeEntries  = displayEntries.filter(e => e.category?.type === 'income')
-  const expenseEntries = displayEntries.filter(e => isSpendType(e.category?.type))
-  const savingEntries  = displayEntries.filter(e => isSavingType(e.category?.type))
-  const totalRevenusMois = incomeEntries.reduce((s, e) => s + Number(e.amount), 0)
+  const {
+    totalRevenusMois, totalByCategory, totalDepenses, totalEpargneMiseDeCote,
+    epargneReelle, solde, expenseEntries,
+  } = useMemo(() => {
+    const incomeEntries  = displayEntries.filter(e => e.category?.type === 'income')
+    const expenses       = displayEntries.filter(e => isSpendType(e.category?.type))
+    const savingEntries  = displayEntries.filter(e => isSavingType(e.category?.type))
+    const revenus = incomeEntries.reduce((s, e) => s + Number(e.amount), 0)
 
-  // Dépenses de consommation uniquement (l'épargne est comptée à part).
-  const totalByCategory: Record<string, number> = {}
-  for (const cat of displayCategories) totalByCategory[cat.id] = 0
-  for (const e of expenseEntries) {
-    if (e.category_id) totalByCategory[e.category_id] = (totalByCategory[e.category_id] ?? 0) + Number(e.amount)
-  }
-  const totalDepenses = Object.values(totalByCategory).reduce((s, v) => s + v, 0)
-  // Épargne mise de côté : virements vers l'épargne (sortie du courant, pas une
-  // dépense). Suivie séparément, n'entre pas dans l'épargne réelle résiduelle.
-  const totalEpargneMiseDeCote = savingEntries.reduce((s, e) => s + Number(e.amount), 0)
-  const epargneReelle = totalRevenusMois - totalDepenses
-  const solde         = epargneReelle - effectiveObjectif
+    // Dépenses de consommation uniquement (l'épargne est comptée à part).
+    const byCat: Record<string, number> = {}
+    for (const cat of displayCategories) byCat[cat.id] = 0
+    for (const e of expenses) {
+      if (e.category_id) byCat[e.category_id] = (byCat[e.category_id] ?? 0) + Number(e.amount)
+    }
+    const depenses = Object.values(byCat).reduce((s, v) => s + v, 0)
+    // Épargne mise de côté : virements vers l'épargne (sortie du courant, pas une
+    // dépense). Suivie séparément, n'entre pas dans l'épargne réelle résiduelle.
+    const miseDeCote = savingEntries.reduce((s, e) => s + Number(e.amount), 0)
+    const reelle = revenus - depenses
+    return {
+      totalRevenusMois: revenus,
+      totalByCategory: byCat,
+      totalDepenses: depenses,
+      totalEpargneMiseDeCote: miseDeCote,
+      epargneReelle: reelle,
+      solde: reelle - effectiveObjectif,
+      expenseEntries: expenses,
+    }
+  }, [displayEntries, displayCategories, effectiveObjectif])
 
   const moodEmoji = solde >= 0 ? '🌱' : solde >= -50 ? '🌤' : '🌧'
   const moodLabel = solde >= 0 ? 'Mois équilibré' : solde >= -50 ? 'Légèrement au-dessus' : 'Au-delà de l\'objectif'
@@ -193,33 +191,36 @@ export default function KakeboPage() {
   // Donut math
   const donutR = 54
   const donutC = 2 * Math.PI * donutR
-  const spendCats = displayCategories.filter(c => isSpendType(c.type))
-  const arcBases = spendCats.map(cat => {
-    const v = totalByCategory[cat.id] ?? 0
-    const pct = totalDepenses > 0 ? v / totalDepenses : 0
-    return { cat, pct, value: v }
-  })
-  // Prefix sums: cumPcts[i] = sum of pcts before index i (no mutation needed)
-  const cumPcts = arcBases.reduce<number[]>((acc, a) => [...acc, acc[acc.length - 1] + a.pct], [0])
-  const arcs = arcBases.map((a, i) => ({
-    ...a,
-    dash: a.pct * donutC,
-    offset: -cumPcts[i] * donutC,
-  }))
+  const spendCats = useMemo(() => displayCategories.filter(c => isSpendType(c.type)), [displayCategories])
+
+  const arcs = useMemo(() => {
+    const bases = spendCats.map(cat => {
+      const v = totalByCategory[cat.id] ?? 0
+      return { cat, pct: totalDepenses > 0 ? v / totalDepenses : 0, value: v }
+    })
+    // Prefix sums: cumPcts[i] = sum of pcts before index i (no mutation needed)
+    const cumPcts = bases.reduce<number[]>((acc, a) => [...acc, acc[acc.length - 1] + a.pct], [0])
+    return bases.map((a, i) => ({ ...a, dash: a.pct * donutC, offset: -cumPcts[i] * donutC }))
+  }, [spendCats, totalByCategory, totalDepenses, donutC])
 
   // Daily rhythm
   const daysCount = getDaysInMonth(refDate)
-  const todayDay  = refDate.getMonth() === new Date().getMonth() &&
-                    refDate.getFullYear() === new Date().getFullYear()
-                      ? new Date().getDate() : daysCount
-  const monthPrefix = `${year}-${String(month).padStart(2, '0')}`
-  const dailyTotals = Array.from({ length: daysCount }, (_, i) => {
+  const todayDay  = isCurrentMonth ? new Date().getDate() : daysCount
+  const dailyTotals = useMemo(() => Array.from({ length: daysCount }, (_, i) => {
     const day = String(i + 1).padStart(2, '0')
     return expenseEntries
       .filter(e => e.date === `${monthPrefix}-${day}`)
       .reduce((s, e) => s + Number(e.amount), 0)
-  })
+  }), [daysCount, expenseEntries, monthPrefix])
   const maxDaily = Math.max(1, ...dailyTotals)
+
+  // Projets d'épargne proposés au formulaire : les actifs, plus celui déjà
+  // rattaché à l'opération même s'il est archivé (sinon il devient invisible
+  // et l'opération non réaffectable).
+  function goalsFor(currentId: string | null) {
+    const archived = currentId ? archivedGoals.filter(g => g.id === currentId) : []
+    return [...savingGoals, ...archived]
+  }
 
   // ── Handlers ──────────────────────────────────────────────────────────────
 
@@ -263,6 +264,26 @@ export default function KakeboPage() {
     setEditTarget(null)
   }
 
+  async function handleAddSubmit(e: FormEvent) {
+    e.preventDefault()
+    const amount = parseFloat(draft.amount)
+    if (!draft.category_id || isNaN(amount) || amount <= 0) return
+    const addCat = categories.find(c => c.id === draft.category_id)
+    await addEntry.mutateAsync({
+      category_id: draft.category_id,
+      amount,
+      date: draft.date,
+      description: draft.description,
+      member_id: draft.member_id,
+      tags: draft.tags,
+      recurring: draft.recurring,
+      series_end: draft.recurring ? draft.series_end : null,
+      saving_goal_id: isSavingType(addCat?.type) ? draft.saving_goal_id : null,
+    })
+    setDraft(d => ({ ...d, amount: '', description: '', tags: [], recurring: false, series_end: null, saving_goal_id: null }))
+    setShowAdd(false)
+  }
+
   function handleReplay(entry: KakeboEntry) {
     if (!entry.category_id) return
     replayEntry.mutate(
@@ -282,14 +303,19 @@ export default function KakeboPage() {
   }
 
   function exportCsv() {
-    const header = 'Date,Catégorie,Type,Description,Montant\n'
-    const sorted = [...displayEntries].sort((a, b) => a.date.localeCompare(b.date))
-    const rows = sorted
+    const header = ['Date', 'Catégorie', 'Type', 'Description', 'Membre', 'Tags', 'Projet', 'Montant'].join(',') + '\n'
+    const goalName = (id: string | null) =>
+      id ? ([...savingGoals, ...archivedGoals].find(g => g.id === id)?.name ?? '') : ''
+    const rows = [...displayEntries]
+      .sort((a, b) => a.date.localeCompare(b.date))
       .map(e => [
         e.date,
-        e.category?.name ?? '',
+        csvCell(e.category?.name ?? ''),
         e.category?.type ?? '',
-        `"${(e.description ?? '').replace(/"/g, '""')}"`,
+        csvCell(e.description ?? ''),
+        csvCell(e.member?.display_name ?? 'Foyer'),
+        csvCell((e.tags ?? []).join(' ')),
+        csvCell(goalName(e.saving_goal_id)),
         // Revenus en positif, dépenses en négatif pour un grand livre lisible.
         (e.category?.type === 'income' ? Number(e.amount) : -Number(e.amount)).toFixed(2),
       ].join(','))
@@ -297,90 +323,25 @@ export default function KakeboPage() {
     // Lignes de synthèse en pied de fichier.
     const totals = [
       '',
-      `\nTotal revenus,,,,${totalRevenusMois.toFixed(2)}`,
-      `Total dépenses,,,,${(-totalDepenses).toFixed(2)}`,
-      `Épargne réelle,,,,${epargneReelle.toFixed(2)}`,
+      `\nTotal revenus,,,,,,,${totalRevenusMois.toFixed(2)}`,
+      `Total dépenses,,,,,,,${(-totalDepenses).toFixed(2)}`,
+      `Épargne mise de côté,,,,,,,${(-totalEpargneMiseDeCote).toFixed(2)}`,
+      `Épargne réelle,,,,,,,${epargneReelle.toFixed(2)}`,
     ].join('\n')
     const blob = new Blob(['﻿' + header + rows + totals], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
     const suffix = selectedMember ? `-${selectedMember.display_name.toLowerCase()}` : ''
-    a.download = `kakebo-${year}-${String(month).padStart(2, '0')}${suffix}.csv`
+    a.download = `kakebo-${monthPrefix}${suffix}.csv`
     a.click()
     URL.revokeObjectURL(url)
-  }
-
-  async function saveBudget() {
-    try {
-      if (selectedMemberId) {
-        await updateMemberObjectif.mutateAsync({ memberId: selectedMemberId, objectif: budgetDraft || null })
-        for (const [categoryId, val] of Object.entries(budgetDrafts)) {
-          const num = parseFloat(val)
-          const monthly_budget = val.trim() === '' ? null : isNaN(num) || num <= 0 ? null : num
-          const current = memberBudgets.find(b => b.category_id === categoryId)?.monthly_budget ?? null
-          if (current !== monthly_budget) {
-            updateMemberBudget.mutate({ memberId: selectedMemberId, categoryId, monthly_budget })
-          }
-        }
-      } else {
-        await updateObjectif.mutateAsync(budgetDraft)
-        for (const [id, val] of Object.entries(budgetDrafts)) {
-          const num = parseFloat(val)
-          const monthly_budget = val.trim() === '' ? null : isNaN(num) || num <= 0 ? null : num
-          const cat = categories.find(c => c.id === id)
-          if (cat && cat.monthly_budget !== monthly_budget) {
-            updateCategoryBudget.mutate({ id, monthly_budget })
-          }
-          // Renommage de catégorie (global au foyer)
-          const newName = (nameDrafts[id] ?? '').trim()
-          if (cat && newName && newName !== cat.name) {
-            renameCategory.mutate({ id, name: newName })
-          }
-        }
-      }
-      setShowBudget(false)
-    } catch { /* onError handles toast */ }
-  }
-
-  function openBudgetModal() {
-    setBudgetDraft(effectiveObjectif)
-    const drafts: Record<string, string> = {}
-    const names: Record<string, string> = {}
-    for (const cat of displayCategories.filter(c => isSpendType(c.type))) {
-      drafts[cat.id] = cat.monthly_budget != null ? String(cat.monthly_budget) : ''
-      names[cat.id] = cat.name
-    }
-    setBudgetDrafts(drafts)
-    setNameDrafts(names)
-    setShowBudget(true)
-  }
-
-  async function handleAddSubmit(e: FormEvent) {
-    e.preventDefault()
-    const amount = parseFloat(draft.amount)
-    if (!draft.category_id || isNaN(amount) || amount <= 0) return
-    const addCat = categories.find(c => c.id === draft.category_id)
-    await addEntry.mutateAsync({
-      category_id: draft.category_id,
-      amount,
-      date: draft.date,
-      description: draft.description,
-      member_id: draft.member_id,
-      tags: draft.tags,
-      recurring: draft.recurring,
-      series_end: draft.recurring ? draft.series_end : null,
-      saving_goal_id: isSavingType(addCat?.type) ? draft.saving_goal_id : null,
-    })
-    setDraft({ category_id: draft.category_id, amount: '', description: '', date: draft.date, member_id: draft.member_id, tags: [], recurring: false, series_end: null, saving_goal_id: null })
-    setShowAdd(false)
   }
 
   const monthLabel = format(refDate, 'MMMM yyyy', { locale: fr })
     .replace(/^\w/, c => c.toUpperCase())
 
   const isLoading = catsLoading || entriesLoading
-
   const selectedCat = selectedCatId ? displayCategories.find(c => c.id === selectedCatId) : null
 
   // ── Render ────────────────────────────────────────────────────────────────
@@ -415,12 +376,14 @@ export default function KakeboPage() {
               <Download size={15} strokeWidth={2} />
             </button>
           )}
-          <button className={styles.iconBtn} onClick={openBudgetModal} aria-label="Paramètres">
+          <button className={styles.iconBtn} onClick={() => setShowBudget(true)} aria-label="Paramètres">
             <Settings size={15} strokeWidth={2} />
           </button>
-          <button className={styles.fabSmall} onClick={openAddModal} aria-label="Ajouter">
-            <Plus size={16} strokeWidth={2.5} />
-          </button>
+          {!isPastMonth && (
+            <button className={styles.fabSmall} onClick={openAddModal} aria-label="Ajouter">
+              <Plus size={16} strokeWidth={2.5} />
+            </button>
+          )}
         </div>
       </header>
 
@@ -437,6 +400,10 @@ export default function KakeboPage() {
             <ChevronRight size={16} strokeWidth={2.5} />
           </button>
         </div>
+      )}
+
+      {isPastMonth && !selectedCatId && (
+        <p className={styles.readOnlyNote}>Mois clôturé — consultation seule. Utilise ↻ pour rejouer une opération aujourd'hui.</p>
       )}
 
       {/* ── Member switcher ───────────────────────────────────────────── */}
@@ -493,7 +460,7 @@ export default function KakeboPage() {
               trendEntries={displayTrendEntries.filter(e => e.category_id === selectedCatId)}
               revenus={totalRevenusMois}
               onEdit={openEdit}
-              onDelete={id => deleteEntry.mutate(id)}
+              onDelete={entry => deleteEntry.mutate(entry)}
               onReplay={handleReplay}
               readOnly={isPastMonth}
             />
@@ -533,7 +500,7 @@ export default function KakeboPage() {
               categories={displayCategories}
               entries={displayEntries}
               onEdit={openEdit}
-              onDelete={id => deleteEntry.mutate(id)}
+              onDelete={entry => deleteEntry.mutate(entry)}
               onReplay={handleReplay}
               readOnly={isPastMonth}
             />
@@ -565,8 +532,10 @@ export default function KakeboPage() {
             <EmptyState
               emoji="📒"
               title="Aucune opération ce mois"
-              description="Commence par ajouter une dépense avec le bouton +."
-              action={{ label: 'Ajouter une opération', onClick: openAddModal }}
+              description={isPastMonth
+                ? 'Ce mois est clôturé : aucune opération n\'y a été enregistrée.'
+                : 'Commence par ajouter une dépense avec le bouton +.'}
+              action={isPastMonth ? undefined : { label: 'Ajouter une opération', onClick: openAddModal }}
             />
           )}
         </>
@@ -575,468 +544,53 @@ export default function KakeboPage() {
       {/* ── Add entry modal ───────────────────────────────────────────── */}
       {showAdd && (
         <SlideUpModal title="Nouvelle opération" onClose={() => setShowAdd(false)}>
-            <form onSubmit={handleAddSubmit} className={styles.form}>
-              {/* Affectation : foyer (commun) ou membre (perso) */}
-              {members.length > 0 && (
-                <div className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>Affecté à</label>
-                  <div className={styles.catPills}>
-                    <button
-                      type="button"
-                      className={[styles.catPill, draft.member_id === null ? styles.catPillActive : ''].join(' ')}
-                      style={draft.member_id === null ? { background: 'rgba(224,123,84,0.13)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}}
-                      onClick={() => setDraft(d => ({ ...d, member_id: null }))}
-                    >
-                      🏠 Foyer
-                    </button>
-                    {members.map((m, i) => {
-                      const active = draft.member_id === m.id
-                      const color  = memberColor(i)
-                      return (
-                        <button
-                          key={m.id}
-                          type="button"
-                          className={[styles.catPill, active ? styles.catPillActive : ''].join(' ')}
-                          style={active ? { background: `${color}22`, borderColor: color, color } : {}}
-                          onClick={() => setDraft(d => ({ ...d, member_id: m.id }))}
-                        >
-                          {m.display_name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-
-              {/* Category picker */}
-              <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>Catégorie</label>
-                <div className={styles.catPills}>
-                  {categories.map(cat => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      className={[
-                        styles.catPill,
-                        draft.category_id === cat.id ? styles.catPillActive : '',
-                      ].join(' ')}
-                      style={draft.category_id === cat.id
-                        ? { background: `${catColor(cat)}22`, borderColor: catColor(cat), color: catColor(cat) }
-                        : {}}
-                      onClick={() => setDraft(d => ({ ...d, category_id: cat.id }))}
-                    >
-                      <span className={styles.catPillGlyph}>{catGlyph(cat.type)}</span>
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Projet d'épargne (catégories saving uniquement) */}
-              {isSavingType(categories.find(c => c.id === draft.category_id)?.type) && savingGoals.length > 0 && (
-                <div className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>Projet d'épargne</label>
-                  <div className={styles.catPills}>
-                    <button
-                      type="button"
-                      className={[styles.catPill, draft.saving_goal_id === null ? styles.catPillActive : ''].join(' ')}
-                      onClick={() => setDraft(d => ({ ...d, saving_goal_id: null }))}
-                    >
-                      — Aucun
-                    </button>
-                    {savingGoals.map(g => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        className={[styles.catPill, draft.saving_goal_id === g.id ? styles.catPillActive : ''].join(' ')}
-                        style={draft.saving_goal_id === g.id ? { background: '#3D80B822', borderColor: '#3D80B8', color: '#3D80B8' } : {}}
-                        onClick={() => setDraft(d => ({ ...d, saving_goal_id: g.id }))}
-                      >
-                        {g.emoji} {g.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Amount */}
-              <div className={styles.fieldGroup}>
-                <label htmlFor="k-amount" className={styles.fieldLabel}>Montant (€)</label>
-                <input
-                  id="k-amount"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0.01"
-                  value={draft.amount}
-                  onChange={e => setDraft(d => ({ ...d, amount: e.target.value }))}
-                  className={styles.input}
-                  placeholder="0,00"
-                  required
-                  autoFocus
-                />
-              </div>
-
-              {/* Description */}
-              <div className={styles.fieldGroup}>
-                <label htmlFor="k-desc" className={styles.fieldLabel}>Description</label>
-                <input
-                  id="k-desc"
-                  type="text"
-                  value={draft.description}
-                  onChange={e => setDraft(d => ({ ...d, description: e.target.value }))}
-                  className={styles.input}
-                  placeholder="Ex. Restaurant, Loyer, Netflix…"
-                />
-              </div>
-
-              {/* Tags */}
-              <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>Tags</label>
-                <TagInput tags={draft.tags} onChange={tags => setDraft(d => ({ ...d, tags }))} />
-              </div>
-
-              {/* Date */}
-              <div className={styles.fieldGroup}>
-                <label htmlFor="k-date" className={styles.fieldLabel}>Date</label>
-                <input
-                  id="k-date"
-                  type="date"
-                  value={draft.date}
-                  onChange={e => setDraft(d => ({ ...d, date: e.target.value }))}
-                  className={styles.input}
-                  required
-                />
-              </div>
-
-              {/* Récurrence */}
-              <label className={styles.recurRow}>
-                <input
-                  type="checkbox"
-                  checked={draft.recurring}
-                  onChange={e => setDraft(d => ({ ...d, recurring: e.target.checked, series_end: e.target.checked ? d.series_end : null }))}
-                />
-                <span>🔁 Charge fixe — revient chaque mois à la même date</span>
-              </label>
-
-              {draft.recurring && (
-                <div className={styles.fieldGroup}>
-                  <label htmlFor="k-end" className={styles.fieldLabel}>Fin d'échéance (optionnel)</label>
-                  <input
-                    id="k-end"
-                    type="month"
-                    value={draft.series_end ? draft.series_end.slice(0, 7) : ''}
-                    min={draft.date.slice(0, 7)}
-                    onChange={e => setDraft(d => ({ ...d, series_end: monthInputToEndDate(e.target.value) }))}
-                    className={styles.input}
-                  />
-                  <p className={styles.fieldHint}>Dernier mois où la charge est générée. Vide = sans fin.</p>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                className={styles.submitBtn}
-                disabled={addEntry.isPending || !draft.amount || parseFloat(draft.amount) <= 0}
-              >
-                {addEntry.isPending ? 'Enregistrement…' : 'Enregistrer'}
-              </button>
-            </form>
+          <EntryForm
+            idPrefix="k"
+            draft={draft}
+            setDraft={setDraft}
+            categories={categories}
+            members={members}
+            savingGoals={goalsFor(draft.saving_goal_id)}
+            dateMin={`${monthPrefix}-01`}
+            dateMax={lastDayOfMonth(year, month)}
+            isPending={addEntry.isPending}
+            submitLabel="Enregistrer"
+            onSubmit={handleAddSubmit}
+          />
         </SlideUpModal>
       )}
 
       {/* ── Edit entry modal ─────────────────────────────────────────── */}
       {editTarget && (
         <SlideUpModal title="Modifier l'opération" onClose={() => setEditTarget(null)}>
-            <form onSubmit={handleEditSubmit} className={styles.form}>
-              {members.length > 0 && (
-                <div className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>Affecté à</label>
-                  <div className={styles.catPills}>
-                    <button
-                      type="button"
-                      className={[styles.catPill, editDraft.member_id === null ? styles.catPillActive : ''].join(' ')}
-                      style={editDraft.member_id === null ? { background: 'rgba(224,123,84,0.13)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}}
-                      onClick={() => setEditDraft(d => ({ ...d, member_id: null }))}
-                    >
-                      🏠 Foyer
-                    </button>
-                    {members.map((m, i) => {
-                      const active = editDraft.member_id === m.id
-                      const color  = memberColor(i)
-                      return (
-                        <button
-                          key={m.id}
-                          type="button"
-                          className={[styles.catPill, active ? styles.catPillActive : ''].join(' ')}
-                          style={active ? { background: `${color}22`, borderColor: color, color } : {}}
-                          onClick={() => setEditDraft(d => ({ ...d, member_id: m.id }))}
-                        >
-                          {m.display_name}
-                        </button>
-                      )
-                    })}
-                  </div>
-                </div>
-              )}
-              <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>Catégorie</label>
-                <div className={styles.catPills}>
-                  {categories.map(cat => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      className={[
-                        styles.catPill,
-                        editDraft.category_id === cat.id ? styles.catPillActive : '',
-                      ].join(' ')}
-                      style={editDraft.category_id === cat.id
-                        ? { background: `${catColor(cat)}22`, borderColor: catColor(cat), color: catColor(cat) }
-                        : {}}
-                      onClick={() => setEditDraft(d => ({ ...d, category_id: cat.id }))}
-                    >
-                      <span className={styles.catPillGlyph}>{catGlyph(cat.type)}</span>
-                      {cat.name}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Projet d'épargne (catégories saving uniquement) */}
-              {isSavingType(categories.find(c => c.id === editDraft.category_id)?.type) && savingGoals.length > 0 && (
-                <div className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>Projet d'épargne</label>
-                  <div className={styles.catPills}>
-                    <button
-                      type="button"
-                      className={[styles.catPill, editDraft.saving_goal_id === null ? styles.catPillActive : ''].join(' ')}
-                      onClick={() => setEditDraft(d => ({ ...d, saving_goal_id: null }))}
-                    >
-                      — Aucun
-                    </button>
-                    {savingGoals.map(g => (
-                      <button
-                        key={g.id}
-                        type="button"
-                        className={[styles.catPill, editDraft.saving_goal_id === g.id ? styles.catPillActive : ''].join(' ')}
-                        style={editDraft.saving_goal_id === g.id ? { background: '#3D80B822', borderColor: '#3D80B8', color: '#3D80B8' } : {}}
-                        onClick={() => setEditDraft(d => ({ ...d, saving_goal_id: g.id }))}
-                      >
-                        {g.emoji} {g.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              <div className={styles.fieldGroup}>
-                <label htmlFor="e-amount" className={styles.fieldLabel}>Montant (€)</label>
-                <input
-                  id="e-amount"
-                  type="number"
-                  inputMode="decimal"
-                  step="0.01"
-                  min="0.01"
-                  value={editDraft.amount}
-                  onChange={e => setEditDraft(d => ({ ...d, amount: e.target.value }))}
-                  className={styles.input}
-                  placeholder="0,00"
-                  required
-                  autoFocus
-                />
-              </div>
-              <div className={styles.fieldGroup}>
-                <label htmlFor="e-desc" className={styles.fieldLabel}>Description</label>
-                <input
-                  id="e-desc"
-                  type="text"
-                  value={editDraft.description}
-                  onChange={e => setEditDraft(d => ({ ...d, description: e.target.value }))}
-                  className={styles.input}
-                  placeholder="Ex. Restaurant, Loyer, Netflix…"
-                />
-              </div>
-              <div className={styles.fieldGroup}>
-                <label className={styles.fieldLabel}>Tags</label>
-                <TagInput tags={editDraft.tags} onChange={tags => setEditDraft(d => ({ ...d, tags }))} />
-              </div>
-              <div className={styles.fieldGroup}>
-                <label htmlFor="e-date" className={styles.fieldLabel}>Date</label>
-                <input
-                  id="e-date"
-                  type="date"
-                  value={editDraft.date}
-                  onChange={e => setEditDraft(d => ({ ...d, date: e.target.value }))}
-                  className={styles.input}
-                  required
-                />
-              </div>
-              {editDraft.series_id && (
-                <div className={styles.fieldGroup}>
-                  <label className={styles.fieldLabel}>Appliquer à</label>
-                  <div className={styles.catPills}>
-                    <button
-                      type="button"
-                      className={[styles.catPill, editScope === 'one' ? styles.catPillActive : ''].join(' ')}
-                      style={editScope === 'one' ? { background: 'rgba(224,123,84,0.13)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}}
-                      onClick={() => setEditScope('one')}
-                    >
-                      Cette opération
-                    </button>
-                    <button
-                      type="button"
-                      className={[styles.catPill, editScope === 'series' ? styles.catPillActive : ''].join(' ')}
-                      style={editScope === 'series' ? { background: 'rgba(224,123,84,0.13)', borderColor: 'var(--accent)', color: 'var(--accent)' } : {}}
-                      onClick={() => setEditScope('series')}
-                    >
-                      Toute la série
-                    </button>
-                  </div>
-                </div>
-              )}
-              <label className={styles.recurRow}>
-                <input
-                  type="checkbox"
-                  checked={editDraft.recurring}
-                  onChange={e => setEditDraft(d => ({ ...d, recurring: e.target.checked, series_end: e.target.checked ? d.series_end : null }))}
-                />
-                <span>🔁 Charge fixe — revient chaque mois{editDraft.recurring ? '' : (editScope === 'series' ? ' (décocher arrête toute la série)' : ' (décocher arrête la série)')}</span>
-              </label>
-              {editDraft.recurring && (
-                <div className={styles.fieldGroup}>
-                  <label htmlFor="k-edit-end" className={styles.fieldLabel}>Fin d'échéance (optionnel)</label>
-                  <input
-                    id="k-edit-end"
-                    type="month"
-                    value={editDraft.series_end ? editDraft.series_end.slice(0, 7) : ''}
-                    min={editDraft.date.slice(0, 7)}
-                    onChange={e => setEditDraft(d => ({ ...d, series_end: monthInputToEndDate(e.target.value) }))}
-                    className={styles.input}
-                  />
-                  <p className={styles.fieldHint}>
-                    Dernier mois généré. {editDraft.series_id ? 'Modifier en portée « toute la série » applique l\'échéance à la charge.' : 'Vide = sans fin.'}
-                  </p>
-                </div>
-              )}
-              <button
-                type="submit"
-                className={styles.submitBtn}
-                disabled={editEntry.isPending || !editDraft.amount || parseFloat(editDraft.amount) <= 0}
-              >
-                {editEntry.isPending ? 'Enregistrement…' : 'Enregistrer'}
-              </button>
-            </form>
+          <EntryForm
+            idPrefix="e"
+            draft={editDraft}
+            setDraft={setEditDraft}
+            categories={categories}
+            members={members}
+            savingGoals={goalsFor(editDraft.saving_goal_id)}
+            scope={editScope}
+            setScope={setEditScope}
+            isPending={editEntry.isPending}
+            submitLabel="Enregistrer"
+            onSubmit={handleEditSubmit}
+          />
         </SlideUpModal>
       )}
 
       {/* ── Budget settings modal ──────────────────────────────────────── */}
       {showBudget && (
-        <SlideUpModal
-          title={selectedMember ? `Budget — ${selectedMember.display_name}` : 'Paramètres Kakebo'}
+        <BudgetSettings
+          selectedMemberId={selectedMemberId}
+          selectedMember={selectedMember}
+          categories={categories}
+          displayCategories={displayCategories}
+          effectiveObjectif={effectiveObjectif}
           onClose={() => setShowBudget(false)}
-        >
-            <div className={styles.form}>
-              <div className={styles.fieldGroup}>
-                <label htmlFor="k-objectif" className={styles.fieldLabel}>Objectif d'épargne (€)</label>
-                <input
-                  id="k-objectif"
-                  type="number"
-                  inputMode="numeric"
-                  min="0"
-                  step="1"
-                  value={budgetDraft}
-                  onChange={e => setBudgetDraft(parseFloat(e.target.value) || 0)}
-                  className={styles.input}
-                />
-              </div>
-              <div className={styles.budgetSeparator}>
-                <span className={styles.fieldLabel}>Budgets mensuels par catégorie</span>
-              </div>
-              {displayCategories.filter(c => isSpendType(c.type)).map(cat => (
-                <div key={cat.id} className={styles.fieldGroup}>
-                  {selectedMemberId ? (
-                    <label className={styles.fieldLabel}>
-                      <span className={styles.catDot} style={{ background: catColor(cat) }} />
-                      {' '}{cat.name} (€)
-                    </label>
-                  ) : (
-                    <label className={styles.fieldLabel}>
-                      <span className={styles.catDot} style={{ background: catColor(cat) }} />
-                      {' '}Catégorie & budget (€)
-                    </label>
-                  )}
-                  <div className={selectedMemberId ? undefined : styles.catEditRow}>
-                    {!selectedMemberId && (
-                      <input
-                        type="text"
-                        value={nameDrafts[cat.id] ?? ''}
-                        onChange={e => setNameDrafts(d => ({ ...d, [cat.id]: e.target.value }))}
-                        className={styles.input}
-                        placeholder="Nom de la catégorie"
-                        aria-label={`Nom de ${cat.name}`}
-                      />
-                    )}
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      min="1"
-                      step="1"
-                      value={budgetDrafts[cat.id] ?? ''}
-                      onChange={e => setBudgetDrafts(d => ({ ...d, [cat.id]: e.target.value }))}
-                      className={styles.input}
-                      placeholder="Sans limite"
-                      aria-label={`Budget de ${cat.name}`}
-                    />
-                  </div>
-                </div>
-              ))}
-              <button className={styles.submitBtn} onClick={saveBudget} disabled={updateObjectif.isPending || updateMemberObjectif.isPending}>
-                {updateObjectif.isPending || updateMemberObjectif.isPending ? 'Enregistrement…' : 'Enregistrer'}
-              </button>
-            </div>
-        </SlideUpModal>
+        />
       )}
 
-    </div>
-  )
-}
-
-// ── TagInput ────────────────────────────────────────────────────────────────────
-
-function TagInput({ tags, onChange }: { tags: string[]; onChange: (t: string[]) => void }) {
-  const [input, setInput] = useState('')
-
-  function add(raw: string) {
-    const t = raw.trim().toLowerCase().replace(/^#+/, '')
-    if (t && !tags.includes(t)) onChange([...tags, t])
-    setInput('')
-  }
-
-  return (
-    <div>
-      {tags.length > 0 && (
-        <div className={styles.tagEditChips}>
-          {tags.map(t => (
-            <span key={t} className={styles.tagEditChip}>
-              #{t}
-              <button type="button" onClick={() => onChange(tags.filter(x => x !== t))} aria-label={`Retirer ${t}`}>
-                <X size={11} strokeWidth={2.5} />
-              </button>
-            </span>
-          ))}
-        </div>
-      )}
-      <input
-        type="text"
-        className={styles.input}
-        value={input}
-        onChange={e => setInput(e.target.value)}
-        onKeyDown={e => {
-          if (e.key === 'Enter' || e.key === ',') { e.preventDefault(); add(input) }
-          else if (e.key === 'Backspace' && !input && tags.length) onChange(tags.slice(0, -1))
-        }}
-        onBlur={() => { if (input.trim()) add(input) }}
-        placeholder="courses, vacances, voiture… (Entrée pour valider)"
-      />
     </div>
   )
 }
