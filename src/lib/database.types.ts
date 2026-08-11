@@ -2606,6 +2606,8 @@ export type Database = {
       }
       reorder_chores: { Args: { p_ids: string[] }; Returns: undefined }
       reorder_habits: { Args: { p_ids: string[] }; Returns: undefined }
+      reorder_lecteur_queue: { Args: { p_ids: string[] }; Returns: undefined }
+      reorder_playlist_items: { Args: { p_ids: string[] }; Returns: undefined }
       reorder_training_presets: {
         Args: { p_ids: string[] }
         Returns: undefined

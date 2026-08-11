@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
-import { ArrowDownWideNarrow, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsUp, History, PartyPopper, Play, Plus, Share2, Shield, Tv, Volume2, X } from 'lucide-react'
+import { ArrowDownWideNarrow, Check, ChevronDown, ChevronRight, ChevronUp, ChevronsUp, GripVertical, History, PartyPopper, Play, Plus, Share2, Shield, Tv, Volume2, X } from 'lucide-react'
 import EmptyState from '../../components/EmptyState'
 import { canAutoAdvance } from '../media/MediaPlayer'
 import EqBars from './EqBars'
 import InviteModal from './InviteModal'
 import {
   useApproveRequest, useClearQueue, useLecteurPlayedHistory, useMarkQueuePlayed,
-  useMoveQueueItem, usePendingRequests, useRejectRequest, useRemoveFromQueue, useSortQueueByVotes,
-  useVoteQueueItem,
+  useMoveQueueItem, usePendingRequests, useRejectRequest, useRemoveFromQueue, useReorderQueue,
+  useSortQueueByVotes, useVoteQueueItem,
 } from './useLecteurQueue'
+import { dragPointerDown, useDragReorder } from './useDragReorder'
 import type { QueueItem } from './useLecteurQueue'
 import { useLecteurPlaylists } from './useLecteur'
 import { useJukeboxToken } from './useJukeboxToken'
@@ -51,6 +52,16 @@ export default function JukeboxPane({
 
   const current = queueItems[0] ?? null
   const upNext  = queueItems.slice(1)
+
+  // Glisser-déposer de la file « à suivre ». La tête de file reste en place
+  // (elle est jouée / sur le point de l'être) : seules les suivantes bougent.
+  const reorderQueue = useReorderQueue()
+  const { draggingId, dragOverId, startDrag } = useDragReorder({
+    ids: upNext.map(it => it.id),
+    dataAttr: 'queueId',
+    // La RPC réécrit toute la plage : on lui passe la file complète, tête incluse.
+    onReorder: ids => reorderQueue.mutate(current ? [current.id, ...ids] : ids),
+  })
 
   const manualPlaylists = useLecteurPlaylists().data?.filter(p => p.type === 'manual') ?? []
 
@@ -253,7 +264,10 @@ export default function JukeboxPane({
 
       {/* À suivre */}
       <div className={styles.jukeboxUpNextHead}>
-        <span>À suivre{upNext.length > 0 ? ` · ${upNext.length}` : ''}</span>
+        <span>
+          À suivre{upNext.length > 0 ? ` · ${upNext.length}` : ''}
+          {upNext.length > 1 && <span className={styles.dragHint}> · glisser pour réordonner</span>}
+        </span>
         <span className={styles.jukeboxHeadActions}>
           {upNext.some(it => (it.votes ?? 0) > 0) && (
             <button
@@ -307,8 +321,22 @@ export default function JukeboxPane({
             // Index dans queueItems (upNext démarre à 1).
             const idx = i + 1
             return (
-              <li key={item.id} className={styles.jukeboxItem}>
-                <span className={styles.jukeboxPos}>{i + 1}</span>
+              <li
+                key={item.id}
+                className={[
+                  styles.jukeboxItem,
+                  styles.jukeboxItemDraggable,
+                  draggingId === item.id ? styles.jukeboxItemDragging : '',
+                  dragOverId === item.id ? styles.jukeboxItemDragOver : '',
+                ].join(' ')}
+                data-drag-list="queueId"
+                data-queue-id={item.id}
+                onPointerDown={dragPointerDown(item.id, startDrag)}
+              >
+                <span className={styles.jukeboxPos} aria-hidden="true">
+                  <GripVertical size={13} strokeWidth={2.5} className={styles.dragGrip} />
+                  {i + 1}
+                </span>
                 <div className={styles.jukeboxItemBody}>
                   <div className={styles.jukeboxItemTitle}>{title}</div>
                   {(item.added_by_member?.display_name ?? item.guest_name) && (

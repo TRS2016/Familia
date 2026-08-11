@@ -1,10 +1,11 @@
-import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, ListVideo, Play, Plus, Shuffle, Sparkles, Trash2, X } from 'lucide-react'
+import { ChevronDown, ChevronLeft, ChevronRight, ChevronUp, GripVertical, ListVideo, Play, Plus, Shuffle, Sparkles, Trash2, X } from 'lucide-react'
 import EmptyState from '../../components/EmptyState'
 import EqBars from './EqBars'
 import {
   applyLecteurFilters, detectKind, useDeleteLecteurPlaylist, useLecteurPlaylistItems,
-  useRemoveFromLecteurPlaylist, useReorderLecteurPlaylistItem,
+  useRemoveFromLecteurPlaylist, useReorderLecteurPlaylistItem, useReorderLecteurPlaylistItems,
 } from './useLecteur'
+import { dragPointerDown, useDragReorder } from './useDragReorder'
 import type { LecteurPlaylist, MediaFile } from './useLecteur'
 import { KIND_META, shuffleArray, smartFilterLabel } from './lecteur.utils'
 import styles from './LecteurPage.module.css'
@@ -96,9 +97,21 @@ function PlaylistDetailPane({ playlist, allFiles, onBack, onPlay, playingFileId 
   const reorderItem        = useReorderLecteurPlaylistItem()
   const { data: rawItems = [] } = useLecteurPlaylistItems(playlist.type === 'manual' ? playlist.id : null)
 
+  const reorderItems       = useReorderLecteurPlaylistItems()
+
+  const isManual = playlist.type === 'manual'
   const displayFiles: MediaFile[] = playlist.type === 'smart' && playlist.smart_filters
     ? applyLecteurFilters(allFiles, playlist.smart_filters)
     : rawItems.map(ri => ri.media_file).filter(Boolean) as MediaFile[]
+
+  // Glisser-déposer : uniquement sur les listes manuelles (une smart liste est
+  // triée par ses filtres). Les ids manipulés sont ceux des playlist_items.
+  const { draggingId, dragOverId, startDrag, justDragged } = useDragReorder({
+    ids: rawItems.map(ri => ri.id),
+    dataAttr: 'playlistItemId',
+    disabled: !isManual,
+    onReorder: ids => reorderItems.mutate({ ids, playlistId: playlist.id }),
+  })
 
   return (
     <>
@@ -151,19 +164,33 @@ function PlaylistDetailPane({ playlist, allFiles, onBack, onPlay, playingFileId 
         />
       ) : (
         <ul className={styles.list}>
-          {displayFiles.map((file, i) => (
+          {displayFiles.map((file, i) => {
+            const rawItem = isManual ? rawItems.find(r => r.media_file_id === file.id) ?? null : null
+            return (
             <li key={file.id}>
               <div
-                className={[styles.playlistItemRow, playingFileId === file.id ? styles.playlistItemPlaying : ''].join(' ')}
-                onClick={() => onPlay(displayFiles, i)}
+                className={[
+                  styles.playlistItemRow,
+                  playingFileId === file.id ? styles.playlistItemPlaying : '',
+                  rawItem ? styles.jukeboxItemDraggable : '',
+                  rawItem && draggingId === rawItem.id ? styles.jukeboxItemDragging : '',
+                  rawItem && dragOverId === rawItem.id ? styles.jukeboxItemDragOver : '',
+                ].join(' ')}
+                onClick={() => { if (!justDragged()) onPlay(displayFiles, i) }}
                 onKeyDown={e => {
                   if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPlay(displayFiles, i) }
                 }}
+                {...(rawItem ? {
+                  'data-drag-list': 'playlistItemId',
+                  'data-playlist-item-id': rawItem.id,
+                  onPointerDown: dragPointerDown(rawItem.id, startDrag),
+                } : {})}
                 role="button"
                 tabIndex={0}
                 aria-label={`Lire ${file.title}`}
               >
                 <span className={styles.playlistItemPos}>
+                  {rawItem && <GripVertical size={13} strokeWidth={2.5} className={styles.dragGrip} aria-hidden="true" />}
                   {playingFileId === file.id ? <EqBars small /> : i + 1}
                 </span>
                 <span style={{ fontSize: 18 }} aria-hidden="true">{KIND_META[detectKind(file)].emoji}</span>
@@ -205,7 +232,8 @@ function PlaylistDetailPane({ playlist, allFiles, onBack, onPlay, playingFileId 
                 )}
               </div>
             </li>
-          ))}
+            )
+          })}
         </ul>
       )}
     </>

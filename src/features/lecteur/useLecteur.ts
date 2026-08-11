@@ -505,6 +505,37 @@ export function useReorderLecteurPlaylistItem() {
   })
 }
 
+// Réordonne toute une playlist manuelle en un appel (glisser-déposer).
+export function useReorderLecteurPlaylistItems() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async ({ ids }: { ids: string[]; playlistId: string }) => {
+      const { error } = await supabase.rpc('reorder_playlist_items', { p_ids: ids })
+      if (error) throw error
+    },
+    onMutate: async ({ ids, playlistId }) => {
+      const key = lecteurPlItemsKey(playlistId)
+      await queryClient.cancelQueries({ queryKey: key })
+      const previous = queryClient.getQueryData<LecteurPlaylistItem[]>(key) ?? []
+      const byId = new Map(previous.map(i => [i.id, i]))
+      const next = ids.map(id => byId.get(id)).filter(Boolean) as LecteurPlaylistItem[]
+      if (next.length === previous.length) {
+        queryClient.setQueryData<LecteurPlaylistItem[]>(key, next)
+      }
+      return { previous, key }
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.key) queryClient.setQueryData(ctx.key, ctx.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de réordonner la liste.' })
+    },
+    onSuccess: (_d, { playlistId }) => {
+      queryClient.invalidateQueries({ queryKey: lecteurPlItemsKey(playlistId) })
+    },
+  })
+}
+
 export function useRemoveFromLecteurPlaylist() {
   const queryClient = useQueryClient()
   const { showToast } = useToast()

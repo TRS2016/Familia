@@ -184,6 +184,36 @@ export function useMoveQueueItem() {
   })
 }
 
+// Réordonne toute la file en un appel (glisser-déposer). `ids` = ordre voulu
+// des items non joués, tête de file comprise.
+export function useReorderQueue() {
+  const queryClient = useQueryClient()
+  const { showToast } = useToast()
+
+  return useMutation({
+    mutationFn: async (ids: string[]) => {
+      const { error } = await supabase.rpc('reorder_lecteur_queue', { p_ids: ids })
+      if (error) throw error
+    },
+    onMutate: async (ids) => {
+      await queryClient.cancelQueries({ queryKey: LECTEUR_QUEUE_KEY })
+      const previous = queryClient.getQueryData<QueueItem[]>(LECTEUR_QUEUE_KEY) ?? []
+      const byId = new Map(previous.map(q => [q.id, q]))
+      const next = ids.map(id => byId.get(id)).filter(Boolean) as QueueItem[]
+      // Sécurité : n'écrase le cache que si l'ordre couvre bien toute la file.
+      if (next.length === previous.length) {
+        queryClient.setQueryData<QueueItem[]>(LECTEUR_QUEUE_KEY, next)
+      }
+      return { previous }
+    },
+    onError: (_e, _ids, ctx) => {
+      queryClient.setQueryData(LECTEUR_QUEUE_KEY, ctx?.previous ?? [])
+      showToast({ type: 'error', message: 'Impossible de réordonner la file.' })
+    },
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: LECTEUR_QUEUE_KEY }),
+  })
+}
+
 export function useAddToQueue() {
   const queryClient = useQueryClient()
   const { data: member } = useMember()
