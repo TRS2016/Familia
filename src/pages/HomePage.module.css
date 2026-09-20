@@ -141,8 +141,26 @@
   margin: 0 0 -8px;
 }
 
+/* Le label qui ouvre le fil du foyer se distingue des autres : il marque une
+   rupture de registre (on quitte l'actionnable pour le contemplatif). */
+.sectionLabel::before {
+  content: '';
+  display: block;
+  width: 28px;
+  height: 2px;
+  border-radius: var(--radius-xs);
+  background: var(--border);
+  margin-bottom: var(--space-3);
+}
+
 /* ── Dashboard widgets ───────────────────────────────────────────────────── */
 /* Mobile : pile verticale. Desktop : masonry 2 colonnes via CSS columns. */
+
+/* Le fil est volontairement plus discret que le bandeau et les cadrans :
+   ombre plus légère, pour que la hiérarchie se lise sans lire les titres. */
+.dashboard .card {
+  box-shadow: 0 1px 6px rgba(0, 0, 0, 0.05);
+}
 
 .dashboard {
   display: flex;

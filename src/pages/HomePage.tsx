@@ -1,7 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
-import { ShoppingCart, Settings, Flame, Bell, Camera } from 'lucide-react'
+import { Settings, Flame, Bell, Camera } from 'lucide-react'
 import { useSignedPhotoUrls } from '../features/moments/useMoments'
 import { quoteOfTheDay } from '../data/quotes'
 import SlideUpModal from '../components/SlideUpModal'
@@ -10,13 +10,15 @@ import { fr } from 'date-fns/locale'
 import { supabase } from '../lib/supabase'
 import { HOUSEHOLD_ID } from '../lib/config'
 import { useMember } from '../auth/useMember'
-import { GROCERIES_KEY } from '../features/groceries/useGroceries'
 import { useToggleCompletion, completionsKey } from '../features/habits/useHabits'
 import { calcStreak } from '../features/habits/habits.utils'
 import ChoresHomeWidget from '../features/chores/ChoresHomeWidget'
 import MealPlanHomeWidget from '../features/recipes/MealPlanHomeWidget'
 import RuleOfDayWidget from '../features/rules/RuleOfDayWidget'
 import type { HabitCompletion } from '../features/habits/useHabits'
+import { useHomeDigest } from './useHomeDigest'
+import HomeNowBand from './HomeNowBand'
+import HomeDials from './HomeDials'
 import { QK } from '../lib/query-keys'
 import { useToast } from '../components/useToast'
 import LoadingPage from '../components/LoadingPage'
@@ -51,11 +53,6 @@ interface UpcomingEvent {
   title: string
   date: string
   member_id: string | null
-}
-
-interface GroceryPreview {
-  id: string
-  name: string
 }
 
 interface HomeMoment {
@@ -146,29 +143,9 @@ export default function HomePage() {
     enabled: !!member,
   })
 
-  const { data: kakeboMonth } = useQuery({
-    queryKey: QK.homeKakebo,
-    queryFn: async () => {
-      const now  = new Date()
-      const from = format(new Date(now.getFullYear(), now.getMonth(), 1), 'yyyy-MM-dd')
-      const to   = format(new Date(now.getFullYear(), now.getMonth() + 1, 0), 'yyyy-MM-dd')
-      const { data, error } = await supabase
-        .from('kakebo_entries')
-        .select('amount, category:kakebo_categories(type)')
-        .eq('household_id', HOUSEHOLD_ID)
-        .is('member_id', null) // budget du foyer uniquement (opérations communes), pas les dépenses perso des membres
-        .gte('date', from)
-        .lte('date', to)
-      if (error) throw error
-      type Row = { amount: number; category: { type: string } | null }
-      const rows = data as unknown as Row[]
-      const income   = rows.filter(r => r.category?.type === 'income').reduce((s, r) => s + Number(r.amount), 0)
-      const expenses = rows.filter(r => r.category?.type !== 'income').reduce((s, r) => s + Number(r.amount), 0)
-      return { income, expenses, epargne: income - expenses }
-    },
-    enabled: !!member,
-  })
-
+  // Budget et courses ne sont plus requêtés ici : useHomeDigest les dérive des
+  // hooks de feature (cache partagé) pour alimenter à la fois le bandeau et
+  // les cadrans.
   const { data: habitsToday } = useQuery({
     queryKey: [...QK.homeHabits, member?.id],
     queryFn: async () => {
@@ -200,23 +177,6 @@ export default function HomePage() {
       return { total: applicable.length, done: applicable.length - pending.length, pending }
     },
     enabled: !!member,
-  })
-
-  const { data: groceryPreview } = useQuery({
-    queryKey: [...GROCERIES_KEY, 'preview'],
-    queryFn: async (): Promise<GroceryPreview[]> => {
-      const { data, error } = await supabase
-        .from('groceries')
-        .select('id, name')
-        .eq('household_id', HOUSEHOLD_ID)
-        .eq('checked', false)
-        .order('created_at', { ascending: false })
-        .limit(10)
-      if (error) throw error
-      return data as GroceryPreview[]
-    },
-    enabled: !!member,
-    staleTime: 0,
   })
 
   const { data: mediaInProgress } = useQuery({
@@ -311,6 +271,8 @@ export default function HomePage() {
     enabled: !!member,
   })
 
+  const digest = useHomeDigest(member?.id ?? null)
+
   const toggleHabit = useToggleCompletion()
 
   if (!member) return <LoadingPage />
@@ -394,7 +356,24 @@ export default function HomePage() {
         </SlideUpModal>
       )}
 
-      {/* Dashboard widgets — masonry 2 colonnes sur desktop */}
+      {/* ── Zone 1 : ce qui se joue maintenant ── */}
+      <HomeNowBand
+        items={digest.items}
+        hiddenCount={digest.hiddenCount}
+        currentMemberId={member.id}
+        allClearName={member.display_name}
+      />
+
+      {/* ── Zone 2 : les trois compteurs du foyer ── */}
+      <HomeDials
+        chores={digest.chores}
+        groceries={digest.groceries}
+        budget={digest.budget}
+        savingGoal={householdDetails?.kakebo_objectif_epargne ?? null}
+      />
+
+      {/* ── Zone 3 : le fil du foyer — agréable, non actionnable ── */}
+      <p className={styles.sectionLabel}>Le fil du foyer</p>
       <div className={styles.dashboard}>
 
       {/* Widget — Souffle du jour */}
@@ -440,54 +419,6 @@ export default function HomePage() {
 
       {/* Widget — Repas du jour (rendu nul si rien de planifié) */}
       <MealPlanHomeWidget />
-
-      {/* Widget — Budget du mois */}
-      {kakeboMonth && (kakeboMonth.expenses > 0 || kakeboMonth.income > 0) && (
-        <div className={styles.widget}>
-          <div className={styles.widgetHead}>
-            <span className={styles.widgetLabel}>Budget du mois</span>
-            <Link to="/kakebo" className={styles.widgetLink}>Voir tout</Link>
-          </div>
-          <div className={styles.card}>
-            <div className={styles.budgetGrid}>
-              <div className={styles.budgetCell}>
-                <span className={styles.budgetCellLabel}>Revenus</span>
-                <span className={styles.budgetCellValue} style={{ color: '#5B9E8F' }}>
-                  +{kakeboMonth.income.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
-                </span>
-              </div>
-              <div className={styles.budgetCell}>
-                <span className={styles.budgetCellLabel}>Dépenses</span>
-                <span className={styles.budgetCellValue} style={{ color: 'var(--accent)' }}>
-                  -{kakeboMonth.expenses.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
-                </span>
-              </div>
-              <div className={styles.budgetCell}>
-                <span className={styles.budgetCellLabel}>Épargne</span>
-                <span className={styles.budgetCellValue} style={{ color: kakeboMonth.epargne >= 0 ? '#5B9E8F' : 'var(--danger)' }}>
-                  {kakeboMonth.epargne >= 0 ? '+' : ''}{kakeboMonth.epargne.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
-                </span>
-              </div>
-            </div>
-            {(() => {
-              const objectif = householdDetails?.kakebo_objectif_epargne ?? 0
-              if (objectif <= 0) return null
-              const pct = Math.max(0, Math.min(1, kakeboMonth.epargne / objectif))
-              const ok  = kakeboMonth.epargne >= objectif
-              return (
-                <div className={styles.budgetBarWrap}>
-                  <div className={styles.budgetBarTrack}>
-                    <div className={styles.budgetBarFill} style={{ width: `${pct * 100}%`, background: ok ? '#5B9E8F' : 'var(--accent)' }} />
-                  </div>
-                  <span className={styles.budgetBarLabel}>
-                    Objectif {objectif.toLocaleString('fr-FR', { maximumFractionDigits: 0 })} €
-                  </span>
-                </div>
-              )
-            })()}
-          </div>
-        </div>
-      )}
 
       {/* Widget — Médias en cours */}
       {mediaInProgress && mediaInProgress.length > 0 && (
@@ -559,28 +490,6 @@ export default function HomePage() {
       {householdDetails && householdDetails.members.length > 0 && (
         <div className={styles.widget}>
           <ChoresHomeWidget members={householdDetails.members} />
-        </div>
-      )}
-
-      {/* Widget — Courses */}
-      {groceryPreview && groceryPreview.length > 0 && (
-        <div className={styles.widget}>
-          <div className={styles.widgetHead}>
-            <span className={styles.widgetLabel}>Courses</span>
-            <Link to="/groceries" className={styles.widgetLink}>Voir tout</Link>
-          </div>
-          <Link to="/groceries" className={[styles.card, styles.cardLink].join(' ')}>
-            <div className={styles.groceryRow}>
-              <ShoppingCart size={15} color="#5B9E8F" strokeWidth={2.5} />
-              <span className={styles.groceryCount}>
-                {groceryPreview.length} article{groceryPreview.length > 1 ? 's' : ''} à faire
-              </span>
-            </div>
-            <p className={styles.groceryNames}>
-              {groceryPreview.slice(0, 5).map(g => g.name).join(' · ')}
-              {groceryPreview.length > 5 ? ' · …' : ''}
-            </p>
-          </Link>
         </div>
       )}
 
