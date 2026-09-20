@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import type { FormEvent } from 'react'
 import { X } from 'lucide-react'
 import { format } from 'date-fns'
 import type { CalendarEvent, NewEventInput, RecurrenceType } from './useEvents'
 import { pgTimeToInput } from './calendar.utils'
+import { useDialog } from '../../lib/useDialog'
 import { MEMBER_PALETTE } from '../../lib/constants'
 import styles from './CalendarPage.module.css'
 
@@ -104,18 +105,11 @@ export function EventFormModal({
   }, [isOpen, editingEvent, addDefaults, currentMemberId])
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // Fermeture au clavier (Échap) + verrou du scroll de la page sous la modale.
-  useEffect(() => {
-    if (!isOpen) return
-    function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose() }
-    window.addEventListener('keydown', onKey)
-    const prevOverflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
-    return () => {
-      window.removeEventListener('keydown', onKey)
-      document.body.style.overflow = prevOverflow
-    }
-  }, [isOpen, onClose])
+  // Échap, verrou du scroll, focus entrant/sortant et piège de tabulation.
+  // `isOpen` est passé en 3e argument : le hook doit être appelé à chaque
+  // rendu même quand la modale est fermée (règle des hooks).
+  const sheetRef = useRef<HTMLDivElement>(null)
+  useDialog(sheetRef, onClose, isOpen)
 
   function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
@@ -142,11 +136,13 @@ export function EventFormModal({
   return (
     <div className={styles.overlay} onClick={onClose}>
       <div
+        ref={sheetRef}
         className={styles.sheet}
         onClick={e => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="event-form-title"
+        tabIndex={-1}
       >
         <div className={styles.sheetHandle} />
         <div className={styles.sheetHeader}>

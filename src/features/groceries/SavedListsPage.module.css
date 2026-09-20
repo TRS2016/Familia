@@ -1,7 +1,7 @@
 ﻿/* â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 .page {
-  min-height: 100vh;
+  min-height: 100svh;
   background: var(--bg);
   font-family: var(--font-family);
   display: flex;
@@ -571,3 +571,18 @@
 }
 
 .notifySendBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Grand écran ─────────────────────────────────────────────────────────── */
+
+@media (min-width: 1024px) {
+  .listIndex {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--space-6);
+    align-items: start;
+  }
+}
+
+@media (min-width: 1440px) {
+  .listIndex { grid-template-columns: repeat(3, 1fr); }
+}

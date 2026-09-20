@@ -1,8 +1,16 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
+// @ts-expect-error - plugin PostCSS local en .mjs, sans typings
+import hoverGuard from './postcss-hover-guard.mjs'
 
 export default defineConfig({
+  css: {
+    postcss: {
+      // Neutralise le hover « collant » sur tactile pour tous les CSS modules.
+      plugins: [hoverGuard()],
+    },
+  },
   build: {
     rollupOptions: {
       output: {

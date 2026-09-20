@@ -11,7 +11,9 @@
 .container {
   position: fixed;
   top: 12px;
-  left: 0;
+  /* Centré sur la zone de contenu, pas sur la fenêtre : --sidebar-w vaut 0
+     tant que la sidebar n'est pas affichée. */
+  left: var(--sidebar-w);
   right: 0;
   display: flex;
   flex-direction: column;

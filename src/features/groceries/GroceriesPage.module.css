@@ -23,7 +23,7 @@
 /* ── Page shell ──────────────────────────────────────────────────────────── */
 
 .page {
-  min-height: 100vh;
+  min-height: 100svh;
   background: var(--bg);
   font-family: var(--font-family);
   display: flex;
@@ -31,6 +31,56 @@
   max-width: var(--page-max-w);
   margin: 0 auto;
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
+}
+
+/* ── Deux volets (≥ 1024px) ──────────────────────────────────────────────── */
+/* Sous 1024px : `display: contents` → les enfants remontent dans le flex
+   column de .page, la mise en page mobile est inchangée au pixel près. */
+
+.panes,
+.paneSide,
+.paneMain {
+  display: contents;
+}
+
+@media (min-width: 1024px) {
+  .panes {
+    display: grid;
+    grid-template-columns: minmax(280px, 340px) 1fr;
+    gap: var(--section-gap);
+    align-items: start;
+    padding: 0 var(--space-4) var(--space-4);
+  }
+
+  .paneSide {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    position: sticky;
+    top: var(--space-4);
+    background: var(--bg-card);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: var(--space-3) var(--space-2) var(--space-4);
+  }
+
+  .paneMain {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+
+  /* Le total n'a plus à flotter : il y a une colonne pour l'accueillir. */
+  .totalBar {
+    position: static;
+    max-width: none;
+    margin: 0;
+    border-top: none;
+    border-radius: var(--radius-md);
+    box-shadow: none;
+    background: var(--bg-input);
+    padding: var(--space-3) var(--space-4);
+  }
 }
 
 /* ── Header ──────────────────────────────────────────────────────────────── */
@@ -687,7 +737,8 @@
 .totalBar {
   position: fixed;
   bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
-  left: 0;
+  /* --sidebar-w vaut 0 hors mode sidebar : centrage correct dans les deux cas. */
+  left: var(--sidebar-w);
   right: 0;
   max-width: var(--page-max-w);
   margin: 0 auto;
@@ -699,12 +750,6 @@
   border-top: 1px solid var(--border-subtle);
   padding: 14px 20px 14px;
   box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.07);
-}
-
-@media (min-width: 768px) {
-  .totalBar {
-    left: var(--sidebar-w);
-  }
 }
 
 .totalLabel {

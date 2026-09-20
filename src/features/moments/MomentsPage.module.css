@@ -1,5 +1,5 @@
 .page {
-  min-height: 100vh;
+  min-height: 100svh;
   background: var(--bg);
   font-family: var(--font-family);
   display: flex;
@@ -1283,11 +1283,14 @@
 
 .fab:active { transform: scale(0.96); }
 
-@media (min-width: 768px) {
-  .fab {
-    right: max(20px, calc((100vw - var(--sidebar-w) - var(--page-max-w)) / 2 + 16px));
-  }
+/* --sidebar-w vaut 0 hors mode sidebar : un seul calcul couvre les deux cas. */
+.fab {
+  right: max(20px, calc((100vw - var(--sidebar-w) - var(--page-max-w)) / 2 + 16px));
 }
+
+/* Le feed masonry passe à 3 colonnes quand la largeur le permet. */
+@media (min-width: 1024px) { .feed { columns: 3; } }
+@media (min-width: 1440px) { .feed { columns: 4; } }
 
 /* ── Lightbox zoom ───────────────────────────────────────────────────────── */
 

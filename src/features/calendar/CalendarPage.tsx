@@ -20,6 +20,7 @@ import type { CalendarEvent, NewEventInput } from './useEvents'
 import { MEMBER_PALETTE } from '../../lib/constants'
 import { QK } from '../../lib/query-keys'
 import { capitalize } from '../../lib/utils'
+import { useIsWide, MQ_WIDE } from '../../lib/useMediaQuery'
 import { pgTimeToInput, timeToMinutes, layoutDayEvents } from './calendar.utils'
 import { EventFormModal } from './EventFormModal'
 import styles from './CalendarPage.module.css'
@@ -62,7 +63,12 @@ export default function CalendarPage() {
   useEventsRealtime()
 
   // ── View & navigation ────────────────────────────────────────────────────
-  const [view, setView] = useState<View>('agenda')
+  // Sur grand écran, la vue mois est la vue naturelle (la largeur sert enfin
+  // à quelque chose) ; sur téléphone, l'agenda reste plus lisible.
+  const isWide = useIsWide()
+  const [view, setView] = useState<View>(() =>
+    window.matchMedia(MQ_WIDE).matches ? 'month' : 'agenda'
+  )
   const [weekStart, setWeekStart] = useState(() =>
     startOfWeek(new Date(), { weekStartsOn: 1 })
   )
@@ -232,6 +238,10 @@ export default function CalendarPage() {
 
   const todayStr = format(new Date(), 'yyyy-MM-dd')
 
+  // Cellules du mois : hautes de 116px en desktop (cf. CSS), elles tiennent
+  // 4 pastilles au lieu de 2.
+  const monthPillCount = isWide ? 4 : 2
+
   const navLabel = view === 'week'
     ? `${capitalize(format(weekStart, 'd MMM', { locale: fr }))} – ${capitalize(format(weekEnd, 'd MMM yyyy', { locale: fr }))}`
     : view === '3day'
@@ -322,6 +332,27 @@ export default function CalendarPage() {
     else goBack()
   }
 
+  // ── Navigation clavier ──────────────────────────────────────────────────
+  // Équivalent souris/clavier du swipe tactile ci-dessus. On s'abstient dès
+  // qu'un champ a le focus ou qu'un dialogue est ouvert, pour ne pas voler
+  // les flèches à la saisie de texte.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (showForm) return
+      if (e.metaKey || e.ctrlKey || e.altKey) return
+      const el = document.activeElement as HTMLElement | null
+      if (el && (el.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName))) return
+
+      if (e.key === 'ArrowLeft')       { e.preventDefault(); goBack() }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); goForward() }
+      else if (e.key === 't' || e.key === 'T') { e.preventDefault(); goToday() }
+      else if (e.key === 'n' || e.key === 'N') { e.preventDefault(); openAddForm() }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+    // goBack/goForward/goToday dépendent de `view` et des curseurs de date.
+  })
+
   // ── Render ───────────────────────────────────────────────────────────────
   return (
     <div className={styles.page} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
@@ -358,6 +389,13 @@ export default function CalendarPage() {
             Mois
           </button>
         </div>
+
+        {/* Sur grand écran, le FAB flottant laisse place à une action d'en-tête
+            explicite (idiome bureau, et raccourci « N » annoncé au survol). */}
+        <button className={styles.newBtn} onClick={() => openAddForm()} title="Nouvel événement (N)">
+          <Plus size={16} strokeWidth={2.5} aria-hidden="true" />
+          <span>Nouveau</span>
+        </button>
       </header>
 
       {/* Navigation */}
@@ -802,7 +840,7 @@ export default function CalendarPage() {
                         ].join(' ')}>
                           {format(day, 'd')}
                         </div>
-                        {dayEvents.slice(0, 2).map(e => {
+                        {dayEvents.slice(0, monthPillCount).map(e => {
                           const color = getMemberColor(e.member_id, householdMembers)
                           return (
                             <div
@@ -815,8 +853,8 @@ export default function CalendarPage() {
                             </div>
                           )
                         })}
-                        {dayEvents.length > 2 && (
-                          <div className={styles.monthMore}>+{dayEvents.length - 2}</div>
+                        {dayEvents.length > monthPillCount && (
+                          <div className={styles.monthMore}>+{dayEvents.length - monthPillCount}</div>
                         )}
                       </td>
                     )

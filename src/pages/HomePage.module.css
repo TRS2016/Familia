@@ -1,11 +1,11 @@
 .page {
-  min-height: 100vh;
+  min-height: 100svh;
   background: var(--bg);
   font-family: var(--font-family);
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  padding: 28px 20px calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
+  gap: var(--section-gap);
+  padding: var(--page-pad-y) var(--page-pad-x) calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
   max-width: var(--page-max-w);
   margin: 0 auto;
 }
@@ -151,11 +151,9 @@
 }
 
 @media (min-width: 768px) {
-  /* Plus d'air sur tablette/desktop */
-  .page {
-    gap: 28px;
-    padding: 40px 32px calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 40px);
-  }
+  /* Le padding et le gap viennent des tokens de densité (src/index.css),
+     qui montent d'un cran à 768 puis 1024. */
+  .page { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 40px); }
 
   /* Widgets en grille alignée par lignes (top-aligné) plutôt qu'en masonry
      décalé → Habitudes / Mémo et voisins s'alignent horizontalement. */
@@ -676,4 +674,9 @@
   font-size: var(--text-2xs);
   font-weight: 700;
   flex-shrink: 0;
+}
+
+/* Le tableau de bord tient trois widgets de front sur un grand écran. */
+@media (min-width: 1440px) {
+  .dashboard { grid-template-columns: repeat(3, 1fr); }
 }

@@ -14,6 +14,7 @@ import RecipeFormModal from './RecipeFormModal'
 import WeekPlanner from './WeekPlanner'
 import type { Recipe } from './useRecipes'
 import styles from './RecipesPage.module.css'
+import DialogOverlay from '../../components/DialogOverlay'
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -199,8 +200,12 @@ export default function RecipesPage() {
       {form !== false && <RecipeFormModal recipe={form} onClose={() => setForm(false)} />}
 
       {confirmDel && (
-        <div className={styles.overlay} onClick={() => setConfirmDel(null)}>
-          <div className={styles.confirmSheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <DialogOverlay
+          overlayClassName={styles.overlay}
+          className={styles.confirmSheet}
+          onClose={() => setConfirmDel(null)}
+          aria-label="Confirmer la suppression"
+        >
             <button className={styles.confirmClose} onClick={() => setConfirmDel(null)} aria-label="Fermer"><X size={18} /></button>
             <p className={styles.confirmTitle}>Supprimer « {confirmDel.title} » ?</p>
             <p className={styles.confirmText}>Cette action est définitive.</p>
@@ -210,8 +215,7 @@ export default function RecipesPage() {
             >
               Supprimer
             </button>
-          </div>
-        </div>
+        </DialogOverlay>
       )}
     </div>
   )

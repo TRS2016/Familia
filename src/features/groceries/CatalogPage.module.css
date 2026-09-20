@@ -1,5 +1,5 @@
 .page {
-  min-height: 100vh;
+  min-height: 100svh;
   background: var(--bg);
   font-family: var(--font-family);
   display: flex;
@@ -551,3 +551,21 @@
 .receiptAddBtn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .submitBtn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+/* ── Grand écran ─────────────────────────────────────────────────────────── */
+/* Le catalogue n'avait aucune adaptation : une liste d'articles d'une ligne
+   chacune sur 1000px de large. Les lignes gardent leur filet de séparation,
+   on les répartit simplement en colonnes. */
+
+@media (min-width: 1024px) {
+  .list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    column-gap: var(--space-6);
+    align-items: start;
+  }
+}
+
+@media (min-width: 1440px) {
+  .list { grid-template-columns: repeat(3, 1fr); }
+}

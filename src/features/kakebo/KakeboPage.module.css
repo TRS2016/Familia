@@ -1,7 +1,7 @@
 /* ── Page shell ──────────────────────────────────────────────────────────── */
 
 .page {
-  min-height: 100vh;
+  min-height: 100svh;
   background: var(--bg);
   font-family: var(--font-family);
   display: flex;
@@ -1958,4 +1958,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   .pocketFill { transition: none; }
+}
+
+/* Au-delà de 1440px, deux colonnes de cartes laissent encore trop de vide. */
+@media (min-width: 1440px) {
+  .scrollArea { columns: 3; }
 }

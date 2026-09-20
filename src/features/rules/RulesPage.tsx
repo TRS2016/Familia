@@ -11,6 +11,7 @@ import {
 import type { HouseholdRule } from './useRules'
 import RuleFormModal from './RuleFormModal'
 import styles from './RulesPage.module.css'
+import DialogOverlay from '../../components/DialogOverlay'
 
 const ACTION_LABEL: Record<string, string> = {
   add: 'Nouveau commandement',
@@ -196,8 +197,12 @@ export default function RulesPage() {
 
       {/* Confession d'un manquement */}
       {confessTarget && (
-        <div className={styles.overlay} onClick={() => setConfessTarget(null)}>
-          <div className={styles.confirmSheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <DialogOverlay
+          overlayClassName={styles.overlay}
+          className={styles.confirmSheet}
+          onClose={() => setConfessTarget(null)}
+          aria-label="Confesser un manquement"
+        >
             <p className={styles.confirmTitle}>Confesser un manquement ?</p>
             <p className={styles.confirmText}>
               {confessTarget.emoji} {confessTarget.text}
@@ -210,21 +215,23 @@ export default function RulesPage() {
               <Scale size={15} strokeWidth={2} /> J'ai failli, je confesse
             </button>
             <button className={styles.cancelBtn} onClick={() => setConfessTarget(null)}>Annuler</button>
-          </div>
-        </div>
+        </DialogOverlay>
       )}
 
       {/* Proposition de retrait */}
       {removeTarget && (
-        <div className={styles.overlay} onClick={() => setRemoveTarget(null)}>
-          <div className={styles.confirmSheet} onClick={e => e.stopPropagation()} role="dialog" aria-modal="true">
+        <DialogOverlay
+          overlayClassName={styles.overlay}
+          className={styles.confirmSheet}
+          onClose={() => setRemoveTarget(null)}
+          aria-label="Proposer le retrait"
+        >
             <p className={styles.confirmTitle}>Proposer le retrait ?</p>
             <p className={styles.confirmText}>{removeTarget.emoji} {removeTarget.text}</p>
             <p className={styles.confirmSub}>Le commandement ne sera retiré que si l'autre parent approuve.</p>
             <RemoveProposalButton rule={removeTarget} onDone={() => setRemoveTarget(null)} />
             <button className={styles.cancelBtn} onClick={() => setRemoveTarget(null)}>Annuler</button>
-          </div>
-        </div>
+        </DialogOverlay>
       )}
     </div>
   )

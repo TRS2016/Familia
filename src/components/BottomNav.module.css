@@ -20,8 +20,17 @@
   transform: translateZ(0);
 }
 
-@media (min-width: 768px) {
+/* DESKTOP-NAV (cf. src/index.css) : la barre du bas ne disparaît qu'une fois
+   la sidebar affichée. Tablette portrait tactile → on la garde. */
+@media (min-width: 768px) and (pointer: fine), (min-width: 1024px) {
   .mobileNav { display: none; }
+}
+
+/* Tablette tactile : plus de largeur, on aère les onglets et on remonte le
+   libellé à une taille lisible (9.5px était un compromis téléphone). */
+@media (min-width: 640px) {
+  .mobileNav { max-width: 640px; border-radius: var(--radius-xl) var(--radius-xl) 0 0; }
+  .mobileTabLabel { font-size: var(--text-2xs); }
 }
 
 .mobileTab {
@@ -55,7 +64,8 @@
 
 .sidebar { display: none; }
 
-@media (min-width: 768px) {
+/* DESKTOP-NAV */
+@media (min-width: 768px) and (pointer: fine), (min-width: 1024px) {
   .sidebar {
     display: flex;
     flex-direction: column;
@@ -160,6 +170,10 @@
   border: 1.5px solid transparent;
   transition: background 0.15s, border-color 0.15s;
   -webkit-tap-highlight-color: transparent;
+}
+
+@media (min-width: 640px) {
+  .moreGrid { grid-template-columns: repeat(5, 1fr); }
 }
 
 .moreItem:hover        { background: var(--border); }

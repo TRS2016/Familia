@@ -6,7 +6,7 @@
 .banner {
   position: fixed;
   bottom: 0;
-  left: 0;
+  left: var(--sidebar-w);  /* 0 hors mode sidebar */
   right: 0;
   z-index: var(--z-toast);
   display: flex;

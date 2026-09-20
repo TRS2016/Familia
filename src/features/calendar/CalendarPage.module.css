@@ -18,7 +18,7 @@
 /* ── Page shell ──────────────────────────────────────────────────────────── */
 
 .page {
-  min-height: 100vh;
+  min-height: 100svh;
   background: var(--bg);
   font-family: var(--font-family);
   display: flex;
@@ -723,10 +723,57 @@
   transition: transform 0.15s, box-shadow 0.15s;
 }
 
-@media (min-width: 768px) {
-  .fab {
-    right: max(24px, calc((100vw - var(--sidebar-w) - var(--page-max-w)) / 2 + 16px));
+/* --sidebar-w vaut 0 hors mode sidebar : un seul calcul suffit. */
+.fab {
+  right: max(24px, calc((100vw - var(--sidebar-w) - var(--page-max-w)) / 2 + 16px));
+}
+
+/* ── Densité grand écran ─────────────────────────────────────────────────── */
+
+/* Masqué par défaut : le FAB reste l'action sur mobile et tablette. */
+.newBtn { display: none; }
+
+@media (min-width: 1024px) {
+  /* Le FAB flottant est un idiome tactile : sur bureau, l'action vit dans
+     l'en-tête (.newBtn), plus lisible et atteignable au clavier. */
+  .fab { display: none; }
+
+  .newBtn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+    margin-left: var(--space-3);
+    padding: 8px 14px;
+    border: none;
+    border-radius: var(--radius-pill);
+    background: var(--accent);
+    color: #fff;
+    font-family: var(--font-family);
+    font-size: var(--text-sm);
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: var(--shadow-btn);
   }
+
+  /* Vue mois : des cellules hautes qui montrent vraiment la semaine plutôt
+     que « +7 » sur chaque case. */
+  .monthWrapper { padding: 0 var(--space-4); }
+  .monthTd      { height: 116px; padding: var(--space-2); }
+  .monthTh      { font-size: var(--text-xs); padding-bottom: var(--space-3); }
+  .monthDayNum  { font-size: var(--text-sm); text-align: left; margin-bottom: 6px; }
+
+  .monthEventPill {
+    font-size: var(--text-2xs);
+    border-radius: var(--radius-xs);
+    padding: 2px 6px;
+    margin-bottom: 3px;
+  }
+
+  .monthMore { font-size: var(--text-2xs); }
+
+  /* Le panneau du jour sélectionné n'a plus à s'étaler sur toute la largeur. */
+  .monthDayPanel { max-width: 520px; }
 }
 
 .fab:hover {

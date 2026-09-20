@@ -1,3 +1,4 @@
+import DialogOverlay from '../../../components/DialogOverlay'
 import ui from './velovUi.module.css'
 import styles from './NotifExplainerModal.module.css'
 
@@ -8,8 +9,12 @@ export interface NotifExplainerModalProps {
 
 export function NotifExplainerModal({ onConfirm, onDismiss }: NotifExplainerModalProps) {
   return (
-    <div className={styles.overlay} onClick={onDismiss}>
-      <div className={styles.sheet} onClick={(e) => e.stopPropagation()}>
+    <DialogOverlay
+      overlayClassName={styles.overlay}
+      className={styles.sheet}
+      onClose={onDismiss}
+      aria-label="Activer les notifications"
+    >
         <p className={styles.emoji}>🔔</p>
         <h3 className={styles.title}>Activer les notifications ?</h3>
         <p className={styles.body}>
@@ -20,7 +25,6 @@ export function NotifExplainerModal({ onConfirm, onDismiss }: NotifExplainerModa
           <button onClick={onDismiss} className={ui.btnGhost}>Plus tard</button>
           <button onClick={onConfirm} className={ui.btnPrimary}>Activer</button>
         </div>
-      </div>
-    </div>
+    </DialogOverlay>
   )
 }

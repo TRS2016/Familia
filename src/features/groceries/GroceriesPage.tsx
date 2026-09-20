@@ -366,6 +366,12 @@ export default function GroceriesPage() {
         </div>
       )}
 
+      {/* Deux volets à partir de 1024px : saisie + filtres à gauche, liste à
+          droite. En dessous, .panes/.pane sont en `display: contents` → le flux
+          mobile (une colonne) est strictement inchangé. */}
+      <div className={styles.panes}>
+      <div className={styles.paneSide}>
+
       {/* Formulaire d'ajout — disponible aussi en magasin (ex. « oups, le lait ») */}
       <form onSubmit={handleAdd} className={styles.addForm}>
           <div className={styles.addRow}>
@@ -568,6 +574,9 @@ export default function GroceriesPage() {
         </div>
       )}
 
+      </div>{/* /paneSide */}
+      <div className={styles.paneMain}>
+
       {query.isLoading && (
         <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
           <Spinner size={32} />
@@ -656,6 +665,9 @@ export default function GroceriesPage() {
           </button>
         </div>
       )}
+
+      </div>{/* /paneMain */}
+      </div>{/* /panes */}
 
       {(shoppingMode || hasAnyPrice) && <div style={{ height: shoppingMode ? 150 : 64 }} />}
 

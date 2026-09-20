@@ -1,16 +1,71 @@
 /* ── Design tokens ────────────────────────────────────────────────────────── */
 
+/* Deux axes indépendants, à ne pas confondre :
+
+   1. LARGEUR utile (--page-max-w, --page-pad-*, --card-pad, --section-gap)
+      → purement fonction de la largeur de fenêtre. Paliers 768 / 1024 / 1440.
+
+   2. MODE DE NAVIGATION (--nav-h, --sidebar-w)
+      → fonction de la largeur ET du pointeur. Une tablette en portrait
+        (820px, pointer: coarse) garde la barre du bas : basculer sur une
+        sidebar souris à 768px lui faisait perdre les cibles au pouce tout
+        en amputant 220px de largeur utile.
+
+   La condition « navigation desktop » s'écrit partout :
+     @media (min-width: 768px) and (pointer: fine), (min-width: 1024px)
+   Elle est repérable par le marqueur DESKTOP-NAV dans le code. */
+
 :root {
-  --nav-h:      56px;  /* bottom nav height — 0 on desktop */
-  --sidebar-w:  220px; /* desktop sidebar width */
-  --page-max-w: 480px; /* page content max-width */
+  /* Navigation */
+  --nav-h:      56px;  /* hauteur barre du bas — 0 en mode sidebar */
+  --sidebar-w:  0px;   /* 0 tant que la sidebar n'est pas affichée : les
+                          calculs de centrage (FAB, barres fixes) restent
+                          alors justes sans media query dédiée */
+
+  /* Largeur et densité */
+  --page-max-w:   480px;
+  --page-pad-x:   20px;
+  --page-pad-y:   28px;
+  --section-gap:  20px;  /* espace entre blocs de premier niveau */
+  --card-pad:     16px;  /* padding interne des cartes */
 }
 
 @media (min-width: 768px) {
   :root {
-    --nav-h:      0px;
-    --page-max-w: 800px;
+    --page-max-w:  800px;
+    --page-pad-x:  32px;
+    --page-pad-y:  40px;
+    --section-gap: 24px;
+    --card-pad:    18px;
   }
+}
+
+@media (min-width: 1024px) {
+  :root {
+    --page-max-w:  1000px;
+    --page-pad-x:  40px;
+    --section-gap: 24px;
+  }
+}
+
+@media (min-width: 1440px) {
+  :root {
+    --page-max-w:  1200px;
+    --page-pad-x:  48px;
+  }
+}
+
+/* DESKTOP-NAV : sidebar au lieu de la barre du bas */
+@media (min-width: 768px) and (pointer: fine), (min-width: 1024px) {
+  :root {
+    --nav-h:     0px;
+    --sidebar-w: 220px;
+  }
+}
+
+/* À 1440px la sidebar est de toute façon active (palier 1024 ci-dessus). */
+@media (min-width: 1440px) {
+  :root { --sidebar-w: 260px; }
 }
 
 /* ── Reset minimal ────────────────────────────────────────────────────────── */
@@ -60,10 +115,9 @@ p { margin: 0; }
 
 /* ── App content layout (sidebar offset on desktop) ─────────────────────── */
 
-@media (min-width: 768px) {
-  .app-content {
-    margin-left: var(--sidebar-w);
-  }
+/* --sidebar-w vaut 0 hors mode sidebar : pas besoin de media query ici. */
+.app-content {
+  margin-left: var(--sidebar-w);
 }
 
 /* ── Page enter animation ─────────────────────────────────────────────────── */

@@ -1,7 +1,7 @@
 /* ── Page ────────────────────────────────────────────────────────────────── */
 
 .page {
-  min-height: 100vh;
+  min-height: 100svh;
   background: var(--bg);
   font-family: var(--font-family);
   display: flex;
@@ -620,3 +620,51 @@
 .badgeDesc { font-size: 9px; color: var(--text-muted); line-height: 1.25; }
 .mentalStats { background: color-mix(in srgb, var(--plan-bg) 45%, var(--bg-card)); border-color: transparent; }
 .mentalStats .hint { margin: -4px 0 2px; }
+
+/* ── Grand écran ─────────────────────────────────────────────────────────── */
+/* La page était strictement mono-colonne : à 1000px de large, une liste de
+   tâches d'une ligne chacune gaspillait les deux tiers de la largeur et
+   imposait un scroll inutile. On passe les listes et grilles en 2 colonnes
+   (ordre de lecture ligne par ligne, pas `columns:` qui lit en colonne). */
+
+@media (min-width: 1024px) {
+  .list {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-2);
+    align-items: start;
+  }
+
+  /* La vue semaine garde un jour par bloc, mais deux jours côte à côte. */
+  .weekList {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--section-gap);
+    align-items: start;
+  }
+  .weekList .list { grid-template-columns: 1fr; }
+
+  /* Progression : les sections se lisent en deux colonnes plutôt qu'en pile. */
+  .progression {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--section-gap) var(--space-5);
+    align-items: start;
+  }
+
+  .scoreCards { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+  .pickList   { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-2); }
+  .levelGrid  { grid-template-columns: repeat(4, 1fr); }
+  .badgeGrid  { grid-template-columns: repeat(auto-fill, minmax(88px, 1fr)); }
+  .statRow    { grid-template-columns: 160px 1fr auto; }
+
+  /* Onglets : des pastilles pleine largeur font ~250px chacune, c'est laid. */
+  .tabs { justify-content: flex-start; }
+  .tab  { flex: 0 0 auto; padding: 9px 22px; }
+}
+
+@media (min-width: 1440px) {
+  .list       { grid-template-columns: repeat(3, 1fr); }
+  .weekList   { grid-template-columns: repeat(3, 1fr); }
+  .scoreCards { grid-template-columns: repeat(3, 1fr); }
+}
