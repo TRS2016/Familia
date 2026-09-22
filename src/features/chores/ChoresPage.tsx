@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { PointerEvent as ReactPointerEvent, ReactNode } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { format, addDays, startOfWeek, subDays, differenceInCalendarDays } from 'date-fns'
 import { fr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Check, Undo2, Pencil, Trash2, SkipForward, Camera, Copy, Sparkles, X, Heart } from 'lucide-react'
+import { ChevronLeft, ChevronRight, ChevronUp, ChevronDown, Plus, Check, Undo2, Pencil, Trash2, SkipForward, Camera, Copy, Sparkles, X, Heart, Users } from 'lucide-react'
 import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
+import { useToast } from '../../components/useToast'
 import { useMember } from '../../auth/useMember'
 import { memberColor } from '../../lib/constants'
 import { useBoolPref } from '../../lib/usePrefs'
@@ -68,11 +70,15 @@ export default function ChoresPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Chore | null>(null)
   const [adHocOpen, setAdHocOpen] = useState(false)
-  const [addMenuOpen, setAddMenuOpen] = useState(false)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [recipeView, setRecipeView] = useState<Recipe | null>(null)
   const [recipePickerOpen, setRecipePickerOpen] = useState(false)
   const [pickDone, setPickDone] = useState<{ a: ChoreAssignment; chore: Chore; doneOn: string } | null>(null)
+  // Confirmations : suppression catalogue, validation groupée, abandon des retards.
+  const [confirmDelete, setConfirmDelete] = useState<Chore | null>(null)
+  const [confirmBulk, setConfirmBulk] = useState<ChoreAssignment[] | null>(null)
+  const [confirmSkipAll, setConfirmSkipAll] = useState(false)
+  const { showToast } = useToast()
   const toggleStep = useToggleStep()
   const setStatus = useSetAssignmentStatus()
   const reorderChores = useReorderChores()
@@ -89,7 +95,7 @@ export default function ChoresPage() {
   const { data: feedbacks = [] } = useFeedback()
   const addFeedback = useAddFeedback()
   // Après un pointage : mood optionnel (« C'était comment ? ») puis célébration.
-  const [feedbackFor, setFeedbackFor] = useState<{ choreId: string; logId: string; memberId: string; choreName: string; points: number } | null>(null)
+  const [feedbackFor, setFeedbackFor] = useState<{ choreId: string; logId: string; memberId: string; choreName: string } | null>(null)
 
   const dislikersByChore = useMemo(() => {
     const m = new Map<string, Set<string>>()
@@ -133,6 +139,17 @@ export default function ChoresPage() {
       .filter(l => l.member_id !== me && l.done_on >= cutoff && !l.id.startsWith('opt-'))
       .slice(0, 5)
   }, [logs, currentMember?.id])
+
+  // Tâches les plus déclarées récemment : raccourcis en tête de la modale
+  // « Déclarer une tâche faite » (évite de dérouler tout le catalogue).
+  const frequentChoreIds = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const l of logs) if (l.chore_id) counts.set(l.chore_id, (counts.get(l.chore_id) ?? 0) + 1)
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([id]) => id)
+  }, [logs])
 
   const memberColorById = useMemo(() => {
     const m = new Map<string, string>()
@@ -195,15 +212,24 @@ export default function ChoresPage() {
   )
 
   // Points encore à prendre sur la semaine affichée (récap vue Semaine).
+  // Seuls les jours restants comptent : « à venir » exclut les jours écoulés.
   const weekPendingPoints = useMemo(
     () => assignments.reduce((sum, a) => {
+      if (a.date < today) return sum
       if (a.status !== 'pending' || logByAssignment.has(a.id)) return sum
       return sum + (choreById.get(a.chore_id)?.points ?? 0)
     }, 0),
-    [assignments, choreById, logByAssignment],
+    [assignments, choreById, logByAssignment, today],
   )
 
-  function markDone(assignmentId: string, chore: Chore, memberId: string, doneOn: string = effectiveDay) {
+  // Le mood n'est demandé que parcimonieusement : une tâche qu'on n'a jamais
+  // évaluée, ou une grosse tâche. Sinon le pointage ne coûte qu'un tap.
+  function shouldAskMood(choreId: string, memberId: string, points: number): boolean {
+    if (points >= BIG_TASK_POINTS) return true
+    return !feedbacks.some(f => f.chore_id === choreId && f.member_id === memberId)
+  }
+
+  function markDone(assignmentId: string | null, chore: Chore, memberId: string, doneOn: string = effectiveDay) {
     logChore.mutate(
       { chore_id: chore.id, assignment_id: assignmentId, member_id: memberId, done_on: doneOn },
       {
@@ -216,23 +242,28 @@ export default function ChoresPage() {
               body: { title: `${chore.emoji} Tâche faite`, body: `${who} a fait « ${chore.name} » (+${chore.points} pts)`, module: 'chores' },
             })
           }
-          // Mood optionnel + célébration, réservés à celui qui a fait la
-          // tâche sur cet appareil.
-          if (memberId === currentMember?.id) {
-            setFeedbackFor({ choreId: chore.id, logId, memberId, choreName: chore.name, points: chore.points })
+          // Célébration = toast (rien à fermer). Le mood reste une modale mais
+          // n'apparaît plus à chaque pointage.
+          showToast({
+            type: 'success',
+            message: chore.points >= BIG_TASK_POINTS
+              ? `🏅 Grosse tâche — +${chore.points} pts`
+              : `Bien joué — +${chore.points} pts`,
+          })
+          if (memberId === currentMember?.id && shouldAskMood(chore.id, memberId, chore.points)) {
+            setFeedbackFor({ choreId: chore.id, logId, memberId, choreName: chore.name })
           }
         },
       },
     )
   }
 
-  // Tâche assignée → crédite l'assigné. Tâche libre + plusieurs membres →
-  // demande qui l'a faite. Sinon → membre courant.
+  // Tâche assignée → crédite l'assigné. Tâche libre → crédite le membre courant
+  // (on tape « fait » parce qu'on vient de la faire) ; la fiche de détail offre
+  // « Marquer fait par… » pour le cas où c'est quelqu'un d'autre.
   function requestDone(a: ChoreAssignment, chore: Chore, doneOn: string = effectiveDay) {
-    if (a.member_id) { markDone(a.id, chore, a.member_id, doneOn); return }
-    if (members.length > 1) { setPickDone({ a, chore, doneOn }); return }
-    const me = currentMember?.id
-    if (me) markDone(a.id, chore, me, doneOn)
+    const doer = a.member_id ?? currentMember?.id
+    if (doer) markDone(a.id, chore, doer, doneOn)
   }
 
   // Ligne de tâche (partagée entre la vue jour et la vue semaine).
@@ -247,24 +278,33 @@ export default function ChoresPage() {
     const hasDetail = !!chore.instructions || chore.steps.length > 0
     const stepsTotal = chore.steps.length
     const stepsDone = a.steps_done.filter(i => i < stepsTotal).length
+    const bonus = !done && !skipped && dislikeHint(chore.id, a.member_id)
+    // Deux informations en clair (qui + points) ; le reste en pictos discrets.
     return (
-      <li key={a.id} className={[styles.row, done ? styles.rowDone : '', skipped ? styles.rowSkipped : '', free ? styles.rowFree : ''].join(' ')}>
+      <SwipeRow
+        key={a.id}
+        className={[styles.row, done ? styles.rowDone : '', skipped ? styles.rowSkipped : '', free ? styles.rowFree : ''].join(' ')}
+        onSwipe={!done && !skipped ? () => requestDone(a, chore, a.date) : undefined}
+      >
         <button className={styles.rowOpen} onClick={() => setDetailId(a.id)}>
           <span className={styles.rowEmoji} style={{ background: (chore.color ?? categoryOf(chore.category).color) + '22' }}>{chore.emoji}</span>
           <div className={styles.rowMain}>
             <span className={styles.rowName}>{chore.name}</span>
             <span className={styles.rowMeta}>
               {skipped && <span className={styles.rotBadge}>passée</span>}
-              <span className={styles.chipCatMini}>{categoryOf(chore.category).label}</span>
-              {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
-              {free && <span className={styles.chipFree}>Libre</span>}
+              {assignee
+                ? <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>
+                : free && <span className={styles.chipFree}>Libre</span>}
               <span className={styles.points}>+{chore.points} pts</span>
-              {chore.mental_load && <span className={styles.chipPlan}>Charge mentale</span>}
-              {!done && !skipped && dislikeHint(chore.id, a.member_id) && (
-                <span className={styles.chipBonus}>💛 détestée par {dislikerNames(chore.id, a.member_id)} · +50%</span>
-              )}
-              {stepsTotal > 0 && <span className={styles.rotBadge}>{stepsDone}/{stepsTotal} étapes</span>}
-              {hasDetail && stepsTotal === 0 && <span className={styles.rotBadge}>consignes</span>}
+              <span className={styles.metaIcons}>
+                {chore.mental_load && <span title="Charge mentale" aria-label="Charge mentale">🧠</span>}
+                {bonus && (
+                  <span title={`Détestée par ${dislikerNames(chore.id, a.member_id)} · bonus +50 %`}
+                    aria-label={`Détestée par ${dislikerNames(chore.id, a.member_id)}, bonus de 50 %`}>💛</span>
+                )}
+                {stepsTotal > 0 && <span className={styles.stepsMini}>{stepsDone}/{stepsTotal}</span>}
+                {hasDetail && stepsTotal === 0 && <span title="Consignes" aria-label="Consignes">📄</span>}
+              </span>
             </span>
           </div>
         </button>
@@ -308,7 +348,7 @@ export default function ChoresPage() {
             <Check size={18} />
           </button>
         )}
-      </li>
+      </SwipeRow>
     )
   }
 
@@ -371,24 +411,21 @@ export default function ChoresPage() {
       <header className={styles.header}>
         <Link to="/" className={styles.backLink} aria-label="Accueil"><ChevronLeft size={24} /></Link>
         <h1 className={styles.pageTitle}>Tâches</h1>
-        {(tab === 'todo' || tab === 'catalog') && (
+        {/* Une seule action par onglet : créer une tâche au Catalogue, la bascule
+            d'affichage sur « À faire » (déclarer une tâche faite = le FAB). */}
+        {tab === 'catalog' && (
           <div className={styles.headerActions}>
-            <button className={styles.statsBtn} onClick={() => setAddMenuOpen(o => !o)} aria-haspopup="menu" aria-expanded={addMenuOpen}>
-              <Plus size={15} /> Ajouter
+            <button className={styles.statsBtn} onClick={() => { setEditing(null); setFormOpen(true) }}>
+              <Plus size={15} /> Nouvelle tâche
             </button>
-            {addMenuOpen && (
-              <>
-                <div className={styles.menuBackdrop} onClick={() => setAddMenuOpen(false)} />
-                <div className={styles.addMenu} role="menu">
-                  <button role="menuitem" onClick={() => { setAddMenuOpen(false); setEditing(null); setFormOpen(true) }}>
-                    ✨ Nouvelle tâche <span>(catalogue)</span>
-                  </button>
-                  <button role="menuitem" onClick={() => { setAddMenuOpen(false); setAdHocOpen(true) }}>
-                    ✓ Tâche faite <span>(déclarer)</span>
-                  </button>
-                </div>
-              </>
-            )}
+          </div>
+        )}
+        {tab === 'todo' && (
+          <div className={styles.viewToggle} role="group" aria-label="Affichage">
+            <button className={[styles.segBtn, !weekView ? styles.segActive : ''].join(' ')}
+              aria-pressed={!weekView} onClick={() => setWeekView(false)}>Jour</button>
+            <button className={[styles.segBtn, weekView ? styles.segActive : ''].join(' ')}
+              aria-pressed={weekView} onClick={() => setWeekView(true)}>Semaine</button>
           </div>
         )}
       </header>
@@ -409,7 +446,12 @@ export default function ChoresPage() {
           {/* Tâches en retard — ton factuel, jamais de rouge (handoff). */}
           {overdue.length > 0 && (
             <section className={styles.overdueBlock}>
-              <h2 className={styles.overdueTitle}>⏳ En retard ({overdue.length})</h2>
+              <h2 className={styles.overdueTitle}>
+                <span>⏳ En retard ({overdue.length})</span>
+                {overdue.length >= 3 && (
+                  <button className={styles.sectionAction} onClick={() => setConfirmSkipAll(true)}>Tout passer</button>
+                )}
+              </h2>
               <ul className={styles.list}>
                 {overdue.map(a => {
                   const chore = choreById.get(a.chore_id)!
@@ -418,15 +460,19 @@ export default function ChoresPage() {
                   const lateDays = Math.max(1, differenceInCalendarDays(new Date(), new Date(a.date + 'T12:00')))
                   return (
                     <li key={a.id} className={[styles.row, styles.rowOverdue].join(' ')}>
-                      <span className={styles.rowEmoji} style={{ background: (chore.color ?? categoryOf(chore.category).color) + '22' }}>{chore.emoji}</span>
-                      <div className={styles.rowMain}>
-                        <span className={styles.rowName}>{chore.name}</span>
-                        <span className={styles.rowMeta}>
-                          <span className={styles.overdueSince}>En retard depuis {lateDays} j</span>
-                          {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
-                          <span className={styles.points}>+{chore.points} pts</span>
-                        </span>
-                      </div>
+                      {/* Ouvrable comme n'importe quelle tâche : consignes et
+                          étapes restent accessibles même en retard. */}
+                      <button className={styles.rowOpen} onClick={() => setDetailId(a.id)}>
+                        <span className={styles.rowEmoji} style={{ background: (chore.color ?? categoryOf(chore.category).color) + '22' }}>{chore.emoji}</span>
+                        <div className={styles.rowMain}>
+                          <span className={styles.rowName}>{chore.name}</span>
+                          <span className={styles.rowMeta}>
+                            <span className={styles.overdueSince}>En retard depuis {lateDays} j</span>
+                            {assignee && <span className={styles.assignee} style={{ color }}>{assignee.display_name}</span>}
+                            <span className={styles.points}>+{chore.points} pts</span>
+                          </span>
+                        </div>
+                      </button>
                       <button
                         className={styles.undoBtn}
                         onClick={() => setStatus.mutate({ assignmentId: a.id, status: 'skipped' })}
@@ -444,12 +490,6 @@ export default function ChoresPage() {
               </ul>
             </section>
           )}
-
-          {/* Bascule Jour / Semaine (segmenté pleine largeur) */}
-          <div className={styles.viewToggle} role="group" aria-label="Affichage">
-            <button className={[styles.segBtn, !weekView ? styles.segActive : ''].join(' ')} onClick={() => setWeekView(false)}>Jour</button>
-            <button className={[styles.segBtn, weekView ? styles.segActive : ''].join(' ')} onClick={() => setWeekView(true)}>Semaine</button>
-          </div>
 
           {/* Sélecteur de semaine + jours */}
           <div className={styles.weekNav}>
@@ -526,6 +566,15 @@ export default function ChoresPage() {
                   <section className={styles.weekDaySection}>
                     <h3 className={[styles.weekDayTitle, effectiveDay === today ? styles.weekDayToday : ''].join(' ')}>
                       <span>{format(dt, 'EEEE d', { locale: fr })} — tâches du jour</span>
+                      {(() => {
+                        const pending = mainList.filter(a => a.status === 'pending' && !logByAssignment.has(a.id))
+                        if (pending.length < 2) return null
+                        return (
+                          <button className={styles.sectionAction} onClick={() => setConfirmBulk(pending)}>
+                            Tout valider ({pending.length})
+                          </button>
+                        )
+                      })()}
                     </h3>
                     {mainList.length === 0 ? (
                       <p className={styles.sectionEmpty}>Rien d'assigné ce jour.</p>
@@ -591,7 +640,7 @@ export default function ChoresPage() {
         ) : (
           <>
             <p className={styles.catalogHint}>
-              Réordonnez avec les flèches. Marquez ce que vous détestez pour offrir un bonus à l'autre.
+              Réordonnez avec les flèches. 🤍 marque une tâche que vous détestez : celui qui la fait à votre place gagne un bonus.
             </p>
             {catalogGroups.map(({ cat, items }) => (
               <section key={cat.value} className={styles.catGroup}>
@@ -637,21 +686,23 @@ export default function ChoresPage() {
                               <button className={styles.iconBtn} onClick={() => moveChoreInCategory(chore, 1)} disabled={i === items.length - 1} aria-label="Descendre"><ChevronDown size={15} /></button>
                             </span>
                           )}
+                          {me && (
+                            <button
+                              className={[styles.iconBtn, iDislike ? styles.iconBtnOn : ''].join(' ')}
+                              onClick={() => toggleDislike.mutate({ choreId: chore.id, memberId: me, disliked: iDislike })}
+                              aria-pressed={iDislike}
+                              aria-label={iDislike ? 'Tu détestes cette tâche' : 'Marquer « je déteste cette tâche »'}
+                              title={iDislike
+                                ? `Tu détestes cette tâche — bonus pour ${otherName}`
+                                : 'Marquer « je déteste cette tâche »'}
+                            >
+                              {iDislike ? '💔' : '🤍'}
+                            </button>
+                          )}
                           <button className={styles.iconBtn} onClick={() => { setEditing(chore); setFormOpen(true) }} aria-label="Modifier"><Pencil size={16} /></button>
                           <button className={styles.iconBtn} onClick={() => duplicateChore(chore)} aria-label="Dupliquer"><Copy size={16} /></button>
-                          <button className={styles.iconBtn} onClick={() => { if (confirm(`Supprimer « ${chore.name} » ? Les points déjà gagnés sont conservés.`)) deleteChore.mutate(chore.id) }} aria-label="Supprimer"><Trash2 size={16} /></button>
+                          <button className={styles.iconBtn} onClick={() => setConfirmDelete(chore)} aria-label="Supprimer"><Trash2 size={16} /></button>
                         </div>
-                        {me && (
-                          <button
-                            className={iDislike ? styles.hateBtnOn : styles.hateBtn}
-                            onClick={() => toggleDislike.mutate({ choreId: chore.id, memberId: me, disliked: iDislike })}
-                            aria-pressed={iDislike}
-                          >
-                            {iDislike
-                              ? `💔 Tu détestes cette tâche — bonus pour ${otherName}`
-                              : 'Marquer « je déteste cette tâche »'}
-                          </button>
-                        )}
                       </li>
                     )
                   })}
@@ -689,8 +740,9 @@ export default function ChoresPage() {
       )}
 
       {detailId && (() => {
-        // Fenêtre de la semaine entière : la fiche s'ouvre depuis les deux vues.
-        const a = assignments.find(x => x.id === detailId)
+        // La fiche s'ouvre depuis les deux vues ET depuis le bloc « en retard »,
+        // dont les assignations sont hors de la fenêtre de la semaine affichée.
+        const a = assignments.find(x => x.id === detailId) ?? pastAssignments.find(x => x.id === detailId)
         const chore = a ? choreById.get(a.chore_id) : undefined
         if (!a || !chore) return null
         const logId = logByAssignment.get(a.id)
@@ -704,7 +756,9 @@ export default function ChoresPage() {
             onOpenRecipe={(r) => setRecipeView(r)}
             onBrowseRecipes={() => setRecipePickerOpen(true)}
             onToggleStep={(stepsDone) => toggleStep.mutate({ assignmentId: a.id, stepsDone })}
+            canPickDoer={members.length > 1}
             onMarkDone={() => { setDetailId(null); requestDone(a, chore, a.date) }}
+            onMarkDoneBy={() => { setDetailId(null); setPickDone({ a, chore, doneOn: a.date }) }}
             onSkip={() => { setStatus.mutate({ assignmentId: a.id, status: 'skipped' }); setDetailId(null) }}
             onResume={() => { setStatus.mutate({ assignmentId: a.id, status: 'pending' }); setDetailId(null) }}
             onUndo={() => { if (logId && !logId.startsWith('opt-')) undoLog.mutate(logId); setDetailId(null) }}
@@ -741,6 +795,7 @@ export default function ChoresPage() {
       {adHocOpen && (
         <AdHocModal
           chores={chores}
+          frequentChoreIds={frequentChoreIds}
           members={members}
           defaultMemberId={currentMember?.id ?? null}
           onClose={() => setAdHocOpen(false)}
@@ -766,13 +821,57 @@ export default function ChoresPage() {
       )}
 
       {feedbackFor && (
-        <PostDoneModal
+        <MoodModal
           choreName={feedbackFor.choreName}
-          points={feedbackFor.points}
           onPick={(verdict) => {
             addFeedback.mutate({ choreId: feedbackFor.choreId, logId: feedbackFor.logId, memberId: feedbackFor.memberId, verdict })
+            setFeedbackFor(null)
           }}
           onClose={() => setFeedbackFor(null)}
+        />
+      )}
+
+      {confirmDelete && (
+        <ConfirmSheet
+          title={`Supprimer « ${confirmDelete.name} » ?`}
+          body="Les points déjà gagnés sont conservés. Les occurrences à venir disparaissent."
+          confirmLabel="Supprimer"
+          danger
+          onConfirm={() => { deleteChore.mutate(confirmDelete.id); setConfirmDelete(null) }}
+          onClose={() => setConfirmDelete(null)}
+        />
+      )}
+
+      {confirmBulk && (
+        <ConfirmSheet
+          title={`Valider ${confirmBulk.length} tâches ?`}
+          body={`${confirmBulk.reduce((s, a) => s + (choreById.get(a.chore_id)?.points ?? 0), 0)} pts seront crédités d'un coup.`}
+          confirmLabel="Tout valider"
+          onConfirm={() => {
+            for (const a of confirmBulk) {
+              const chore = choreById.get(a.chore_id)
+              const doer = a.member_id ?? currentMember?.id
+              if (chore && doer) {
+                logChore.mutate({ chore_id: chore.id, assignment_id: a.id, member_id: doer, done_on: a.date })
+              }
+            }
+            showToast({ type: 'success', message: `${confirmBulk.length} tâches validées` })
+            setConfirmBulk(null)
+          }}
+          onClose={() => setConfirmBulk(null)}
+        />
+      )}
+
+      {confirmSkipAll && (
+        <ConfirmSheet
+          title={`Passer les ${overdue.length} tâches en retard ?`}
+          body="Elles sortent de la liste sans rapporter de points. Rien n'est supprimé."
+          confirmLabel="Tout passer"
+          onConfirm={() => {
+            for (const a of overdue) setStatus.mutate({ assignmentId: a.id, status: 'skipped' })
+            setConfirmSkipAll(false)
+          }}
+          onClose={() => setConfirmSkipAll(false)}
         />
       )}
     </div>
@@ -782,30 +881,102 @@ export default function ChoresPage() {
 // Au-delà de ce seuil de points, on prévient le foyer qu'une grosse tâche est faite.
 const BIG_TASK_POINTS = 20
 
-// ── Après un pointage : mood optionnel puis célébration (handoff, 2 étapes) ───
+// ── Ligne balayable : glisser vers la droite = marquer fait ───────────────────
+// L'axe est verrouillé au premier mouvement significatif : un geste vertical
+// reste un scroll normal, et un simple tap continue d'atteindre les boutons
+// internes (aucune capture tant que l'axe n'est pas horizontal).
 
-function PostDoneModal({ choreName, points, onPick, onClose }: { choreName: string; points: number; onPick: (v: FeedbackVerdict) => void; onClose: () => void }) {
-  const [step, setStep] = useState<'mood' | 'done'>('mood')
-  function pick(v: FeedbackVerdict) { onPick(v); setStep('done') }
+const SWIPE_TRIGGER = 72
+
+function SwipeRow({ className, onSwipe, children }: { className: string; onSwipe?: () => void; children: ReactNode }) {
+  const [dx, setDx] = useState(0)
+  const start = useRef<{ x: number; y: number; axis: 'none' | 'x' | 'y' } | null>(null)
+
+  const end = useCallback((fire: boolean) => {
+    if (fire && onSwipe) onSwipe()
+    start.current = null
+    setDx(0)
+  }, [onSwipe])
+
+  function onPointerDown(e: ReactPointerEvent<HTMLLIElement>) {
+    if (!onSwipe || e.pointerType === 'mouse') return
+    start.current = { x: e.clientX, y: e.clientY, axis: 'none' }
+  }
+  function onPointerMove(e: ReactPointerEvent<HTMLLIElement>) {
+    const s = start.current
+    if (!s) return
+    const ox = e.clientX - s.x, oy = e.clientY - s.y
+    if (s.axis === 'none') {
+      if (Math.abs(ox) < 10 && Math.abs(oy) < 10) return
+      s.axis = Math.abs(ox) > Math.abs(oy) ? 'x' : 'y'
+      if (s.axis === 'x') e.currentTarget.setPointerCapture(e.pointerId)
+    }
+    if (s.axis !== 'x') return
+    setDx(Math.max(0, Math.min(ox, SWIPE_TRIGGER + 24)))
+  }
+  function onPointerUp() {
+    end(start.current?.axis === 'x' && dx >= SWIPE_TRIGGER)
+  }
+
   return (
-    <SlideUpModal title={step === 'mood' ? 'C\'était comment ?' : 'Tâche validée'} onClose={onClose}>
-      {step === 'mood' ? (
-        <div className={styles.pickList}>
-          <p className={styles.hint} style={{ margin: 0 }}>« {choreName} » — ta réponse aide à garder des points justes. Optionnel, sans effet sur les points déjà gagnés.</p>
-          <button className={styles.pickBtn} onClick={() => pick('easier')}>😌 Plus facile que prévu</button>
-          <button className={styles.pickBtn} onClick={() => pick('as_expected')}>🙂 Comme prévu</button>
-          <button className={styles.pickBtn} onClick={() => pick('harder')}>😤 Plus pénible que prévu</button>
-          <button className={styles.skipBtn} onClick={() => setStep('done')}>Passer</button>
-        </div>
-      ) : (
-        <div className={styles.celebration}>
-          <span className={styles.celebrationCheck}><Check size={36} strokeWidth={3} /></span>
-          <span className={styles.celebrationTitle}>Bien joué</span>
-          <span className={styles.celebrationSub}>+{points} pts ajoutés à votre progression</span>
-          {points >= BIG_TASK_POINTS && <span className={styles.bigTaskBanner}>🏅 Grosse tâche — bravo !</span>}
-          <button className={styles.submitBtn} onClick={onClose}>Fermer</button>
-        </div>
+    <li
+      className={[className, dx > 0 ? styles.rowSwiping : ''].join(' ')}
+      style={dx > 0 ? { transform: `translateX(${dx}px)` } : undefined}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={() => end(false)}
+    >
+      {dx > 0 && (
+        <span className={[styles.swipeHint, dx >= SWIPE_TRIGGER ? styles.swipeHintArmed : ''].join(' ')} aria-hidden="true">
+          <Check size={18} strokeWidth={3} />
+        </span>
       )}
+      {children}
+    </li>
+  )
+}
+
+// ── Après un pointage : mood optionnel (la célébration est passée en toast) ───
+// Une seule étape, et seulement quand la réponse apporte quelque chose
+// (première fois sur cette tâche, ou grosse tâche) — voir shouldAskMood.
+
+function MoodModal({ choreName, onPick, onClose }: { choreName: string; onPick: (v: FeedbackVerdict) => void; onClose: () => void }) {
+  return (
+    <SlideUpModal title="C'était comment ?" onClose={onClose}>
+      <div className={styles.pickList}>
+        <p className={styles.hint} style={{ margin: 0 }}>« {choreName} » — ta réponse aide à garder des points justes. Optionnel, sans effet sur les points déjà gagnés.</p>
+        <button className={styles.pickBtn} onClick={() => onPick('easier')}>😌 Plus facile que prévu</button>
+        <button className={styles.pickBtn} onClick={() => onPick('as_expected')}>🙂 Comme prévu</button>
+        <button className={styles.pickBtn} onClick={() => onPick('harder')}>😤 Plus pénible que prévu</button>
+        <button className={styles.skipBtn} onClick={onClose}>Passer</button>
+      </div>
+    </SlideUpModal>
+  )
+}
+
+// ── Confirmation générique (remplace les confirm() natifs) ───────────────────
+
+function ConfirmSheet({ title, body, confirmLabel, danger, onConfirm, onClose }: {
+  title: string
+  body: string
+  confirmLabel: string
+  danger?: boolean
+  onConfirm: () => void
+  onClose: () => void
+}) {
+  return (
+    <SlideUpModal title={title} onClose={onClose}>
+      <div className={styles.pickList}>
+        <p className={styles.hint} style={{ margin: 0 }}>{body}</p>
+        <button
+          className={danger ? styles.deleteBtn : styles.submitBtn}
+          onClick={onConfirm}
+        >
+          {confirmLabel}
+        </button>
+        <button className={styles.skipBtn} onClick={onClose}>Annuler</button>
+      </div>
     </SlideUpModal>
   )
 }
@@ -893,15 +1064,17 @@ interface DetailProps {
   linkedRecipe?: Recipe | null
   onOpenRecipe?: (r: Recipe) => void
   onBrowseRecipes?: () => void
+  canPickDoer?: boolean
   onToggleStep: (stepsDone: number[]) => void
   onMarkDone: () => void
+  onMarkDoneBy?: () => void
   onSkip: () => void
   onResume: () => void
   onUndo: () => void
   onClose: () => void
 }
 
-function TaskDetailSheet({ chore, assignment, done, log, recipes = [], linkedRecipe, onOpenRecipe, onBrowseRecipes, onToggleStep, onMarkDone, onSkip, onResume, onUndo, onClose }: DetailProps) {
+function TaskDetailSheet({ chore, assignment, done, log, recipes = [], linkedRecipe, canPickDoer, onOpenRecipe, onBrowseRecipes, onToggleStep, onMarkDone, onMarkDoneBy, onSkip, onResume, onUndo, onClose }: DetailProps) {
   const addProof = useAddChoreProof()
   const { data: proofUrl } = useChoreProofUrl(log?.photo_path ?? null)
   // Bonus « tâche détestée » crédité sur ce pointage (visible dans le détail).
@@ -1004,6 +1177,13 @@ function TaskDetailSheet({ chore, assignment, done, log, recipes = [], linkedRec
         ) : (
           <>
             <button className={styles.submitBtn} onClick={onMarkDone}>Marquer fait</button>
+            {/* Chemin explicite pour créditer quelqu'un d'autre : le tap rapide
+                sur ✓ crédite toujours la personne connectée. */}
+            {!assignment.member_id && canPickDoer && onMarkDoneBy && (
+              <button className={styles.skipBtn} onClick={onMarkDoneBy}>
+                <Users size={15} /> Marquer fait par…
+              </button>
+            )}
             <button className={styles.skipBtn} onClick={onSkip}>
               <SkipForward size={15} /> Passer aujourd'hui
             </button>
@@ -1018,6 +1198,7 @@ function TaskDetailSheet({ chore, assignment, done, log, recipes = [], linkedRec
 
 interface AdHocProps {
   chores: Chore[]
+  frequentChoreIds: string[]
   members: { id: string; display_name: string }[]
   defaultMemberId: string | null
   onClose: () => void
@@ -1025,7 +1206,10 @@ interface AdHocProps {
   onSaveAsChore: (input: NewChoreInput) => void
 }
 
-function AdHocModal({ chores, members, defaultMemberId, onClose, onSubmit, onSaveAsChore }: AdHocProps) {
+function AdHocModal({ chores, frequentChoreIds, members, defaultMemberId, onClose, onSubmit, onSaveAsChore }: AdHocProps) {
+  const frequent = frequentChoreIds
+    .map(id => chores.find(c => c.id === id))
+    .filter((c): c is Chore => !!c)
   // Catalogue vide → saisie libre d'office (sinon useFree resterait false alors
   // que le select affiche « Autre » : on validerait un log fantôme sans libellé).
   const [choreId, setChoreId] = useState<string | null>(chores[0]?.id ?? '__free__')
@@ -1059,6 +1243,20 @@ function AdHocModal({ chores, members, defaultMemberId, onClose, onSubmit, onSav
   return (
     <SlideUpModal title="Déclarer une tâche faite" onClose={onClose}>
       <div className={styles.form}>
+        {frequent.length > 0 && (
+          <div className={styles.field}>
+            <span className={styles.label}>Les plus fréquentes</span>
+            <div className={styles.chipRow}>
+              {frequent.map(c => (
+                <button type="button" key={c.id}
+                  className={[styles.chip, choreId === c.id ? styles.chipActive : ''].join(' ')}
+                  onClick={() => setChoreId(c.id)}>
+                  {c.emoji} {c.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <label className={styles.field}>
           <span className={styles.label}>Tâche</span>
           <select className={styles.input} value={choreId ?? '__free__'} onChange={e => setChoreId(e.target.value)}>

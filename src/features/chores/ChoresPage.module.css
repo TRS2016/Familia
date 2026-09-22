@@ -70,18 +70,18 @@
 
 /* ── Vue semaine (toutes les tâches, groupées par jour) ──────────────────── */
 
-/* Toggle segmenté Jour/Semaine : piste neutre, segment actif sur carte. */
+/* Toggle segmenté Jour/Semaine : compact, logé dans l'en-tête de la page
+   (il occupait auparavant une barre pleine largeur au-dessus de la liste). */
 .viewToggle {
-  display: flex; gap: 4px;
-  margin: 10px 16px;
+  display: flex; gap: 2px; flex-shrink: 0;
   padding: 3px;
-  border-radius: 14px;
+  border-radius: 12px;
   background: color-mix(in srgb, var(--text) 7%, var(--bg));
 }
 .segBtn {
-  flex: 1; min-height: 38px; border: none; cursor: pointer;
-  border-radius: 11px; background: transparent; color: var(--text-sub);
-  font-family: var(--font-family); font-size: var(--text-xs); font-weight: 700;
+  min-height: 30px; padding: 0 12px; border: none; cursor: pointer;
+  border-radius: 10px; background: transparent; color: var(--text-sub);
+  font-family: var(--font-family); font-size: var(--text-2xs); font-weight: 700;
   transition: background 0.15s, color 0.15s;
 }
 .segActive { background: var(--bg-card); color: var(--text); box-shadow: var(--shadow-card); font-weight: 800; }
@@ -107,11 +107,27 @@
 .list { list-style: none; margin: 0; padding: 0 12px; display: flex; flex-direction: column; gap: 8px; }
 
 .row {
+  position: relative;
   display: flex; align-items: center; gap: 12px;
   padding: 12px 14px; border-radius: 18px;
   background: var(--bg-card, #fff);
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  touch-action: pan-y;
+  transition: transform 0.18s ease-out;
 }
+@media (prefers-reduced-motion: reduce) { .row { transition: none; } }
+
+/* Glisser vers la droite = marquer fait. Pendant le geste la carte suit le
+   doigt et découvre une pastille qui se colore une fois le seuil franchi. */
+.rowSwiping { transition: none; }
+.swipeHint {
+  position: absolute; left: -46px; top: 50%; transform: translateY(-50%);
+  width: 34px; height: 34px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg-input); color: var(--text-muted);
+  transition: background 0.12s, color 0.12s;
+}
+.swipeHintArmed { background: var(--accent); color: #fff; }
 .rowDone { opacity: 0.55; }
 .rowDone .rowName { text-decoration: line-through; }
 
@@ -134,6 +150,20 @@
   font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px;
 }
 
+/* Signaux secondaires d'une ligne (charge mentale, bonus, étapes) : pictos
+   discrets plutôt que des chips, pour garder la ligne lisible sur mobile. */
+.metaIcons { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; line-height: 1; }
+.stepsMini { font-weight: 800; font-size: 10px; color: var(--text-muted); }
+
+/* Action secondaire d'un en-tête de section (Tout valider, Tout passer). */
+.sectionAction {
+  flex-shrink: 0; border: none; background: none; cursor: pointer;
+  padding: 2px 0; color: var(--accent);
+  font-family: var(--font-family); font-size: var(--text-2xs); font-weight: 800;
+  text-transform: none; letter-spacing: 0;
+}
+.sectionAction:hover { text-decoration: underline; }
+
 .doneBtn, .undoBtn, .iconBtn {
   flex-shrink: 0; width: 36px; height: 36px; border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
@@ -142,8 +172,9 @@
 .doneBtn { background: var(--accent); color: #fff; }
 .doneBtn:hover { filter: brightness(1.05); }
 .undoBtn { background: var(--bg-input); color: var(--text); }
-.iconBtn { background: transparent; color: var(--text-muted, #999); width: 34px; height: 34px; }
+.iconBtn { background: transparent; color: var(--text-muted, #999); width: 34px; height: 34px; font-size: 15px; }
 .iconBtn:hover { background: var(--bg-input); }
+.iconBtnOn { background: var(--bonus-bg); }
 
 /* ── Fiche de détail ─────────────────────────────────────────────────────── */
 
@@ -426,27 +457,13 @@
 }
 .checkRow input { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
 
-/* Menu d'ajout unifié (en-tête Tâches) */
-.menuBackdrop { position: fixed; inset: 0; z-index: 20; }
-.addMenu {
-  position: absolute; top: calc(100% + 6px); right: 0; z-index: 30;
-  display: flex; flex-direction: column; min-width: 220px; padding: 6px;
-  background: var(--bg-card, #fff); border: 1px solid var(--border, #e5ddd0);
-  border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.14);
-}
-.addMenu button {
-  display: flex; align-items: center; gap: 8px; width: 100%;
-  padding: 10px 12px; border: none; border-radius: 10px; background: transparent;
-  cursor: pointer; text-align: left; font-family: var(--font-family);
-  font-weight: 700; font-size: var(--text-2xs); color: var(--text);
-}
-.addMenu button:hover { background: var(--bg-input); }
-.addMenu button span { font-weight: 600; color: var(--text-muted, #999); }
-
 /* ── Tâches en retard — jamais de rouge (handoff) ─────────────────────── */
 .overdueBlock { margin: 0 16px 14px; padding: 10px 12px; border-radius: var(--radius-md, 12px); background: color-mix(in srgb, var(--accent) 10%, var(--bg-card)); }
 .overdueBlock .list { padding: 0; }
-.overdueTitle { margin: 0 0 8px; font-size: var(--text-sm); font-weight: 800; color: var(--text-sub); }
+.overdueTitle {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  margin: 0 0 8px; font-size: var(--text-sm); font-weight: 800; color: var(--text-sub);
+}
 .rowOverdue { background: var(--bg-card); }
 .overdueSince { font-weight: 700; color: var(--accent); }
 
@@ -538,28 +555,6 @@
 }
 .merciPillOn { background: var(--accent-soft); color: var(--accent); cursor: default; }
 
-/* ── Célébration après pointage ──────────────────────────────────────── */
-.celebration {
-  display: flex; flex-direction: column; align-items: center; gap: 10px;
-  padding: 12px 16px 20px; text-align: center;
-}
-.celebrationCheck {
-  width: 72px; height: 72px; border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--accent-soft); color: var(--accent);
-  animation: celebratePop 0.35s cubic-bezier(0.2, 1.4, 0.4, 1);
-}
-@keyframes celebratePop { from { transform: scale(0.4); opacity: 0; } to { transform: scale(1); opacity: 1; } }
-@media (prefers-reduced-motion: reduce) { .celebrationCheck { animation: none; } }
-.celebrationTitle { font-family: var(--font-display); font-size: 20px; font-weight: 900; color: var(--text); }
-.celebrationSub { font-size: var(--text-sm); font-weight: 700; color: var(--text-sub); }
-.bigTaskBanner {
-  padding: 8px 14px; border-radius: 99px;
-  background: var(--bonus-bg); color: var(--bonus-text);
-  font-weight: 800; font-size: var(--text-sm);
-}
-.celebration .submitBtn { width: 100%; }
-
 /* ── Catalogue groupé par catégorie ──────────────────────────────────── */
 .catalogHint { margin: 0 16px 12px; font-size: var(--text-2xs); color: var(--text-muted); line-height: 1.4; }
 .catGroup { margin-bottom: 18px; }
@@ -573,18 +568,6 @@
   background: var(--bg-card, #fff); box-shadow: 0 1px 3px rgba(0,0,0,0.04);
 }
 .catCardTop { display: flex; align-items: center; gap: 10px; }
-.hateBtn {
-  width: 100%; padding: 9px 12px; border-radius: 12px; cursor: pointer;
-  border: 1.5px solid var(--border, #e5ddd0); background: transparent;
-  font-family: var(--font-family); font-weight: 700; font-size: var(--text-2xs); color: var(--text-sub);
-  transition: border-color 0.15s, color 0.15s;
-}
-.hateBtn:hover { border-color: var(--accent); color: var(--accent); }
-.hateBtnOn {
-  width: 100%; padding: 9px 12px; border-radius: 12px; cursor: pointer;
-  border: none; background: var(--bonus-bg);
-  font-family: var(--font-family); font-weight: 800; font-size: var(--text-2xs); color: var(--bonus-text);
-}
 
 /* ── Équilibre (Progression) : streak de couple + niveaux + compteurs ── */
 .streakCard {

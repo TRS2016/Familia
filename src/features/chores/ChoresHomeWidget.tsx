@@ -1,9 +1,11 @@
 import { Link } from 'react-router-dom'
-import { ListChecks } from 'lucide-react'
+import { Check, ListChecks } from 'lucide-react'
 import { format, startOfWeek, startOfMonth } from 'date-fns'
 import { memberColor } from '../../lib/constants'
+import { useMember } from '../../auth/useMember'
 import { useMemberTotals, useMemberPointsSince, useFamilyGoals, memberPoints, sumPoints, type PointMap } from './useGamification'
 import { balanceOf } from './useEquilibre'
+import { useChores, useChoreAssignments, useRecentChoreLogs, useLogChore } from './useChores'
 import EquityBalance from './EquityBalance'
 import { levelForXp, levelEmoji } from './achievements'
 import styles from './ChoresHomeWidget.module.css'
@@ -31,6 +33,21 @@ export default function ChoresHomeWidget({ members }: Props) {
     .sort((a, b) => b.xp - a.xp)
   const leader = ranked[0]
 
+  // Ma prochaine tâche du jour : validable sans ouvrir la page Tâches.
+  const { data: currentMember } = useMember()
+  const today = format(new Date(), 'yyyy-MM-dd')
+  const { data: chores = [] } = useChores()
+  const { data: todayAssignments = [] } = useChoreAssignments(today, today)
+  const { data: logs = [] } = useRecentChoreLogs()
+  const logChore = useLogChore()
+  const loggedAssignments = new Set(logs.map(l => l.assignment_id).filter(Boolean))
+  const nextAssignment = todayAssignments.find(a =>
+    a.status === 'pending'
+    && !loggedAssignments.has(a.id)
+    && (a.member_id === null || a.member_id === currentMember?.id)
+    && chores.some(c => c.id === a.chore_id))
+  const nextChore = nextAssignment ? chores.find(c => c.id === nextAssignment.chore_id) ?? null : null
+
   const goal = goals[0]
   const goalCurrent = !goal ? 0
     : goal.period === 'week' ? sumPoints(weekPoints)
@@ -40,7 +57,7 @@ export default function ChoresHomeWidget({ members }: Props) {
 
   // Rien à montrer tant qu'aucune tâche n'a rapporté de points et qu'aucun
   // objectif n'est fixé : on masque le widget plutôt qu'un placeholder vide.
-  if (!goal && sumPoints(totals) === 0) return null
+  if (!goal && sumPoints(totals) === 0 && !nextChore) return null
 
   return (
     <div className={styles.wrap}>
@@ -81,6 +98,27 @@ export default function ChoresHomeWidget({ members }: Props) {
           </div>
         )}
       </Link>
+      {/* Hors du lien : un bouton imbriqué dans un <a> serait invalide. */}
+      {nextChore && nextAssignment && currentMember && (
+        <div className={styles.nextTask}>
+          <span className={styles.nextEmoji}>{nextChore.emoji}</span>
+          <span className={styles.nextName}>{nextChore.name}</span>
+          <span className={styles.nextPts}>+{nextChore.points}</span>
+          <button
+            className={styles.nextDone}
+            disabled={logChore.isPending}
+            aria-label={`Marquer « ${nextChore.name} » fait`}
+            onClick={() => logChore.mutate({
+              chore_id: nextChore.id,
+              assignment_id: nextAssignment.id,
+              member_id: nextAssignment.member_id ?? currentMember.id,
+              done_on: today,
+            })}
+          >
+            <Check size={16} strokeWidth={3} />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

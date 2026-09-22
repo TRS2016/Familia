@@ -98,56 +98,8 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
             placeholder="Ex. Cuisiner le repas" autoFocus />
         </label>
 
-        <div className={styles.field}>
-          <span className={styles.label}>Catégorie</span>
-          <div className={styles.chipRow}>
-            {CHORE_CATEGORIES.map(c => (
-              <button type="button" key={c.value}
-                className={[styles.chip, category === c.value ? styles.chipActive : ''].join(' ')}
-                onClick={() => pickCategory(c.value)}>
-                {c.emoji} {c.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className={styles.field}>
-          <span className={styles.label}>Emoji</span>
-          <div className={styles.chipRow}>
-            {EMOJI_PALETTE.map(em => (
-              <button type="button" key={em}
-                className={[styles.emojiChip, emoji === em ? styles.chipActive : ''].join(' ')}
-                onClick={() => setEmoji(em)}>{em}</button>
-            ))}
-          </div>
-        </div>
-
-        <label className={styles.field}>
-          <span className={styles.label}>Points</span>
-          <input className={styles.input} type="number" min={0} max={100} value={points}
-            onChange={e => setPoints(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} />
-        </label>
-
-        <div className={styles.field}>
-          <span className={styles.label}>Charge mentale</span>
-          <p className={styles.hint}>Tâche d'organisation ou d'anticipation : les points valorisent le fait d'y avoir pensé, pas le temps passé.</p>
-          <div className={styles.chipRow}>
-            <button type="button"
-              className={[styles.chip, mentalLoad ? styles.chipActive : ''].join(' ')}
-              aria-pressed={mentalLoad}
-              onClick={() => setMentalLoad(v => !v)}>
-              🧠 Charge mentale
-            </button>
-          </div>
-        </div>
-
-        {!showAdvanced && (
-          <button type="button" className={styles.advancedToggle} onClick={() => setShowAdvanced(true)}>
-            + Configurer plus (récurrence, rotation, étapes…)
-          </button>
-        )}
-
-        {showAdvanced && (<>
+        {/* Les deux décisions structurantes (quand, et qui) restent visibles :
+            l'emoji, la charge mentale et les consignes passent en avancé. */}
         <div className={styles.field}>
           <span className={styles.label}>Récurrence</span>
           <div className={styles.chipRow}>
@@ -220,6 +172,56 @@ export default function ChoreForm({ members, initial, onSubmit, onClose }: Props
             </div>
           </div>
         )}
+
+        <label className={styles.field}>
+          <span className={styles.label}>Points</span>
+          <input className={styles.input} type="number" min={0} max={100} value={points}
+            onChange={e => setPoints(Math.max(0, Math.min(100, Number(e.target.value) || 0)))} />
+        </label>
+
+        <div className={styles.field}>
+          <span className={styles.label}>Catégorie</span>
+          <div className={styles.chipRow}>
+            {CHORE_CATEGORIES.map(c => (
+              <button type="button" key={c.value}
+                className={[styles.chip, category === c.value ? styles.chipActive : ''].join(' ')}
+                onClick={() => pickCategory(c.value)}>
+                {c.emoji} {c.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {!showAdvanced && (
+          <button type="button" className={styles.advancedToggle} onClick={() => setShowAdvanced(true)}>
+            + Options (emoji, charge mentale, consignes, étapes…)
+          </button>
+        )}
+
+        {showAdvanced && (<>
+        <div className={styles.field}>
+          <span className={styles.label}>Emoji</span>
+          <div className={styles.chipRow}>
+            {EMOJI_PALETTE.map(em => (
+              <button type="button" key={em}
+                className={[styles.emojiChip, emoji === em ? styles.chipActive : ''].join(' ')}
+                onClick={() => setEmoji(em)}>{em}</button>
+            ))}
+          </div>
+        </div>
+
+        <div className={styles.field}>
+          <span className={styles.label}>Charge mentale</span>
+          <p className={styles.hint}>Tâche d'organisation ou d'anticipation : les points valorisent le fait d'y avoir pensé, pas le temps passé.</p>
+          <div className={styles.chipRow}>
+            <button type="button"
+              className={[styles.chip, mentalLoad ? styles.chipActive : ''].join(' ')}
+              aria-pressed={mentalLoad}
+              onClick={() => setMentalLoad(v => !v)}>
+              🧠 Charge mentale
+            </button>
+          </div>
+        </div>
 
         {recipes.length > 0 && (
           <label className={styles.field}>
