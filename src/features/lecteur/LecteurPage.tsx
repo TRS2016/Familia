@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Upload, Link as LinkIcon, X,
   ListMusic, Search, Moon, Star, PartyPopper, Repeat, Repeat1, Volume2, Sliders,
+  Play, Pause, Shuffle, ListPlus, GripVertical, Trash2,
 } from 'lucide-react'
 import { useToast } from '../../components/useToast'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -14,6 +15,7 @@ import Spinner from '../../components/Spinner'
 import EmptyState from '../../components/EmptyState'
 import SlideUpModal from '../../components/SlideUpModal'
 import MediaPlayer, { mediaFileUrlKey, signMediaFileUrl } from '../media/MediaPlayer'
+import type { MediaControls } from '../media/MediaPlayer'
 import {
   useMediaFiles, useAddMediaFile, useDeleteMediaFile, useUploadMediaFile,
   useToggleFavorite, useLecteurPlaylists, detectKind, bumpPlayCount,
@@ -21,7 +23,7 @@ import {
 import type { MediaFile, MediaFileKind } from './useLecteur'
 import { useLecteurRealtime } from './useLecteurRealtime'
 import { useLecteurQueue, useAddToQueue, usePendingRequests } from './useLecteurQueue'
-import { KIND_META, probeDuration, youtubeThumb } from './lecteur.utils'
+import { KIND_META, probeDuration, youtubeThumb, shuffleArray } from './lecteur.utils'
 import { useSleepTimer } from './useSleepTimer'
 import { useMediaSession } from './useMediaSession'
 import { useDjLock } from './useDjLock'
@@ -40,6 +42,12 @@ import ImportYtPlaylistModal from './ImportYtPlaylistModal'
 import AddToPlaylistModal from './AddToPlaylistModal'
 import EditFileModal from './EditFileModal'
 import styles from './LecteurPage.module.css'
+
+// mm:ss pour les repères de temps du dock.
+function fmtClock(s: number): string {
+  if (!isFinite(s) || s < 0) return '0:00'
+  return `${Math.floor(s / 60)}:${String(Math.floor(s % 60)).padStart(2, '0')}`
+}
 
 export default function LecteurPage() {
   useLecteurRealtime()
@@ -75,7 +83,7 @@ export default function LecteurPage() {
   const [filterTag,      setFilterTag]      = useState<string | null>(null)
   const [filterTitle,    setFilterTitle]    = useState('')
   const [filterFavorite, setFilterFavorite] = useState(false)
-  const [sortBy,         setSortBy]         = useState<'recent' | 'az' | 'duration'>('recent')
+  const [sortBy,         setSortBy]         = useState<'recent' | 'az' | 'duration' | 'plays'>('recent')
 
   // Tous les tags existants, triés par fréquence décroissante
   const allTags = useMemo(() => {
@@ -166,7 +174,50 @@ export default function LecteurPage() {
   // Progression du mini-lecteur (audio/vidéo) : le scrubber complet défile hors
   // écran, le dock collant garde un repère de position. Clé par piste pour
   // retomber à 0 au changement sans effet (set-state-in-effect).
-  const [dockProgress, setDockProgress] = useState<{ id: string; pct: number }>({ id: '', pct: 0 })
+  const [dockProgress, setDockProgress] = useState<{ id: string; pct: number; current: number; duration: number }>(
+    { id: '', pct: 0, current: 0, duration: 0 },
+  )
+
+  // Pilotage direct de l'élément média depuis le dock (play/pause, position) :
+  // sans cela il fallait faire défiler jusqu'à l'embed rendu sous le dock.
+  const mediaControls = useRef<MediaControls | null>(null)
+  // Position courante lue par les raccourcis clavier sans re-souscrire l'effet.
+  const dockProgressRef = useRef(0)
+  const [isPlaying, setIsPlaying] = useState(false)
+  // Les iframes (YouTube, Spotify) ne se pilotent pas : le dock masque alors
+  // play/pause et le scrubber plutôt que d'afficher des boutons inertes.
+  const canControl = !!playingFile?.file_path
+
+  // Lecture aléatoire : l'ordre est brassé une fois, à l'activation, sur la
+  // portion restante de la file (la piste en cours ne bouge jamais).
+  const [shuffleOn, setShuffleOn] = useState(false)
+  function toggleShuffle() {
+    const turningOn = !shuffleOn
+    setShuffleOn(turningOn)
+    // Pas de setQueue imbriqué dans l'updater de shuffleOn : en StrictMode
+    // l'updater est rejoué et la file serait brassée deux fois.
+    if (turningOn) {
+      setQueue(q => q.length < 3
+        ? q
+        : [...q.slice(0, queueIndex + 1), ...shuffleArray(q.slice(queueIndex + 1))])
+    }
+  }
+
+  // Panneau « À suivre » : la file perso était pilotable (« Lire ensuite »)
+  // mais jamais visible, contrairement à la file de soirée.
+  const [showQueuePanel, setShowQueuePanel] = useState(false)
+  function removeFromQueue(index: number) {
+    setQueue(q => q.filter((_, i) => i !== index))
+  }
+  function moveInQueue(index: number, dir: -1 | 1) {
+    const target = index + dir
+    if (target <= queueIndex || target >= queue.length) return
+    setQueue(q => {
+      const next = [...q]
+      ;[next[index], next[target]] = [next[target], next[index]]
+      return next
+    })
+  }
 
   const SPEEDS = [1, 1.25, 1.5, 2, 0.75]
   function cycleSpeed() { setSpeed(s => SPEEDS[(SPEEDS.indexOf(s) + 1) % SPEEDS.length]) }
@@ -201,16 +252,22 @@ export default function LecteurPage() {
     onStop: () => stop(),
   })
 
-  // Raccourcis clavier (desktop) : ←/→ = piste précédente/suivante. On ignore
-  // la frappe dans un champ de saisie. (Espace play/pause viendra avec le contrôle
-  // direct de l'élément média.)
+  // Raccourcis clavier (desktop) : espace = lecture/pause, ←/→ = piste
+  // précédente/suivante, ↑/↓ = ±5 s. On ignore la frappe dans un champ.
   useEffect(() => {
     if (!playingFile) return
     function onKey(e: KeyboardEvent) {
       const t = e.target as HTMLElement | null
       if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return
-      if (e.key === 'ArrowLeft' && hasPrev)  { e.preventDefault(); setQueueIndex(i => Math.max(0, i - 1)) }
+      if (t && t.tagName === 'BUTTON' && e.key === ' ') return // laisse le bouton s'activer
+      if (e.key === ' ' && mediaControls.current) { e.preventDefault(); mediaControls.current.toggle() }
+      else if (e.key === 'ArrowLeft' && hasPrev)  { e.preventDefault(); setQueueIndex(i => Math.max(0, i - 1)) }
       else if (e.key === 'ArrowRight' && hasNext) { e.preventDefault(); setQueueIndex(i => i + 1) }
+      else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && mediaControls.current) {
+        e.preventDefault()
+        const delta = e.key === 'ArrowUp' ? 5 : -5
+        mediaControls.current.seekTo(dockProgressRef.current + delta)
+      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -219,6 +276,15 @@ export default function LecteurPage() {
   function playFiles(fileList: MediaFile[], startIndex = 0) {
     if (fileList.length === 0) return
     setDjMode(false) // la file perso prend la main sur le mode DJ
+    // Aléatoire actif : la piste choisie reste en tête, le reste est brassé.
+    if (shuffleOn && fileList.length > 2) {
+      const i = Math.max(0, Math.min(startIndex, fileList.length - 1))
+      setQueue([fileList[i], ...shuffleArray(fileList.filter((_, j) => j !== i))])
+      setQueueIndex(0)
+      const rm = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      window.scrollTo({ top: 0, behavior: rm ? 'auto' : 'smooth' })
+      return
+    }
     setQueue(fileList)
     setQueueIndex(Math.max(0, Math.min(startIndex, fileList.length - 1)))
     const reduceMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
@@ -279,6 +345,8 @@ export default function LecteurPage() {
     // `files` arrive déjà triés par created_at desc → « recent » = ordre naturel.
     if (sortBy === 'az') return [...result].sort((a, b) => a.title.localeCompare(b.title, 'fr'))
     if (sortBy === 'duration') return [...result].sort((a, b) => (b.duration_seconds ?? 0) - (a.duration_seconds ?? 0))
+    // play_count était affiché sur chaque ligne sans jamais servir de critère.
+    if (sortBy === 'plays') return [...result].sort((a, b) => b.play_count - a.play_count)
     return result
   }, [files, filterFavorite, filterKind, filterMemberId, filterTag, filterTitle, sortBy])
 
@@ -425,6 +493,19 @@ export default function LecteurPage() {
               >
                 <ChevronLeft size={16} strokeWidth={2.5} />
               </button>
+              {/* Lecture/pause : le contrôle le plus utilisé, jusqu'ici
+                  disponible uniquement dans l'embed sous le dock. */}
+              {canControl && (
+                <button
+                  className={styles.nowPlayingPlayBtn}
+                  onClick={() => mediaControls.current?.toggle()}
+                  aria-label={isPlaying ? 'Pause' : 'Lecture'}
+                >
+                  {isPlaying
+                    ? <Pause size={17} strokeWidth={2.5} fill="currentColor" />
+                    : <Play size={17} strokeWidth={2.5} fill="currentColor" />}
+                </button>
+              )}
               <button
                 className={styles.nowPlayingNavBtn}
                 onClick={() => setQueueIndex(i => i + 1)}
@@ -441,6 +522,16 @@ export default function LecteurPage() {
 
           {/* Contrôles : répétition · vitesse · minuteur */}
           <div className={styles.dockControls}>
+            <button
+              className={[styles.dockCtrlBtn, shuffleOn ? styles.dockCtrlActive : ''].join(' ')}
+              onClick={toggleShuffle}
+              aria-pressed={shuffleOn}
+              aria-label={`Lecture aléatoire : ${shuffleOn ? 'activée' : 'désactivée'}`}
+              title="Lecture aléatoire"
+            >
+              <Shuffle size={15} strokeWidth={2.5} />
+            </button>
+
             <button
               className={[styles.dockCtrlBtn, repeatMode !== 'off' ? styles.dockCtrlActive : ''].join(' ')}
               onClick={cycleRepeat}
@@ -475,6 +566,19 @@ export default function LecteurPage() {
               )}
             </button>
 
+            {queue.length > 1 && (
+              <button
+                className={[styles.dockCtrlBtn, showQueuePanel ? styles.dockCtrlActive : ''].join(' ')}
+                onClick={() => setShowQueuePanel(v => !v)}
+                aria-expanded={showQueuePanel}
+                aria-label="À suivre"
+                title="À suivre"
+              >
+                <ListPlus size={15} strokeWidth={2.5} />
+                <span className={styles.dockSleepLabel}>{queue.length - queueIndex - 1}</span>
+              </button>
+            )}
+
             {isAudioTrack && (
               <div className={styles.dockVolume}>
                 <Volume2 size={15} strokeWidth={2.5} aria-hidden="true" />
@@ -493,12 +597,88 @@ export default function LecteurPage() {
 
           {/* Repère de progression du mini-lecteur (audio/vidéo). Le scrubber
               complet reste dans l'embed plus bas. */}
-          {playingFile.file_path && (
-            <div className={styles.dockProgress} aria-hidden="true">
-              <div
-                className={styles.dockProgressFill}
-                style={{ width: `${dockProgress.id === playingFile.id ? dockProgress.pct : 0}%` }}
-              />
+          {canControl && (() => {
+            const live = dockProgress.id === playingFile.id
+            const pct = live ? dockProgress.pct : 0
+            const dur = live ? dockProgress.duration : 0
+            function seekFromClientX(clientX: number, el: HTMLElement) {
+              if (!dur) return
+              const r = el.getBoundingClientRect()
+              const frac = Math.min(1, Math.max(0, (clientX - r.left) / r.width))
+              mediaControls.current?.seekTo(frac * dur)
+            }
+            return (
+              <div className={styles.dockProgressRow}>
+                <span className={styles.dockTime}>{fmtClock(live ? dockProgress.current : 0)}</span>
+                <div
+                  className={styles.dockProgress}
+                  role="slider"
+                  tabIndex={0}
+                  aria-label="Position de lecture"
+                  aria-valuemin={0}
+                  aria-valuemax={Math.floor(dur)}
+                  aria-valuenow={Math.floor(live ? dockProgress.current : 0)}
+                  aria-valuetext={`${fmtClock(live ? dockProgress.current : 0)} sur ${fmtClock(dur)}`}
+                  onClick={e => seekFromClientX(e.clientX, e.currentTarget)}
+                  onKeyDown={e => {
+                    const cur = live ? dockProgress.current : 0
+                    let next: number | null = null
+                    if (e.key === 'ArrowRight') next = cur + 5
+                    else if (e.key === 'ArrowLeft') next = Math.max(0, cur - 5)
+                    else if (e.key === 'Home') next = 0
+                    else if (e.key === 'End') next = dur
+                    if (next === null) return
+                    e.preventDefault()
+                    mediaControls.current?.seekTo(next)
+                  }}
+                >
+                  <div className={styles.dockProgressFill} style={{ width: `${pct}%` }} />
+                </div>
+                <span className={styles.dockTime}>{fmtClock(dur)}</span>
+              </div>
+            )
+          })()}
+
+          {/* À suivre : la file perso, enfin visible et modifiable. */}
+          {showQueuePanel && queue.length > 1 && (
+            <div className={styles.queuePanel}>
+              <p className={styles.queuePanelTitle}>À suivre</p>
+              <ul className={styles.queueList}>
+                {queue.map((f, i) => {
+                  if (i <= queueIndex) return null
+                  return (
+                    <li key={`${f.id}:${i}`} className={styles.queueRow}>
+                      <GripVertical size={13} strokeWidth={2} className={styles.queueGrip} aria-hidden="true" />
+                      <button className={styles.queueJump} onClick={() => setQueueIndex(i)}>
+                        <span className={styles.queueName}>{f.title}</span>
+                      </button>
+                      <button
+                        className={styles.queueIconBtn}
+                        onClick={() => moveInQueue(i, -1)}
+                        disabled={i === queueIndex + 1}
+                        aria-label={`Monter ${f.title}`}
+                      >
+                        <ChevronLeft size={13} strokeWidth={2.5} style={{ transform: 'rotate(90deg)' }} />
+                      </button>
+                      <button
+                        className={styles.queueIconBtn}
+                        onClick={() => moveInQueue(i, 1)}
+                        disabled={i === queue.length - 1}
+                        aria-label={`Descendre ${f.title}`}
+                      >
+                        <ChevronLeft size={13} strokeWidth={2.5} style={{ transform: 'rotate(-90deg)' }} />
+                      </button>
+                      <button
+                        className={styles.queueIconBtn}
+                        onClick={() => removeFromQueue(i)}
+                        aria-label={`Retirer ${f.title} de la file`}
+                      >
+                        <Trash2 size={13} strokeWidth={2.5} />
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
             </div>
           )}
         </div>
@@ -515,10 +695,13 @@ export default function LecteurPage() {
               resumeKey={playingFile.id}
               onEnded={handleTrackEnded}
               onProgress={(c, d) => {
-                setDockProgress({ id: playingFile.id, pct: d > 0 ? (c / d) * 100 : 0 })
+                dockProgressRef.current = c
+                setDockProgress({ id: playingFile.id, pct: d > 0 ? (c / d) * 100 : 0, current: c, duration: d })
                 countPlay(playingFile.id, c)
               }}
               volume={playerVolume}
+              controlsRef={mediaControls}
+              onPlayingChange={setIsPlaying}
             />
           </div>
         </>
@@ -666,20 +849,32 @@ export default function LecteurPage() {
             </div>
           )}
 
-          {/* Sort */}
+          {/* Tri (en chips, comme les autres filtres) + lecture en masse */}
           {files.length > 1 && (
             <div className={styles.sortRow}>
-              <label className={styles.sortLabel} htmlFor="lecteur-sort">Trier</label>
-              <select
-                id="lecteur-sort"
-                className={styles.sortSelect}
-                value={sortBy}
-                onChange={e => setSortBy(e.target.value as typeof sortBy)}
-              >
-                <option value="recent">Récents</option>
-                <option value="az">A → Z</option>
-                <option value="duration">Durée</option>
-              </select>
+              <span className={styles.sortLabel}>Trier</span>
+              {([['recent', 'Récents'], ['az', 'A → Z'], ['duration', 'Durée'], ['plays', 'Plus écoutés']] as const).map(([v, label]) => (
+                <button
+                  key={v}
+                  className={[styles.sortChip, sortBy === v ? styles.sortChipActive : ''].join(' ')}
+                  aria-pressed={sortBy === v}
+                  onClick={() => setSortBy(v)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* Lancer la sélection courante sans avoir à viser une piste. */}
+          {filtered.length > 1 && (
+            <div className={styles.playAllRow}>
+              <button className={styles.playAllBtn} onClick={() => playFiles(filtered, 0)}>
+                <Play size={13} strokeWidth={2.5} fill="currentColor" /> Lire les {filtered.length} titres
+              </button>
+              <button className={styles.playAllGhost} onClick={() => playFiles(shuffleArray(filtered), 0)}>
+                <Shuffle size={13} strokeWidth={2.5} /> Aléatoire
+              </button>
             </div>
           )}
 

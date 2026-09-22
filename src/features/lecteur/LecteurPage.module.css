@@ -321,6 +321,7 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 10px 16px 0;
+  flex-wrap: wrap;
 }
 
 .sortLabel {
@@ -331,23 +332,38 @@
   color: var(--text-muted);
 }
 
-.sortSelect {
-  height: 34px;
-  padding: 0 10px;
+/* Tri en chips, cohérent avec les filtres de type et de tag. */
+.sortChip {
+  min-height: 34px;
+  padding: 0 12px;
   border-radius: var(--radius-pill);
   border: 1.5px solid var(--border);
   background: var(--bg-input);
-  color: var(--text);
+  color: var(--text-sub);
   font-family: var(--font-family);
   font-size: var(--text-xs);
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
 }
+.sortChipActive { border-color: var(--accent); background: var(--accent); color: #fff; }
 
-.sortSelect:focus { outline: none; border-color: var(--accent); }
+/* Lancer toute la sélection filtrée. */
+.playAllRow { display: flex; gap: 8px; padding: 10px 16px 0; }
+.playAllBtn, .playAllGhost {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 38px; padding: 0 14px;
+  border-radius: var(--radius-pill);
+  font-family: var(--font-family); font-size: var(--text-xs); font-weight: 800;
+  cursor: pointer;
+}
+.playAllBtn { border: none; background: var(--accent); color: #fff; }
+.playAllGhost { border: 1.5px solid var(--border); background: transparent; color: var(--text-sub); }
+.playAllGhost:hover { border-color: var(--accent); color: var(--accent); }
 
 @media (min-width: 768px) {
   .sortRow { padding: 12px 28px 0; }
+  .playAllRow { padding: 12px 28px 0; }
 }
 
 /* ── Library list ────────────────────────────────────────────────────────────── */
@@ -979,6 +995,16 @@
 .nowPlayingNavBtn:hover   { background: var(--bg-input); }
 .nowPlayingNavBtn:disabled { color: var(--border); cursor: not-allowed; }
 
+/* Lecture/pause : action principale du dock, plus marquée que prev/next. */
+.nowPlayingPlayBtn {
+  display: flex; align-items: center; justify-content: center;
+  width: 36px; height: 36px; margin: 0 2px;
+  border: none; border-radius: 50%; cursor: pointer;
+  background: var(--accent); color: #fff;
+  transition: filter 0.15s;
+}
+.nowPlayingPlayBtn:hover { filter: brightness(1.05); }
+
 .nowPlayingStopBtn {
   background: none;
   border: none;
@@ -1240,21 +1266,69 @@
   transform: translateY(-50%);
 }
 
-/* Repère de progression du mini-lecteur (read-only). */
-.dockProgress {
-  height: 3px;
-  margin: 8px 2px 0;
-  border-radius: 2px;
-  background: var(--border);
-  overflow: hidden;
+/* Progression du dock : cliquable/navigable au clavier (plus read-only). */
+.dockProgressRow {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 8px;
 }
-
+.dockTime {
+  flex-shrink: 0;
+  font-size: 10px; font-weight: 700; font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+.dockProgress {
+  flex: 1;
+  height: 12px;
+  display: flex; align-items: center;
+  border-radius: 2px;
+  cursor: pointer;
+  background: none;
+}
 .dockProgressFill {
-  height: 100%;
+  height: 3px;
   background: var(--accent);
   border-radius: 2px;
   transition: width 0.25s linear;
+  pointer-events: none;
 }
+
+/* File perso « À suivre » (symétrique de la file de soirée). */
+.queuePanel {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  max-height: 180px;
+  overflow-y: auto;
+}
+.queuePanelTitle {
+  margin: 0 0 6px;
+  font-size: var(--text-2xs); font-weight: 800;
+  text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--text-muted);
+}
+.queueList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.queueRow { display: flex; align-items: center; gap: 4px; }
+.queueGrip { flex-shrink: 0; color: var(--text-muted); }
+.queueJump {
+  flex: 1; min-width: 0; min-height: 34px;
+  border: none; background: none; cursor: pointer; text-align: left; padding: 0;
+  font-family: var(--font-family);
+}
+.queueName {
+  display: block;
+  font-size: var(--text-xs); font-weight: 700; color: var(--text);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.queueJump:hover .queueName { color: var(--accent); }
+.queueIconBtn {
+  flex-shrink: 0;
+  width: 30px; height: 30px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 6px; background: none; cursor: pointer;
+  color: var(--text-muted);
+}
+.queueIconBtn:hover:not(:disabled) { background: var(--bg-input); color: var(--text); }
+.queueIconBtn:disabled { opacity: 0.35; cursor: not-allowed; }
 
 /* Volume du dock (audio uniquement). */
 .dockVolume {

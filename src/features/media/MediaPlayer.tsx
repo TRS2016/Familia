@@ -2,6 +2,7 @@
    Helpers partagés (clés/URL signées/canAutoAdvance) volontairement co-localisés
    avec le composant et importés par le Lecteur. Impact limité au fast-refresh dev. */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { MutableRefObject } from 'react'
 import { Play, Pause, ExternalLink, Volume2, VolumeX } from 'lucide-react'
 import { useQuery } from '@tanstack/react-query'
 import { supabase } from '../../lib/supabase'
@@ -18,6 +19,18 @@ export async function signMediaFileUrl(filePath: string): Promise<string> {
     .createSignedUrl(filePath, MEDIA_FILE_URL_TTL)
   if (error) throw error
   return data.signedUrl
+}
+
+// ── Pilotage externe ──────────────────────────────────────────────────────────
+// Le Lecteur monte son dock collant au-dessus de l'embed ; sans poignee
+// imperative il ne pouvait ni mettre en pause ni se deplacer dans la piste
+// (il fallait faire defiler jusqu'au lecteur lui-meme). Disponible pour les
+// fichiers locaux audio/video uniquement — YouTube et Spotify sont des iframes.
+export interface MediaControls {
+  toggle(): void
+  play(): void
+  pause(): void
+  seekTo(seconds: number): void
 }
 
 // ── Custom audio player ───────────────────────────────────────────────────────
@@ -55,7 +68,7 @@ function resumePosition(key: string | null | undefined, duration: number): numbe
   return null
 }
 
-function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded, onProgress, volume }: {
+function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded, onProgress, volume, controlsRef, onPlayingChange }: {
   src: string
   autoPlay?: boolean
   loop?: boolean
@@ -64,6 +77,8 @@ function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded, on
   onEnded?: () => void
   onProgress?: (current: number, duration: number) => void
   volume?: number
+  controlsRef?: MutableRefObject<MediaControls | null>
+  onPlayingChange?: (playing: boolean) => void
 }) {
   const ref = useRef<HTMLAudioElement>(null)
   const [playing,  setPlaying]  = useState(false)
@@ -95,6 +110,23 @@ function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded, on
     el.muted = !el.muted
     setMuted(el.muted)
   }
+
+  // Expose les commandes au dock du Lecteur (play/pause, deplacement).
+  useEffect(() => {
+    if (!controlsRef) return
+    controlsRef.current = {
+      toggle: () => { const el = ref.current; if (!el) return; if (el.paused) void el.play().catch(() => {}); else el.pause() },
+      play:   () => { void ref.current?.play().catch(() => {}) },
+      pause:  () => ref.current?.pause(),
+      seekTo: (sec) => {
+        const el = ref.current
+        if (!el || !isFinite(el.duration)) return
+        el.currentTime = Math.min(el.duration, Math.max(0, sec))
+        setCurrent(el.currentTime)
+      },
+    }
+    return () => { controlsRef.current = null }
+  }, [controlsRef])
 
   // Alimente le scrubber de l'écran verrouillé (MediaSession position state).
   function syncPositionState() {
@@ -161,11 +193,13 @@ function CustomAudio({ src, autoPlay, loop, playbackRate, resumeKey, onEnded, on
         preload="metadata"
         onPlay={() => {
           setPlaying(true)
+          onPlayingChange?.(true)
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'playing'
           syncPositionState()
         }}
         onPause={() => {
           setPlaying(false)
+          onPlayingChange?.(false)
           if ('mediaSession' in navigator) navigator.mediaSession.playbackState = 'paused'
         }}
         onTimeUpdate={e => {
@@ -379,9 +413,13 @@ interface Props {
   onProgress?: (current: number, duration: number) => void
   /** Volume 0..1 contrôlé en externe (audio uniquement). */
   volume?: number
+  /** Poignée de pilotage externe (fichiers locaux audio/vidéo uniquement). */
+  controlsRef?: MutableRefObject<MediaControls | null>
+  /** Remonte l'état lecture/pause réel de l'élément média. */
+  onPlayingChange?: (playing: boolean) => void
 }
 
-export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay, muted, loop, playbackRate, resumeKey, onProgress, volume }: Props) {
+export default function MediaPlayer({ filePath, externalUrl, mimeType, title, onEnded, autoPlay, muted, loop, playbackRate, resumeKey, onProgress, volume, controlsRef, onPlayingChange }: Props) {
   const { data: signedUrl, isLoading } = useQuery({
     queryKey: mediaFileUrlKey(filePath ?? ''),
     queryFn: () => signMediaFileUrl(filePath!),
@@ -414,6 +452,22 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
   useEffect(() => {
     if (videoRef.current && volume != null) videoRef.current.volume = Math.min(1, Math.max(0, volume))
   }, [volume])
+
+  // Mêmes commandes externes que pour l'audio (cf. MediaControls).
+  useEffect(() => {
+    if (!controlsRef) return
+    controlsRef.current = {
+      toggle: () => { const el = videoRef.current; if (!el) return; if (el.paused) void el.play().catch(() => {}); else el.pause() },
+      play:   () => { void videoRef.current?.play().catch(() => {}) },
+      pause:  () => videoRef.current?.pause(),
+      seekTo: (sec) => {
+        const el = videoRef.current
+        if (!el || !isFinite(el.duration)) return
+        el.currentTime = Math.min(el.duration, Math.max(0, sec))
+      },
+    }
+    return () => { controlsRef.current = null }
+  }, [controlsRef])
 
   if (filePath && isLoading) {
     return <div className={styles.skeleton}>Chargement du média…</div>
@@ -456,6 +510,8 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
         muted={muted}
         loop={loop}
         onCanPlay={e => { handleCanPlay(e); if (playbackRate) e.currentTarget.playbackRate = playbackRate }}
+        onPlay={() => onPlayingChange?.(true)}
+        onPause={() => onPlayingChange?.(false)}
         onLoadedMetadata={e => {
           const el = e.currentTarget
           if (playbackRate) el.playbackRate = playbackRate
@@ -476,7 +532,7 @@ export default function MediaPlayer({ filePath, externalUrl, mimeType, title, on
   }
 
   if (type === 'audio') {
-    return <CustomAudio key={url} src={url} autoPlay={autoPlay} loop={loop} playbackRate={playbackRate} resumeKey={resumeKey} onEnded={onEnded} onProgress={onProgress} volume={volume} />
+    return <CustomAudio key={url} src={url} autoPlay={autoPlay} loop={loop} playbackRate={playbackRate} resumeKey={resumeKey} onEnded={onEnded} onProgress={onProgress} volume={volume} controlsRef={controlsRef} onPlayingChange={onPlayingChange} />
   }
 
   return (
