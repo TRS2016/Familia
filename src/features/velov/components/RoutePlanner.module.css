@@ -18,6 +18,16 @@
 .swapBtn { min-width: 40px; min-height: 40px; padding: 6px; border-radius: var(--radius-pill); background: var(--bg-card); border: 1px solid var(--border); color: var(--accent); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .swapBtn:hover { background: var(--accent-soft); }
 
+/* Raccourcis de lieux (remplacent le select natif). */
+.placeChips {
+  display: flex;
+  gap: var(--space-2);
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+.placeChips > button { flex-shrink: 0; }
+.chipStrong { font-weight: 700; }
+
 .searchRow { display: flex; gap: 4px; }
 .searchBtn { min-width: 44px; min-height: 44px; padding: 8px 12px; border-radius: var(--radius-sm); background: var(--accent); color: #fff; border: none; cursor: pointer; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center; }
 .searchBtn:disabled { opacity: 0.5; cursor: not-allowed; }

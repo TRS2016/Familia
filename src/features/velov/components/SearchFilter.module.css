@@ -18,6 +18,21 @@
 
 .searchWrap { flex: 1; }
 
+/* Tri toujours visible sous la ligne de filtres. */
+.sortRow {
+  max-width: var(--page-max-w, 800px);
+  margin: var(--space-2) auto 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.sortLabel {
+  font-size: var(--text-xs);
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
 .search {
   width: 100%;
   padding: 8px 16px;

@@ -97,6 +97,24 @@ export function SearchFilter({
         </div>
       </div>
 
+      {/* Le tri est une action fréquente : il reste visible au lieu d'être
+          enterré dans le panneau avancé. */}
+      {onSortChange && (
+        <div className={styles.sortRow}>
+          <span className={styles.sortLabel}>Trier</span>
+          {sortOptions.filter((o) => !o.hidden).map((o) => (
+            <button
+              key={o.value}
+              onClick={() => onSortChange(o.value)}
+              aria-pressed={sort === o.value}
+              className={[styles.sortBtn, sort === o.value ? styles.sortActive : ''].join(' ')}
+            >
+              {o.Icon && <o.Icon size={14} />}{o.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {showAdvanced && (
         <div className={styles.advanced}>
           <label className={styles.advLabel}>
@@ -136,21 +154,6 @@ export function SearchFilter({
                 <option value={1000}>1km</option>
                 <option value={2000}>2km</option>
               </select>
-            </div>
-          )}
-
-          {onSortChange && (
-            <div className={styles.advItem}>
-              <span className={styles.advLabel}>Trier :</span>
-              {sortOptions.filter((o) => !o.hidden).map((o) => (
-                <button
-                  key={o.value}
-                  onClick={() => onSortChange(o.value)}
-                  className={[styles.sortBtn, sort === o.value ? styles.sortActive : ''].join(' ')}
-                >
-                  {o.Icon && <o.Icon size={14} />}{o.label}
-                </button>
-              ))}
             </div>
           )}
 

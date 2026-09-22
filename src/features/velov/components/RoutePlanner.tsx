@@ -67,6 +67,27 @@ function AddressSearch({
   )
 }
 
+// Raccourcis de lieux : un tap au lieu d'ouvrir un <select> natif et d'y
+// chercher l'entrée. « Ma position » redevient l'action la plus directe.
+function PlaceChips({ places, onPick, onUseMyLocation }: {
+  places: SearchPlace[]
+  onPick: (p: SearchPlace) => void
+  onUseMyLocation?: () => void
+}) {
+  return (
+    <div className={styles.placeChips}>
+      {onUseMyLocation && (
+        <button onClick={onUseMyLocation} className={[ui.chip, styles.chipStrong].join(' ')}>
+          📍 Ma position
+        </button>
+      )}
+      {places.map((p) => (
+        <button key={p.id} onClick={() => onPick(p)} className={ui.chip}>{p.name}</button>
+      ))}
+    </div>
+  )
+}
+
 export interface RoutePlannerProps {
   origin: RoutePoint | null
   destination: RoutePoint | null
@@ -217,7 +238,7 @@ export function RoutePlanner({
         {/* Départ */}
         <div className={styles.endpoint}>
           <span className={[styles.dot, styles.dotStart].join(' ')} aria-hidden="true" />
-          <label htmlFor="route-origin-select" className={styles.endpointLabel}>Départ</label>
+          <span className={styles.endpointLabel}>Départ</span>
           {origin ? (
             <div className={ui.pill} style={{ flex: 1 }}>
               <span className={ui.pillText}>{origin.name}</span>
@@ -225,30 +246,11 @@ export function RoutePlanner({
             </div>
           ) : (
             <div className={ui.field}>
-              <select
-                id="route-origin-select"
-                aria-label="Lieu de départ"
-                onChange={(e) => {
-                  if (e.target.value === 'use-my-location') handleUseMyLocation()
-                  else {
-                    const place = allPlaces.find((d) => d.id === e.target.value)
-                    if (place) { onOriginChange(place); onHistoryAdd?.(place) }
-                  }
-                }}
-                className={ui.select}
-                value=""
-              >
-                <option value="">Sélectionner un lieu de départ...</option>
-                <option value="use-my-location">📍 Ma position</option>
-                <optgroup label="Gares & Lieux">
-                  {DESTINATIONS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </optgroup>
-                {customPlaces.length > 0 && (
-                  <optgroup label="Mes lieux">
-                    {customPlaces.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </optgroup>
-                )}
-              </select>
+              <PlaceChips
+                places={allPlaces}
+                onUseMyLocation={handleUseMyLocation}
+                onPick={(place) => { onOriginChange(place); onHistoryAdd?.(place) }}
+              />
               <AddressSearch
                 inputId="route-origin-address"
                 value={manualOrigin}
@@ -274,7 +276,7 @@ export function RoutePlanner({
         {/* Arrivée */}
         <div className={styles.endpoint}>
           <span className={[styles.dot, styles.dotEnd].join(' ')} aria-hidden="true" />
-          <label htmlFor="route-dest-select" className={styles.endpointLabel}>Arrivée</label>
+          <span className={styles.endpointLabel}>Arrivée</span>
           {destination ? (
             <div className={ui.pill} style={{ flex: 1 }}>
               <span className={ui.pillText}>{destination.name}</span>
@@ -282,26 +284,10 @@ export function RoutePlanner({
             </div>
           ) : (
             <div className={ui.field}>
-              <select
-                id="route-dest-select"
-                aria-label="Destination"
-                onChange={(e) => {
-                  const dest = allPlaces.find((d) => d.id === e.target.value)
-                  if (dest) { onDestinationChange(dest); onHistoryAdd?.(dest) }
-                }}
-                className={ui.select}
-                value=""
-              >
-                <option value="">Sélectionner une destination...</option>
-                <optgroup label="Gares & Lieux">
-                  {DESTINATIONS.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                </optgroup>
-                {customPlaces.length > 0 && (
-                  <optgroup label="Mes lieux">
-                    {customPlaces.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </optgroup>
-                )}
-              </select>
+              <PlaceChips
+                places={allPlaces}
+                onPick={(place) => { onDestinationChange(place); onHistoryAdd?.(place) }}
+              />
               <AddressSearch
                 inputId="route-dest-address"
                 value={manualDest}

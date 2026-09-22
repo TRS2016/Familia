@@ -46,7 +46,7 @@
 .tabActive { background: var(--accent); color: #fff; }
 
 .content { flex: 1; min-height: 0; }
-.pane { height: 100%; display: flex; flex-direction: column; }
+.pane { height: 100%; display: flex; flex-direction: column; position: relative; }
 .paneMap { height: 100%; position: relative; }
 .paneScroll { height: 100%; overflow-y: auto; overscroll-behavior: contain; }
 .hidden { display: none; }
@@ -65,7 +65,6 @@
 .stripInner { max-width: var(--page-max-w, 800px); margin: 0 auto; }
 .stripTitle { font-size: var(--text-xs); font-weight: 600; margin-bottom: 6px; }
 .stripTitleFav { color: var(--warning); }
-.stripTitleNear { color: var(--text-sub); }
 .stripRow { display: flex; gap: var(--space-2); overflow-x: auto; padding-bottom: 2px; }
 .stripCard { flex-shrink: 0; display: flex; align-items: center; gap: var(--space-2); background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 6px 12px; }
 .stripStat { font-size: var(--text-sm); font-weight: 700; display: inline-flex; align-items: center; gap: 2px; }
@@ -73,7 +72,41 @@
 .stripStands { color: var(--info); }
 .stripEmpty { color: var(--danger); }
 .stripName { font-size: var(--text-xs); font-weight: 600; color: var(--text-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 110px; }
-.stripMeta { font-size: var(--text-xs); color: var(--text-muted); }
+
+/* ── « Maintenant » : station utile la plus proche selon l'intention ────── */
+.nowWrap { max-width: var(--page-max-w, 800px); margin: 0 auto; width: 100%; padding: var(--space-3) var(--space-4) 0; flex-shrink: 0; box-sizing: border-box; }
+.nowCard {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: var(--space-3);
+}
+.nowToggle { display: flex; gap: 2px; padding: 3px; border-radius: var(--radius-sm); background: var(--bg-input); }
+.nowSeg {
+  flex: 1; min-height: 36px; border: none; cursor: pointer; border-radius: calc(var(--radius-sm) - 2px);
+  background: transparent; color: var(--text-sub);
+  font-family: var(--font-family); font-size: var(--text-xs); font-weight: 600;
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+}
+.nowSegActive { background: var(--bg-card); color: var(--text); box-shadow: var(--shadow-card); font-weight: 700; }
+.nowMain {
+  display: flex; align-items: center; gap: var(--space-3); width: 100%; min-height: 44px;
+  padding: 0; border: none; background: none; cursor: pointer; text-align: left;
+  font-family: var(--font-family);
+}
+.nowCount {
+  flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px;
+  font-size: var(--text-lg); font-weight: 800; color: var(--accent);
+}
+.nowTexts { display: flex; flex-direction: column; min-width: 0; }
+.nowName { font-size: var(--text-sm); font-weight: 700; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nowMeta { font-size: var(--text-xs); color: var(--text-sub); }
+.nowCta {
+  width: 100%; min-height: 44px; border: none; cursor: pointer;
+  border-radius: var(--radius-sm); background: var(--accent); color: #fff;
+  font-family: var(--font-family); font-size: var(--text-sm); font-weight: 700;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+}
+.nowEmpty { font-size: var(--text-sm); color: var(--text-sub); text-align: center; padding: var(--space-2) 0; }
 
 /* ── Localisation prompt ────────────────────────────────── */
 .locateWrap { max-width: var(--page-max-w, 800px); margin: 0 auto; padding: var(--space-3) var(--space-4) 0; flex-shrink: 0; display: flex; flex-direction: column; gap: var(--space-2); }

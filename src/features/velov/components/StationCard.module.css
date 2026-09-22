@@ -33,6 +33,24 @@
   white-space: nowrap;
 }
 
+/* Le nom ouvre la fiche station (parité avec le tap sur la carte). */
+.nameBtn {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 40px;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: var(--font-family);
+}
+.nameChevron { flex-shrink: 0; color: var(--text-muted); }
+.nameBtn:hover .name { color: var(--accent); }
+
 .iconBtn {
   background: none;
   border: none;
@@ -64,23 +82,6 @@
   padding: 1px 8px;
   border-radius: var(--radius-pill);
 }
-
-.navBtn {
-  background: color-mix(in srgb, var(--success) 14%, transparent);
-  color: color-mix(in srgb, var(--success) 80%, black);
-  min-width: 40px;
-  min-height: 40px;
-  padding: 6px;
-  border-radius: var(--radius-sm);
-  border: none;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s ease;
-}
-
-.navBtn:hover { background: color-mix(in srgb, var(--success) 24%, transparent); }
 
 .address {
   font-size: var(--text-xs);
@@ -208,12 +209,35 @@
 
 .thresholdRow {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-2);
   margin-top: var(--space-2);
   padding-top: var(--space-2);
   border-top: 1px solid var(--border-subtle);
 }
+
+/* Choix explicite entre les deux alertes possibles. */
+.modeRow { display: flex; gap: var(--space-2); flex-wrap: wrap; }
+.modeBtn {
+  flex: 1;
+  min-width: 140px;
+  min-height: 36px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--bg-input);
+  color: var(--text-sub);
+  font-family: var(--font-family);
+  font-size: var(--text-xs);
+  font-weight: 600;
+  cursor: pointer;
+}
+.modeActive {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+}
+.thresholdField { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
 
 .thresholdLabel {
   font-size: var(--text-xs);

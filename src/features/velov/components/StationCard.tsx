@@ -1,4 +1,4 @@
-import { Star, Navigation, Bell } from 'lucide-react'
+import { Star, Bell, ChevronRight } from 'lucide-react'
 import type { Station } from '../types'
 import styles from './StationCard.module.css'
 
@@ -25,6 +25,8 @@ export interface StationCardProps {
   onToggleFavorite: (id: string) => void
   alertThreshold?: number
   onSetThreshold?: (id: string, value: number | string | null) => void
+  /** Ouvre la fiche station (mêmes actions que depuis la carte). */
+  onOpen?: (s: Station) => void
 }
 
 export function StationCard({
@@ -32,17 +34,10 @@ export function StationCard({
   isAlerted, onToggleAlert,
   isFavorite, onToggleFavorite,
   alertThreshold, onSetThreshold,
+  onOpen,
 }: StationCardProps) {
   const hasBikes = station.availableBikes > 0
   const hasStands = station.availableStands > 0
-
-  function openNavigation() {
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
-    const url = isIOS
-      ? `http://maps.apple.com/?daddr=${station.lat},${station.lng}&dirflg=w`
-      : `https://www.google.com/maps/dir/?api=1&destination=${station.lat},${station.lng}&travelmode=bicycling`
-    window.open(url, '_blank')
-  }
 
   const statusText =
     station.isRenting && station.isReturning ? 'Ouverte'
@@ -54,7 +49,16 @@ export function StationCard({
     <div className={styles.card}>
       <div className={styles.topRow}>
         <div className={styles.nameWrap}>
-          <h3 className={styles.name}>{station.name}</h3>
+          {/* Le nom ouvre la fiche : les actions (Planifier / Marcher / Y aller)
+              vivent au même endroit qu'au tap depuis la carte. */}
+          {onOpen ? (
+            <button className={styles.nameBtn} onClick={() => onOpen(station)}>
+              <h3 className={styles.name}>{station.name}</h3>
+              <ChevronRight size={15} className={styles.nameChevron} />
+            </button>
+          ) : (
+            <h3 className={styles.name}>{station.name}</h3>
+          )}
           <button
             onClick={() => onToggleFavorite(station.id)}
             className={[styles.iconBtn, isFavorite ? styles.favActive : ''].join(' ')}
@@ -65,9 +69,6 @@ export function StationCard({
         </div>
         <div className={styles.metaRow}>
           {distance !== undefined && <span className={styles.distance}>{distance.toFixed(0)}m</span>}
-          <button onClick={openNavigation} className={styles.navBtn} aria-label="Naviguer vers cette station">
-            <Navigation size={16} />
-          </button>
         </div>
       </div>
 
@@ -106,21 +107,44 @@ export function StationCard({
         </div>
       </div>
 
+      {/* Deux alertes distinctes, nommées explicitement : « dès qu'un vélo
+          revient » (station vide → dispo) ou « avant qu'il n'y en ait plus »
+          (passage sous un seuil). L'ancien champ seuil vide = dès dispo
+          n'exprimait pas ce basculement. */}
       {isAlerted && onSetThreshold && (
         <div className={styles.thresholdRow}>
-          <span className={styles.thresholdLabel}>Alerter si ≤</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            min="0"
-            max="30"
-            value={alertThreshold ?? ''}
-            onChange={(e) => onSetThreshold(station.id, e.target.value !== '' ? e.target.value : null)}
-            placeholder="∞"
-            aria-label="Seuil d'alerte en nombre de vélos"
-            className={styles.thresholdInput}
-          />
-          <span className={styles.thresholdLabel}>vélos (vide = dès dispo)</span>
+          <div className={styles.modeRow}>
+            <button
+              className={[styles.modeBtn, alertThreshold == null ? styles.modeActive : ''].join(' ')}
+              aria-pressed={alertThreshold == null}
+              onClick={() => onSetThreshold(station.id, null)}
+            >
+              Dès qu'un vélo revient
+            </button>
+            <button
+              className={[styles.modeBtn, alertThreshold != null ? styles.modeActive : ''].join(' ')}
+              aria-pressed={alertThreshold != null}
+              onClick={() => onSetThreshold(station.id, alertThreshold ?? 2)}
+            >
+              Avant qu'il n'y en ait plus
+            </button>
+          </div>
+          {alertThreshold != null && (
+            <label className={styles.thresholdField}>
+              <span className={styles.thresholdLabel}>Me prévenir quand il reste</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                min="0"
+                max="30"
+                value={alertThreshold}
+                onChange={(e) => onSetThreshold(station.id, e.target.value !== '' ? e.target.value : 0)}
+                aria-label="Seuil d'alerte en nombre de vélos"
+                className={styles.thresholdInput}
+              />
+              <span className={styles.thresholdLabel}>vélo{alertThreshold > 1 ? 's' : ''} ou moins</span>
+            </label>
+          )}
         </div>
       )}
     </div>

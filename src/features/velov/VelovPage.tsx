@@ -105,6 +105,11 @@ export default function VelovPage() {
   const availableBikes = useMemo(() => stations.reduce((sum, s) => sum + s.availableBikes, 0), [stations])
 
   const [mapSheetStation, setMapSheetStation] = useState<Station | null>(null)
+  // Fiche station ouverte depuis la LISTE (le sheet de la carte est ancré dans
+  // le volet carte ; sur desktop les deux volets coexistent).
+  const [listSheetStation, setListSheetStation] = useState<Station | null>(null)
+  // Réponse immédiate en tête de liste : prendre un vélo, ou rendre le sien.
+  const [nowIntent, setNowIntent] = useState<'take' | 'return'>('take')
   const [activeTab, setActiveTab] = useState<Tab>(() => {
     const tab = new URLSearchParams(window.location.search).get('tab')
     return (['stations', 'map', 'route'] as const).includes(tab as Tab) ? (tab as Tab) : 'stations'
@@ -259,6 +264,20 @@ export default function VelovPage() {
     return best?.availableBikes ?? null
   }, [userLocation, stations])
   const badgeCount = nearestBikes ?? favorites.length
+
+  // Station utile la plus proche selon l'intention (un vélo à prendre, ou une
+  // place pour le rendre). C'est la question qu'on se pose en ouvrant l'app.
+  const nowStation = useMemo(() => {
+    if (!userLocation || stations.length === 0) return null
+    let best: (Station & { distance: number }) | null = null
+    for (const s of stations) {
+      if (nowIntent === 'take' ? !(s.availableBikes > 0 && s.isRenting) : !(s.availableStands > 0 && s.isReturning)) continue
+      const d = calculateDistance(userLocation.lat, userLocation.lng, s.lat, s.lng)
+      if (!best || d < best.distance) best = { ...s, distance: d }
+    }
+    return best
+  }, [userLocation, stations, nowIntent])
+
   useEffect(() => {
     if (!('setAppBadge' in navigator)) return
     navigator.setAppBadge(badgeCount).catch(() => {})
@@ -525,23 +544,51 @@ export default function VelovPage() {
             </div>
           )}
 
-          {userLocation && !search && filter === 'all' && !showFavoritesOnly && filteredStations.length > 3 && (
-            <div className={styles.strip}>
-              <div className={styles.stripInner}>
-                <p className={[styles.stripTitle, styles.stripTitleNear].join(' ')}>Stations proches</p>
-                <div className={styles.stripRow}>
-                  {filteredStations.slice(0, 5).map((s) => (
-                    <div key={s.id} className={styles.stripCard}>
-                      <span className={[styles.stripStat, s.availableBikes > 0 ? styles.stripBikes : styles.stripEmpty].join(' ')}>
-                        {s.availableBikes}<Bike size={14} />
-                      </span>
-                      <div style={{ minWidth: 0 }}>
-                        <p className={styles.stripName}>{s.name}</p>
-                        <p className={styles.stripMeta}>{s.distance?.toFixed(0)}m</p>
-                      </div>
-                    </div>
-                  ))}
+          {/* Réponse directe à « je veux un vélo / une place, maintenant ».
+              Remplace l'ancienne bande « Stations proches », qui répétait les
+              5 premières cartes de la liste déjà triée par distance. */}
+          {userLocation && (
+            <div className={styles.nowWrap}>
+              <div className={styles.nowCard}>
+                <div className={styles.nowToggle} role="group" aria-label="Intention">
+                  <button
+                    className={[styles.nowSeg, nowIntent === 'take' ? styles.nowSegActive : ''].join(' ')}
+                    aria-pressed={nowIntent === 'take'}
+                    onClick={() => setNowIntent('take')}
+                  >
+                    <Bike size={14} /> Prendre un vélo
+                  </button>
+                  <button
+                    className={[styles.nowSeg, nowIntent === 'return' ? styles.nowSegActive : ''].join(' ')}
+                    aria-pressed={nowIntent === 'return'}
+                    onClick={() => setNowIntent('return')}
+                  >
+                    <ParkingSquare size={14} /> Rendre le mien
+                  </button>
                 </div>
+                {nowStation ? (
+                  <>
+                    <button className={styles.nowMain} onClick={() => setListSheetStation(nowStation)}>
+                      <span className={styles.nowCount}>
+                        {nowIntent === 'take' ? nowStation.availableBikes : nowStation.availableStands}
+                        {nowIntent === 'take' ? <Bike size={18} /> : <ParkingSquare size={18} />}
+                      </span>
+                      <span className={styles.nowTexts}>
+                        <span className={styles.nowName}>{nowStation.name}</span>
+                        <span className={styles.nowMeta}>
+                          {nowStation.distance.toFixed(0)} m · 🚶 {formatWalkTime(Math.round(nowStation.distance / 1.3))}
+                        </span>
+                      </span>
+                    </button>
+                    <button className={styles.nowCta} onClick={() => walkToStation(nowStation)}>
+                      <Navigation size={15} /> M'y guider à pied
+                    </button>
+                  </>
+                ) : (
+                  <p className={styles.nowEmpty}>
+                    {nowIntent === 'take' ? 'Aucun vélo disponible autour de vous.' : 'Aucune place libre autour de vous.'}
+                  </p>
+                )}
               </div>
             </div>
           )}
@@ -613,6 +660,7 @@ export default function VelovPage() {
                         onToggleFavorite={toggleFavorite}
                         alertThreshold={thresholds[station.id]}
                         onSetThreshold={setThreshold}
+                        onOpen={setListSheetStation}
                       />
                     ))}
                   </div>
@@ -626,6 +674,21 @@ export default function VelovPage() {
               )}
             </div>
           </div>
+
+          {/* Même fiche que depuis la carte : les actions ne dépendent plus du
+              volet par lequel on est arrivé. */}
+          <StationBottomSheet
+            station={listSheetStation}
+            onClose={() => setListSheetStation(null)}
+            distance={listSheetStation && userLocation ? calculateDistance(userLocation.lat, userLocation.lng, listSheetStation.lat, listSheetStation.lng) : undefined}
+            isFavorite={listSheetStation ? favorites.includes(listSheetStation.id) : false}
+            onToggleFavorite={toggleFavorite}
+            isAlerted={listSheetStation ? alertedStationIds.has(listSheetStation.id) : false}
+            onToggleAlert={handleToggleAlert}
+            onPlanRoute={(s) => { setListSheetStation(null); handlePlanRouteFromStation(s) }}
+            onWalkToStation={(s) => { setListSheetStation(null); walkToStation(s) }}
+            hasLocation={!!userLocation}
+          />
         </div>
 
         {/* ── MAP ── */}
