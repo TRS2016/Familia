@@ -3,10 +3,11 @@
 // structurées (titre, type de repas, ingrédients, étapes) pour les importer.
 //
 // Le PDF n'est JAMAIS stocké : envoyé en base64 au modèle puis jeté. Protégée
-// par la vérification JWT par défaut. Clé requise : secret ANTHROPIC_API_KEY.
+// aux membres connectés (cf. _shared/auth.ts). Clé requise : secret ANTHROPIC_API_KEY.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { corsHeaders } from '../_shared/cors.ts'
+import { requireMember } from '../_shared/auth.ts'
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 // Extraction multi-pages structurée : Opus 4.8 (contexte 1M / 600 pages PDF,
@@ -32,6 +33,12 @@ function err(message: string, status: number): Response {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders })
   if (req.method !== 'POST') return err('Method not allowed', 405)
+
+  // Réservé aux membres connectés. `verify_jwt` ne suffit pas : la gateway
+  // accepte la clé publishable, présente dans le bundle client — sans ce
+  // contrôle, n'importe qui pourrait faire tourner l'API IA à nos frais.
+  const caller = await requireMember(req)
+  if (!caller) return err('Non autorisé', 401)
 
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!apiKey) {
@@ -86,9 +93,10 @@ Si tu ne trouves aucune recette, renvoie {"recipes": []}.`
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
     console.error('[parse-recipes] Anthropic', res.status, detail.slice(0, 500))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let amsg = ''
-    try { amsg = (JSON.parse(detail) as any)?.error?.message ?? '' } catch { /* pas du JSON */ }
+    try {
+      amsg = (JSON.parse(detail) as { error?: { message?: string } })?.error?.message ?? ''
+    } catch { /* pas du JSON */ }
     const hint = res.status === 401 || res.status === 403
       ? 'clé IA invalide — reconfigure ANTHROPIC_API_KEY'
       : /credit balance/i.test(amsg)

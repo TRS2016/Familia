@@ -181,8 +181,6 @@ export default function LecteurPage() {
   // Pilotage direct de l'élément média depuis le dock (play/pause, position) :
   // sans cela il fallait faire défiler jusqu'à l'embed rendu sous le dock.
   const mediaControls = useRef<MediaControls | null>(null)
-  // Position courante lue par les raccourcis clavier sans re-souscrire l'effet.
-  const dockProgressRef = useRef(0)
   const [isPlaying, setIsPlaying] = useState(false)
   // Les iframes (YouTube, Spotify) ne se pilotent pas : le dock masque alors
   // play/pause et le scrubber plutôt que d'afficher des boutons inertes.
@@ -253,7 +251,11 @@ export default function LecteurPage() {
   })
 
   // Raccourcis clavier (desktop) : espace = lecture/pause, ←/→ = piste
-  // précédente/suivante, ↑/↓ = ±5 s. On ignore la frappe dans un champ.
+  // précédente/suivante. On ignore la frappe dans un champ.
+  // ↑/↓ ne sont PAS captées : elles servent à faire défiler la page, et les
+  // intercepter dès qu'une piste est chargée supprimait le défilement clavier
+  // de la bibliothèque. Le déplacement dans la piste reste accessible par le
+  // scrubber du dock (flèches quand il a le focus).
   useEffect(() => {
     if (!playingFile) return
     function onKey(e: KeyboardEvent) {
@@ -263,11 +265,6 @@ export default function LecteurPage() {
       if (e.key === ' ' && mediaControls.current) { e.preventDefault(); mediaControls.current.toggle() }
       else if (e.key === 'ArrowLeft' && hasPrev)  { e.preventDefault(); setQueueIndex(i => Math.max(0, i - 1)) }
       else if (e.key === 'ArrowRight' && hasNext) { e.preventDefault(); setQueueIndex(i => i + 1) }
-      else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && mediaControls.current) {
-        e.preventDefault()
-        const delta = e.key === 'ArrowUp' ? 5 : -5
-        mediaControls.current.seekTo(dockProgressRef.current + delta)
-      }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
@@ -695,7 +692,6 @@ export default function LecteurPage() {
               resumeKey={playingFile.id}
               onEnded={handleTrackEnded}
               onProgress={(c, d) => {
-                dockProgressRef.current = c
                 setDockProgress({ id: playingFile.id, pct: d > 0 ? (c / d) * 100 : 0, current: c, duration: d })
                 countPlay(playingFile.id, c)
               }}

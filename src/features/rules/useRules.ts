@@ -209,12 +209,14 @@ export function useDecideRule() {
 /** Retire une proposition qu'on a soi-même soumise (avant décision). */
 export function useWithdrawProposal() {
   const queryClient = useQueryClient()
+  const { showToast } = useToast()
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('household_rules').delete().eq('id', id).eq('status', 'pending')
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: RULES_KEY }),
+    onError: () => showToast({ type: 'error', message: 'Impossible de retirer la proposition.' }),
   })
 }
 

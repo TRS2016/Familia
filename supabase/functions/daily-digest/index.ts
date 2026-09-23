@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { configureWebPush, sendPush, cleanupAndTouch, parisDate } from '../_shared/push.ts'
+import { requireCronKey } from '../_shared/auth.ts'
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -9,9 +10,13 @@ function json(data: unknown, status = 200): Response {
 }
 
 // Digest du matin (~8h Paris via cron) : une seule push par membre résumant sa
-// journée — événements, tâches assignées, habitudes prévues, repas planifiés.
-// Pas de table de dédup : le cron ne tire qu'une fois par jour.
-Deno.serve(async () => {
+// journée : événements, tâches assignées, habitudes prévues, repas planifiés.
+// Déclencheur interne uniquement, ET dédup par membre et par jour : sans elle,
+// n'importe qui pouvait rappeler la fonction en boucle et faire vibrer les
+// téléphones du foyer (la clé publishable suffit à passer `verify_jwt`).
+Deno.serve(async (req: Request) => {
+  if (!requireCronKey(req)) return json({ error: 'Non autorisé' }, 401)
+
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -138,6 +143,13 @@ Deno.serve(async () => {
       tag: 'daily-digest',
       actions: [{ action: 'view', title: 'Voir' }],
     })
+    // Dédup : une seule tentative par membre et par jour. L'insert est le
+    // verrou (clé primaire composite) — en cas de conflit, on passe.
+    const { error: dedupErr } = await supabase
+      .from('daily_digest_sent')
+      .insert({ member_id: member.id, sent_date: todayStr })
+    if (dedupErr) continue
+
     const { sent, dead, ok } = await sendPush(subs, payload)
     totalSent += sent
     await cleanupAndTouch(supabase, dead, ok)

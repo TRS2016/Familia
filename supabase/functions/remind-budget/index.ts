@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { configureWebPush, sendPush, cleanupAndTouch, parisDate } from '../_shared/push.ts'
+import { requireCronKey } from '../_shared/auth.ts'
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
@@ -9,7 +10,12 @@ interface Cat { id: string; household_id: string; name: string; type: string; mo
 interface Entry { household_id: string; category_id: string | null; member_id: string | null; amount: number; tags: string[] | null }
 interface MemberBudget { member_id: string; category_id: string; household_id: string; monthly_budget: number | null }
 
-Deno.serve(async () => {
+Deno.serve(async (req: Request) => {
+  // Declencheur interne uniquement (cf. _shared/auth.ts) : `verify_jwt` ne
+  // protege rien ici, la gateway accepte la cle publishable du bundle.
+  if (!requireCronKey(req)) return json({ error: 'Non autorise' }, 401)
+
+
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,

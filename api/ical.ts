@@ -6,16 +6,35 @@ function esc(str: string): string {
   return str.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n')
 }
 
-// iCal lines must be ≤ 75 octets, fold longer ones with CRLF + space
+// RFC 5545 : une ligne iCal fait au plus 75 OCTETS (pas 75 caracteres), et le
+// repli se fait par CRLF + espace. Decouper par index de chaine etait faux a
+// deux titres : un titre accentue depasse la limite (e accentue = 2 octets en
+// UTF-8), et une coupe au milieu d'une paire de substitution casse un emoji et
+// produit de l'UTF-8 invalide. On decoupe donc par points de code, en comptant
+// les octets.
+const MAX_OCTETS = 74 // 75 moins l'espace de continuation
+
+function octetLength(str: string): number {
+  return new TextEncoder().encode(str).length
+}
+
 function fold(line: string): string {
+  if (octetLength(line) <= 75) return line
   const chunks: string[] = []
-  let rest = line
-  while (rest.length > 75) {
-    chunks.push(rest.slice(0, 75))
-    rest = ' ' + rest.slice(75)
+  let current = ''
+  let budget = 75 // la premiere ligne n'a pas d'espace de continuation
+  // L'iteration for..of parcourt les points de code : un emoji reste entier.
+  for (const ch of line) {
+    if (octetLength(current) + octetLength(ch) > budget) {
+      chunks.push(current)
+      current = ch
+      budget = MAX_OCTETS
+    } else {
+      current += ch
+    }
   }
-  chunks.push(rest)
-  return chunks.join('\r\n')
+  if (current) chunks.push(current)
+  return chunks.map((c, i) => (i === 0 ? c : ' ' + c)).join('\r\n')
 }
 
 function nextDayStr(dateStr: string): string {
@@ -125,7 +144,10 @@ export default async function handler(req: IncomingMessage, res: ServerResponse)
   res.writeHead(200, {
     'Content-Type': 'text/calendar; charset=utf-8',
     'Content-Disposition': 'attachment; filename="familia.ics"',
-    'Cache-Control': 'public, max-age=3600',
+    // `private` : la reponse est authentifiee par un token personnel. En
+    // `public`, un cache partage pouvait la conserver, et surtout revoquer un
+    // token laissait le CDN servir le calendrier pendant encore une heure.
+    'Cache-Control': 'private, max-age=3600',
   })
   res.end(body)
 }

@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { configureWebPush, sendPush, cleanupAndTouch, parisDate } from '../_shared/push.ts'
+import { requireCronKey } from '../_shared/auth.ts'
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), {
@@ -22,7 +23,12 @@ function parisMinutesSinceMidnight(d: Date): number {
   return h * 60 + m
 }
 
-Deno.serve(async (_req: Request) => {
+Deno.serve(async (req: Request) => {
+  // Declencheur interne uniquement (cf. _shared/auth.ts) : `verify_jwt` ne
+  // protege rien ici, la gateway accepte la cle publishable du bundle.
+  if (!requireCronKey(req)) return json({ error: 'Non autorise' }, 401)
+
+
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,

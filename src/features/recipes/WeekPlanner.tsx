@@ -43,6 +43,11 @@ export default function WeekPlanner({ recipes, onShowRecipe }: {
   // 🎲 : tire une recette au hasard du carnet et la planifie sur son créneau.
   function rollDay(date: string) {
     if (recipes.length === 0) return
+    // rollDay n'est appelé que depuis un onClick : le tirage est un effet de
+    // l'action, pas du rendu. La règle react-hooks/purity ne fait pas l'analyse
+    // du graphe d'appels et signale tout appel impur situé dans le corps du
+    // composant, d'où l'exception ciblée.
+    // eslint-disable-next-line react-hooks/purity
     const r = recipes[Math.floor(Math.random() * recipes.length)]
     setEntry.mutate(
       { date, meal_type: r.meal_type as MealType, recipe_id: r.id },

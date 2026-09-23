@@ -47,9 +47,16 @@ export async function sendPush(subs: PushSub[], payload: string): Promise<{
   return { sent, dead, ok }
 }
 
+/** Le strict minimum du client Supabase utilisé ici (évite un `any`). */
+interface PushDb {
+  from(table: string): {
+    delete(): { in(col: string, vals: string[]): PromiseLike<unknown> }
+    update(values: Record<string, unknown>): { in(col: string, vals: string[]): PromiseLike<unknown> }
+  }
+}
+
 /** Supprime les endpoints morts et rafraîchit last_used_at des envois réussis. */
-// deno-lint-ignore no-explicit-any
-export async function cleanupAndTouch(supabase: any, dead: string[], ok: string[]): Promise<void> {
+export async function cleanupAndTouch(supabase: PushDb, dead: string[], ok: string[]): Promise<void> {
   if (dead.length > 0) {
     await supabase.from('push_subscriptions').delete().in('endpoint', dead)
   }

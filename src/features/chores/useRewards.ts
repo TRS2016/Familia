@@ -107,12 +107,14 @@ export function useUpsertReward() {
 
 export function useDeleteReward() {
   const queryClient = useQueryClient()
+  const { showToast } = useToast()
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('rewards').update({ active: false } as never).eq('id', id)
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: REWARDS_KEY }),
+    onError: () => showToast({ type: 'error', message: 'Impossible de supprimer la récompense.' }),
   })
 }
 

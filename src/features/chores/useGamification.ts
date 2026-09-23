@@ -201,12 +201,14 @@ export function useUpsertFamilyGoal() {
 
 export function useDeleteFamilyGoal() {
   const queryClient = useQueryClient()
+  const { showToast } = useToast()
   return useMutation({
     mutationFn: async (id: string) => {
       const { error } = await supabase.from('family_goals').update({ active: false } as never).eq('id', id)
       if (error) throw error
     },
     onSuccess: () => queryClient.invalidateQueries({ queryKey: GOALS_KEY }),
+    onError: () => showToast({ type: 'error', message: 'Impossible de supprimer l’objectif.' }),
   })
 }
 
@@ -219,8 +221,26 @@ export function useResetChoresData() {
   const { showToast } = useToast()
   return useMutation({
     mutationFn: async () => {
+      // Les preuves photo vivent dans le bucket : la RPC efface les lignes
+      // chore_logs (et donc les chemins), il faut donc relever les objets
+      // AVANT, sinon ils restent orphelins pour toujours.
+      const { data: withPhotos } = await supabase
+        .from('chore_logs')
+        .select('photo_path')
+        .eq('household_id', HOUSEHOLD_ID)
+        .not('photo_path', 'is', null)
+      const paths = ((withPhotos ?? []) as { photo_path: string | null }[])
+        .map(r => r.photo_path)
+        .filter((p): p is string => !!p)
+
       const { error } = await supabase.rpc('reset_chores_data')
       if (error) throw error
+
+      // Best effort : la remise à zéro a réussi, un objet résiduel ne doit pas
+      // transformer l'opération en échec côté utilisateur.
+      if (paths.length > 0) {
+        await supabase.storage.from('family-moments').remove(paths).catch(() => {})
+      }
     },
     onSuccess: () => {
       // Remise à zéro transversale : on invalide tout le cache (action rare).

@@ -7,6 +7,7 @@ if (savedTheme === 'dark' || savedTheme === 'light') {
   document.documentElement.setAttribute('data-theme', savedTheme)
 }
 import { QueryClient } from '@tanstack/react-query'
+import type { Query } from '@tanstack/react-query'
 import { PersistQueryClientProvider } from '@tanstack/react-query-persist-client'
 import { createSyncStoragePersister } from '@tanstack/query-sync-storage-persister'
 import { AuthProvider } from './auth/AuthProvider'
@@ -49,10 +50,38 @@ const persister = createSyncStoragePersister({
   key: 'familia-qc',
 })
 
+// Ce que l'on persiste dans localStorage. Sans filtre, TOUT le cache y était
+// réécrit de façon synchrone à chaque mutation : sur plusieurs années de
+// données, on s'approche du quota (~5 Mo, échec silencieux qui vide le mode
+// hors-ligne) et chaque écriture bloque le thread principal.
+//
+// Sont exclues les URL signées : elles expirent en 30 min à 2 h, les restaurer
+// ne sert donc à rien, et ce sont les entrées les plus volumineuses du cache
+// (une par photo). Les préfixes ci-dessous sont ceux réellement utilisés.
+const EPHEMERAL_KEY_PREFIXES = [
+  'media-file-url', 'chore-proof-url', 'moment-photo-url', 'moment-photo-urls',
+]
+
+const persistOptions = {
+  persister,
+  buster: 'v4', // v3 -> v4 : le format persisté change (cache filtré)
+  maxAge: 1000 * 60 * 60 * 24,
+  dehydrateOptions: {
+    shouldDehydrateQuery: (query: Query) => {
+      if (query.state.status !== 'success') return false
+      const head = query.queryKey[0]
+      if (typeof head === 'string' && EPHEMERAL_KEY_PREFIXES.some(p => head.startsWith(p))) {
+        return false
+      }
+      return true
+    },
+  },
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
-      <PersistQueryClientProvider client={queryClient} persistOptions={{ persister, buster: 'v3', maxAge: 1000 * 60 * 60 * 24 }}>
+      <PersistQueryClientProvider client={queryClient} persistOptions={persistOptions}>
         <ToastProvider>
           <AuthProvider>
             <App />

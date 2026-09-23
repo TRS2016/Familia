@@ -1,20 +1,7 @@
 import { Star, Bell, ChevronRight } from 'lucide-react'
 import type { Station } from '../types'
 import styles from './StationCard.module.css'
-
-function OccupancyBar({ bikes, stands, capacity }: { bikes: number; stands: number; capacity: number }) {
-  if (!capacity) return null
-  const bikePct = Math.round((bikes / capacity) * 100)
-  const standPct = Math.round((stands / capacity) * 100)
-  const outPct = Math.max(0, 100 - bikePct - standPct)
-  return (
-    <div className={styles.occBar}>
-      <div className={styles.occBikes} style={{ width: `${bikePct}%` }} />
-      <div className={styles.occStands} style={{ width: `${standPct}%` }} />
-      <div className={styles.occRest} style={{ width: `${outPct}%` }} />
-    </div>
-  )
-}
+import { OccupancyBar } from './OccupancyBar'
 
 export interface StationCardProps {
   station: Station

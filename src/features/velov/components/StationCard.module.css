@@ -128,18 +128,6 @@
   color: var(--text-muted);
 }
 
-.occBar {
-  display: flex;
-  height: 6px;
-  border-radius: var(--radius-pill);
-  overflow: hidden;
-  margin-top: var(--space-2);
-}
-
-.occBikes { background: var(--success); }
-.occStands { background: var(--info); }
-.occRest { background: var(--border); }
-
 .footer {
   margin-top: var(--space-3);
   display: flex;

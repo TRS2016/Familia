@@ -3,11 +3,12 @@
 // structurés (nom, quantité, prix, rayon) pour enrichir le catalogue courses.
 //
 // L'image n'est JAMAIS stockée : envoyée en base64 au modèle de vision puis
-// jetée. Protégée par la vérification JWT par défaut des Edge Functions Supabase.
+// jetée. Réservée aux membres connectés (cf. _shared/auth.ts).
 // Clé requise : secret `ANTHROPIC_API_KEY`.
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { corsHeaders } from '../_shared/cors.ts'
+import { requireMember } from '../_shared/auth.ts'
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = 'claude-haiku-4-5' // tâche vision simple : Haiku suffit et coûte ~5x moins qu'Opus
@@ -32,6 +33,12 @@ function err(message: string, status: number): Response {
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: corsHeaders })
   if (req.method !== 'POST') return err('Method not allowed', 405)
+
+  // Réservé aux membres connectés. `verify_jwt` ne suffit pas : la gateway
+  // accepte la clé publishable, présente dans le bundle client — sans ce
+  // contrôle, n'importe qui pourrait faire tourner l'API IA à nos frais.
+  const caller = await requireMember(req)
+  if (!caller) return err('Non autorisé', 401)
 
   const apiKey = Deno.env.get('ANTHROPIC_API_KEY')
   if (!apiKey) {
@@ -93,9 +100,10 @@ Si tu ne vois aucun article lisible, renvoie {"store": "", "items": []}.`
   if (!res.ok) {
     const detail = await res.text().catch(() => '')
     console.error('[parse-receipt] Anthropic', res.status, detail.slice(0, 500))
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let amsg = ''
-    try { amsg = (JSON.parse(detail) as any)?.error?.message ?? '' } catch { /* pas du JSON */ }
+    try {
+      amsg = (JSON.parse(detail) as { error?: { message?: string } })?.error?.message ?? ''
+    } catch { /* pas du JSON */ }
     const hint = res.status === 401 || res.status === 403
       ? 'clé IA invalide — reconfigure ANTHROPIC_API_KEY'
       : /credit balance/i.test(amsg)

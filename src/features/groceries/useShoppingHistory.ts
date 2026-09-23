@@ -1,3 +1,4 @@
+import { format } from 'date-fns'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import type { Json } from '../../lib/database.types'
 import { supabase } from '../../lib/supabase'
@@ -83,7 +84,10 @@ export function useAddGroceryExpense() {
 
   return useMutation({
     mutationFn: async ({ amount, itemCount }: { amount: number; itemCount: number }) => {
-      const today = new Date().toISOString().slice(0, 10)
+      // Date LOCALE : toISOString() renvoie la date UTC, ce qui datait la dépense
+      // de la veille entre 00 h et 02 h (Paris), et la faisait basculer dans le
+      // mois précédent le 1er du mois — budget et alerte Kakebo faussés.
+      const today = format(new Date(), 'yyyy-MM-dd')
       const { error } = await supabase.from('kakebo_entries').insert({
         household_id: HOUSEHOLD_ID,
         category_id: null,

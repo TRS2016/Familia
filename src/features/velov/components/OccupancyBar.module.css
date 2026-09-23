@@ -1,0 +1,11 @@
+/* Jauge d'occupation d'une station : vélos / places / hors service. */
+.occBar {
+  display: flex;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  overflow: hidden;
+  margin-top: var(--space-2);
+}
+.occBikes  { background: var(--success); }
+.occStands { background: var(--info); }
+.occRest   { background: var(--border); }

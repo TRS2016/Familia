@@ -544,8 +544,22 @@ export function useUndoChoreLog() {
   const { showToast } = useToast()
   return useMutation({
     mutationFn: async (logId: string) => {
+      // La preuve photo doit être lue AVANT la suppression : la RPC efface la
+      // ligne chore_logs, et avec elle le seul pointeur vers l'objet du bucket.
+      // Sans cela, chaque annulation laissait une photo orpheline, invisible et
+      // facturée (les autres features nettoient déjà leur Storage).
+      const { data: logRow } = await supabase
+        .from('chore_logs').select('photo_path').eq('id', logId).maybeSingle()
+      const photoPath = (logRow as { photo_path: string | null } | null)?.photo_path ?? null
+
       const { error } = await supabase.rpc('undo_chore_log', { p_log_id: logId })
       if (error) throw error
+
+      if (photoPath) {
+        // Best effort : la tâche est annulée, un objet résiduel ne doit pas
+        // faire échouer l'opération côté utilisateur.
+        await supabase.storage.from('family-moments').remove([photoPath]).catch(() => {})
+      }
     },
     onMutate: async (logId: string) => {
       await queryClient.cancelQueries({ queryKey: RECENT_LOGS_KEY })

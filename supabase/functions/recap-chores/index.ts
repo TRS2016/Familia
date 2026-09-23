@@ -1,5 +1,6 @@
 import { createClient } from 'jsr:@supabase/supabase-js@2'
 import { configureWebPush, sendPush, cleanupAndTouch, parisDate } from '../_shared/push.ts'
+import { requireCronKey } from '../_shared/auth.ts'
 
 function json(data: unknown, status = 200): Response {
   return new Response(JSON.stringify(data), { status, headers: { 'Content-Type': 'application/json' } })
@@ -38,7 +39,12 @@ const STREAK_MAX_WEEKS = 26
 // Récap hebdo (dimanche soir). Pour un foyer de 2 adultes, la balance d'équité
 // et le streak de couple passent en premier ; les points de chacun suivent
 // (le podium devient secondaire). Ton factuel, jamais culpabilisant.
-Deno.serve(async () => {
+Deno.serve(async (req: Request) => {
+  // Déclencheur interne uniquement, ET dédup par foyer et par semaine : sans
+  // elles, la fonction était rappelable en boucle par quiconque (la clé
+  // publishable suffit à passer `verify_jwt`).
+  if (!requireCronKey(req)) return json({ error: 'Non autorisé' }, 401)
+
   const supabase = createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
@@ -163,6 +169,12 @@ Deno.serve(async () => {
       tag: 'chores-weekly-recap',
       actions: [{ action: 'view', title: 'Voir' }],
     })
+    // Dédup : un seul récap par foyer et par semaine (l'insert fait verrou).
+    const { error: dedupErr } = await supabase
+      .from('chores_recap_sent')
+      .insert({ household_id: hh, week_start: mondayStr })
+    if (dedupErr) continue
+
     const { sent, dead, ok } = await sendPush(subs, payload)
     total += sent
     await cleanupAndTouch(supabase, dead, ok)
