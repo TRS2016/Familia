@@ -832,7 +832,6 @@
   padding: 2px;
   display: flex;
   align-items: center;
-  opacity: 0;
   transition: opacity 0.15s;
 }
 
@@ -844,7 +843,6 @@
   padding: 2px;
   display: flex;
   align-items: center;
-  opacity: 0;
   transition: opacity 0.15s;
 }
 
@@ -856,16 +854,18 @@
   padding: 2px;
   display: flex;
   align-items: center;
-  opacity: 0;
   transition: opacity 0.15s, color 0.15s;
   border-radius: 4px;
 }
 
-.entryRow:hover .replayBtn { opacity: 1; }
+/* Revelation au survol reservee aux pointeurs qui survolent : en tactile le
+   :hover est neutralise par postcss-hover-guard, les boutons restent visibles. */
+@media (hover: hover) {
+  .replayBtn, .editBtn, .deleteBtn { opacity: 0; }
+  .entryRow:hover :is(.replayBtn, .editBtn, .deleteBtn),
+  .entryRow:focus-within :is(.replayBtn, .editBtn, .deleteBtn) { opacity: 1; }
+}
 .replayBtn:hover { color: var(--positive); }
-
-.entryRow:hover .editBtn  { opacity: 1; }
-.entryRow:hover .deleteBtn { opacity: 1; }
 
 /* ── Detail view toggle ──────────────────────────────────────────────────── */
 
